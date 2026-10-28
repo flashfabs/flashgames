@@ -1214,6 +1214,8 @@ export function criarPintor(canvas) {
     const dt = limitar(agora - agoraAnterior, 0, 0.1);
     agoraAnterior = agora;
     const bombas = new Set(cena.b.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`));
+    // Scenes without a phase (tests, tools) count as a match.
+    const emJogo = cena.fase === undefined || cena.fase === 'jogo';
     for (const jogador of cena.j) {
       const chave = indiceCor(jogador.cor);
       let anim = animacoes.get(chave);
@@ -1236,11 +1238,12 @@ export function criarPintor(canvas) {
         if (jogador.v) anim.giroEm = agora;
         anim.o = jogador.o;
       }
+      // Reactions only count mid-match: the powers everyone starts with are not pickups.
       const poderes = [jogador.b, jogador.f, jogador.t, jogador.e, jogador.p, jogador.g, jogador.k, jogador.r, jogador.m, jogador.gl, jogador.at].map(valor => Number(valor) || 0);
-      if (anim.poderes && jogador.v && poderes.some((valor, k) => valor > anim.poderes[k])) anim.pegouEm = agora;
-      anim.poderes = poderes;
+      if (emJogo && anim.poderes && jogador.v && poderes.some((valor, k) => valor > anim.poderes[k])) anim.pegouEm = agora;
+      anim.poderes = emJogo ? poderes : null;
       const celula = `${Math.round(jogador.x)},${Math.round(jogador.y)}`;
-      if (jogador.v && bombas.has(celula) && !bombasVistas.has(celula)) anim.bombaEm = agora;
+      if (emJogo && jogador.v && bombas.has(celula) && !bombasVistas.has(celula)) anim.bombaEm = agora;
     }
     bombasVistas = bombas;
   };
