@@ -717,7 +717,9 @@ html.em-sala body {
   overflow: hidden;
   background: #161c23;
   border-radius: 12px;
-  box-shadow: var(--sombra);
+  /* --aura-tema is set by the painter from the map's theme */
+  box-shadow: var(--sombra), 0 0 0 1px rgba(var(--aura-tema, 255, 138, 61), 0.18), 0 0 48px rgba(var(--aura-tema, 255, 138, 61), 0.14);
+  transition: box-shadow 0.6s;
 }
 
 .pavio-arena canvas {

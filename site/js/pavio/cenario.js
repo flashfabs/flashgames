@@ -317,6 +317,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0.14)',
     vinheta: 'rgba(4, 7, 11, 0.5)',
     luz: [255, 170, 80],
+    aura: '255, 138, 61',
   },
   patio: {
     chao: ['#2f4535', '#334a39'],
@@ -329,6 +330,7 @@ const TEMAS = {
     sombra: 'rgba(8, 20, 8, 0.16)',
     vinheta: 'rgba(6, 14, 8, 0.45)',
     luz: [255, 180, 90],
+    aura: '120, 200, 120',
     ambiente: 'folhas',
   },
   deposito: {
@@ -345,6 +347,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0.16)',
     vinheta: 'rgba(6, 7, 9, 0.5)',
     luz: [255, 175, 85],
+    aura: '170, 180, 200',
     ambiente: 'poeira',
   },
   muralhas: {
@@ -360,6 +363,7 @@ const TEMAS = {
     sombra: 'rgba(10, 4, 14, 0.17)',
     vinheta: 'rgba(10, 6, 14, 0.5)',
     luz: [255, 170, 80],
+    aura: '190, 140, 230',
   },
   labirinto: {
     chao: ['#213d39', '#24423e'],
@@ -375,6 +379,7 @@ const TEMAS = {
     sombra: 'rgba(0, 16, 8, 0.18)',
     vinheta: 'rgba(2, 14, 10, 0.55)',
     luz: [255, 190, 110],
+    aura: '90, 210, 150',
     ambiente: 'vagalumes',
   },
   // For devices that ask for more contrast: flat dark floor, light blocks with hard edges, bright crates.
@@ -389,6 +394,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0)',
     vinheta: 'rgba(0, 0, 0, 0)',
     luz: [255, 200, 120],
+    aura: '255, 255, 255',
   },
   fornalha: {
     chao: ['#2a2121', '#2e2424'],
@@ -404,6 +410,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0.2)',
     vinheta: 'rgba(40, 8, 0, 0.55)',
     luz: [255, 140, 60],
+    aura: '255, 110, 40',
     ambiente: 'brasas',
   },
 };

@@ -1220,6 +1220,7 @@ export function criarPintor(canvas) {
   let agoraAnterior = 0;
   let brilhoLuz = null;
   let temaDoBrilho = null;
+  let temaDaAura = null;
   // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when
   // most recent frames miss their slot and climbs back slowly (never straight back to a level that failed).
   const qualidade = { escala: 0, teto: ESCALA_MAX, mediaMs: 1000 / 60, ultimoMs: 0, mudouEm: performance.now(), falhouEm: 0, escalaQueFalhou: Infinity };
@@ -1529,6 +1530,11 @@ export function criarPintor(canvas) {
     const reduzido = movimentoReduzido.matches;
     const fixa = cenario.atualizar(cena, escala, maisContraste.matches);
     const tema = cenario.tema;
+    if (tema !== temaDaAura) {
+      // The arena frame glows faintly in the map's colour (CSS reads it from the canvas container).
+      canvas.parentElement?.style.setProperty('--aura-tema', tema.aura);
+      temaDaAura = tema;
+    }
     acompanharTransicoes(cena, cena.agora);
     // The finale slows the visual clock down; the game itself keeps its pace.
     const noFinal = cena.agora - transicao.finalEm;
