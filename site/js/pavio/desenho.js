@@ -1,13 +1,12 @@
 // Canvas painter for Pavio: draws one frame from a scene (grid, players, bombs, flames, effects).
-// The static part of the arena (floor, walls, crates) is cached in an offscreen canvas and redrawn
-// only when the grid changes, which keeps tablets and phones smooth. Particles are stateless: each
-// effect derives its pieces from a seed and its age, so nothing is simulated between frames.
+// The static part of the arena (themed floor, walls, crates) comes cached from cenario.js. Particles are
+// stateless: each effect derives its pieces from a seed and its age, so nothing is simulated between
+// frames. The resolution adapts to the device: up to 3x while frames keep their pace, lower when not.
 
-import { COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, DIRECAO, AJUSTES, ehBlocoFixo } from './regras.js';
+import { COLUNAS, ITEM, DIRECAO, AJUSTES } from './regras.js';
+import { TAM, LARGURA, ALTURA, retangulo, circulo, elipse, aleatorio, criarCenario, chaveDoTema } from './cenario.js';
 
-export const TAM = 48;
-export const LARGURA = COLUNAS * TAM;
-export const ALTURA = LINHAS * TAM;
+export { TAM, LARGURA, ALTURA, chaveDoTema };
 
 export const CORES = [
   { base: '#ff6b6b', escura: '#a51d1d' },
@@ -61,16 +60,6 @@ export const DESCRICAO_ITEM = {
 };
 
 const PALETA = {
-  chaoA: '#263544',
-  chaoB: '#2a3a4a',
-  sombraBloco: 'rgba(0, 0, 0, 0.22)',
-  borda: ['#323e4b', '#222b35', '#161c23'],
-  pilar: ['#8a99a8', '#62717e', '#434f5a'],
-  muro: ['#7c8a6e', '#56634b', '#3a4433'],
-  subita: ['#e8590c', '#a63c06', '#6b2604'],
-  caixa: '#b9783b',
-  caixaClara: '#d9995a',
-  caixaEscura: '#7a4a1f',
   caixaQueimada: '#4a3426',
   bomba: '#1d2127',
   bombaAlerta: '#8f1d1d',
@@ -87,11 +76,18 @@ const PALETA = {
 const FONTE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 const FONTE_TEXTO = 'Rubik, system-ui, sans-serif';
 const FONTE_NOME = `700 12px ${FONTE_TEXTO}`;
-const DURACAO_EFEITO = { explosao: 0.95, caixa: 0.75, bloco: 0.5, morte: 1.4, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9 };
+const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.75, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9 };
 // Ground effects are drawn under bombs and players; the rest on top of everything.
 const EFEITOS_DO_CHAO = new Set(['explosao', 'caixa', 'bloco']);
 const OLHAR = { [DIRECAO.ESQUERDA]: [-3.5, 0], [DIRECAO.DIREITA]: [3.5, 0], [DIRECAO.BAIXO]: [0, 2] };
 const RETRATO = 72; // logical size of the small character portraits on the HTML screens
+const ESCALA_MAX = 3;
+const QUADRO_ATRASADO_MS = 19.5; // a frame interval above this missed its 60 Hz slot
+const JANELA_QUADROS = 90; // the decision looks at the last 1.5 s of frames, so a single hiccup never counts
+const PIXELS_LUZ = 8; // light map resolution, per tile
+const ABERTURA_S = 1.1; // the map sweeps in and the players drop onto their spots when the countdown starts
+const FINAL_S = 1.3; // slow motion and zoom on the winner after the last elimination
+const QUEDA_BLOCO_S = 0.22; // a sudden death block falls this long before it lands
 const caminhosSimbolos = [];
 
 const limitar = (valor, min, max) => Math.min(max, Math.max(min, valor));
@@ -118,22 +114,6 @@ export function marcaJogador(cor) {
   svg.append(caminho);
   marca.append(svg);
   return marca;
-}
-
-function retangulo(ctx, x, y, largura, altura, raio) {
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y, largura, altura, raio);
-  else ctx.rect(x, y, largura, altura);
-}
-
-function circulo(ctx, x, y, raio) {
-  ctx.beginPath();
-  ctx.arc(x, y, Math.max(0, raio), 0, Math.PI * 2);
-}
-
-function elipse(ctx, x, y, rx, ry) {
-  ctx.beginPath();
-  ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), 0, 0, Math.PI * 2);
 }
 
 // A rotated rectangle without save/restore, used for wood shards and confetti.
@@ -178,14 +158,6 @@ function desenharSimbolo(ctx, cor, x, y, tamanho, preenchimento) {
   ctx.restore();
 }
 
-// Deterministic 0..1 noise: the same effect gets the same particles on every frame.
-function aleatorio(semente, k) {
-  let t = (semente + Math.imul(k + 1, 0x6d2b79f5)) | 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-
 function sementeDe(efeito) {
   const x = Math.round((Number(efeito.x) || 0) * 97);
   const y = Math.round((Number(efeito.y) || 0) * 89);
@@ -200,69 +172,6 @@ function faisca(ctx, x, y, agora, tamanho = 3.5) {
   ctx.fillStyle = '#fff3bf';
   circulo(ctx, x, y, tremula * 0.55);
   ctx.fill();
-}
-
-function desenharBloco(ctx, x, y, muros) {
-  const px = x * TAM;
-  const py = y * TAM;
-  const borda = x === 0 || y === 0 || x === COLUNAS - 1 || y === LINHAS - 1;
-  let cores = PALETA.subita;
-  if (borda) cores = PALETA.borda;
-  else if (ehBlocoFixo(x, y)) cores = PALETA.pilar;
-  else if (muros.has(y * COLUNAS + x)) cores = PALETA.muro;
-  const [topo, corpo, sombra] = cores;
-  ctx.fillStyle = sombra;
-  ctx.fillRect(px, py, TAM, TAM);
-  if (borda) return;
-  ctx.fillStyle = corpo;
-  retangulo(ctx, px + 2, py + 2, TAM - 4, TAM - 7, 7);
-  ctx.fill();
-  ctx.fillStyle = topo;
-  retangulo(ctx, px + 6, py + 5, TAM - 12, TAM - 19, 6);
-  ctx.fill();
-}
-
-function desenharCaixa(ctx, px, py, queimando = false) {
-  const m = 4;
-  ctx.fillStyle = queimando ? PALETA.caixaQueimada : PALETA.caixaEscura;
-  retangulo(ctx, px + m, py + m, TAM - m * 2, TAM - m * 2, 6);
-  ctx.fill();
-  if (queimando) return;
-  ctx.fillStyle = PALETA.caixa;
-  retangulo(ctx, px + m + 3, py + m + 3, TAM - m * 2 - 6, TAM - m * 2 - 9, 4);
-  ctx.fill();
-  ctx.strokeStyle = PALETA.caixaEscura;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(px + m + 6, py + TAM - m - 10);
-  ctx.lineTo(px + TAM - m - 6, py + m + 6);
-  ctx.stroke();
-  ctx.fillStyle = PALETA.caixaClara;
-  ctx.fillRect(px + m + 5, py + m + 4, TAM - m * 2 - 10, 3);
-}
-
-function desenharArenaFixa(ctx, grade, muros) {
-  ctx.fillStyle = PALETA.borda[2];
-  ctx.fillRect(0, 0, LARGURA, ALTURA);
-  for (let y = 0; y < LINHAS; y++) {
-    for (let x = 0; x < COLUNAS; x++) {
-      const celula = grade[y * COLUNAS + x];
-      if (celula === PAREDE) {
-        desenharBloco(ctx, x, y, muros);
-        continue;
-      }
-      const px = x * TAM;
-      const py = y * TAM;
-      ctx.fillStyle = (x + y) % 2 ? PALETA.chaoA : PALETA.chaoB;
-      ctx.fillRect(px, py, TAM, TAM);
-      const acima = grade[(y - 1) * COLUNAS + x];
-      if (acima === PAREDE || acima === CAIXA) {
-        ctx.fillStyle = PALETA.sombraBloco;
-        ctx.fillRect(px, py, TAM, 7);
-      }
-      if (celula === CAIXA) desenharCaixa(ctx, px, py);
-    }
-  }
 }
 
 function desenharSpriteItem(ctx, item) {
@@ -347,6 +256,10 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
   ctx.fillStyle = restante < 0.7 && pulso > 0 ? PALETA.bombaAlerta : PALETA.bomba;
   circulo(ctx, cx, cy, raio);
   ctx.fill();
+  // A thin light rim keeps the bomb visible on dark floors.
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
   ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
   circulo(ctx, cx - raio * 0.35, cy - raio * 0.38, raio * 0.28);
   ctx.fill();
@@ -374,6 +287,17 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
     ctx.fill();
   } else if (!congelada) {
     faisca(ctx, pontaX, pontaY, agora, restante < 0.7 ? 4.5 : 3.5);
+    if (!reduzido) {
+      // Tiny sparks jumping off the burning fuse.
+      ctx.fillStyle = '#ffd43b';
+      for (let k = 0; k < 3; k++) {
+        const t = (agora * 2.6 + k / 3 + x * 0.37 + y * 0.61) % 1;
+        const angulo = -Math.PI / 2 + Math.sin(k * 2.1 + x + y) * 1.1;
+        ctx.globalAlpha = 1 - t;
+        ctx.fillRect(pontaX + Math.cos(angulo) * t * 12 - 1, pontaY + Math.sin(angulo) * t * 12 + t * t * 10 - 1, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+    }
   }
   if (congelada) desenharBlocoGelo(ctx, x, y);
 }
@@ -385,7 +309,12 @@ function desenharChama(ctx, [i, forma], agora) {
   const py = y * TAM;
   const cx = px + TAM / 2;
   const cy = py + TAM / 2;
-  if (forma === 'x') desenharCaixa(ctx, px, py, true);
+  if (forma === 'x') {
+    // The crate is already gone from the grid: a charred husk burns where it stood.
+    ctx.fillStyle = PALETA.caixaQueimada;
+    retangulo(ctx, px + 4, py + 4, TAM - 8, TAM - 8, 6);
+    ctx.fill();
+  }
   const pulso = 0.9 + Math.sin(agora * 38 + i) * 0.08;
   PALETA.chama.forEach((cor, camada) => {
     const largura = TAM * [0.82, 0.56, 0.28][camada] * pulso;
@@ -431,22 +360,54 @@ function desenharChama(ctx, [i, forma], agora) {
   });
 }
 
-// One character with its feet at (cx, chao). Poses: 'jogo' (walks and blinks), 'festa' (jumps with
-// the arms up), 'pronto' (happy little hop) and 'morto' (x_x). Returns the y of the top of the body.
+// One character with its feet at (cx, chao). Poses: 'jogo' (walks, blinks, looks around), 'festa' (jumps
+// with the arms up, with a flip now and then), 'pronto' (happy little hop) and 'morto' (x_x). extra.anim is
+// the painter's memory of this player (step phase, speed, and when it turned, picked an item or dropped a
+// bomb), which drives the reactions. Returns the y of the top of the body.
 function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
+  const anim = extra.anim;
   const n = indiceCor(b.cor);
   const cor = CORES[n];
   const semente = n * 1.37;
-  const andando = pose === 'jogo' && Boolean(b.a) && !reduzido;
-  const passo = andando ? Math.sin(agora * 14 + semente) : 0;
+  const movendo = pose === 'jogo' && !reduzido;
+  // The step cycle follows the distance walked when the painter tracks it, so faster shoes take faster steps.
+  const amplitude = movendo ? (anim ? anim.amplitude : b.a ? 1 : 0) : 0;
+  const passo = amplitude * Math.sin(anim ? anim.fase : agora * 14 + semente);
+  const andando = amplitude > 0.05;
   const feliz = pose === 'festa' || pose === 'pronto';
+  const festa = pose === 'festa';
   let salto = 0;
-  if (!reduzido && pose === 'festa') salto = Math.abs(Math.sin(agora * 6 + semente)) * 11;
-  else if (!reduzido && pose === 'pronto') salto = Math.max(0, Math.sin(agora * 4 + semente)) ** 6 * 7;
+  let giro = 0;
+  if (!reduzido && festa) {
+    const ciclo = (agora * 6 + semente) / Math.PI;
+    salto = Math.abs(Math.sin(agora * 6 + semente)) * 11;
+    if (Math.floor(ciclo) % 3 === 2) giro = (ciclo % 1) * Math.PI * 2;
+  } else if (!reduzido && pose === 'pronto') {
+    salto = Math.max(0, Math.sin(agora * 4 + semente)) ** 6 * 7;
+  }
   const respiro = reduzido || andando ? 0 : Math.sin(agora * 3 + semente) * 0.03;
   let [sx, sy] = extra.esmagar ?? [1 - respiro, 1 + respiro];
+  const idadePegou = anim && !reduzido ? agora - anim.pegouEm : 9;
+  const idadeBomba = anim && !reduzido ? agora - anim.bombaEm : 9;
+  const idadeGiro = anim && !reduzido ? agora - anim.giroEm : 9;
+  const surpreso = idadePegou < 0.45;
+  if (surpreso) {
+    // Picking an item: stretch up, hop, settle.
+    const k = idadePegou / 0.45;
+    const onda = Math.sin(k * Math.PI) * (1 - k * 0.5);
+    sy += 0.22 * onda;
+    sx -= 0.14 * onda;
+    salto += 7 * Math.sin(k * Math.PI);
+  }
+  if (idadeBomba < 0.25) {
+    // Dropping a bomb: a quick squat.
+    const onda = Math.sin((idadeBomba / 0.25) * Math.PI);
+    sy -= 0.14 * onda;
+    sx += 0.12 * onda;
+  }
+  if (idadeGiro < 0.16) sx -= 0.12 * Math.sin((idadeGiro / 0.16) * Math.PI);
   if (andando) {
-    const pisada = 1 - Math.abs(passo);
+    const pisada = amplitude * (1 - Math.abs(Math.sin(anim ? anim.fase : agora * 14 + semente)));
     sx += pisada * 0.05;
     sy -= pisada * 0.05;
   }
@@ -454,9 +415,15 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
   const altura = TAM * 0.64 * sy;
   const topo = -6 - Math.abs(passo) * 3 - altura;
   let inclinacao = 0;
-  if (andando && b.o === DIRECAO.ESQUERDA) inclinacao = -0.08;
-  else if (andando && b.o === DIRECAO.DIREITA) inclinacao = 0.08;
-  const pele = extra.branco ? '#ffffff' : cor.base;
+  if (andando && b.o === DIRECAO.ESQUERDA) inclinacao = -0.08 * amplitude;
+  else if (andando && b.o === DIRECAO.DIREITA) inclinacao = 0.08 * amplitude;
+  let pele = cor.base;
+  let contorno = b.p ? '#ff8787' : cor.escura;
+  if (extra.branco) pele = '#ffffff';
+  if (extra.carvao) {
+    pele = '#3b3735';
+    contorno = '#1d1b1a';
+  }
 
   const sombra = 1 - salto / 40;
   ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -466,8 +433,13 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
   ctx.save();
   ctx.translate(cx, chao - salto);
   if (inclinacao) ctx.rotate(inclinacao);
+  if (giro) {
+    ctx.translate(0, topo + altura / 2);
+    ctx.rotate(giro);
+    ctx.translate(0, -(topo + altura / 2));
+  }
 
-  ctx.fillStyle = cor.escura;
+  ctx.fillStyle = extra.carvao ? contorno : cor.escura;
   elipse(ctx, -8 + passo * 3, -3 - Math.max(0, passo) * 2.5, 6, 4);
   ctx.fill();
   elipse(ctx, 8 - passo * 3, -3 - Math.max(0, -passo) * 2.5, 6, 4);
@@ -476,19 +448,19 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
   ctx.fillStyle = pele;
   retangulo(ctx, -largura / 2, topo, largura, altura, largura * 0.46);
   ctx.fill();
-  ctx.strokeStyle = b.p ? '#ff8787' : cor.escura;
+  ctx.strokeStyle = contorno;
   ctx.lineWidth = b.p ? 3.5 : 2.5;
   ctx.stroke();
   ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
   elipse(ctx, -largura * 0.2, topo + altura * 0.25, largura * 0.14, altura * 0.1);
   ctx.fill();
 
-  // Little round hands: they swing while walking and go up when celebrating.
-  const festa = pose === 'festa';
-  const maoX = largura / 2 + (festa ? 4 : 0.5);
-  const maoY = festa ? topo + 3 + (reduzido ? 0 : Math.sin(agora * 14) * 2.5) : topo + altura * 0.64;
+  // Little round hands: they swing while walking, go up when celebrating and when picking an item.
+  const bracosAcima = festa || surpreso;
+  const maoX = largura / 2 + (bracosAcima ? 4 : 0.5);
+  const maoY = bracosAcima ? topo + 3 + (reduzido ? 0 : Math.sin(agora * 14) * 2.5) : topo + altura * 0.64;
   ctx.fillStyle = pele;
-  ctx.strokeStyle = cor.escura;
+  ctx.strokeStyle = contorno;
   ctx.lineWidth = 2;
   for (const lado of [-1, 1]) {
     circulo(ctx, lado * maoX, maoY + passo * lado * 2, 4.2);
@@ -496,19 +468,21 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
     ctx.stroke();
   }
 
-  // Every character carries a little lit fuse on its head.
+  // Every character carries a little lit fuse on its head; it lags behind when running.
+  const balanco = anim && !reduzido ? limitar(-anim.vx * 1.4, -6, 6) : 0;
   ctx.strokeStyle = '#3b2f2f';
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(3, topo + 1);
-  ctx.quadraticCurveTo(11, topo - 6, 7, topo - 12);
+  ctx.quadraticCurveTo(11 + balanco * 0.4, topo - 6, 7 + balanco, topo - 12);
   ctx.stroke();
-  if (pose !== 'morto') faisca(ctx, 7, topo - 12, agora, festa ? 4.5 : 3);
+  if (pose !== 'morto') faisca(ctx, 7 + balanco, topo - 12, agora, festa || surpreso ? 4.5 : 3);
 
   const olhoY = topo + altura * 0.47;
   ctx.strokeStyle = PALETA.tinta;
   if (pose === 'morto') {
+    ctx.strokeStyle = extra.carvao ? '#d9d4cf' : PALETA.tinta;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     for (const lado of [-1, 1]) {
@@ -529,8 +503,30 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
     ctx.beginPath();
     ctx.arc(0, olhoY + 5, 4.5, Math.PI * 0.15, Math.PI * 0.85);
     ctx.stroke();
-  } else if (b.o !== DIRECAO.CIMA) {
-    const olhar = OLHAR[b.o] ?? OLHAR[DIRECAO.BAIXO];
+  } else if (surpreso) {
+    // Wide eyes and a little "o" mouth.
+    for (const lado of [-1, 1]) {
+      ctx.fillStyle = '#ffffff';
+      elipse(ctx, lado * 7.5, olhoY - 1, 6.3, 7.4);
+      ctx.fill();
+      ctx.fillStyle = PALETA.tinta;
+      circulo(ctx, lado * 7.5, olhoY - 2.5, 2.3);
+      ctx.fill();
+    }
+    ctx.fillStyle = PALETA.tinta;
+    elipse(ctx, 0, olhoY + 8, 2.4, 3);
+    ctx.fill();
+  } else if (b.o === DIRECAO.CIMA) {
+    // Seen from behind: the player's shape on the back.
+    desenharSimbolo(ctx, b.cor, 0, topo + altura * 0.55, 13, cor.escura);
+  } else {
+    let olhar = OLHAR[b.o] ?? OLHAR[DIRECAO.BAIXO];
+    // Standing still and facing the camera, the character glances around now and then.
+    if (!andando && pose === 'jogo' && !reduzido && (b.o === DIRECAO.BAIXO || b.o === undefined)) {
+      const espiada = (agora + semente * 3) % 6;
+      if (espiada > 4.2 && espiada < 4.8) olhar = OLHAR[DIRECAO.ESQUERDA];
+      else if (espiada >= 4.8 && espiada < 5.4) olhar = OLHAR[DIRECAO.DIREITA];
+    }
     const piscando = (agora + semente * 2.3) % 3.6 < 0.12;
     for (const lado of [-1, 1]) {
       const olhoX = lado * 7.5 + olhar[0] * 0.7;
@@ -551,17 +547,26 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
     }
   }
   ctx.restore();
+  if (surpreso) {
+    // Sparkles circling the head.
+    ctx.fillStyle = '#fff3bf';
+    const k = idadePegou / 0.45;
+    for (let s = 0; s < 4; s++) {
+      const angulo = agora * 7 + (s * Math.PI) / 2;
+      brilho(ctx, cx + Math.cos(angulo) * 20, chao - salto + topo - 4 + Math.sin(angulo) * 7, 4.5 * (1 - k) + 1);
+    }
+  }
   return chao - salto + topo;
 }
 
-function desenharJogador(ctx, jogador, agora, reduzido) {
+function desenharJogador(ctx, jogador, agora, reduzido, anim) {
   const cx = (jogador.x + 0.5) * TAM;
   const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
   ctx.save();
   if (jogador.g) ctx.globalAlpha = 0.55 + (reduzido ? 0 : Math.sin(agora * 8) * 0.15);
   if (jogador.i && (reduzido || Math.floor(agora * 12) % 2)) ctx.globalAlpha = reduzido ? 0.6 : 0.4;
   const pose = jogador.festa ? 'festa' : jogador.pronto ? 'pronto' : 'jogo';
-  const topo = desenharBoneco(ctx, cx, chao, jogador, pose, agora, reduzido);
+  const topo = desenharBoneco(ctx, cx, chao, jogador, pose, agora, reduzido, { anim });
   ctx.restore();
   if (jogador.e) {
     ctx.strokeStyle = 'rgba(102, 217, 232, 0.95)';
@@ -629,6 +634,34 @@ function desenharRotulo(ctx, cx, topo, chao, jogador, larguraNome, escala, comNo
   ctx.restore();
 }
 
+// A soft dark stain left on the floor by an explosion (one small sprite, scaled).
+let manchaDeQueimado = null;
+function mancha() {
+  if (manchaDeQueimado) return manchaDeQueimado;
+  manchaDeQueimado = document.createElement('canvas');
+  manchaDeQueimado.width = manchaDeQueimado.height = 64;
+  const ctx = manchaDeQueimado.getContext('2d');
+  const gradiente = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+  gradiente.addColorStop(0, 'rgba(12, 9, 7, 0.85)');
+  gradiente.addColorStop(0.55, 'rgba(18, 13, 10, 0.45)');
+  gradiente.addColorStop(1, 'rgba(18, 13, 10, 0)');
+  ctx.fillStyle = gradiente;
+  ctx.fillRect(0, 0, 64, 64);
+  return manchaDeQueimado;
+}
+
+function desenharMancha(ctx, efeito, agora) {
+  const idade = agora - efeito.inicio;
+  if (idade < 0 || idade >= DURACAO_EFEITO.explosao) return;
+  const cx = (efeito.x + 0.5) * TAM;
+  const cy = (efeito.y + 0.5) * TAM;
+  ctx.globalAlpha = 0.55 * Math.min(1, idade / 0.1) * (1 - idade / DURACAO_EFEITO.explosao);
+  ctx.drawImage(mancha(), cx - TAM * 0.62, cy - TAM * 0.55, TAM * 1.24, TAM * 1.1);
+  ctx.globalAlpha = 1;
+}
+
+const FUMACA = ['#2f3338', '#454b52', '#5f666e'];
+
 function efeitoExplosao(ctx, cx, cy, idade, semente, reduzido) {
   if (!reduzido && idade < 0.16) {
     // A quick additive flash: an orange halo with a hot core.
@@ -644,58 +677,127 @@ function efeitoExplosao(ctx, cx, cy, idade, semente, reduzido) {
     ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
   }
-  ctx.fillStyle = PALETA.fumaca;
-  for (let k = 0; k < 5; k++) {
-    const t = idade - 0.12 - aleatorio(semente, k) * 0.15;
-    const vida = 0.55 + aleatorio(semente, k + 10) * 0.25;
+  if (!reduzido && idade < 0.3) {
+    // Shock wave: a thin bright ring racing outwards.
+    const k = idade / 0.3;
+    ctx.globalAlpha = (1 - k) * 0.75;
+    ctx.strokeStyle = '#fff4d6';
+    ctx.lineWidth = 6 * (1 - k) + 0.8;
+    circulo(ctx, cx, cy, TAM * (0.45 + suavizarSaida(k) * 1.7));
+    ctx.stroke();
+  }
+  // Smoke in layers: darker and lower first, lighter and higher as it rises and spreads.
+  for (let k = 0; k < 7; k++) {
+    const t = idade - 0.08 - aleatorio(semente, k) * 0.2;
+    const vida = 0.8 + aleatorio(semente, k + 10) * 0.5;
     if (t < 0 || t > vida) continue;
     const p = t / vida;
     const angulo = aleatorio(semente, k + 20) * Math.PI * 2;
-    const distancia = TAM * 0.35 * aleatorio(semente, k + 30) * (reduzido ? 1 : 1 + p);
-    ctx.globalAlpha = 0.34 * (1 - p);
-    circulo(ctx, cx + Math.cos(angulo) * distancia, cy + Math.sin(angulo) * distancia - (reduzido ? 0 : p * TAM * 0.6), TAM * (0.16 + p * 0.22));
+    const distancia = TAM * 0.4 * aleatorio(semente, k + 30) * (reduzido ? 1 : 1 + p * 1.2);
+    const deriva = reduzido ? 0 : Math.sin(t * 2 + k) * 6;
+    ctx.globalAlpha = 0.42 * (1 - p) * Math.min(1, t / 0.08);
+    ctx.fillStyle = FUMACA[k % 3];
+    circulo(ctx, cx + Math.cos(angulo) * distancia + deriva, cy + Math.sin(angulo) * distancia - (reduzido ? 0 : p * TAM * 0.9), TAM * (0.15 + p * 0.28));
     ctx.fill();
   }
-  if (reduzido) return;
+  if (reduzido) {
+    ctx.globalAlpha = 1;
+    return;
+  }
+  // Sparks: half of them leave a short streak behind.
   ctx.globalAlpha = 1;
-  for (let k = 0; k < 12; k++) {
-    const vida = 0.3 + aleatorio(semente, k + 40) * 0.3;
+  ctx.lineCap = 'round';
+  for (let k = 0; k < 14; k++) {
+    const vida = 0.3 + aleatorio(semente, k + 40) * 0.35;
     if (idade > vida) continue;
     const p = idade / vida;
     const angulo = aleatorio(semente, k + 50) * Math.PI * 2;
-    const distancia = TAM * (1.2 + aleatorio(semente, k + 60) * 1.4) * suavizarSaida(p);
+    const alcance = TAM * (1.2 + aleatorio(semente, k + 60) * 1.5);
+    const ponto = q => [cx + Math.cos(angulo) * alcance * suavizarSaida(q), cy + Math.sin(angulo) * alcance * suavizarSaida(q) + q * q * TAM * 0.5];
+    const [x, y] = ponto(p);
     const tamanho = 3.4 * (1 - p) + 0.8;
-    ctx.fillStyle = PALETA.faiscas[k % 3];
-    ctx.fillRect(cx + Math.cos(angulo) * distancia - tamanho / 2, cy + Math.sin(angulo) * distancia + p * p * TAM * 0.4 - tamanho / 2, tamanho, tamanho);
+    const cor = PALETA.faiscas[k % 3];
+    if (k % 2) {
+      const [ax, ay] = ponto(Math.max(0, p - 0.12));
+      ctx.strokeStyle = cor;
+      ctx.lineWidth = tamanho * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = cor;
+      ctx.fillRect(x - tamanho / 2, y - tamanho / 2, tamanho, tamanho);
+    }
   }
+  // Embers drifting up after the blast.
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = '#ffb057';
+  for (let k = 0; k < 5; k++) {
+    const t = idade - 0.25 - aleatorio(semente, k + 70) * 0.2;
+    const vida = 0.8 + aleatorio(semente, k + 75) * 0.6;
+    if (t < 0 || t > vida) continue;
+    const p = t / vida;
+    ctx.globalAlpha = (1 - p) * (0.6 + 0.4 * Math.sin(t * 17 + k * 2.1));
+    circulo(ctx, cx + (aleatorio(semente, k + 80) - 0.5) * TAM * 1.2 + Math.sin(t * 3 + k) * 5, cy - p * TAM * 1.3, 1.6);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
 }
 
-function efeitoCaixa(ctx, cx, cy, idade, semente, reduzido) {
-  const poeira = idade / 0.45;
+
+// Wood shards with simple physics: thrown up, fall, bounce once, slide a little and fade on the floor.
+function efeitoCaixa(ctx, cx, cy, idade, semente, reduzido, tema) {
+  const poeira = idade / 0.5;
   if (poeira < 1) {
     ctx.globalAlpha = 0.32 * (1 - poeira);
     ctx.fillStyle = PALETA.poeira;
-    circulo(ctx, cx, cy, TAM * (0.3 + poeira * 0.35));
+    circulo(ctx, cx, cy, TAM * (0.3 + poeira * 0.4));
     ctx.fill();
   }
-  if (reduzido) return;
-  const cores = [PALETA.caixaClara, PALETA.caixa, PALETA.caixaEscura];
-  for (let k = 0; k < 7; k++) {
-    const vida = 0.45 + aleatorio(semente, k) * 0.28;
-    if (idade > vida) continue;
-    const p = idade / vida;
-    const angulo = -Math.PI / 2 + (aleatorio(semente, k + 10) - 0.5) * Math.PI * 1.6;
-    const velocidade = TAM * (1.6 + aleatorio(semente, k + 20) * 1.8);
-    const x = cx + Math.cos(angulo) * velocidade * idade;
-    const y = cy + Math.sin(angulo) * velocidade * idade + TAM * 4.5 * idade * idade;
-    ctx.globalAlpha = p > 0.7 ? (1 - p) / 0.3 : 1;
-    ctx.fillStyle = cores[k % 3];
-    lasca(ctx, x, y, 5 + aleatorio(semente, k + 40) * 5, 3.2, angulo + (aleatorio(semente, k + 30) - 0.5) * 14 * idade);
+  if (reduzido) {
+    ctx.globalAlpha = 1;
+    return;
   }
+  const gravidade = TAM * 16;
+  for (let k = 0; k < 8; k++) {
+    const vida = 0.9 + aleatorio(semente, k) * 0.4;
+    if (idade > vida) continue;
+    const angulo = -Math.PI / 2 + (aleatorio(semente, k + 10) - 0.5) * Math.PI * 1.5;
+    const velocidade = TAM * (1.8 + aleatorio(semente, k + 20) * 2.2);
+    const vx = Math.cos(angulo) * velocidade;
+    const vy = Math.sin(angulo) * velocidade;
+    const chao = cy + TAM * (0.12 + aleatorio(semente, k + 50) * 0.32);
+    const queda = (-vy + Math.sqrt(vy * vy + 2 * gravidade * (chao - cy))) / gravidade;
+    const giro = (aleatorio(semente, k + 30) - 0.5) * 24;
+    let x;
+    let y;
+    let angulo2;
+    if (idade < queda) {
+      x = cx + vx * idade;
+      y = cy + vy * idade + (gravidade * idade * idade) / 2;
+      angulo2 = angulo + giro * idade;
+    } else {
+      const quique = -(vy + gravidade * queda) * 0.32;
+      const tempoQuique = (-2 * quique) / gravidade;
+      const t = Math.min(idade - queda, tempoQuique);
+      x = cx + vx * queda + vx * 0.35 * t;
+      y = Math.min(chao, chao + quique * t + (gravidade * t * t) / 2);
+      angulo2 = angulo + giro * queda + giro * 0.3 * t;
+    }
+    ctx.globalAlpha = idade > vida - 0.3 ? (vida - idade) / 0.3 : 1;
+    ctx.fillStyle = tema.caixa[k % 3];
+    lasca(ctx, x, y, 5 + aleatorio(semente, k + 40) * 5, 3.2, angulo2);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function efeitoBloco(ctx, cx, cy, idade, semente, reduzido) {
-  const p = idade / DURACAO_EFEITO.bloco;
+  // The dust rises when the block lands (the fall itself is drawn by the painter).
+  const queda = reduzido ? 0 : QUEDA_BLOCO_S;
+  if (idade < queda) return;
+  const p = (idade - queda) / (DURACAO_EFEITO.bloco - queda);
   ctx.globalAlpha = 0.4 * (1 - p);
   ctx.fillStyle = PALETA.poeira;
   for (let k = 0; k < (reduzido ? 1 : 4); k++) {
@@ -709,12 +811,27 @@ function efeitoBloco(ctx, cx, cy, idade, semente, reduzido) {
 function efeitoMorte(ctx, efeito, cx, cy, idade, semente, agora, reduzido) {
   const cor = CORES[indiceCor(efeito.cor)];
   const chao = cy + TAM * 0.36;
-  const ESTOURO = 0.28;
+  const ESTOURO = 0.34;
   if (idade < ESTOURO) {
-    // Squash, flash and then pop.
+    // In stages: hit (white flash and a jolt), charred, then the pop.
     const k = idade / ESTOURO;
-    const branco = !reduzido && Math.floor(idade / 0.05) % 2 === 0;
-    desenharBoneco(ctx, cx, chao, { cor: efeito.cor, o: DIRECAO.BAIXO }, 'morto', agora, reduzido, { esmagar: [1 + k * 0.35, 1 - k * 0.4], branco });
+    const atingido = idade < 0.1;
+    const solavanco = reduzido ? 0 : (aleatorio(semente, Math.floor(idade * 60)) - 0.5) * 5 * (1 - k);
+    desenharBoneco(ctx, cx + solavanco, chao, { cor: efeito.cor, o: DIRECAO.BAIXO }, 'morto', agora, reduzido, {
+      esmagar: [1 + k * 0.32, 1 - k * 0.38],
+      branco: atingido && !reduzido,
+      carvao: !atingido,
+    });
+    if (!atingido && !reduzido) {
+      ctx.fillStyle = FUMACA[1];
+      for (let s = 0; s < 3; s++) {
+        const t = (idade - 0.1 + s * 0.05) % 0.24;
+        ctx.globalAlpha = 0.5 * (1 - t / 0.24);
+        circulo(ctx, cx - 8 + s * 8, chao - TAM * 0.7 - t * 60, 4 + t * 20);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
     return;
   }
   const t = idade - ESTOURO;
@@ -725,16 +842,21 @@ function efeitoMorte(ctx, efeito, cx, cy, idade, semente, agora, reduzido) {
     ctx.lineWidth = 4;
     circulo(ctx, cx, cy, TAM * (0.3 + (t / 0.4) * 0.6));
     ctx.stroke();
+    ctx.fillStyle = FUMACA[2];
+    ctx.globalAlpha = 0.45 * (1 - t / 0.4);
+    circulo(ctx, cx, cy - (reduzido ? 0 : t * 30), TAM * (0.3 + t));
+    ctx.fill();
   }
-  if (!reduzido && t < 0.5) {
-    for (let k = 0; k < 12; k++) {
-      const q = t / 0.5;
-      const angulo = (k / 12) * Math.PI * 2 + aleatorio(semente, k) * 0.5;
-      const distancia = TAM * (0.6 + aleatorio(semente, k + 10) * 0.5) * suavizarSaida(q);
+  if (!reduzido && t < 0.55) {
+    // Pieces of the body and soot fly out.
+    for (let k = 0; k < 14; k++) {
+      const q = t / 0.55;
+      const angulo = (k / 14) * Math.PI * 2 + aleatorio(semente, k) * 0.5;
+      const distancia = TAM * (0.6 + aleatorio(semente, k + 10) * 0.6) * suavizarSaida(q);
       const tamanho = 5 * (1 - q) + 1;
       ctx.globalAlpha = 1 - q * 0.6;
-      ctx.fillStyle = k % 3 === 0 ? '#ffffff' : cor.base;
-      ctx.fillRect(cx + Math.cos(angulo) * distancia - tamanho / 2, cy + Math.sin(angulo) * distancia - tamanho / 2, tamanho, tamanho);
+      ctx.fillStyle = k % 4 === 0 ? '#2a2725' : k % 3 === 0 ? '#ffffff' : cor.base;
+      ctx.fillRect(cx + Math.cos(angulo) * distancia - tamanho / 2, cy + Math.sin(angulo) * distancia + q * q * 10 - tamanho / 2, tamanho, tamanho);
     }
   }
   // A little ghost floats away.
@@ -832,7 +954,7 @@ function efeitoLargada(ctx, idade, reduzido) {
   ctx.fillText('JÁ!', 0, 0);
 }
 
-function desenharEfeito(ctx, efeito, agora, reduzido) {
+function desenharEfeito(ctx, efeito, agora, reduzido, tema) {
   const idade = agora - efeito.inicio;
   if (idade < 0 || idade >= (DURACAO_EFEITO[efeito.tipo] ?? 0)) return;
   const cx = (efeito.x + 0.5) * TAM;
@@ -844,7 +966,7 @@ function desenharEfeito(ctx, efeito, agora, reduzido) {
       efeitoExplosao(ctx, cx, cy, idade, semente, reduzido);
       break;
     case 'caixa':
-      efeitoCaixa(ctx, cx, cy, idade, semente, reduzido);
+      efeitoCaixa(ctx, cx, cy, idade, semente, reduzido, tema);
       break;
     case 'bloco':
       efeitoBloco(ctx, cx, cy, idade, semente, reduzido);
@@ -884,32 +1006,131 @@ export function efeitoAtivo(efeito, agora) {
   return agora - efeito.inicio < (DURACAO_EFEITO[efeito.tipo] ?? 0);
 }
 
+// Cheap ambient life per map theme, computed from the clock (nothing is stored between frames).
+function desenharAmbiente(ctx, tipo, agora) {
+  if (tipo === 'brasas') {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = '#ffb057';
+    for (let k = 0; k < 16; k++) {
+      const velocidade = 18 + aleatorio(31, k) * 30;
+      const x = aleatorio(37, k) * LARGURA + Math.sin(agora * 1.3 + k) * 14;
+      const y = ALTURA + 20 - ((agora * velocidade + aleatorio(41, k) * (ALTURA + 40)) % (ALTURA + 40));
+      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(agora * 7 + k * 1.7);
+      circulo(ctx, x, y, 1.4 + aleatorio(43, k) * 1.6);
+      ctx.fill();
+    }
+  } else if (tipo === 'vagalumes') {
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 10; k++) {
+      const x = (aleatorio(47, k) + 0.08 * Math.sin(agora * 0.4 * (1 + aleatorio(53, k)) + k)) * LARGURA;
+      const y = (aleatorio(59, k) + 0.08 * Math.cos(agora * 0.5 * (1 + aleatorio(61, k)) + k * 2)) * ALTURA;
+      const pulso = Math.max(0, Math.sin(agora * 2 * (0.6 + aleatorio(67, k)) + k * 3));
+      ctx.globalAlpha = pulso * 0.25;
+      ctx.fillStyle = '#c3fa6b';
+      circulo(ctx, x, y, 6);
+      ctx.fill();
+      ctx.globalAlpha = pulso * 0.9;
+      ctx.fillStyle = '#f4ffcf';
+      circulo(ctx, x, y, 1.6);
+      ctx.fill();
+    }
+  } else if (tipo === 'folhas') {
+    for (let k = 0; k < 6; k++) {
+      const x = ((aleatorio(71, k) * LARGURA + agora * (12 + aleatorio(73, k) * 10)) % (LARGURA + 40)) - 20;
+      const y = ((aleatorio(79, k) * ALTURA + agora * (8 + aleatorio(83, k) * 8)) % (ALTURA + 40)) - 20;
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = k % 2 ? '#8fbf5a' : '#c9a24a';
+      lasca(ctx, x, y, 7, 3.5, agora * (1 + aleatorio(89, k)) + k);
+    }
+  } else if (tipo === 'poeira') {
+    ctx.fillStyle = '#ffffff';
+    for (let k = 0; k < 14; k++) {
+      const x = ((aleatorio(97, k) * LARGURA + agora * (4 + aleatorio(101, k) * 6)) % LARGURA);
+      const y = aleatorio(103, k) * ALTURA + Math.sin(agora * 0.6 + k) * 10;
+      ctx.globalAlpha = 0.08 + 0.1 * Math.sin(agora * 0.9 + k * 2) ** 2;
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+
 export function criarPintor(canvas) {
   const ctx = canvas.getContext('2d');
-  const arena = document.createElement('canvas');
-  const ctxArena = arena.getContext('2d');
+  const cenario = criarCenario();
+  const luz = document.createElement('canvas');
+  luz.width = COLUNAS * PIXELS_LUZ;
+  luz.height = Math.round((ALTURA / TAM) * PIXELS_LUZ);
+  const ctxLuz = luz.getContext('2d');
   const sprites = new Map();
   const larguras = new Map();
   const retratos = new Map(); // canvas -> { ctx, cor, pose }
   const movimentoReduzido = matchMedia('(prefers-reduced-motion: reduce)');
+  const maisContraste = matchMedia('(prefers-contrast: more)');
   let gradientesSubita = null;
-  let escala = 0;
-  let arenaDesenhada = null;
+  // Opening of a match and its finale: when they started and where the camera focuses.
+  const transicao = { contagem: false, abertaEm: -9, vivos: 0, finalEm: -9, foco: null };
+  // Per player (by color): step phase, speed and the moments it turned, picked an item or dropped a bomb.
+  const animacoes = new Map();
+  let bombasVistas = new Set();
+  let efeitosDaCena = [];
+  let agoraAnterior = 0;
+  let brilhoLuz = null;
+  let temaDoBrilho = null;
+  // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when
+  // most recent frames miss their slot and climbs back slowly (never straight back to a level that failed).
+  const qualidade = { escala: 0, teto: ESCALA_MAX, mediaMs: 1000 / 60, ultimoMs: 0, mudouEm: performance.now(), falhouEm: 0, escalaQueFalhou: Infinity };
+  const atrasos = new Uint8Array(JANELA_QUADROS);
+  let posicaoAtraso = 0;
+  let atrasados = 0;
+  let medidos = 0;
 
-  // Backing store sized to what is actually on screen (capped at 2x), not to the device maximum.
+  const medirQuadro = () => {
+    const agoraMs = performance.now();
+    const intervalo = agoraMs - qualidade.ultimoMs;
+    qualidade.ultimoMs = agoraMs;
+    // The first frame, a hidden tab or a paused screen say nothing about the device.
+    if (intervalo <= 0 || intervalo > 120) return;
+    qualidade.mediaMs += (intervalo - qualidade.mediaMs) * 0.05;
+    const atrasado = intervalo > QUADRO_ATRASADO_MS ? 1 : 0;
+    atrasados += atrasado - atrasos[posicaoAtraso];
+    atrasos[posicaoAtraso] = atrasado;
+    posicaoAtraso = (posicaoAtraso + 1) % JANELA_QUADROS;
+    medidos = Math.min(medidos + 1, JANELA_QUADROS);
+    const desde = agoraMs - qualidade.mudouEm;
+    if (medidos < JANELA_QUADROS) return;
+    if (atrasados > JANELA_QUADROS * 0.5 && desde > 2500 && qualidade.escala > 1) {
+      qualidade.escalaQueFalhou = qualidade.escala;
+      qualidade.falhouEm = agoraMs;
+      qualidade.teto = Math.max(1, qualidade.escala - 0.5);
+      qualidade.mudouEm = agoraMs;
+      atrasos.fill(0);
+      atrasados = 0;
+      medidos = 0;
+    } else if (atrasados < JANELA_QUADROS * 0.05 && desde > 12000 && qualidade.teto < ESCALA_MAX) {
+      const proximo = qualidade.teto + 0.25;
+      if (proximo < qualidade.escalaQueFalhou || agoraMs - qualidade.falhouEm > 90000) {
+        qualidade.teto = proximo;
+        qualidade.mudouEm = agoraMs;
+      }
+    }
+  };
+
+  // Backing store sized to what is actually on screen, in steps of 0.25 so every tile has whole pixels.
   const ajustarResolucao = () => {
     const pixels = (canvas.clientWidth || LARGURA) * (window.devicePixelRatio || 1);
-    const nova = Math.min(2, Math.max(0.5, Math.ceil((pixels / LARGURA) * 4) / 4));
-    if (nova === escala) return;
-    escala = nova;
-    canvas.width = arena.width = Math.round(LARGURA * escala);
-    canvas.height = arena.height = Math.round(ALTURA * escala);
-    arenaDesenhada = null;
+    const necessaria = Math.ceil((pixels / LARGURA) * 4) / 4;
+    const nova = limitar(Math.min(necessaria, qualidade.teto), 0.5, ESCALA_MAX);
+    if (nova === qualidade.escala) return;
+    qualidade.escala = nova;
+    canvas.width = Math.round(LARGURA * nova);
+    canvas.height = Math.round(ALTURA * nova);
     sprites.clear();
   };
 
   const sprite = item => {
     if (!sprites.has(item)) {
+      const escala = qualidade.escala;
       const quadro = document.createElement('canvas');
       quadro.width = quadro.height = Math.round(TAM * escala);
       const ctxQuadro = quadro.getContext('2d');
@@ -926,6 +1147,187 @@ export function criarPintor(canvas) {
       larguras.set(nome, ctx.measureText(nome).width);
     }
     return larguras.get(nome);
+  };
+
+  // A soft round glow tinted with the theme's light, drawn into the low resolution light map.
+  const brilho = tema => {
+    if (temaDoBrilho === tema) return brilhoLuz;
+    brilhoLuz = document.createElement('canvas');
+    brilhoLuz.width = brilhoLuz.height = 64;
+    const ctxBrilho = brilhoLuz.getContext('2d');
+    const [r, g, b] = tema.luz;
+    const gradiente = ctxBrilho.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradiente.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`);
+    gradiente.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, 0.4)`);
+    gradiente.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    ctxBrilho.fillStyle = gradiente;
+    ctxBrilho.fillRect(0, 0, 64, 64);
+    temaDoBrilho = tema;
+    return brilhoLuz;
+  };
+
+  // Flames and fresh explosions light up the floor and walls around them. The light is painted at 8 px
+  // per tile and blended over the arena only inside the rectangle that has light, which keeps it cheap.
+  const desenharLuz = (cena, tema, agora) => {
+    const explosoes = cena.efeitos.filter(efeito => efeito.tipo === 'explosao' && agora - efeito.inicio < 0.6);
+    if (!cena.c.length && !explosoes.length) return;
+    const fonte = brilho(tema);
+    ctxLuz.globalCompositeOperation = 'source-over';
+    ctxLuz.globalAlpha = 1;
+    ctxLuz.clearRect(0, 0, luz.width, luz.height);
+    ctxLuz.globalCompositeOperation = 'lighter';
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    const lancar = (x, y, raioTiles, alfa) => {
+      const raio = raioTiles * PIXELS_LUZ;
+      const cx = (x + 0.5) * PIXELS_LUZ;
+      const cy = (y + 0.5) * PIXELS_LUZ;
+      ctxLuz.globalAlpha = alfa;
+      ctxLuz.drawImage(fonte, cx - raio, cy - raio, raio * 2, raio * 2);
+      x0 = Math.min(x0, cx - raio);
+      y0 = Math.min(y0, cy - raio);
+      x1 = Math.max(x1, cx + raio);
+      y1 = Math.max(y1, cy + raio);
+    };
+    for (const [i] of cena.c) lancar(i % COLUNAS, Math.floor(i / COLUNAS), 1.7, 0.42 + Math.sin(agora * 31 + i) * 0.08);
+    for (const efeito of explosoes) {
+      const idade = agora - efeito.inicio;
+      lancar(efeito.x, efeito.y, 2.6 + idade * 2.5, 1 - idade / 0.6);
+    }
+    x0 = Math.max(0, Math.floor(x0));
+    y0 = Math.max(0, Math.floor(y0));
+    x1 = Math.min(luz.width, Math.ceil(x1));
+    y1 = Math.min(luz.height, Math.ceil(y1));
+    if (x1 <= x0 || y1 <= y0) return;
+    const k = TAM / PIXELS_LUZ;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.65;
+    ctx.drawImage(luz, x0, y0, x1 - x0, y1 - y0, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  };
+
+  // Everything the reactions need is read from the scene itself, so nothing new travels over the network.
+  const atualizarAnimacoes = (cena, agora) => {
+    const dt = limitar(agora - agoraAnterior, 0, 0.1);
+    agoraAnterior = agora;
+    const bombas = new Set(cena.b.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`));
+    // Scenes without a phase (tests, tools) count as a match.
+    const emJogo = cena.fase === undefined || cena.fase === 'jogo';
+    for (const jogador of cena.j) {
+      const chave = indiceCor(jogador.cor);
+      let anim = animacoes.get(chave);
+      if (!anim) {
+        anim = { x: jogador.x, y: jogador.y, fase: 0, amplitude: 0, vx: 0, o: jogador.o, pegouEm: -9, bombaEm: -9, giroEm: -9, poderes: null };
+        animacoes.set(chave, anim);
+      }
+      const dx = jogador.x - anim.x;
+      const distancia = Math.abs(dx) + Math.abs(jogador.y - anim.y);
+      if (distancia < 1.5) {
+        anim.fase += distancia * Math.PI * 2.2;
+        if (dt > 0) anim.vx += (dx / dt - anim.vx) * Math.min(1, dt * 12);
+      } else {
+        anim.vx = 0;
+      }
+      anim.x = jogador.x;
+      anim.y = jogador.y;
+      anim.amplitude += ((jogador.a ? 1 : 0) - anim.amplitude) * Math.min(1, dt * 14);
+      if (jogador.o !== anim.o) {
+        if (jogador.v) anim.giroEm = agora;
+        anim.o = jogador.o;
+      }
+      // Reactions only count mid-match: the powers everyone starts with are not pickups.
+      const poderes = [jogador.b, jogador.f, jogador.t, jogador.e, jogador.p, jogador.g, jogador.k, jogador.r, jogador.m, jogador.gl, jogador.at].map(valor => Number(valor) || 0);
+      if (emJogo && anim.poderes && jogador.v && poderes.some((valor, k) => valor > anim.poderes[k])) anim.pegouEm = agora;
+      anim.poderes = emJogo ? poderes : null;
+      const celula = `${Math.round(jogador.x)},${Math.round(jogador.y)}`;
+      if (emJogo && jogador.v && bombas.has(celula) && !bombasVistas.has(celula)) anim.bombaEm = agora;
+    }
+    bombasVistas = bombas;
+  };
+
+  const acompanharTransicoes = (cena, agora) => {
+    if (cena.contagem && !transicao.contagem) transicao.abertaEm = agora;
+    transicao.contagem = Boolean(cena.contagem);
+    const vivos = cena.j.filter(jogador => jogador.v);
+    if (cena.fase !== 'jogo') {
+      if (cena.fase === 'contagem') transicao.finalEm = -9;
+    } else if (vivos.length < transicao.vivos && vivos.length <= 1) {
+      // The last elimination: focus on whoever is left, or on where the last one fell.
+      const morte = cena.efeitos.filter(efeito => efeito.tipo === 'morte').at(-1);
+      const alvo = vivos[0] ?? morte;
+      if (alvo) {
+        transicao.finalEm = agora;
+        transicao.foco = { x: (alvo.x + 0.5) * TAM, y: (alvo.y + 0.5) * TAM };
+      }
+    }
+    transicao.vivos = vivos.length;
+  };
+
+  // Where each player is in the opening drop: hidden before its turn, then falling with a bounce.
+  const quedaDeAbertura = (n, agora) => {
+    const t = agora - transicao.abertaEm - 0.25 - n * 0.07;
+    if (t >= 0.4) return 0;
+    if (t < 0) return null;
+    const k = t / 0.4;
+    return TAM * 2.2 * (1 - voltaPorCima(k));
+  };
+
+  // A dark curtain that sweeps off the arena to the right while the countdown starts.
+  const desenharCortina = (agora, tema) => {
+    const k = (agora - transicao.abertaEm) / (ABERTURA_S * 0.7);
+    if (k >= 1) return;
+    const borda = TAM * 2.5;
+    const x = -borda + (LARGURA + borda * 2) * suavizarSaida(Math.max(0, k));
+    const gradiente = ctx.createLinearGradient(x - borda, 0, x, 0);
+    gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradiente.addColorStop(1, tema.borda[2]);
+    ctx.fillStyle = gradiente;
+    ctx.fillRect(x - borda, 0, borda, ALTURA);
+    ctx.fillStyle = tema.borda[2];
+    ctx.fillRect(x, 0, LARGURA - x + TAM, ALTURA);
+  };
+
+  // A sudden death block falling onto its cell, with its shadow growing below, until it lands.
+  const desenharQuedasDeBloco = agora => {
+    for (const efeito of efeitosDaCena) {
+      if (efeito.tipo !== 'bloco') continue;
+      const idade = agora - efeito.inicio;
+      if (idade < 0 || idade >= QUEDA_BLOCO_S) continue;
+      const k = idade / QUEDA_BLOCO_S;
+      cenario.piso(ctx, efeito.x, efeito.y);
+      ctx.fillStyle = `rgba(0, 0, 0, ${(0.15 + k * 0.35).toFixed(3)})`;
+      elipse(ctx, (efeito.x + 0.5) * TAM, (efeito.y + 0.8) * TAM, TAM * (0.25 + k * 0.2), TAM * (0.08 + k * 0.06));
+      ctx.fill();
+      cenario.bloco(ctx, efeito.x, efeito.y, efeito.y * TAM - TAM * 1.8 * (1 - k * k));
+    }
+  };
+
+  // Darkens everything but the focus of the finale.
+  const desenharVinhetaFinal = noFinal => {
+    const { x, y } = transicao.foco;
+    const forca = Math.min(1, noFinal / 0.4) * (noFinal > FINAL_S - 0.3 ? (FINAL_S - noFinal) / 0.3 : 1);
+    const gradiente = ctx.createRadialGradient(x, y, TAM * 1.2, x, y, TAM * 7);
+    gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradiente.addColorStop(1, `rgba(0, 0, 0, ${(0.55 * forca).toFixed(3)})`);
+    ctx.fillStyle = gradiente;
+    ctx.fillRect(-LARGURA, -ALTURA, LARGURA * 3, ALTURA * 3);
+  };
+
+  // Explosions shake the screen more the closer they are to you, and gently while you watch.
+  const tremorDosado = (cena, agora) => {
+    const eu = cena.j.find(jogador => jogador.eu && jogador.v);
+    let total = 0;
+    for (const efeito of cena.efeitos) {
+      if (efeito.tipo !== 'explosao') continue;
+      const idade = agora - efeito.inicio;
+      if (idade < 0 || idade > 0.35) continue;
+      const perto = eu ? limitar(1.25 - (Math.abs(eu.x - efeito.x) + Math.abs(eu.y - efeito.y)) / 9, 0.3, 1.25) : 0.6;
+      total += 5 * (1 - idade / 0.35) * perto;
+    }
+    return Math.min(total, 9);
   };
 
   // Red glow on the edges while the arena closes in. Gradients are made once and reused.
@@ -961,7 +1363,7 @@ export function criarPintor(canvas) {
       }
       const lado = quadro.clientWidth;
       if (!lado) continue;
-      const pixels = Math.round(lado * Math.min(2, window.devicePixelRatio || 1));
+      const pixels = Math.round(lado * Math.min(ESCALA_MAX, window.devicePixelRatio || 1));
       if (quadro.width !== pixels) quadro.width = quadro.height = pixels;
       const k = pixels / RETRATO;
       retrato.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -972,34 +1374,43 @@ export function criarPintor(canvas) {
     }
   };
 
-  // cena: { g, muros: Set, chaveMuros, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu, festa, pronto }],
-  //         b, c, iv, gl, agora, efeitos, tremor, contagem, subita }
+  // cena: { g, muros: Set, chaveMuros, tema, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu, festa, pronto, ... }],
+  //         b, c, iv, gl, agora, efeitos, contagem, subita }. The shake is worked out here from the explosions.
   const desenhar = cena => {
+    medirQuadro();
     ajustarResolucao();
+    const escala = qualidade.escala;
     const reduzido = movimentoReduzido.matches;
-    const agora = cena.agora;
-    const chave = `${cena.g}|${cena.chaveMuros}`;
-    if (arenaDesenhada !== chave) {
-      ctxArena.setTransform(escala, 0, 0, escala, 0, 0);
-      desenharArenaFixa(ctxArena, cena.g, cena.muros);
-      arenaDesenhada = chave;
-    }
-    let tx = 0;
-    let ty = 0;
-    if (!reduzido && cena.tremor > 0.2) {
-      tx = (Math.random() - 0.5) * cena.tremor;
-      ty = (Math.random() - 0.5) * cena.tremor;
-    }
+    const fixa = cenario.atualizar(cena, escala, maisContraste.matches);
+    const tema = cenario.tema;
+    acompanharTransicoes(cena, cena.agora);
+    // The finale slows the visual clock down; the game itself keeps its pace.
+    const noFinal = cena.agora - transicao.finalEm;
+    const lento = !reduzido && noFinal >= 0 && noFinal < FINAL_S;
+    const agora = lento ? transicao.finalEm + noFinal * 0.35 : cena.agora;
+    efeitosDaCena = cena.efeitos;
+    atualizarAnimacoes(cena, agora);
+    const tremor = reduzido ? 0 : tremorDosado(cena, agora);
+    const tx = tremor > 0.2 ? Math.sin(agora * 57) * tremor * 0.5 : 0;
+    const ty = tremor > 0.2 ? Math.cos(agora * 63) * tremor * 0.5 : 0;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = PALETA.borda[2];
+    ctx.fillStyle = tema.borda[2];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.setTransform(escala, 0, 0, escala, tx * escala, ty * escala);
-    ctx.drawImage(arena, 0, 0, LARGURA, ALTURA);
+    let zoom = 1;
+    if (lento && transicao.foco) zoom = 1 + 0.28 * suavizarSaida(Math.min(1, noFinal / 0.5));
+    // Zooming around the focus point never shows anything outside the arena.
+    const foco = transicao.foco ?? { x: 0, y: 0 };
+    const k = escala * zoom;
+    ctx.setTransform(k, 0, 0, k, (tx + foco.x * (1 - zoom)) * escala, (ty + foco.y * (1 - zoom)) * escala);
+    ctx.drawImage(fixa, 0, 0, LARGURA, ALTURA);
+    if (!reduzido) desenharQuedasDeBloco(agora);
+    for (const efeito of cena.efeitos) if (efeito.tipo === 'explosao') desenharMancha(ctx, efeito, agora);
+    desenharLuz(cena, tema, agora);
     for (let i = 0; i < cena.g.length; i++) {
       if (VISUAL_ITEM[cena.g[i]]) desenharItem(ctx, sprite(cena.g[i]), i, cena.g[i], agora, reduzido);
     }
     for (const chama of cena.c) desenharChama(ctx, chama, agora);
-    for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido);
+    for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, agora, reduzido);
     for (const tiro of cena.gl ?? []) desenharTiroGelo(ctx, tiro, agora);
     // Items flying to a magnet are drawn a bit smaller, above walls and crates.
@@ -1007,20 +1418,32 @@ export function criarPintor(canvas) {
       if (!VISUAL_ITEM[item]) continue;
       ctx.drawImage(sprite(item), (x + 0.15) * TAM, (y + 0.15) * TAM, TAM * 0.7, TAM * 0.7);
     }
-    const vivos = cena.j.filter(j => j.v).sort((a, b) => a.y - b.y);
-    const topos = vivos.map(jogador => desenharJogador(ctx, jogador, agora, reduzido));
+    const abrindo = !reduzido && cena.contagem && agora - transicao.abertaEm < ABERTURA_S;
+    const vivos = cena.j
+      .map((jogador, n) => ({ jogador, queda: abrindo ? quedaDeAbertura(n, agora) : 0 }))
+      .filter(({ jogador, queda }) => jogador.v && queda !== null)
+      .sort((a, b) => a.jogador.y - b.jogador.y);
+    const topos = vivos.map(({ jogador, queda }) => {
+      if (queda) ctx.translate(0, -queda);
+      const topo = desenharJogador(ctx, jogador, agora, reduzido, animacoes.get(indiceCor(jogador.cor)));
+      if (queda) ctx.translate(0, queda);
+      return topo - queda;
+    });
+    if (!reduzido && tema.ambiente) desenharAmbiente(ctx, tema.ambiente, agora);
     // Tags go after every body, so a character walking below never covers someone's name.
     const escalaTela = (canvas.clientWidth || LARGURA) / LARGURA;
     const escalaRotulo = limitar(0.6 / escalaTela, 1, 2);
     const comNome = escalaTela >= 0.45;
-    vivos.forEach((jogador, n) => {
+    vivos.forEach(({ jogador }, n) => {
       const cx = (jogador.x + 0.5) * TAM;
       const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
       desenharRotulo(ctx, cx, topos[n], chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
     });
-    for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido);
+    for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);
-    desenharRetratos(agora, reduzido);
+    if (abrindo) desenharCortina(agora, tema);
+    if (noFinal >= 0 && noFinal < FINAL_S && transicao.foco) desenharVinhetaFinal(noFinal);
+    desenharRetratos(cena.agora, reduzido);
   };
 
   // Small animated character drawn on an HTML screen (lobby, results, podium); it stops being drawn
@@ -1030,5 +1453,12 @@ export function criarPintor(canvas) {
     return quadro;
   };
 
-  return { desenhar, retrato };
+  return {
+    desenhar,
+    retrato,
+    // For a frames-per-second display or a performance test: current scale, its ceiling and frame time.
+    get qualidade() {
+      return { escala: qualidade.escala, teto: qualidade.teto, quadroMs: Math.round(qualidade.mediaMs * 10) / 10 };
+    },
+  };
 }
