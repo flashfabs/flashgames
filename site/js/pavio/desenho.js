@@ -1313,7 +1313,10 @@ export function criarPintor(canvas) {
     transicao.contagem = Boolean(cena.contagem);
     const vivos = cena.j.filter(jogador => jogador.v);
     if (cena.fase !== 'jogo') {
-      if (cena.fase === 'contagem') transicao.finalEm = -9;
+      if (cena.fase === 'contagem' || cena.fase === 'lobby') {
+        transicao.finalEm = -9;
+        transicao.foco = null;
+      }
     } else if (vivos.length < transicao.vivos && vivos.length <= 1) {
       // The last elimination: focus on whoever is left, or on where the last one fell.
       const morte = cena.efeitos.filter(efeito => efeito.tipo === 'morte').at(-1);
@@ -1368,7 +1371,7 @@ export function criarPintor(canvas) {
   // Darkens everything but the focus of the finale.
   const desenharVinhetaFinal = noFinal => {
     const { x, y } = transicao.foco;
-    const forca = Math.min(1, noFinal / 0.4) * (noFinal > FINAL_S - 0.3 ? (FINAL_S - noFinal) / 0.3 : 1);
+    const forca = Math.min(1, noFinal / 0.4);
     const gradiente = ctx.createRadialGradient(x, y, TAM * 1.2, x, y, TAM * 7);
     gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
     gradiente.addColorStop(1, `rgba(0, 0, 0, ${(0.55 * forca).toFixed(3)})`);
@@ -1447,6 +1450,8 @@ export function criarPintor(canvas) {
     // The finale slows the visual clock down; the game itself keeps its pace.
     const noFinal = cena.agora - transicao.finalEm;
     const lento = !reduzido && noFinal >= 0 && noFinal < FINAL_S;
+    // After the slow motion the camera stays on the winner through the results, until the next countdown.
+    const focando = transicao.foco && noFinal >= 0 && (noFinal < FINAL_S || cena.fase === 'resultado' || cena.fase === 'final' || cena.fase === 'jogo');
     const agora = lento ? transicao.finalEm + noFinal * 0.35 : cena.agora;
     efeitosDaCena = cena.efeitos;
     atualizarAnimacoes(cena, agora);
@@ -1457,7 +1462,7 @@ export function criarPintor(canvas) {
     ctx.fillStyle = tema.borda[2];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     let zoom = 1;
-    if (lento && transicao.foco) zoom = 1 + 0.28 * suavizarSaida(Math.min(1, noFinal / 0.5));
+    if (focando && !reduzido) zoom = 1 + 0.28 * suavizarSaida(Math.min(1, noFinal / 0.5));
     // Zooming around the focus point never shows anything outside the arena.
     const foco = transicao.foco ?? { x: 0, y: 0 };
     const k = escala * zoom;
@@ -1502,7 +1507,7 @@ export function criarPintor(canvas) {
     for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);
     if (abrindo) desenharCortina(agora, tema);
-    if (noFinal >= 0 && noFinal < FINAL_S && transicao.foco) desenharVinhetaFinal(noFinal);
+    if (focando) desenharVinhetaFinal(noFinal);
     desenharRetratos(cena.agora, reduzido);
   };
 
