@@ -47,4 +47,11 @@ test('the profile keeps name and color, the room uses the color, and a match add
   await pagina.getByRole('button', { name: 'Sair' }).click();
   await expect(pagina.locator('#inicio')).toBeVisible();
   await expect(pagina.locator('#perfil-numeros')).toContainText('1 partida · 0 vitórias · 0 pontos');
+  // The latest matches list the one just played.
+  await pagina.getByText('Suas últimas partidas').click();
+  await expect(pagina.locator('#perfil-historico-lista li')).toHaveText([/Pátio · 0 pontos\s*contra 1 robô · agora/]);
+  // Locally there is no ranking server: the list says so instead of failing.
+  await pagina.getByText('Ranking das partidas com amigos').click();
+  await expect(pagina.locator('#perfil-ranking-lista li')).toHaveCount(1);
+  await expect(pagina.locator('#perfil-ranking-lista li')).not.toHaveText('Carregando…');
 });

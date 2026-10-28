@@ -624,3 +624,44 @@
   height: 22px;
   box-shadow: 0 0 0 2px #0f1822;
 }
+
+/* Home screen: the profile's latest matches and the ranking. */
+.perfil-lista {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perfil-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 10px;
+  padding: 6px 10px;
+  background: #0f1822;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+}
+
+.perfil-lista li.venceu,
+.perfil-lista li.eu {
+  border-color: rgba(255, 138, 61, 0.55);
+}
+
+.perfil-lista-principal {
+  color: var(--texto);
+  font-weight: 700;
+}
+
+.perfil-lista-principal .marca-jogador {
+  width: 16px;
+  height: 16px;
+}
+
+.perfil-lista-detalhe,
+.perfil-lista-vazia {
+  color: var(--texto-suave);
+  font-size: 13px;
+}
