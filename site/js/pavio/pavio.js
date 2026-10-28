@@ -9,6 +9,7 @@ import {
 } from './regras.js';
 import { criarPintor, efeitoAtivo, marcaJogador, chaveDoTema, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
+import { criarHud } from './hud.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
 
@@ -69,11 +70,6 @@ function reiniciarAnimacao(elemento, classe) {
   elemento.classList.remove(classe);
   void elemento.offsetWidth;
   elemento.classList.add(classe);
-}
-
-function formatarTempo(segundos) {
-  const total = Math.max(0, Math.ceil(segundos));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export function pontosDe(placar = ZERO) {
@@ -157,6 +153,7 @@ function confetes() {
 export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
+  const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
   const toqueDisponivel = temToque();
   const estado = {
     fase: 'lobby',
@@ -216,8 +213,6 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let chaveAviso = '';
   let refContagem = null;
   let ultimaContagem = null;
-  let ultimoHud = '';
-  let ultimoTotal = 0;
   let timerFaixa = 0;
   let quadroId = 0;
   let ultimoQuadro = performance.now();
@@ -1228,36 +1223,22 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function atualizarHud(vista) {
-    const mostrar = Boolean(vista) && estado.fase !== 'lobby';
-    el.hud.style.visibility = mostrar ? 'visible' : 'hidden';
-    if (!mostrar) return;
+    if (!vista || estado.fase === 'lobby') {
+      hud.atualizar(null);
+      return;
+    }
     const n = meuIndice();
     const eu = vista.j[n];
-    const paraSubita = (vista.ms ?? 120) - (Number(vista.tm) || 0);
-    const tempo = paraSubita > 0 ? `⏱ ${formatarTempo(paraSubita)}` : '☠ Morte súbita';
-    let pontos = '';
-    let total = 0;
+    let total = null;
     if (n >= 0) {
       const placar = { ...ZERO, ...estado.placar[sala.meuId] };
       const aoVivo = estado.fase === 'contagem' || estado.fase === 'jogo';
       total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
-      pontos = `⭐ ${total}`;
     }
-    const itens = eu
-      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.gl && `❄️ ${eu.gl}`, eu.at && `🌀 ${eu.at}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
-      : '';
-    const temGelo = Boolean(eu?.v && eu.gl > 0);
-    const chave = `${itens}|${pontos}|${tempo}|${temGelo}`;
-    if (chave === ultimoHud) return;
-    ultimoHud = chave;
-    el.dicaGelo.hidden = !temGelo;
-    el.hudItens.textContent = itens;
-    el.hudPontos.textContent = pontos;
-    el.hudTempo.textContent = tempo;
-    el.hudTempo.classList.toggle('pavio-hud-tempo--subita', paraSubita <= 0);
-    if (total > ultimoTotal && estado.fase === 'jogo') reiniciarAnimacao(el.hudPontos, 'pavio-hud-pontos--sobe');
-    ultimoTotal = total;
+    el.dicaGelo.hidden = !(eu?.v && eu.gl > 0);
+    hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase });
   }
+
 
   function jogadoresDoLobby() {
     return [...sala.membrosOrdenados(), ...estado.robos].slice(0, MAX_JOGADORES).map((jogador, n) => ({
