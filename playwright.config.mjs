@@ -23,9 +23,14 @@ const PORTA = Number(process.env.SALINHA_PORTA);
 export default defineConfig({
   testDir: 'testes/e2e',
   testMatch: '*.spec.mjs',
-  // One test at a time: each one already runs up to 8 pages, and the performance check needs the CPU to itself.
-  workers: 1,
+  // npm run e2e runs the functional scenarios two at a time (SALINHA_PROCESSOS changes it), then the performance
+  // project alone, so its numbers are not disturbed by other pages.
+  workers: Number(process.env.SALINHA_PROCESSOS ?? 1),
   fullyParallel: false,
+  projects: [
+    { name: 'funcionais', testIgnore: /desempenho\.spec\.mjs$/ },
+    { name: 'desempenho', testMatch: /desempenho\.spec\.mjs$/ },
+  ],
   // The free signaling server sometimes takes long to answer; a retry tells a flaky network from a broken game.
   retries: 1,
   timeout: 120_000,
