@@ -2,7 +2,7 @@
 
 Instruções para quem trabalhar neste repositório (Claude Code ou Codex). Elas se somam às regras globais do Victor.
 
-O repositório é `vhccruz/salinha` no GitHub (privado), e o clone de trabalho fica em `/Users/vhccruz/Dev/salinha`. Até 28/10/2026 o projeto morava em `~/Dev/claude-code-config/salinha`, e é dessa época o histórico da noite em `docs/`.
+O repositório é `vhccruz/salinha` no GitHub, público desde 28/10/2026 para receber outros colaboradores, e o clone de trabalho fica em `/Users/vhccruz/Dev/salinha`. Até 28/10/2026 o projeto morava em `~/Dev/claude-code-config/salinha`, e é dessa época o histórico da noite em `docs/`.
 
 ## O que é
 
