@@ -182,3 +182,36 @@ test('8 players: frame times of the host and of a guest, normal and with a 4x sl
     await Promise.all(proprios.map(navegador => navegador.close()));
   }
 });
+
+// Robots run inside the host's simulation, so a host alone with 7 hard robots is the heaviest host there is.
+test('host with 7 hard robots: frame and simulation times, normal and with a 4x slower CPU', async ({ mesa }) => {
+  const host = await mesa.novoJogador('Anfitrião', { iniciar: [medir] });
+  await host.criarSala();
+  const lobby = host.pagina.locator('.pavio-aviso');
+  await lobby.getByRole('button', { name: 'Difícil', exact: true }).click();
+  for (let n = 0; n < 7; n++) await lobby.getByRole('button', { name: '+ Robô' }).click();
+  await expect(lobby.locator('.pavio-prontos-robo')).toHaveCount(7);
+  await expect(lobby.getByRole('button', { name: '+ Robô' })).toBeDisabled();
+  await host.ficarPronto();
+  await host.esperarFase('jogo');
+  expect((await host.jogo()).escalacao).toHaveLength(8);
+
+  const medidos = { anfitriao: host };
+  await host.pagina.waitForTimeout(1000);
+  const resultados = { normal: await medirJanela(medidos) };
+  const cdp = await host.contexto.newCDPSession(host.pagina);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: LENTIDAO_CPU });
+  resultados.cpu4x = await medirJanela(medidos);
+  const jogo = await host.jogo();
+  resultados.partida = { fase: jogo.fase, numero: jogo.numero, vivos: jogo.vista?.j.filter(jogador => jogador.v).length ?? null };
+  console.log(`Anfitrião com 7 robôs difíceis (${JANELA_MS / 1000} s por janela, normal e com a CPU ${LENTIDAO_CPU}x mais lenta):\n${JSON.stringify(resultados, null, 2)}`);
+  await test.info().attach('desempenho-robos.json', { body: JSON.stringify(resultados, null, 2), contentType: 'application/json' });
+
+  for (const [janela, limites] of Object.entries(LIMITES)) {
+    const medida = resultados[janela].anfitriao;
+    expect(medida.quadros, `${janela}: frames drawn`).toBeGreaterThan((JANELA_MS / 1000) * limites.fpsMin);
+    expect(medida.quadroP95Ms, `${janela}: p95 frame interval`).toBeLessThan(limites.quadroP95Ms);
+    expect(medida.trabalhoP95Ms, `${janela}: p95 time spent in a frame`).toBeLessThan(limites.trabalhoP95Ms);
+    expect(medida.tiqueP95Ms, `${janela}: p95 time of a simulation tick with the robots`).toBeLessThan(limites.tiqueP95Ms);
+  }
+});

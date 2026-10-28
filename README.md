@@ -84,6 +84,8 @@ Números medidos em 27/10/2026, MacBook Pro M5 Pro, Chromium 153 sem janela, 8 j
 
 Com a CPU 4x mais lenta, medido em 28/10/2026 na `main` com os poderes e o visual novos: anfitrião e convidado continuam a 60 fps, trabalho por quadro de 1,2 a 1,5 ms (p50) e 2,4 a 2,6 ms (p95), tique da simulação do anfitrião de 0,8 ms (p95).
 
+Um segundo teste de desempenho põe o anfitrião sozinho com 7 robôs difíceis, que rodam dentro da simulação dele: em 28/10/2026, 60 fps, tique da simulação de 0,6 ms (p95) e 2,1 ms com a CPU 4x mais lenta (pior tique 4,5 ms), trabalho por quadro de 0,6 ms e 1,8 ms (p95).
+
 O que os testes de ponta a ponta ainda não cobrem: Safari e Firefox (só Chromium), rede ruim ou retransmissor TURN (as páginas estão na mesma máquina), fechar a aba em vez de clicar em "Sair" (a queda só é percebida pelo silêncio de 12 s), o anfitrião saindo, a morte súbita, os poderes de cada mapa, pontos por caixa na tela de resultado, a rodada completa de 5 partidas e o controle de videogame.
 
 ## Publicação
