@@ -8,6 +8,7 @@ import base from './playwright.config.mjs';
 export default defineConfig({
   ...base,
   testMatch: '*.visual.mjs',
+  projects: [{ name: 'visual' }],
   snapshotPathTemplate: '{testDir}/visual/{arg}{ext}',
   expect: {
     ...base.expect,

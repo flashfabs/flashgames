@@ -20,6 +20,8 @@ A preencher no fim da noite.
 | 00:48 | 4 (rede, contas) | `8648563` | Perfil do aparelho: `site/js/conta.js` (com alternativa local) e a API `/api/perfil` e `/api/ranking` em Netlify Functions com Netlify Blobs; ainda sem tela que use. Primeira publicação com dependência de função (`@netlify/blobs`), instalada pelo script. | Frente 5, depois: `npm test` 88, `/api/perfil` sem credencial responde 401 e `/api/ranking` 200 em produção. |
 | 00:50 | 2 (jogo, poderes) | `3ea6b3f` | Temas de mapa (`MAPAS[n].tema`), estatísticas de cada partida no estado do resultado (contrato da seção 5 do plano), buffer de bomba (apertar um pouco antes não se perde), assistência de esquina mais larga e previsão do convidado conferida com o anfitrião. | Frente 5, depois: `npm test` 104, `npm run e2e` 9 de 9; no ar desde 00:59 pelo menos (dentro de `902c5c2`). |
 | 00:59 | 5 (testes) | `902c5c2` | Só testes e documentação: porta livre nos testes, desempenho com CPU 4x mais lenta, acessibilidade com axe-core, rede ruim, regressão visual (`npm run visual`), fumaça cobrindo a API de perfis e correção de uma corrida no cenário dos robôs. | `npm test` 104, `npm run e2e` 9 de 9, `npm run visual` 3 de 3, fumaça 4 de 4. |
+| 01:06 | 1 (jornada, telas) | `3136467` | Telas do Pavio extraídas de `pavio.js` para `telas.js`, sem mudar comportamento; cores do lobby não repetem com robôs; lobby mostra "📶 reconectando" e espera quem caiu; cartões não cortam o botão de pronto no celular deitado com 7 ou 8 jogadores; contagem cabe no celular. Novo cenário Playwright `lobby.spec.mjs`. | Frente 5, depois: suíte inteira na `main`. |
+| 01:10 | 2 (jogo, mapas, robôs) | `72f2709` | Mapas com layouts e variantes sorteadas por partida (protocolo 8), morte súbita um pouco mais cedo a cada partida, robôs que congelam a bomba que os mataria, se caçam na morte súbita e usam gelo de propósito. | Fumaça em produção depois da publicação. |
 
 ## O que foi testado e como
 
@@ -42,6 +44,8 @@ Nenhum até agora.
 - 00:55, frente 5: o cenário dos robôs falhava às vezes porque conferia na hora que o convidado via um robô quebrar caixa, e o convidado desenha os outros um pouco no passado; virou uma espera de até 15 s.
 - 00:50, frente 5: o servidor dos testes passou a usar uma porta livre a cada execução, porque a porta fixa 8805 colidia quando duas frentes rodavam a suíte ao mesmo tempo.
 - 01:06, frente 5: o axe-core só aponta `meta-viewport` (zoom desligado), de impacto moderado; fica assim de propósito, porque o Victor pediu a sala sem zoom nem rolagem no iPad, e o teste só reprova problemas sérios ou críticos.
+- 01:25, frente 5: o `npm run e2e` passou a rodar os cenários funcionais dois de cada vez e o de desempenho sozinho no fim; a suíte caiu de 4,4 para 2,8 min, o que encurta o tempo de trava de todas as frentes.
+- 01:12, frente 5: o `andarAte` dos testes solta a tecla um pouco antes da última casa e volta uma casa se passar do ponto; o cenário de reconexão falhou uma vez porque o convidado passou da casa com a máquina ocupada.
 
 ## Pendências do Victor
 
