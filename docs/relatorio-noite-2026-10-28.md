@@ -43,6 +43,8 @@ Rascunho de 03:20, revisado no fim da noite.
 | 02:39 | 3 (visual) | `16f867b` | Correções da revisão de integração no visual (tamanho da bomba do detonador, HUD no celular e outros achados). | Frente 5, depois: `npm test` 121, `npm run e2e` 27 + 2, fumaça 4 de 4. |
 | 02:55 | 1 (jornada) | `72389d6` | Dicas da primeira vez durante a partida (andar, soltar bomba, primeiro poder), tela de configurações (volume de efeitos e música, sensibilidade do toque, contador de quadros, mostrar as dicas de novo), resumo e dicas mais compactos no celular pequeno. Cenário novo `configuracoes.spec.mjs`. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas (link de configurações). |
 | 03:05 | 1 (jornada) | `37d903c` | Teclado e leitor de tela (cores como grupo de opções, foco preso nos diálogos, região viva anunciando contagem, "Valendo!", eliminação e resultados), transição entre a página inicial e a sala, vibração curta no começo da partida e ao ser eliminado, selo da forma no boneco do perfil. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, visual 3 de 3 com imagens novas. |
+| 03:11 | 1 (jornada) | `b29f064` | Últimas partidas e ranking das partidas com amigos na página inicial. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas. |
+| 03:22 | 1 (jornada) | `b7b7104` | Polimento no celular a partir de um passeio em produção; cor escolhida cedo fica guardada. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, fumaça 4 de 4; imagem do lobby no celular atualizada. |
 
 ## O que foi testado e como
 
