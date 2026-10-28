@@ -33,6 +33,9 @@ A preencher no fim da noite.
 | 02:20 | 3 (visual, som) | `0ca1564` | Quinta publicação: moldura da arena com brilho na cor do tema; etiquetas de nome empilham em vez de se sobrepor quando os jogadores se juntam. | Frente 5, depois: suíte inteira, visual 3 de 3, fumaça 4 de 4. |
 | 02:29 | 2 (jogo, robôs) | `a0b9ece` | Robôs atravessam caixas com o atalho para fugir do fogo; script de comparação dos níveis de robô (20 partidas com semente). | Frente 5, depois: `npm test` 116, suíte inteira. |
 | 02:35 | 1 (jornada, resumos) | `16e65d6` | Resumo da partida e da rodada, votação para pular o resumo e "Jogar de novo" (protocolo 11, juntando as duas mudanças de protocolo 10). | Frente 5, depois: cenários de pontos, rodada completa e acessibilidade da tela de resultado passando. |
+| 02:39 | 3 (visual) | `16f867b` | Correções da revisão de integração no visual (tamanho da bomba do detonador, HUD no celular e outros achados). | Frente 5, depois: `npm test` 121, `npm run e2e` 27 + 2, fumaça 4 de 4. |
+| 02:55 | 1 (jornada) | `72389d6` | Dicas da primeira vez durante a partida (andar, soltar bomba, primeiro poder), tela de configurações (volume de efeitos e música, sensibilidade do toque, contador de quadros, mostrar as dicas de novo), resumo e dicas mais compactos no celular pequeno. Cenário novo `configuracoes.spec.mjs`. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas (link de configurações). |
+| 03:05 | 1 (jornada) | `37d903c` | Teclado e leitor de tela (cores como grupo de opções, foco preso nos diálogos, região viva anunciando contagem, "Valendo!", eliminação e resultados), transição entre a página inicial e a sala, vibração curta no começo da partida e ao ser eliminado, selo da forma no boneco do perfil. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, visual 3 de 3 com imagens novas. |
 
 ## O que foi testado e como
 
@@ -44,6 +47,8 @@ A preencher no fim da noite.
 - Reconexão (`reconexao.spec.mjs`): convidado sem rede por 6 s guarda a vaga e volta; por 20 s, a rodada acaba com o nome dele no motivo; anfitrião sem rede por 5 s (script de queda da frente 4, que também derruba a sinalização) e os convidados voltam sozinhos com a rodada seguindo; anfitrião fora de vez e os convidados recebem "Conexão perdida".
 - Rodada completa (`rodada.spec.mjs`): as 5 partidas na ordem dos mapas, tela final com campeão e placar, volta ao lobby.
 - Jornada (`jornada.spec.mjs`): código errado, sala inexistente, quem chega no meio assiste, sala cheia recusa a nona pessoa.
+- Teste longo (02:45 a 02:58, `SALINHA_LONGO=1`): rodada inteira com 7 robôs difíceis; memória de 3,8 para 5,2 MB e DOM estável em ~400 nós, sem vazamento depois de 5 partidas com todos os efeitos novos.
+- Peso da primeira carga em produção (02:50): 188 KB em 27 requisições (139 KB de JavaScript, 36 KB de fontes), 1,5 s até a rede ficar quieta.
 - Regressão visual (`npm run visual`, fora do `npm run e2e`): tela inicial e lobby no computador, no iPad e no celular comparados com as imagens em `testes/e2e/visual/`; a frente 5 roda depois de cada integração, olha cada diferença e atualiza as imagens quando a mudança foi de propósito.
 
 ## Problemas conhecidos
@@ -71,3 +76,4 @@ A preencher no fim da noite.
 - Chave do TURN da Cloudflare (`CLOUDFLARE_TURN_KEY_ID` e `CLOUDFLARE_TURN_API_TOKEN` no Netlify); até lá `/api/ice` responde 503 e o site usa o TURN do PeerJS.
 - Login com Google ou e-mail (provedor, custo, tela de consentimento).
 - Sinalização própria (conta no Fly.io ou outro serviço) e microtransações.
+- Troca de anfitrião quando ele some sem se despedir (fecha a aba ou perde a rede de vez): hoje a sala passa adiante só quando o anfitrião clica em "Sair"; se ele cair e não voltar em 10 s, a sala acaba para todos.
