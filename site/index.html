@@ -25,7 +25,7 @@
 
       <section class="jogo-destaque" aria-labelledby="titulo-jogo">
         <h1 id="titulo-jogo">Pavio</h1>
-        <p>Arena de bombas para 2 a 8 pessoas. Rodadas de 5 partidas, cada uma num mapa mais fechado e com um poder novo. Caixa destruída, eliminação e vitória valem pontos.</p>
+        <p>Arena de bombas para 2 a 8 pessoas. Rodadas de 5 partidas, cada uma num mapa mais fechado e com poderes novos. Caixa destruída, eliminação e vitória valem pontos.</p>
       </section>
 
       <form id="form-inicio" class="formulario" autocomplete="off" novalidate>
@@ -64,6 +64,7 @@
       </div>
       <div class="sala-acoes">
         <button id="botao-som" class="botao-icone" type="button" aria-label="Som">🔊</button>
+        <button id="botao-musica" class="botao-icone botao-musica" type="button" aria-label="Música de fundo" aria-pressed="true">🎵</button>
         <button id="botao-sair" class="botao botao--pequeno botao--secundario" type="button">Sair</button>
       </div>
     </header>
@@ -81,7 +82,7 @@
       <div class="queda-cartao" role="alertdialog" aria-labelledby="queda-titulo">
         <h2 id="queda-titulo">Conexão perdida</h2>
         <p id="queda-motivo"></p>
-        <div class="queda-acoes">
+        <div id="queda-acoes" class="queda-acoes">
           <button id="botao-reconectar" class="botao" type="button">Tentar de novo</button>
           <button id="botao-nova-sala" class="botao botao--secundario" type="button">Criar nova sala</button>
         </div>

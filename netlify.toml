@@ -1,0 +1,4 @@
+# Static site with no build step; netlify/functions holds the TURN credentials function (/api/ice).
+[build]
+  publish = "site"
+  functions = "netlify/functions"

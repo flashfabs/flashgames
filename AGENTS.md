@@ -9,7 +9,8 @@ Site público de jogos com a galera, sem cadastro: alguém cria uma sala, manda 
 ## Estrutura
 
 - `site/` é o que vai para o ar (estático, sem build). `site/js/sala.js` é a camada de sala comum a todos os jogos; `site/js/pavio/` é o jogo (`regras.js` simulação pura, `pavio.js` fluxo de rodada, rede e quadro, `desenho.js` canvas, `controles.js` teclado, toque e controle).
-- `testes/` tem os testes das regras: `node --test testes/*.test.mjs` (Node 22, sem dependências).
+- `site/js/rede.js` escolhe os servidores STUN/TURN e `netlify/functions/ice.mjs` gera as credenciais do TURN da Cloudflare (`/api/ice`).
+- `testes/` tem os testes das regras e da rede (`npm test`, Node 22, sem dependências) e `testes/e2e/` os de ponta a ponta com Playwright (`npm run e2e`, porta 8805, precisa de internet); detalhes na seção Testes do README.
 
 ## Trabalho em paralelo (várias sessões ao mesmo tempo)
 
@@ -23,7 +24,7 @@ Site público de jogos com a galera, sem cadastro: alguém cria uma sala, manda 
 ## Convenções
 
 - Textos da interface em português do Brasil; comentários e commits em inglês.
-- Os identificadores do código estão em português. Isso contraria a regra global do Victor (nomes em inglês); a troca está pendente de decisão dele. Não renomear por conta própria: daria conflito com todas as outras sessões.
+- Os identificadores do código ficam em português neste projeto, por decisão do Victor em 27/10/2026 (exceção à regra global de nomes em inglês). Código novo segue o mesmo padrão.
 - Nunca usar hard wrap em texto (uma frase por linha), inclusive em Markdown e commits.
-- Rodar `node --test testes/*.test.mjs` antes de cada commit; teste novo para regra nova.
+- Rodar `npm test` antes de cada commit; teste novo para regra nova. Mudou fluxo de sala, rede, controles ou tela? Rodar também `npm run e2e`.
 - Nada de conta nova, serviço pago ou credencial sem o Victor aprovar antes.

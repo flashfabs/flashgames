@@ -3,10 +3,10 @@
 // delay), reports the position, and renders everyone else slightly in the past, blended between snapshots.
 
 import {
-  Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA,
-  indice, gradeVazia, moverComColisao, sobrepoe,
+  Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
+  indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
 } from './regras.js';
-import { criarPintor, efeitoAtivo, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
+import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
@@ -22,17 +22,24 @@ const ATRASO_MAX_MS = 250;
 const HISTORICO_MS = 800;
 const DIVERGENCIA_TILES = 0.75;
 const DIVERGENCIA_MS = 350;
+const PREVISAO_MAX_MS = 120; // how far ahead of the newest snapshot kicked bombs and flying items are drawn
+const INTERVALO_CHUTE_MS = 200;
+const ATALHO_ESPERA_MS = 400; // after a shortcut, the host's count of charges takes a moment to come back
 const QUADRO_MIN_MS = 15; // caps drawing near 60 fps on 120 Hz screens
 const CONTAGEM_S = 3;
 const RESULTADO_S = 7;
 const FINAL_S = 15;
-const MAX_EFEITOS = 60;
+const MAX_EFEITOS = 90;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
 const TOTAL_PARTIDAS = MAPAS.length;
 const MUROS = MAPAS.map(mapa => new Set(mapa.muros.map(([x, y]) => indice(x, y))));
 const GRADE_LOBBY = gradeVazia().join('');
-const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32 };
+const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
+const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
+const PARA_GELO = new Set([PAREDE, CAIXA]);
 const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
+const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo' };
+const CONFETES = 26;
 
 function h(tag, atributos = {}, ...filhos) {
   const elemento = document.createElement(tag);
@@ -53,6 +60,13 @@ function embaralhar(lista) {
   return lista;
 }
 
+// Restarts a CSS animation on an element that is already on screen.
+function reiniciarAnimacao(elemento, classe) {
+  elemento.classList.remove(classe);
+  void elemento.offsetWidth;
+  elemento.classList.add(classe);
+}
+
 function formatarTempo(segundos) {
   const total = Math.max(0, Math.ceil(segundos));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
@@ -65,12 +79,12 @@ export function pontosDe(placar = ZERO) {
 function compactarJogador(j) {
   let marcas = 0;
   for (const [chave, bit] of Object.entries(BITS)) if (j[chave]) marcas |= bit;
-  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el];
+  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el, j.gl, j.at];
 }
 
 function expandirJogador(dados) {
-  const [x, y, marcas, o, b, f, t, cx, el] = Array.isArray(dados) ? dados : [];
-  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0 };
+  const [x, y, marcas, o, b, f, t, cx, el, gl, at] = Array.isArray(dados) ? dados : [];
+  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0, gl: Number(gl) || 0, at: Number(at) || 0 };
   for (const [chave, bit] of Object.entries(BITS)) jogador[chave] = marcas & bit ? 1 : 0;
   return jogador;
 }
@@ -88,30 +102,52 @@ function montarPalco(palco) {
     base: h('div', { class: 'pavio-base' }),
     manete: h('div', { class: 'pavio-manete' }),
     dicaBomba: h('div', { class: 'pavio-dica-bomba' }, '💣'),
+    dicaGelo: h('div', { class: 'pavio-dica-gelo', hidden: true }, '❄️'),
   };
   el.arena = h('div', { class: 'pavio-arena' }, el.canvas, el.faixa, el.aviso);
-  el.toque = h('div', { class: 'pavio-toque', hidden: true, 'aria-hidden': 'true' }, el.base, el.manete, el.dicaBomba);
+  el.toque = h('div', { class: 'pavio-toque', hidden: true, 'aria-hidden': 'true' }, el.base, el.manete, el.dicaBomba, el.dicaGelo);
   el.hud.append(el.hudItens, el.hudPontos, el.hudTempo);
-  palco.replaceChildren(h('div', { class: 'pavio' }, el.hud, el.arena, el.toque));
+  // Full screens (lobby, results) cover the whole stage; the countdown and notices sit on the arena.
+  el.raiz = h('div', { class: 'pavio' }, el.hud, el.arena, el.toque);
+  palco.replaceChildren(el.raiz);
   return el;
 }
 
 function legendaControles(toque) {
   if (toque) {
     return h('div', { class: 'pavio-legenda' },
-      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba.'),
+      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba. Com gelo, aparece o botão ❄️.'),
       h('p', {}, 'Teclado e controle de videogame também funcionam.'),
     );
   }
   return h('div', { class: 'pavio-legenda' },
-    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · controle de videogame também funciona'),
+    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · ', h('kbd', {}, 'E'), ' joga gelo · controle de videogame também funciona'),
     h('p', {}, 'Segurando duas direções, você segue numa e vira na outra assim que der.'),
   );
 }
 
-function linhaPoder(item) {
-  if (!item) return null;
-  return h('p', { class: 'pavio-poder' }, 'Poder novo: ', h('strong', {}, `${VISUAL_ITEM[item].emoji} ${VISUAL_ITEM[item].nome}`), ` · ${DESCRICAO_ITEM[item]}`);
+function nomeItem(item) {
+  return `${VISUAL_ITEM[item].emoji} ${VISUAL_ITEM[item].nome}`;
+}
+
+function linhasPoder(itens = []) {
+  return itens.map(item => {
+    const visual = VISUAL_ITEM[item];
+    const icone = h('span', { class: 'pavio-poder-icone', 'aria-hidden': 'true' }, visual.emoji);
+    icone.style.setProperty('--fundo', visual.fundo);
+    return h('p', { class: 'pavio-poder' }, icone, h('span', {}, 'Poder novo: ', h('strong', {}, visual.nome), ` · ${DESCRICAO_ITEM[item]}`));
+  });
+}
+
+function confetes() {
+  return h('div', { class: 'pavio-confete', 'aria-hidden': 'true' }, Array.from({ length: CONFETES }, (_, n) => {
+    const peca = h('span');
+    peca.style.setProperty('--x', `${(n * 37) % 100}%`);
+    peca.style.setProperty('--atraso', `${((n * 0.13) % 1.2).toFixed(2)}s`);
+    peca.style.setProperty('--giro', `${(n % 2 ? 1 : -1) * (240 + ((n * 53) % 360))}deg`);
+    peca.style.setProperty('--cor', CORES[n % CORES.length].base);
+    return peca;
+  }));
 }
 
 export function criarPavio({ sala, palco, som, aoMudarInfo }) {
@@ -132,6 +168,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     motivo: null,
     fimFaseEm: 0,
   };
+  // Scores when the current match started, for the "+N this match" column on the results.
+  let placarInicio = { idPartida: -1, placar: {} };
 
   // Host only.
   let partida = null;
@@ -155,7 +193,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let menorAtraso = 0;
   let atrasoInterpolacao = 100;
   const eventosVistos = new Set();
-  const local = { ativo: false, x: 0, y: 0, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: false, fantasma: false };
+  const local = {
+    ativo: false, x: 0, y: 0, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: false, fantasma: false, chute: false, atalhos: 0, empurrao: 0,
+  };
+  let atalhoLiberadoEm = 0;
+  let bombasVisiveis = []; // newest snapshot's bombs, kicked ones moved ahead to now
+  let ultimoChute = { chave: '', em: 0 };
   let historico = [];
   let divergenteDesde = 0;
   let ultimoEnvioPosicao = 0;
@@ -169,6 +212,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let refContagem = null;
   let ultimaContagem = null;
   let ultimoHud = '';
+  let ultimoTotal = 0;
   let timerFaixa = 0;
   let quadroId = 0;
   let ultimoQuadro = performance.now();
@@ -180,6 +224,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     base: el.base,
     manete: el.manete,
     dicaBomba: el.dicaBomba,
+    dicaGelo: el.dicaGelo,
     aoEntrada: nova => {
       entrada = nova;
       som.destravar();
@@ -188,6 +233,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     aoBomba: () => {
       som.destravar();
       soltarBomba();
+    },
+    aoGelo: () => {
+      som.destravar();
+      jogarGelo();
     },
   });
 
@@ -214,6 +263,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       partida?.removerJogador(membro.id);
       finalizarRodada(`${membro.nome} saiu da sala, então a rodada acabou.`);
     }),
+    // A member whose link dropped stands still (and can still be hit) until it comes back or the room drops it.
+    sala.on('fora', membro => {
+      if (!sala.souAnfitriao) return;
+      const jogador = partida?.jogadores.find(item => item.id === membro.id);
+      if (jogador) jogador.andando = false;
+    }),
+    sala.on('reconectou', () => sala.enviarAoAnfitriao({ t: 'pedirEstado' })),
   ];
 
   function ajustarArena() {
@@ -235,9 +291,30 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       partida?.pedirBomba(sala.meuId);
       return;
     }
-    if (!local.ativo || !local.vivo) return;
+    if (!local.ativo || !local.vivo || !sala.conectada) return;
     // The bomb travels on the reliable channel together with the position it was dropped at.
     sala.enviarAoAnfitriao({ t: 'bomba', ...posicaoLocal() });
+  }
+
+  function meuGelo() {
+    if (sala.souAnfitriao) return partida?.jogadores.find(j => j.id === sala.meuId)?.gelo ?? 0;
+    return ultimoRetrato?.j[meuIndice()]?.gl ?? 0;
+  }
+
+  // The ice button drops a bomb when there is no ice left, so the gamepad's B and Y keep their old use.
+  function jogarGelo() {
+    if (estado.fase !== 'jogo') return;
+    if (meuGelo() <= 0) {
+      soltarBomba();
+      return;
+    }
+    if (sala.souAnfitriao) {
+      partida?.jogarGelo(sala.meuId);
+      return;
+    }
+    if (!local.ativo || !local.vivo) return;
+    // The shot leaves from (and toward) where this player is on its own screen.
+    sala.enviarAoAnfitriao({ t: 'gelo', ...posicaoLocal() });
   }
 
   function posicaoLocal() {
@@ -346,6 +423,24 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           partida.pedirBomba(de);
         }
         break;
+      case 'chute':
+        if (partida && estado.fase === 'jogo') {
+          partida.aplicarPosicao(de, mensagem);
+          partida.chutar(de, Number(mensagem.d));
+        }
+        break;
+      case 'gelo':
+        if (partida && estado.fase === 'jogo') {
+          partida.aplicarPosicao(de, mensagem);
+          partida.jogarGelo(de);
+        }
+        break;
+      case 'atalho':
+        if (partida && estado.fase === 'jogo') {
+          partida.aplicarPosicao(de, mensagem);
+          partida.atravessar(de, Number(mensagem.d));
+        }
+        break;
       case 'pedirEstado':
         if (de !== sala.meuId) publicarEstado(de);
         break;
@@ -367,7 +462,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // The round starts by itself once everyone in the room is ready.
   function verificarLargada() {
     if (estado.fase !== 'lobby' || !sala.membros.size) return;
-    if (sala.membrosOrdenados().every(membro => estado.prontos.includes(membro.id))) comecarRodada();
+    if (sala.membrosOrdenados().every(membro => estado.prontos.includes(membro.id) && !membro.fora)) comecarRodada();
   }
 
   function comecarRodada() {
@@ -502,6 +597,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       j: vista.j.map(compactarJogador),
       b: vista.b,
       c: vista.c,
+      iv: vista.iv,
+      gl: vista.gl,
       tm: vista.tm,
       ms: vista.ms,
       ev: eventosPendentes.map(({ id, ev }) => [id, ev]),
@@ -568,12 +665,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     ultimoRetrato = null;
     gradeAtual = { gv: -1, g: GRADE_LOBBY };
     historico = [];
+    bombasVisiveis = [];
     divergenteDesde = 0;
     const eu = estado.escalacao.find(item => item.id === sala.meuId);
     local.ativo = Boolean(eu) && estado.fase !== 'lobby';
     if (!eu) return;
     const [x, y] = SPAWNS[eu.slot] ?? SPAWNS[0];
-    Object.assign(local, { x, y, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: true, fantasma: false });
+    Object.assign(local, { x, y, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: true, fantasma: false, chute: false, atalhos: 0, empurrao: 0 });
   }
 
   function receberRetrato(mensagem) {
@@ -595,9 +693,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const retrato = {
       n: numero,
       h: Number(mensagem.h),
+      chegada,
       j: mensagem.j.map(expandirJogador),
       b: mensagem.b,
       c: mensagem.c,
+      iv: Array.isArray(mensagem.iv) ? mensagem.iv : [],
+      gl: Array.isArray(mensagem.gl) ? mensagem.gl : [],
       tm: Number(mensagem.tm) || 0,
       ms: Number(mensagem.ms) || 120,
     };
@@ -621,6 +722,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     if (n < 0 || !local.ativo || !servidor) return;
     local.tenis = servidor.t ?? 0;
     local.fantasma = Boolean(servidor.g);
+    local.chute = Boolean(servidor.k);
+    local.atalhos = servidor.at ?? 0;
     local.vivo = Boolean(servidor.v);
     if (estado.fase !== 'jogo') {
       local.x = servidor.x;
@@ -650,21 +753,61 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     if (celula === PAREDE) return true;
     if (local.fantasma) return false;
     if (celula === CAIXA) return true;
-    return (ultimoRetrato?.b ?? []).some(([bx, by]) => bx === x && by === y && !sobrepoe(local, bx, by));
+    // A sliding bomb sits between two cells and blocks both.
+    return bombasVisiveis.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(local, bx, by));
+  }
+
+  // Kicked bombs slide between snapshots: draw them (and collide with them) where they should be by now.
+  function preverBombas(agora) {
+    if (!ultimoRetrato) return [];
+    const segundos = Math.min(agora - ultimoRetrato.chegada, PREVISAO_MAX_MS) / 1000;
+    return ultimoRetrato.b.map(bomba => preverBomba(bomba, segundos, paraNaGrade(PARA_BOMBA)));
+  }
+
+  function paraNaGrade(solidos) {
+    return (x, y) => x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS || solidos.has(gradeAtual.g[indice(x, y)]);
+  }
+
+  // Pushing against a still bomb asks the host for a kick; the bomb starts sliding in the next snapshots.
+  function pedirChute(agora) {
+    const parada = (x, y) => bombasVisiveis.some(([bx, by, , deslize]) => !deslize && bx === x && by === y);
+    const alvo = celulaAFrente(local, entrada.d, parada);
+    if (!alvo) return;
+    const chave = `${alvo}|${entrada.d}`;
+    if (chave === ultimoChute.chave && agora - ultimoChute.em < INTERVALO_CHUTE_MS) return;
+    ultimoChute = { chave, em: agora };
+    sala.enviarAoAnfitriao({ t: 'chute', d: entrada.d, ...posicaoLocal() });
+  }
+
+  // Pushing against crates with shortcut charges: jump past them right away and tell the host, which checks it.
+  function empurrarCaixaLocal(dt, agora) {
+    const caixa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && gradeAtual.g[indice(x, y)] === CAIXA;
+    const livre = (x, y) => !bloqueiaLocal(x, y);
+    const pode = entrada.d && !local.fantasma && agora >= atalhoLiberadoEm;
+    const destino = pode ? destinoAtalho(local, entrada.d, local.atalhos, caixa, livre) : null;
+    local.empurrao = destino ? local.empurrao + dt : 0;
+    if (!destino || local.empurrao < AJUSTES.empurrarAtalhoS) return;
+    sala.enviarAoAnfitriao({ t: 'atalho', d: entrada.d, ...posicaoLocal() });
+    local.x = destino.x;
+    local.y = destino.y;
+    local.empurrao = 0;
+    atalhoLiberadoEm = agora + ATALHO_ESPERA_MS;
   }
 
   function passoLocal(dt, agora) {
-    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo) {
+    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo || !sala.conectada) {
       local.andando = false;
       return;
     }
     moverComColisao(local, entrada, dt, bloqueiaLocal);
+    if (local.chute && entrada.d) pedirChute(agora);
+    if (local.atalhos > 0) empurrarCaixaLocal(dt, agora);
     historico.push({ t: agora, x: local.x, y: local.y });
     while (historico.length && agora - historico[0].t > HISTORICO_MS) historico.shift();
   }
 
   function enviarPosicao(agora) {
-    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo) return;
+    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo || !sala.conectada) return;
     const chave = `${local.x.toFixed(2)},${local.y.toFixed(2)},${local.olhar},${local.andando}`;
     const mudou = chave !== ultimaPosicaoEnviada;
     if (!(mudou && agora - ultimoEnvioPosicao >= INTERVALO_POSICAO_MS) && agora - ultimoEnvioPosicao < POSICAO_PARADA_MS) return;
@@ -694,8 +837,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       jogadores = jogadores.slice();
       jogadores[eu] = { ...ultimoRetrato.j[eu], x: local.x, y: local.y, o: local.olhar, a: local.andando ? 1 : 0 };
     }
+    // Items flying to a magnet head to where their player is drawn now.
+    const segundos = Math.min(performance.now() - ultimoRetrato.chegada, PREVISAO_MAX_MS) / 1000;
+    const iv = ultimoRetrato.iv.map(voo => preverItemVoando(voo, jogadores[voo[3]], segundos));
+    const gl = ultimoRetrato.gl.map(tiro => preverGelo(tiro, segundos, paraNaGrade(PARA_GELO)));
     // Grid, bombs and flames come from the newest snapshot: they matter more than smoothness.
-    return { g: gradeAtual.g, j: jogadores, b: ultimoRetrato.b, c: ultimoRetrato.c, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
+    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, iv, gl, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
   }
 
   // ---- Shared ----
@@ -703,16 +850,22 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function aoEntrarNaFase(fase) {
     chaveAviso = '';
     controles.definirModo({ jogando: (fase === 'contagem' || fase === 'jogo') && meuIndice() >= 0, toqueVisivel: toqueDisponivel });
+    som.musica(MUSICA_DA_FASE[fase] ?? null);
     if (fase === 'contagem') {
       efeitos.length = 0;
       ultimaContagem = null;
+      placarInicio = {
+        idPartida: estado.idPartida,
+        placar: Object.fromEntries(Object.entries(estado.placar).map(([id, placar]) => [id, { ...ZERO, ...placar }])),
+      };
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     } else if (fase === 'jogo') {
       som.tocar('vai');
+      efeitos.push({ tipo: 'largada', x: 0, y: 0, inicio: performance.now() / 1000 });
     } else if (fase === 'resultado') {
       som.tocar(estado.resultado?.vencedor === sala.meuId ? 'vitoria' : 'fim');
     } else if (fase === 'final') {
-      som.tocar(campeoes()[0]?.id === sala.meuId ? 'vitoria' : 'fim');
+      som.tocar(campeoes().some(linha => linha.id === sala.meuId) ? 'campeao' : 'fim');
     } else {
       efeitos.length = 0;
       local.ativo = false;
@@ -723,45 +876,62 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const agora = performance.now() / 1000;
     const eu = meuIndice();
     let explosoes = 0;
+    let caixas = 0;
     let blocos = 0;
     for (const evento of eventos) {
       switch (evento?.e) {
         case 'bum':
           explosoes++;
+          efeitos.push({ tipo: 'explosao', x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'bomba':
+        case 'chute':
           som.tocar('bomba');
           break;
         case 'caixa':
+          caixas++;
+          efeitos.push({ tipo: 'caixa', x: evento.x, y: evento.y, inicio: agora });
           if (evento.j === eu) efeitos.push({ tipo: 'ponto', texto: `+${PONTOS.caixa}`, x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'item':
-          som.tocar('item');
+          som.tocar('item', { item: evento.item });
           efeitos.push({ tipo: 'item', x: evento.x, y: evento.y, item: evento.item, inicio: agora });
           break;
         case 'escudo':
+        case 'congela':
           som.tocar('escudo');
           efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
           break;
+        case 'gelo':
+          som.tocar('bomba');
+          break;
+        case 'atalho':
+          som.tocar('pronto');
+          efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
+          efeitos.push({ tipo: 'escudo', x: evento.x2, y: evento.y2, inicio: agora });
+          break;
         case 'morte':
-          som.tocar('morte');
+          som.tocar('morte', { eu: evento.j === eu });
           efeitos.push({ tipo: 'morte', x: evento.x, y: evento.y, cor: estado.escalacao[evento.j]?.cor ?? 0, inicio: agora });
           break;
         case 'subita':
           som.tocar('alarme');
+          som.musica('subita');
           mostrarFaixa('Morte súbita! A arena está fechando.');
           break;
         case 'bloco':
           blocos++;
+          efeitos.push({ tipo: 'bloco', x: evento.x, y: evento.y, inicio: agora });
           break;
         default:
           break;
       }
     }
     if (explosoes) {
-      som.tocar('bum');
+      som.tocar('bum', { n: explosoes });
       tremor = Math.min(tremor + 3 + explosoes, 7);
     }
+    if (caixas) som.tocar('caixa', { n: caixas });
     if (blocos) som.tocar('bloco');
     if (efeitos.length > MAX_EFEITOS) efeitos.splice(0, efeitos.length - MAX_EFEITOS);
   }
@@ -795,24 +965,33 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     aoMudarInfo?.({ fase: estado.fase, cores: estado.cores, prontos: estado.prontos, pontos, escalacao: estado.escalacao });
   }
 
-  function tabelaPlacar() {
+  function retratoDe(cor, pose, classe = '') {
+    return pintor.retrato(h('canvas', { class: `pavio-retrato ${classe}`.trim(), 'aria-hidden': 'true' }), { cor, pose });
+  }
+
+  function tabelaPlacar({ comGanho = false } = {}) {
     const linhas = linhasDoPlacar();
+    const inicio = comGanho && placarInicio.idPartida === estado.idPartida ? placarInicio.placar : null;
+    const coluna = (icone, rotulo, titulo) => h('th', { scope: 'col', title: titulo },
+      h('span', { 'aria-hidden': 'true' }, icone), h('span', { class: 'pavio-placar-rotulo' }, rotulo));
     return h('table', { class: 'pavio-placar' },
       h('thead', {}, h('tr', {},
-        h('th', {}, '#'), h('th', { class: 'pavio-placar-nome' }, 'Jogador'),
-        h('th', { title: 'Partidas vencidas' }, '🏆'), h('th', { title: 'Caixas destruídas' }, '📦'),
-        h('th', { title: 'Eliminações' }, '💀'), h('th', { title: 'Pontos' }, '⭐'),
+        h('th', { scope: 'col' }, '#'), h('th', { scope: 'col', class: 'pavio-placar-nome' }, 'Jogador'),
+        coluna('🏆', 'Vitórias', `Partidas vencidas, ${PONTOS.vitoria} pontos cada`),
+        coluna('📦', 'Caixas', `Caixas destruídas, ${PONTOS.caixa} ponto cada`),
+        coluna('💀', 'Eliminações', `Eliminações, ${PONTOS.eliminacao} pontos cada`),
+        coluna('⭐', 'Pontos', 'Pontos na rodada'),
       )),
       h('tbody', {}, linhas.map((linha, posicao) => {
-        const cor = h('span', { class: 'pavio-placar-cor' });
-        cor.style.setProperty('--cor', (CORES[linha.cor] ?? CORES[0]).base);
+        const ganho = inicio?.[linha.id] ? linha.pontos - pontosDe(inicio[linha.id]) : 0;
         return h('tr', { class: linha.id === sala.meuId ? 'pavio-placar-eu' : '' },
-          h('td', {}, String(posicao + 1)),
-          h('td', { class: 'pavio-placar-nome' }, cor, linha.nome),
+          h('td', { class: 'pavio-placar-posicao' }, String(posicao + 1)),
+          h('td', { class: 'pavio-placar-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
           h('td', {}, String(linha.vitorias)),
           h('td', {}, String(linha.caixas)),
           h('td', {}, String(linha.eliminacoes)),
-          h('td', { class: 'pavio-placar-pontos' }, String(linha.pontos)),
+          h('td', { class: 'pavio-placar-pontos' }, String(linha.pontos),
+            ganho > 0 && h('span', { class: 'pavio-placar-ganho', title: 'Pontos nesta partida' }, `+${ganho}`)),
         );
       })),
     );
@@ -820,28 +999,34 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
 
   function legendaPontos() {
     return h('p', { class: 'pavio-regra-pontos' },
-      `Caixa destruída = ${PONTOS.caixa} ponto · eliminação = ${PONTOS.eliminacao} · partida vencida = ${PONTOS.vitoria}`);
+      `📦 caixa destruída = ${PONTOS.caixa} ponto · 💀 eliminação = ${PONTOS.eliminacao} · 🏆 partida vencida = ${PONTOS.vitoria}`);
   }
 
-  function corDaLista(id) {
-    const cor = h('span', { class: 'pavio-placar-cor' });
-    cor.style.setProperty('--cor', (CORES[estado.cores[id]] ?? CORES[0]).base);
-    return cor;
+  // Remaining time of the current screen as a shrinking bar (hidden when motion is reduced).
+  function barraTempo() {
+    const restante = Math.max(0, (estado.fimFaseEm - performance.now()) / 1000);
+    const barra = h('div', { class: 'pavio-tempo', 'aria-hidden': 'true' }, h('span'));
+    barra.style.setProperty('--duracao', `${restante.toFixed(2)}s`);
+    return barra;
   }
 
-  function linhaRobo(robo) {
+  // Robots are always ready; the host sees buttons to change their level and to take them out.
+  function linhaRobo(robo, n) {
     const nivel = NIVEIS_ROBO[robo.nivel]?.nome ?? robo.nivel;
-    return h('li', { class: 'pronto' },
-      corDaLista(robo.id), h('span', { class: 'pavio-prontos-nome' }, robo.nome),
-      sala.souAnfitriao
-        ? h('button', {
-          class: 'pavio-robo-nivel',
-          type: 'button',
-          title: 'Trocar a dificuldade',
-          'aria-label': `${robo.nome}: ${nivel}. Trocar a dificuldade`,
-          onclick: () => trocarNivelRobo(robo.id),
-        }, nivel)
-        : h('span', { class: 'pavio-prontos-estado' }, nivel),
+    const cor = estado.cores[robo.id] ?? n;
+    return h('li', { class: 'pronto pavio-prontos-robo' },
+      h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, 'pronto'), marcaJogador(cor)),
+      h('span', { class: 'pavio-prontos-texto' },
+        h('span', { class: 'pavio-prontos-nome' }, robo.nome),
+        sala.souAnfitriao
+          ? h('button', {
+            class: 'pavio-robo-nivel',
+            type: 'button',
+            title: 'Trocar a dificuldade',
+            'aria-label': `${robo.nome}: ${nivel}. Trocar a dificuldade`,
+            onclick: () => trocarNivelRobo(robo.id),
+          }, nivel)
+          : h('span', { class: 'pavio-prontos-estado' }, `robô ${nivel.toLowerCase()}`)),
       sala.souAnfitriao && h('button', {
         class: 'pavio-robo-tirar',
         type: 'button',
@@ -878,10 +1063,17 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const prontos = new Set(estado.prontos);
     const estouPronto = prontos.has(sala.meuId);
     const faltam = membros.filter(membro => !prontos.has(membro.id)).length;
-    const pessoas = membros.map(membro => h('li', { class: prontos.has(membro.id) ? 'pronto' : '' },
-      corDaLista(membro.id), h('span', { class: 'pavio-prontos-nome' }, membro.nome),
-      h('span', { class: 'pavio-prontos-estado' }, prontos.has(membro.id) ? '✅ pronto' : '⏳ esperando')));
-    const lista = h('ul', { class: 'pavio-prontos' }, pessoas, estado.robos.map(linhaRobo));
+    const lista = h('ul', { class: 'pavio-prontos' }, membros.map((membro, n) => {
+      const pronto = prontos.has(membro.id);
+      const eu = membro.id === sala.meuId;
+      const cor = estado.cores[membro.id] ?? n;
+      return h('li', { class: [pronto && 'pronto', eu && 'eu'].filter(Boolean).join(' ') },
+        h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, pronto ? 'pronto' : 'jogo'), marcaJogador(cor)),
+        h('span', { class: 'pavio-prontos-texto' },
+          h('span', { class: 'pavio-prontos-nome' }, membro.nome, eu && h('span', { class: 'pavio-prontos-voce' }, ' (você)')),
+          h('span', { class: 'pavio-prontos-estado' }, pronto ? '✅ pronto' : '⏳ esperando')),
+      );
+    }), estado.robos.map((robo, n) => linhaRobo(robo, membros.length + n)));
     let situacao = 'Todo mundo pronto!';
     if (faltam) situacao = faltam === 1 && !estouPronto ? 'Só falta você.' : `Esperando ${faltam} ${faltam === 1 ? 'pessoa ficar pronta' : 'pessoas ficarem prontas'}.`;
     const robos = estado.robos.length;
@@ -889,14 +1081,17 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     if (membros.length === 1 && robos) dica = `Você contra ${robos} ${robos === 1 ? 'robô' : 'robôs'}. Fique pronto para começar.`;
     else if (membros.length === 1) dica = 'Mande o link lá de cima pra galera ou chame robôs. Sozinho vira treino.';
     return [
-      h('h2', {}, 'Pavio'),
-      h('p', {}, `Rodada de ${TOTAL_PARTIDAS} partidas: cada uma num mapa mais fechado e com um poder novo.`),
+      h('h2', { class: 'pavio-titulo' }, 'Pavio'),
+      h('p', { class: 'pavio-subtitulo' }, `Rodada de ${TOTAL_PARTIDAS} partidas: cada uma num mapa mais fechado e com poderes novos.`),
       lista,
       controlesRobos(),
       h('button', {
         class: estouPronto ? 'botao botao--secundario' : 'botao botao--grande',
         type: 'button',
-        onclick: () => sala.enviarAoAnfitriao({ t: 'pronto', v: !estouPronto }),
+        onclick: () => {
+          som.tocar(estouPronto ? 'cancelar' : 'pronto');
+          sala.enviarAoAnfitriao({ t: 'pronto', v: !estouPronto });
+        },
       }, estouPronto ? 'Cancelar pronto' : 'Estou pronto'),
       h('p', { class: 'pavio-dica' }, dica),
       legendaControles(toqueDisponivel),
@@ -905,11 +1100,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
 
   function cartaoContagem(jogando) {
     const mapa = MAPAS[estado.mapa];
-    refContagem = h('div', { class: 'pavio-numero' }, String(CONTAGEM_S));
+    refContagem = h('div', { class: 'pavio-numero pavio-numero--pop', 'data-n': String(CONTAGEM_S) }, String(CONTAGEM_S));
     return [
-      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS} · ${mapa.nome}`),
+      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS}`),
+      h('h2', { class: 'pavio-mapa' }, mapa.nome),
       h('p', {}, mapa.descricao),
-      linhaPoder(mapa.novo),
+      ...linhasPoder(mapa.novos),
       refContagem,
       !jogando && h('p', { class: 'pavio-pilula' }, 'Você entra na próxima rodada.'),
     ];
@@ -917,33 +1113,55 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
 
   function cartaoResultado() {
     const vencedor = estado.resultado?.vencedor ?? null;
+    const campeao = estado.escalacao.find(item => item.id === vencedor);
     let titulo = estado.escalacao.length > 1 ? 'Empate! Ninguém sobrou.' : 'Fim da partida';
     if (vencedor === sala.meuId) titulo = 'Você venceu a partida! 🏆';
-    else if (vencedor) titulo = `${estado.escalacao.find(item => item.id === vencedor)?.nome ?? 'Alguém'} venceu a partida! 🏆`;
+    else if (vencedor) titulo = `${campeao?.nome ?? 'Alguém'} venceu a partida! 🏆`;
     const proximo = MAPAS[Math.min(estado.numero, TOTAL_PARTIDAS - 1)];
+    const poderes = proximo.novos.length
+      ? ` · ${proximo.novos.length > 1 ? 'poderes novos' : 'poder novo'} ${proximo.novos.map(nomeItem).join(' e ')}`
+      : '';
     refContagem = h('strong', {}, String(RESULTADO_S));
     return [
-      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS}`),
+      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS} · ${MAPAS[estado.mapa].nome}`),
+      campeao && retratoDe(campeao.cor, 'festa', 'pavio-retrato--vencedor'),
       h('h2', {}, titulo),
-      tabelaPlacar(),
+      tabelaPlacar({ comGanho: true }),
       legendaPontos(),
-      h('p', {}, `Próxima: ${proximo.nome}`, proximo.novo ? ` · poder novo ${VISUAL_ITEM[proximo.novo].emoji} ${VISUAL_ITEM[proximo.novo].nome}` : '', ' · começa em ', refContagem, ' s'),
+      h('p', { class: 'pavio-proximo' }, `Próxima: ${proximo.nome}`, poderes, ' · começa em ', refContagem, ' s'),
+      barraTempo(),
     ];
+  }
+
+  // Top three on steps: the DOM keeps the ranking order (1st, 2nd, 3rd) and CSS puts 1st in the middle.
+  function podio() {
+    const linhas = linhasDoPlacar().slice(0, 3);
+    if (!linhas.length) return null;
+    const topo = new Set(campeoes().map(linha => linha.id));
+    return h('ol', { class: 'pavio-podio', 'aria-label': 'Pódio' }, linhas.map((linha, n) => h('li', { class: `pavio-podio-lugar pavio-podio-lugar--${n + 1}` },
+      retratoDe(linha.cor, topo.has(linha.id) ? 'festa' : 'jogo', 'pavio-retrato--podio'),
+      h('span', { class: 'pavio-podio-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
+      h('span', { class: 'pavio-podio-pontos' }, `${linha.pontos} ${linha.pontos === 1 ? 'ponto' : 'pontos'}`),
+      h('span', { class: 'pavio-podio-degrau' }, `${n + 1}º`),
+    )));
   }
 
   function cartaoFinal() {
     const topo = campeoes();
+    const varios = estado.escalacao.length > 1;
     let titulo = 'Fim do treino';
-    if (estado.escalacao.length > 1 && topo.length === 1) {
+    if (varios && topo.length === 1) {
       titulo = topo[0].id === sala.meuId ? 'Você é o campeão da rodada! 🏆' : `${topo[0].nome} é o campeão da rodada! 🏆`;
-    } else if (estado.escalacao.length > 1) {
+    } else if (varios) {
       titulo = `Empate entre ${topo.map(linha => linha.nome).join(' e ')}`;
     }
     refContagem = h('strong', {}, String(FINAL_S));
     return [
+      varios && !estado.motivo && confetes(),
       h('p', { class: 'pavio-sobretitulo' }, estado.motivo ? 'Rodada interrompida' : 'Fim da rodada'),
       estado.motivo && h('p', { class: 'pavio-motivo' }, estado.motivo),
       h('h2', {}, titulo),
+      varios && podio(),
       tabelaPlacar(),
       legendaPontos(),
       h('p', {}, 'Voltando ao lobby em ', refContagem, ' s'),
@@ -970,9 +1188,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       conteudo = cartaoFinal();
     }
     conteudo = conteudo.filter(Boolean);
+    const destino = estilo === 'cartao' ? el.raiz : el.arena;
+    if (el.aviso.parentElement !== destino) destino.append(el.aviso);
     el.aviso.className = `pavio-aviso pavio-aviso--${estilo}`;
     el.aviso.hidden = conteudo.length === 0;
-    el.aviso.replaceChildren(...conteudo);
+    el.aviso.replaceChildren(...(estilo === 'cartao' ? [h('div', { class: 'pavio-cartao' }, conteudo)] : conteudo));
+    el.aviso.scrollTop = 0;
   }
 
   function atualizarAviso(vista, agoraMs) {
@@ -988,10 +1209,16 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const restante = Math.max(0, (estado.fimFaseEm - agoraMs) / 1000);
     const numero = Math.max(estado.fase === 'contagem' ? 1 : 0, Math.ceil(restante));
     const texto = String(numero);
-    if (refContagem.textContent !== texto) refContagem.textContent = texto;
+    if (refContagem.textContent !== texto) {
+      refContagem.textContent = texto;
+      if (estado.fase === 'contagem') {
+        refContagem.dataset.n = texto;
+        reiniciarAnimacao(refContagem, 'pavio-numero--pop');
+      }
+    }
     if (estado.fase === 'contagem' && numero !== ultimaContagem) {
       ultimaContagem = numero;
-      som.tocar('bip');
+      som.tocar('bip', { n: numero });
     }
   }
 
@@ -1004,22 +1231,27 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const paraSubita = (vista.ms ?? 120) - (Number(vista.tm) || 0);
     const tempo = paraSubita > 0 ? `⏱ ${formatarTempo(paraSubita)}` : '☠ Morte súbita';
     let pontos = '';
+    let total = 0;
     if (n >= 0) {
       const placar = { ...ZERO, ...estado.placar[sala.meuId] };
       const aoVivo = estado.fase === 'contagem' || estado.fase === 'jogo';
-      const total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
+      total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
       pontos = `⭐ ${total}`;
     }
     const itens = eu
-      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
+      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.gl && `❄️ ${eu.gl}`, eu.at && `🌀 ${eu.at}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
       : '';
-    const chave = `${itens}|${pontos}|${tempo}`;
+    const temGelo = Boolean(eu?.v && eu.gl > 0);
+    const chave = `${itens}|${pontos}|${tempo}|${temGelo}`;
     if (chave === ultimoHud) return;
     ultimoHud = chave;
+    el.dicaGelo.hidden = !temGelo;
     el.hudItens.textContent = itens;
     el.hudPontos.textContent = pontos;
     el.hudTempo.textContent = tempo;
     el.hudTempo.classList.toggle('pavio-hud-tempo--subita', paraSubita <= 0);
+    if (total > ultimoTotal && estado.fase === 'jogo') reiniciarAnimacao(el.hudPontos, 'pavio-hud-pontos--sobe');
+    ultimoTotal = total;
   }
 
   function jogadoresDoLobby() {
@@ -1032,7 +1264,15 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       cor: estado.cores[jogador.id] ?? n,
       nome: jogador.nome,
       eu: jogador.id === sala.meuId,
+      pronto: jogador.nivel !== undefined || estado.prontos.includes(jogador.id),
     }));
+  }
+
+  // Who celebrates on the arena behind the results: the match winner, then the round champions.
+  function festejando() {
+    if (estado.fase === 'resultado') return new Set([estado.resultado?.vencedor]);
+    if (estado.fase === 'final' && estado.escalacao.length > 1) return new Set(campeoes().map(linha => linha.id));
+    return null;
   }
 
   function quadro() {
@@ -1042,6 +1282,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const dt = Math.min(0.05, Math.max(0, (agoraMs - ultimoQuadro) / 1000));
     ultimoQuadro = agoraMs;
     controles.atualizar();
+    if (!sala.souAnfitriao) bombasVisiveis = preverBombas(agoraMs);
     passoLocal(dt, agoraMs);
     enviarPosicao(agoraMs);
     if (agoraMs - ultimoDesenho < QUADRO_MIN_MS) return;
@@ -1050,10 +1291,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
 
     let vista = null;
     if (estado.fase !== 'lobby') vista = sala.souAnfitriao ? (partida ? vistaDoAnfitriao(dtDesenho) : null) : vistaDoMembro();
+    const festa = festejando();
     const jogadores = vista
       ? vista.j.map((jogador, n) => {
         const info = estado.escalacao[n];
-        return { ...jogador, cor: info?.cor ?? n, nome: info?.nome ?? '…', eu: info?.id === sala.meuId };
+        return { ...jogador, cor: info?.cor ?? n, nome: info?.nome ?? '…', eu: info?.id === sala.meuId, festa: Boolean(festa?.has(info?.id)) };
       })
       : jogadoresDoLobby();
     const agora = agoraMs / 1000;
@@ -1067,9 +1309,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       j: jogadores,
       b: vista?.b ?? [],
       c: vista?.c ?? [],
+      iv: vista?.iv ?? [],
+      gl: vista?.gl ?? [],
       agora,
       efeitos,
-      tremor: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : tremor,
+      tremor,
+      contagem: estado.fase === 'contagem',
+      subita: estado.fase === 'jogo' && Boolean(vista) && (Number(vista.tm) || 0) >= (vista.ms ?? 120),
     });
     atualizarHud(vista);
     atualizarAviso(vista, agoraMs);
@@ -1082,13 +1328,20 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     sala.enviarAoAnfitriao({ t: 'pedirEstado' });
   }
   controles.definirModo({ jogando: false, toqueVisivel: toqueDisponivel });
+  som.musica(MUSICA_DA_FASE[estado.fase]);
   const relogio = sala.souAnfitriao ? criarPassoFixo(HZ_SIMULACAO, passoAnfitriao) : null;
   ajustarArena();
   quadro();
 
   return {
+    // Read-only copy of the game state for the end-to-end tests; app.js exposes it only with ?teste=1.
+    espiar() {
+      const vista = estado.fase === 'lobby' ? null : sala.souAnfitriao ? partida?.vista() ?? null : vistaDoMembro();
+      return JSON.parse(JSON.stringify({ ...estado, vista, local: sala.souAnfitriao ? null : local }));
+    },
     destruir() {
       destruido = true;
+      som.musica(null);
       cancelAnimationFrame(quadroId);
       clearTimeout(timerFaixa);
       relogio?.parar();
