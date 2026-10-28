@@ -10,9 +10,9 @@ const rodar = (partida, segundos) => {
 };
 const semItens = () => 0.99;
 
-test('sudden death comes a little earlier at every match of the round', () => {
+test('sudden death starts after four minutes on every map', () => {
   const tempos = MAPAS.map(mapa => mapa.morteSubitaS ?? AJUSTES.morteSubitaS);
-  assert.deepEqual(tempos, [120, 115, 110, 100, 90]);
+  assert.deepEqual(tempos, [240, 240, 240, 240, 240]);
 });
 
 test('every map has a stable art theme', () => {
@@ -34,6 +34,7 @@ test('an elimination records who, how and when', () => {
   grade[indice(1, 3)] = CAIXA;
   const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }, { id: 'c', slot: 2 }], { grade, sorteio: semItens });
   const [a, b] = partida.jogadores;
+  a.alcance = 2;
   b.x = 3;
   b.y = 1;
   partida.pedirBomba('a');

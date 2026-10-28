@@ -2,7 +2,7 @@
 // drawn per map theme into an offscreen canvas. The themed floor is rendered once per map; afterwards only
 // the cells whose content changed (a crate burnt, a sudden death block) and their neighbors are redrawn.
 
-import { COLUNAS, LINHAS, PAREDE, CAIXA, ehBlocoFixo } from './regras.js';
+import { COLUNAS, LINHAS, PAREDE, CAIXA, CAIXA_MISTERIO, ehBlocoFixo } from './regras.js';
 
 export const TAM = 48;
 export const LARGURA = COLUNAS * TAM;
@@ -427,7 +427,7 @@ export function temaDe(chave, ordem) {
 
 function classe(celula) {
   if (celula === PAREDE) return PAREDE;
-  return celula === CAIXA ? CAIXA : '.';
+  return celula === CAIXA || celula === CAIXA_MISTERIO ? celula : '.';
 }
 
 export function criarCenario() {
@@ -539,7 +539,19 @@ export function criarCenario() {
       desenharBloco(ctxCamada, x, y, px, py, r);
     } else {
       desenharSombras(ctxCamada, x, y, px, py);
-      if (fixa[i] === CAIXA) desenharCaixa(ctxCamada, px, py, tema, r);
+      if (fixa[i] === CAIXA || fixa[i] === CAIXA_MISTERIO) {
+        desenharCaixa(ctxCamada, px, py, tema, r);
+        if (fixa[i] === CAIXA_MISTERIO) {
+          ctxCamada.textAlign = 'center';
+          ctxCamada.textBaseline = 'middle';
+          ctxCamada.font = `900 ${Math.round(TAM * 0.72)}px sans-serif`;
+          ctxCamada.lineWidth = 5;
+          ctxCamada.strokeStyle = '#201020';
+          ctxCamada.fillStyle = '#fff';
+          ctxCamada.strokeText('?', px + TAM / 2, py + TAM / 2);
+          ctxCamada.fillText('?', px + TAM / 2, py + TAM / 2);
+        }
+      }
     }
     ctxCamada.setTransform(1, 0, 0, 1, 0, 0);
     const v = TAM * ESCALA_VINHETA;

@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap">
   <link rel="stylesheet" href="css/estilo.css">
   <link rel="stylesheet" href="css/telas.css">
+  <link rel="stylesheet" href="css/inicio.css">
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
   <script type="module" src="js/app.js"></script>
 </head>
@@ -25,12 +26,33 @@
         <span>Saiu uma versão nova do Salinha.</span>
         <button id="botao-recarregar" class="botao botao--pequeno" type="button">Recarregar</button>
       </div>
-      <div class="marca"><span class="marca-icone" aria-hidden="true"></span>Salinha</div>
-      <p class="inicio-lema">Jogos rápidos com a galera, direto no navegador. Sem cadastro: crie uma sala e mande o link.</p>
+      <header class="inicio-banner">
+        <div class="inicio-banner-conteudo">
+          <p class="inicio-banner-chamada">A SALA É SUA ✦</p>
+          <div class="marca inicio-banner-marca"><span class="marca-icone" aria-hidden="true"></span>Salinha</div>
+          <p class="inicio-lema">Jogos rápidos com a galera, direto no navegador. Sem cadastro: crie uma sala e mande o link.</p>
+        </div>
+      </header>
 
       <section class="jogo-destaque" aria-labelledby="titulo-jogo">
-        <h1 id="titulo-jogo">Pavio</h1>
-        <p>Arena de bombas para 2 a 8 pessoas. Rodadas de 5 partidas, cada uma num mapa mais fechado e com poderes novos. Caixa destruída, eliminação e vitória valem pontos.</p>
+        <div class="jogo-destaque-cabecalho">
+          <div><span class="jogo-destaque-etiqueta">💥 ESCOLHA SEU JOGO</span><h1 id="titulo-jogo"><button type="button" id="pavio-detalhes-botao" class="jogo-titulo" aria-expanded="false" aria-controls="pavio-detalhes">Pavio</button></h1></div>
+          <span class="jogo-destaque-jogadores">2–8 jogadores</span>
+        </div>
+        <p>Arena de bombas com a galera.</p>
+        <div id="pavio-detalhes" class="jogo-detalhes" hidden>Rodadas de 5 partidas, cada uma num mapa diferente e com poderes novos. Caixa destruída, eliminação e vitória valem pontos.</div>
+        <div class="inicio-instrucoes-area" id="instrucoes-area">
+          <button class="inicio-instrucoes" id="instrucoes-botao" type="button" aria-expanded="false" aria-controls="instrucoes-resumo">📖 Instruções <span aria-hidden="true">ⓘ</span></button>
+          <div class="instrucoes-resumo" id="instrucoes-resumo" hidden>
+            <h2>Como jogar</h2>
+            <p>Destrua caixas, use bombas e sobreviva. Vence a rodada quem somar mais pontos em cinco partidas.</p>
+            <p>📦 Caixa: 1 ponto · 💀 Eliminação: 5 pontos · 🏆 Vitória: 15 pontos</p>
+            <p><strong>WASD / setas:</strong> andar · <strong>Espaço:</strong> bomba · <strong>F:</strong> gelo · <strong>Q:</strong> molotov · <strong>E + direção:</strong> portal</p>
+            <h3>Boosters e armadilhas</h3>
+            <div id="instrucoes-lista"></div>
+            <a href="instrucoes.html">Abrir instruções completas →</a>
+          </div>
+        </div>
       </section>
 
       <form id="form-inicio" class="formulario" autocomplete="off" novalidate>
@@ -38,12 +60,11 @@
           <div class="perfil-topo">
             <div id="perfil-boneco" class="perfil-boneco" aria-hidden="true"></div>
             <div class="perfil-identidade">
-              <label for="campo-nome">Seu nome</label>
+              <label for="campo-nome">NOME DE GUERRA</label>
               <input id="campo-nome" name="nome" maxlength="16" enterkeyhint="go" autocomplete="nickname">
             </div>
           </div>
           <div id="perfil-cores" class="perfil-cores" role="radiogroup" aria-labelledby="perfil-cores-rotulo"></div>
-          <p id="perfil-numeros" class="perfil-numeros"></p>
         </section>
 
         <div id="convite" class="convite" hidden>
@@ -53,7 +74,7 @@
         </div>
 
         <div id="sem-convite">
-          <button type="submit" class="botao botao--grande">Criar sala</button>
+          <button type="submit" class="botao botao--grande botao--criar">Criar sala <span aria-hidden="true">→</span></button>
           <div class="divisor"><span>ou entre com um código</span></div>
           <div class="linha-codigo">
             <input id="campo-codigo" placeholder="K7Q2M" maxlength="7" autocapitalize="characters" spellcheck="false" aria-label="Código da sala">
@@ -62,19 +83,22 @@
         </div>
 
         <p id="mensagem-inicio" class="mensagem" role="status" hidden></p>
+        <div id="perfil-numeros" class="perfil-numeros" aria-label="Estatísticas do jogador"></div>
 
+        <div class="perfil-painel-historico">
         <details class="perfil-outro" id="perfil-historico">
-          <summary>Suas últimas partidas</summary>
+          <summary><span aria-hidden="true">🕹️</span> Últimas partidas</summary>
           <ol id="perfil-historico-lista" class="perfil-lista"></ol>
         </details>
 
         <details class="perfil-outro" id="perfil-ranking">
-          <summary>Ranking das partidas com amigos</summary>
+          <summary><span aria-hidden="true">🏆</span> Partidas com amigos</summary>
           <ol id="perfil-ranking-lista" class="perfil-lista"></ol>
         </details>
 
-        <details class="perfil-outro">
-          <summary>Levar meu perfil para outro aparelho</summary>
+        </div>
+        <details class="perfil-outro perfil-transferencia">
+          <summary><span aria-hidden="true">🔑</span> Levar meu perfil para outro aparelho</summary>
           <div id="perfil-outro-aparelho" class="perfil-outro-corpo"></div>
         </details>
       </form>

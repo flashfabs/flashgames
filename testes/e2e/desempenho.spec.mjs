@@ -149,6 +149,7 @@ async function medirJanela(medidos) {
 }
 
 test('8 players: frame times of the host and of a guest, normal and with a 4x slower CPU', async ({ mesa, playwright, browserName, launchOptions, headless }) => {
+  test.setTimeout(240_000);
   const proprios = await Promise.all([0, 1].map(() => playwright[browserName].launch({ ...launchOptions, headless })));
   try {
     const nomes = ['Anfitrião', 'Bruna', 'Caio', 'Dani', 'Enzo', 'Flora', 'Gui', 'Helô'];

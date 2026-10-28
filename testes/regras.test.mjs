@@ -19,7 +19,7 @@ test('grid has walls on the border and free spawn areas', () => {
   for (const [x, y] of SPAWNS) {
     assert.equal(grade[indice(x, y)], CHAO);
   }
-  assert.equal(grade[indice(3, 3)], CAIXA);
+  assert.ok([CAIXA, '?'].includes(grade[indice(3, 3)]));
 });
 
 test('player walks along a lane and stops at walls', () => {
@@ -77,6 +77,7 @@ test('bombs in range of a blast explode in a chain', () => {
   const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade: gradeVazia(), sorteio: semItens });
   const [a] = partida.jogadores;
   a.bombasMax = 2;
+  a.alcance = 2;
   partida.pedirBomba('a');
   partida.passo(DT);
   a.x = 3;
@@ -98,7 +99,7 @@ test('shield absorbs one hit', () => {
   partida.pedirBomba('a');
   rodar(partida, AJUSTES.pavioS + 0.2);
   assert.equal(a.vivo, true);
-  assert.equal(a.escudo, false);
+  assert.equal(a.escudo, 0);
 });
 
 test('items are picked up by walking over them', () => {
@@ -137,6 +138,7 @@ test('a held diagonal keeps moving and turns at the next opening', () => {
 test('remote positions are accepted when plausible and refused through walls', () => {
   const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1, remoto: true }], { grade: gradeVazia() });
   const b = partida.jogadores[1];
+  b.x = 19; b.y = 13;
   assert.equal(partida.aplicarPosicao('b', { x: 19, y: 12.8, o: DIRECAO.CIMA, a: 1, c: 1000 }), true);
   assert.equal(b.y, 12.8);
   assert.equal(partida.aplicarPosicao('b', { x: 19, y: 12.7, c: 900 }), false, 'older reports are ignored');
@@ -165,7 +167,7 @@ test('shared movement stops at bombs the player is not standing on', () => {
 
 test('every map variant keeps all its walls, its spawns free and its open cells reachable', () => {
   for (const mapa of MAPAS) {
-    for (const variante of [0, 1]) {
+    for (const variante of [0, 1, 2, 3]) {
       const { muros, semPilares } = layoutDoMapa(mapa, variante);
       const grade = gradeDoMapa(mapa, variante, () => 0.99);
       for (const [x, y] of SPAWNS) assert.equal(grade[indice(x, y)], CHAO, `${mapa.nome} ${variante} spawn ${x},${y}`);
@@ -207,6 +209,7 @@ test('crates and eliminations are credited to the bomb owner', () => {
   grade[indice(1, 3)] = CAIXA;
   const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: semItens });
   const [a, b] = partida.jogadores;
+  a.alcance = 2;
   b.x = 3;
   b.y = 1;
   partida.pedirBomba('a');
@@ -227,6 +230,7 @@ test('piercing flames go through crates', () => {
   const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: semItens });
   const [a] = partida.jogadores;
   a.perfurante = true;
+  a.alcance = 2;
   partida.pedirBomba('a');
   partida.passo(DT);
   a.x = 1;
@@ -248,4 +252,29 @@ test('a ghost walks through crates while the power lasts', () => {
   a.fantasma = AJUSTES.fantasmaS;
   rodar(partida, 0.5);
   assert.ok(a.x > 2);
+});
+
+test('fire pickups increase the initial radius by their indicated amount, up to the limit', () => {
+  for (const [item, aumento] of [[ITEM.FOGO, 1], [ITEM.FOGO2, 2], [ITEM.FOGO3, 3], [ITEM.FOGO5, 5]]) {
+    const grade = gradeVazia();
+    grade[indice(2, 1)] = item;
+    const partida = new Partida([{ id: 'a', slot: 0 }], { grade });
+    assert.equal(partida.jogadores[0].alcance, 1);
+    partida.definirEntrada('a', DIRECAO.DIREITA);
+    rodar(partida, 0.4);
+    assert.equal(partida.jogadores[0].alcance, 1 + aumento);
+  }
+});
+
+test('bomb pickups add their indicated capacity without exceeding the limit', () => {
+  for (const [item, aumento, inicial] of [[ITEM.BOMBA, 1, 1], [ITEM.BOMBA2, 2, 1], [ITEM.BOMBA2, 2, AJUSTES.maxBombas - 1]]) {
+    const grade = gradeVazia();
+    grade[indice(2, 1)] = item;
+    const partida = new Partida([{ id: 'a', slot: 0 }], { grade });
+    partida.jogadores[0].bombasMax = inicial;
+    if (inicial > 1) partida.jogadores[0].bombasBonus.push({ valor: inicial - 1, restante: AJUSTES.bombaS });
+    partida.definirEntrada('a', DIRECAO.DIREITA);
+    rodar(partida, 0.4);
+    assert.equal(partida.jogadores[0].bombasMax, Math.min(inicial + aumento, AJUSTES.maxBombas));
+  }
 });

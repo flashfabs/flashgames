@@ -30,20 +30,20 @@ test('host creates a room, 4 guests join by link, everyone gets ready and the ro
 
   // With the crate-free arena the slots follow the join order: Bia starts in the bottom right corner.
   const bia = convidados[0];
-  expect(await host.posicaoDe(bia)).toMatchObject({ x: 19, y: 13, v: 1 });
-  await bia.andarAte([17, 13]);
+  expect(await host.posicaoDe(bia)).toMatchObject({ x: 38, y: 28, v: 1 });
+  await bia.andarAte([36, 28]);
   await expect.poll(async () => {
     const { x, y } = await host.posicaoDe(bia);
-    return Math.round(x) === 17 && y === 13;
+    return Math.round(x) === 36 && y === 28;
   }, { message: 'the host sees Bia two cells to the left' }).toBe(true);
 
   await bia.soltarBomba();
-  const bombaEm = jogador => async () => (await jogador.bombas()).some(([x, y]) => x === 17 && y === 13);
+  const bombaEm = jogador => async () => (await jogador.bombas()).some(([x, y]) => x === 36 && y === 28);
   await expect.poll(bombaEm(host), { message: 'the bomb shows up for the host' }).toBe(true);
   await expect.poll(bombaEm(convidados[1]), { message: 'the bomb shows up for another guest' }).toBe(true);
 
   // Out of the blast: back to the corner and one cell up, off both arms of the explosion.
-  await bia.andarAte([19, 12]);
+  await bia.andarAte([38, 27]);
   await expect.poll(bombaEm(host), { message: 'the bomb goes off', timeout: 5_000 }).toBe(false);
   await expect.poll(async () => (await host.jogo()).vista.c.length, { message: 'the flames die out' }).toBe(0);
   expect(await host.posicaoDe(bia)).toMatchObject({ v: 1 });

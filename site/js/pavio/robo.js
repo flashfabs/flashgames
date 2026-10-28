@@ -3,7 +3,7 @@
 // and, sometimes, a bomb. The core is a danger map (when each cell will burn, chain reactions included) and a
 // timed search for a way out, so a robot never drops a bomb without a safe place to run to.
 
-import { AJUSTES, COLUNAS, LINHAS, PAREDE, CAIXA, CHAO, ITEM, DIRECAO, indice, velocidade, destinoAtalho } from './regras.js';
+import { AJUSTES, COLUNAS, LINHAS, PAREDE, CAIXA, CAIXA_MISTERIO, ehCaixa, CHAO, ITEM, DIRECAO, indice, velocidade, destinoAtalho } from './regras.js';
 
 // reacao: seconds between decisions; raio: how far (in cells) it looks for things to do; caca: weight of
 // hitting other players; armadilha: checks whether a bomb leaves an enemy without a way out; cautela: enemies
@@ -77,7 +77,7 @@ function celulasDoDeslize(partida, bomba, ocupadas) {
     y += dy;
     const i = indice(x, y);
     const celula = partida.grade[i];
-    if (celula === undefined || celula === PAREDE || celula === CAIXA || ITENS.has(celula) || ocupadas.has(i)) break;
+    if (celula === undefined || celula === PAREDE || ehCaixa(celula) || ITENS.has(celula) || ocupadas.has(i)) break;
     celulas.push([x, y]);
   }
   return celulas;
@@ -128,9 +128,11 @@ export function mapaDePerigo(partida, extras = [], { eu = null, detonar = null }
           break;
         }
         marcar(i, bomba.t, ate);
-        if (celula === CAIXA) {
+        if (ehCaixa(celula)) {
           grade[i] = CHAO;
           queimaAte[i] = bomba.t + AJUSTES.chamaS;
+          // A mystery crate may explode immediately; plan for the dangerous outcome.
+          if (celula === CAIXA_MISTERIO) pendentes.push({ x: bomba.x + dx * passo, y: bomba.y + dy * passo, alcance: 4, perfurante: false, t: bomba.t, tarde: bomba.tarde });
           if (bomba.perfurante) continue;
           break;
         }
@@ -146,6 +148,16 @@ export function mapaDePerigo(partida, extras = [], { eu = null, detonar = null }
           break;
         }
       }
+    }
+  }
+  // A planted Molotov can ignite every non-wall cell in its square when its fuse ends.
+  for (const molotov of partida.molotovs ?? []) {
+    const quando = Math.max(0, molotov.restante);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = molotov.x + dx, y = molotov.y + dy;
+      if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) continue;
+      const i = indice(x, y);
+      if (partida.grade[i] !== PAREDE) marcar(i, quando, quando + AJUSTES.fogoMolotovS);
     }
   }
   marcarMorteSubita(partida, marcar);
@@ -174,7 +186,7 @@ function criarBloqueio(partida, extras = []) {
   const bombas = new Set([...partida.bombas, ...extras].map(bomba => indice(bomba.x, bomba.y)));
   return i => {
     const celula = partida.grade[i];
-    return celula === PAREDE || celula === CAIXA || celula === undefined || bombas.has(i);
+    return celula === PAREDE || ehCaixa(celula) || celula === undefined || bombas.has(i);
   };
 }
 
@@ -305,16 +317,21 @@ function rotaMenosRuim(partida, perigo, origem, passo) {
 function valorDoItem(item, jogador) {
   switch (item) {
     case ITEM.BOMBA:
+    case ITEM.BOMBA2:
       // With the detonator a press sets a bomb off only when none is left to drop: one bomb is best.
       if (jogador.detonador) return 0;
       if (jogador.bombasMax >= AJUSTES.maxBombas) return 0.3;
       return jogador.bombasMax < 4 ? 3 : 1.5;
     case ITEM.FOGO:
+    case ITEM.FOGO2:
+    case ITEM.FOGO3:
+    case ITEM.FOGO5:
       if (jogador.alcance >= AJUSTES.maxAlcance) return 0.3;
       return jogador.alcance < 5 ? 3 : 1.2;
     case ITEM.TENIS:
       return jogador.tenis < AJUSTES.maxTenis ? 2.5 : 0.3;
     case ITEM.ESCUDO:
+    case ITEM.ESCUDO2:
       return jogador.escudo ? 0.3 : 3;
     case ITEM.PERFURANTE:
       return jogador.perfurante ? 0.3 : 2.5;
@@ -346,7 +363,7 @@ function valorDaBomba(partida, perigo, jogador, origem, bombas, inimigas, pesoCa
       const celula = partida.grade[i];
       if (celula === PAREDE || celula === undefined) break;
       atingidas.push(i);
-      if (celula === CAIXA) {
+      if (ehCaixa(celula)) {
         if (perigo.ini[i] === Infinity) valor += 1;
         if (jogador.perfurante) continue;
         break;
@@ -398,10 +415,11 @@ function perigoDoPasso(partida, id) {
 // input for the robot's player: { d, d2, bomba }.
 // Hands one robot decision to the match, as a person's input would arrive. A robot's bomb press never waits
 // for a later cell: its way out was planned from where it decided.
-export function aplicarAcaoDoRobo(partida, id, { d, d2, bomba, gelo }) {
+export function aplicarAcaoDoRobo(partida, id, { d, d2, bomba, gelo, portal }) {
   partida.definirEntrada(id, d, d2);
   if (bomba) partida.pedirBomba(id, { espera: 0 });
   if (gelo) partida.jogarGelo(id);
+  if (portal) partida.atravessar(id, portal);
 }
 
 const DIRECOES_BRACOS = [DIRECAO.CIMA, DIRECAO.BAIXO, DIRECAO.ESQUERDA, DIRECAO.DIREITA];
@@ -414,7 +432,7 @@ export function chuteContra(partida, eu, origem) {
   const ocupada = (x, y) => partida.jogadores.some(j => j.vivo && Math.abs(j.x - x) < 0.99 && Math.abs(j.y - y) < 0.99);
   const solida = (x, y) => {
     const celula = partida.grade[indice(x, y)];
-    return celula === undefined || celula === PAREDE || celula === CAIXA || ITENS.has(celula) || partida.bombas.some(b => b.x === x && b.y === y);
+    return celula === undefined || celula === PAREDE || ehCaixa(celula) || ITENS.has(celula) || partida.bombas.some(b => b.x === x && b.y === y);
   };
   for (const [k, [dx, dy]] of BRACOS.entries()) {
     const bx = xDe(origem) + dx;
@@ -440,7 +458,7 @@ export function chuteContra(partida, eu, origem) {
         const celula = partida.grade[i];
         if (celula === undefined || celula === PAREDE) break;
         if (inimigas.has(i)) acerta = true;
-        if (celula === CAIXA && !bomba.perfurante) break;
+        if (ehCaixa(celula) && !bomba.perfurante) break;
       }
     }
     if (acerta) return DIRECOES_BRACOS[k];
@@ -454,14 +472,15 @@ export function atalhoQueSalva(partida, eu, origem, perigo, margem = MARGEM_S) {
   if (!(eu.atalhos > 0) || eu.fantasma > 0) return null;
   const empurrar = AJUSTES.empurrarAtalhoS + 0.1;
   if (!livre(perigo, origem, 0, empurrar, margem)) return null;
-  const ehCaixa = (x, y) => partida.grade[indice(x, y)] === CAIXA;
+  const caixaNoMapa = (x, y) => ehCaixa(partida.grade[indice(x, y)]);
   const livreParaPousar = (x, y) => {
     const celula = partida.grade[indice(x, y)];
-    return celula !== undefined && celula !== PAREDE && celula !== CAIXA && !partida.bombas.some(b => b.x === x && b.y === y);
+    return celula !== undefined && celula !== PAREDE && !ehCaixa(celula) && !partida.bombas.some(b => b.x === x && b.y === y);
   };
   const centro = { x: xDe(origem), y: yDe(origem) };
   for (const direcao of DIRECOES_BRACOS) {
-    const destino = destinoAtalho(centro, direcao, eu.atalhos, ehCaixa, livreParaPousar);
+    const ehParede = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && partida.grade[indice(x, y)] === PAREDE;
+    const destino = destinoAtalho(centro, direcao, eu.atalhos, caixaNoMapa, livreParaPousar, undefined, ehParede);
     if (destino && livre(perigo, indice(destino.x, destino.y), empurrar, empurrar + SEGURO_S, margem)) return direcao;
   }
   return null;
@@ -479,7 +498,7 @@ export function geloQueSalva(partida, eu, origem, passo, margem = MARGEM_S) {
       const y = yDe(origem) + dy * k;
       const i = indice(x, y);
       const celula = partida.grade[i];
-      if (celula === PAREDE || celula === CAIXA || celula === undefined) break;
+      if (celula === PAREDE || ehCaixa(celula) || celula === undefined) break;
       const bomba = partida.bombas.find(b => b.x === x && b.y === y);
       if (!bomba) {
         if (partida.jogadores.some(j => j.vivo && j !== eu && Math.abs(j.x - x) < 0.99 && Math.abs(j.y - y) < 0.99)) break;
@@ -738,7 +757,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
     nivel: NIVEIS[nivel] ? nivel : 'medio',
     pensar(partida, dt) {
       const eu = partida.jogadores.find(j => j.id === id);
-      if (!eu?.vivo) return PARADO;
+      if (!eu?.vivo || eu.atordoado > 0) return PARADO;
       const perigo = perigoDoPasso(partida, id);
       const passo = 1 / velocidade(eu.tenis);
       relogio -= dt;
@@ -754,7 +773,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
       }
       // Push the crates until the shortcut is taken (a charge is spent).
       if (atravessar.d && partida.tempo < atravessar.ate && eu.atalhos === atravessar.atalhos) {
-        return { d: atravessar.d, d2: DIRECAO.NENHUMA, bomba: false };
+        return { d: atravessar.d, d2: DIRECAO.NENHUMA, bomba: false, portal: atravessar.d };
       }
       atravessar.d = DIRECAO.NENHUMA;
       // Push until the bomb starts sliding, never after it: following it would walk into its line.

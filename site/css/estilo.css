@@ -598,6 +598,24 @@ html.em-sala body {
   white-space: nowrap;
 }
 
+.pavio-hud-detalhes:not([hidden]) {
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 0 4px;
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pavio-hud-detalhe {
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(23, 34, 48, 0.88);
+}
+
 /* Powers: one chip each; the timed ones show the time left as a ring */
 .pavio-hud-itens {
   display: flex;
@@ -1663,4 +1681,40 @@ html.em-sala body {
   .pavio-tempo {
     display: none;
   }
+}
+
+/* The Molotov control is separate from the bomb and ice on touch devices. */
+.pavio-dica-molotov {
+  position: fixed;
+  left: auto;
+  top: auto;
+  right: calc(env(safe-area-inset-right) + 140px);
+  bottom: calc(env(safe-area-inset-bottom) + 156px);
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(231, 105, 37, 0.45);
+  font-size: 28px;
+  pointer-events: none;
+}
+.pavio-dica-molotov--toque { animation: apertar 0.2s ease-out; }
+
+.pavio-dica-portal {
+  position: fixed;
+  left: auto;
+  top: auto;
+  right: calc(env(safe-area-inset-right) + 160px);
+  bottom: calc(env(safe-area-inset-bottom) + 60px);
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(134, 46, 156, 0.55);
+  font-size: 27px;
+  pointer-events: none;
 }

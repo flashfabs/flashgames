@@ -1,14 +1,16 @@
 // Pavio rules: a pure simulation of a grid arena bomb game. Runs on the host; no DOM, no network.
 // Movement is shared with the members, who move their own character locally and report the position.
 
-export const COLUNAS = 21;
-export const LINHAS = 15;
+export const COLUNAS = 40;
+export const LINHAS = 30;
 export const MAX_JOGADORES = 8;
 
 export const PAREDE = '#';
 export const CAIXA = '+';
+export const CAIXA_MISTERIO = '?';
+export const ehCaixa = celula => celula === CAIXA || celula === CAIXA_MISTERIO;
 export const CHAO = '.';
-export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm', GELO: 'i', ATALHO: 'a' });
+export const ITEM = Object.freeze({ BOMBA: 'b', BOMBA2: 'B', FOGO: 'f', FOGO2: '2', FOGO3: '3', FOGO5: '5', TENIS: 't', ESCUDO: 'e', ESCUDO2: 'E', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm', GELO: 'i', ATALHO: 'a', BANANA: 'n', MOLOTOV: 'o' });
 const ITENS = new Set(Object.values(ITEM));
 
 export const DIRECAO = Object.freeze({ NENHUMA: 0, CIMA: 1, BAIXO: 2, ESQUERDA: 3, DIREITA: 4 });
@@ -28,16 +30,23 @@ export const AJUSTES = Object.freeze({
   maxBombas: 8,
   maxAlcance: 8,
   maxTenis: 4,
-  alcanceInicial: 2,
+  alcanceInicial: 1,
+  fogoS: 35,
+  bombaS: 35,
+  perfuranteS: 35,
+  bananaS: 2.4,
+  pavioMolotovS: 2.6,
+  fogoMolotovS: 3,
   chanceItem: 0.32,
-  densidadeCaixas: 0.72,
-  morteSubitaS: 120,
+  densidadeCaixas: 0.82,
+  morteSubitaS: 240,
   morteSubitaPassoS: 0.25,
   invulneravelEscudoS: 1.5,
   fantasmaS: 8,
   folgaFimS: 1.2,
   // Tiles per second of a kicked bomb.
   velocidadeChute: 7,
+  chuteS: 50,
   // A remote bomb waits for its owner, but blows by itself after this long so the map never jams.
   detonadorS: 10,
   // A remote bomb cannot be set off right after being dropped, so a double press is not suicide.
@@ -63,8 +72,8 @@ export const AJUSTES = Object.freeze({
   empurrarAtalhoS: 0.2,
 });
 const PESOS_ITENS = {
-  [ITEM.BOMBA]: 30, [ITEM.FOGO]: 30, [ITEM.TENIS]: 16, [ITEM.ESCUDO]: 10, [ITEM.PERFURANTE]: 8, [ITEM.FANTASMA]: 8,
-  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8, [ITEM.GELO]: 9, [ITEM.ATALHO]: 10,
+  [ITEM.BOMBA]: 10, [ITEM.BOMBA2]: 1, [ITEM.FOGO]: 18, [ITEM.FOGO2]: 8, [ITEM.FOGO3]: 3, [ITEM.FOGO5]: 0.1, [ITEM.TENIS]: 16, [ITEM.PERFURANTE]: 8, [ITEM.FANTASMA]: 8,
+  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8, [ITEM.GELO]: 9, [ITEM.ATALHO]: 10, [ITEM.BANANA]: 8, [ITEM.MOLOTOV]: 6,
 };
 const PASSO_MAX = 0.1;
 const EPS = 1e-4;
@@ -74,7 +83,7 @@ const FOLGA_DISTANCIA = 0.35;
 const FOLGA_EMPURRAO = 0.3;
 
 // Spawn order keeps the first two players in opposite corners.
-export const SPAWNS = [[1, 1], [19, 13], [19, 1], [1, 13], [10, 1], [10, 13], [1, 7], [19, 7]];
+export const SPAWNS = [[1, 1], [COLUNAS - 2, LINHAS - 2], [COLUNAS - 2, 1], [1, LINHAS - 2], [Math.floor(COLUNAS / 2), 1], [Math.floor(COLUNAS / 2), LINHAS - 2], [1, Math.floor(LINHAS / 2)], [COLUNAS - 2, Math.floor(LINHAS / 2)]];
 
 // A round is a series of matches; each one is a tighter map and unlocks new powers (novos).
 // Map layouts are drawn as the top-left quarter (columns 0 to 10, rows 0 to 7) and mirrored to the other
@@ -110,10 +119,47 @@ const LAYOUTS = {
   ],
 };
 
+// A third layout per theme opens a different set of lanes through the pillars.
+for (const [n, tema] of Object.keys(LAYOUTS).entries()) {
+  const quarto = Array.from({ length: 8 }, (_, y) => Array.from({ length: 11 }, (_, x) => {
+    if (x === 0 || y === 0) return '#';
+    if (x % 2 === 0 && y % 2 === 0) return (x + y + n * 2) % 8 === 0 ? '_' : '#';
+    if ((x * 2 + y + n * 3) % 9 === 0) return '+';
+    return (x + y * 2 + n) % 5 === 0 ? '_' : '.';
+  }).join(''));
+  LAYOUTS[tema].push(quarto);
+}
+
+// A fourth layout places sparse cover around open lanes leading to the center.
+for (const [n, tema] of Object.keys(LAYOUTS).entries()) {
+  const quarto = Array.from({ length: 8 }, (_, y) => Array.from({ length: 11 }, (_, x) => {
+    if (x === 0 || y === 0) return '#';
+    if (x % 2 === 0 && y % 2 === 0) return (x + y + n * 2) % 8 === 0 ? '_' : '#';
+    if (x === 5 && y === (n % 2 ? 3 : 5)) return '#';
+    if (x === 9 || y === 7 || (x + y + n) % 7 === 0) return '_';
+    return '.';
+  }).join(''));
+  LAYOUTS[tema].push(quarto);
+}
+
 // The whole map, mirrored from the quarter: a list of rows of COLUNAS characters.
-function espelharLayout(quarto) {
-  const metade = quarto.map(linha => linha + [...linha.slice(0, COLUNAS - linha.length)].reverse().join(''));
-  return [...metade, ...metade.slice(0, LINHAS - metade.length).reverse()];
+function espelharLayout(quarto, desenho = 0) {
+  const meiaLargura = Math.ceil(COLUNAS / 2);
+  const meiaAltura = Math.ceil(LINHAS / 2);
+  const ampliado = quarto.map((linha, y) => {
+    while (linha.length < meiaLargura) {
+      const x = linha.length;
+      const cobertura = x === 11 && y === (desenho % 2 ? 3 : 5);
+      linha += y === 0 || cobertura || (x % 2 === 0 && y % 2 === 0) ? '#' : '.';
+    }
+    return linha;
+  });
+  while (ampliado.length < meiaAltura) {
+    const y = ampliado.length;
+    ampliado.push(Array.from({ length: meiaLargura }, (_, x) => x === 0 ? '#' : y === meiaAltura - 1 ? '_' : (x % 2 === 0 && y % 2 === 0 ? '#' : '.')).join(''));
+  }
+  const metade = ampliado.map(linha => linha + [...linha.slice(0, COLUNAS % 2 ? -1 : undefined)].reverse().join(''));
+  return [...metade, ...metade.slice(0, LINHAS % 2 ? -1 : undefined).reverse()];
 }
 
 // Walls, removed pillars and crate rules of one map variant (any integer picks one).
@@ -124,10 +170,14 @@ export function layoutDoMapa(mapa, variante = 0) {
   const livres = new Set();
   const caixas = new Set();
   if (!opcoes) return { muros, semPilares, livres, caixas };
-  const linhas = espelharLayout(opcoes[((variante % opcoes.length) + opcoes.length) % opcoes.length]);
+  const escolha = ((variante % opcoes.length) + opcoes.length) % opcoes.length;
+  const estilo = Object.keys(LAYOUTS).indexOf(mapa.tema);
+  const linhas = espelharLayout(opcoes[escolha], escolha + estilo);
   for (let y = 1; y < LINHAS - 1; y++) {
     for (let x = 1; x < COLUNAS - 1; x++) {
-      const marca = linhas[y][x];
+      let marca = linhas[y][x];
+      const mx = Math.min(x, COLUNAS - 1 - x), my = Math.min(y, LINHAS - 1 - y);
+      if (ehBlocoFixo(x, y) && marca === '#' && mx >= 4 && my >= 4 && (mx / 2 + 2 * my / 2 + estilo + escolha) % 4 === 0) marca = '_';
       if (marca === '#' && !ehBlocoFixo(x, y)) muros.push([x, y]);
       if (marca !== '#' && ehBlocoFixo(x, y)) semPilares.push([x, y]);
       if (marca === '_') livres.add(indice(x, y));
@@ -138,20 +188,20 @@ export function layoutDoMapa(mapa, variante = 0) {
 }
 // Powers unlocked by each match; a match drops everything unlocked so far.
 const NOVOS = [
-  [ITEM.BOMBA, ITEM.FOGO, ITEM.ATALHO],
+  [ITEM.BOMBA, ITEM.BOMBA2, ITEM.FOGO, ITEM.FOGO2, ITEM.FOGO3, ITEM.FOGO5, ITEM.ATALHO, ITEM.BANANA, ITEM.MOLOTOV],
   [ITEM.TENIS, ITEM.CHUTE],
-  [ITEM.ESCUDO, ITEM.DETONADOR],
+  [ITEM.DETONADOR],
   [ITEM.PERFURANTE, ITEM.IMA],
   [ITEM.FANTASMA, ITEM.GELO],
 ];
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
 // tema is a stable key the painter uses for each map's art: patio, deposito, muralhas, labirinto, fornalha.
 export const MAPAS = Object.freeze([
-  { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto, com uma praça ou duas avenidas sem caixas.', densidade: 0.5, itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
-  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado, cortadas por corredores.', densidade: 0.74, itens: ITENS_ATE[1], novos: NOVOS[1], morteSubitaS: 115 },
-  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros dividem a arena em quatro pátios com portões.', densidade: 0.66, itens: ITENS_ATE[2], novos: NOVOS[2], morteSubitaS: 110 },
-  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados e curvas fechadas.', densidade: 0.6, itens: ITENS_ATE[3], novos: NOVOS[3], morteSubitaS: 100 },
-  { nome: 'Fornalha', tema: 'fornalha', descricao: 'Uma fornalha no meio, e a morte súbita chega mais cedo.', densidade: 0.66, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
+  { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto, com uma praça ou duas avenidas sem caixas.', densidade: 0.68, itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
+  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado, cortadas por corredores.', densidade: 0.92, itens: ITENS_ATE[1], novos: NOVOS[1], morteSubitaS: 240 },
+  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros dividem a arena em quatro pátios com portões.', densidade: 0.8, itens: ITENS_ATE[2], novos: NOVOS[2], morteSubitaS: 240 },
+  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados e curvas fechadas.', densidade: 0.76, itens: ITENS_ATE[3], novos: NOVOS[3], morteSubitaS: 240 },
+  { nome: 'Fornalha', tema: 'fornalha', descricao: 'Uma fornalha no meio da arena.', densidade: 0.8, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 240 },
 ]);
 
 export const indice = (x, y) => y * COLUNAS + x;
@@ -163,7 +213,7 @@ export function velocidade(tenis) {
 }
 
 export function ehBlocoFixo(x, y) {
-  return x <= 0 || y <= 0 || x >= COLUNAS - 1 || y >= LINHAS - 1 || (x % 2 === 0 && y % 2 === 0);
+  return x <= 0 || y <= 0 || x >= COLUNAS - 1 || y >= LINHAS - 1 || (Math.min(x, COLUNAS - 1 - x) % 2 === 0 && Math.min(y, LINHAS - 1 - y) % 2 === 0);
 }
 
 export function sobrepoe(jogador, x, y) {
@@ -178,7 +228,7 @@ export function bloqueiaPrevisto(g, bombas, jogador, x, y) {
   const celula = g[indice(x, y)];
   if (celula === PAREDE) return true;
   if (jogador.fantasma) return false;
-  if (celula === CAIXA) return true;
+  if (ehCaixa(celula)) return true;
   return bombas.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(jogador, bx, by));
 }
 
@@ -195,21 +245,31 @@ export function celulaAFrente(jogador, direcao, procurada, folga = EPS) {
   return procurada(x + dx, y + dy) ? [x + dx, y + dy] : null;
 }
 
-// Where a shortcut takes a player pushing against crates: the first cell past the run of crates ahead.
-// It costs one charge per crate and needs that cell free; returns { x, y, caixas } or null.
-export function destinoAtalho(jogador, direcao, cargas, ehCaixa, livre, folga = EPS) {
-  const primeira = celulaAFrente(jogador, direcao, ehCaixa, folga);
+// A shortcut crosses consecutive obstacles, spending one charge per cell, or wraps at the arena edge.
+export function destinoAtalho(jogador, direcao, cargas, ehCaixa, livre, folga = EPS, ehParede = () => false) {
+  const obstaculo = (x, y) => ehCaixa(x, y) || ehParede(x, y);
+  const primeira = celulaAFrente(jogador, direcao, obstaculo, folga);
   if (!primeira) return null;
   const [dx, dy] = VETOR[valida(direcao)];
   let [x, y] = primeira;
   let caixas = 0;
-  while (ehCaixa(x, y)) {
-    caixas++;
-    if (caixas > cargas) return null;
+  while (obstaculo(x, y)) {
+    if (++caixas > cargas) return null;
+    if (x === 0 || x === COLUNAS - 1 || y === 0 || y === LINHAS - 1) {
+      x = dx ? (dx < 0 ? COLUNAS - 2 : 1) : x;
+      y = dy ? (dy < 0 ? LINHAS - 2 : 1) : y;
+      break;
+    }
     x += dx;
     y += dy;
   }
-  return livre(x, y) ? { x, y, caixas } : null;
+  const origemX = Math.round(jogador.x), origemY = Math.round(jogador.y);
+  for (let distancia = 0; distancia < COLUNAS + LINHAS; distancia++) {
+    for (let cy = 1; cy < LINHAS - 1; cy++) for (let cx = 1; cx < COLUNAS - 1; cx++) {
+      if (Math.abs(cx - x) + Math.abs(cy - y) === distancia && (cx !== origemX || cy !== origemY) && livre(cx, cy)) return { x: cx, y: cy, caixas };
+    }
+  }
+  return null;
 }
 
 // Moves a point toward a target by up to distancia; chegou is true once it is there.
@@ -302,7 +362,7 @@ function conectada(grade) {
 }
 
 // semPilares opens pillar cells, livres never get crates and caixas always do (spawn areas stay clear).
-export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeCaixas, muros = [], { semPilares = [], livres = new Set(), caixas = new Set() } = {}) {
+export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeCaixas, muros = [], { semPilares = [], livres = new Set(), caixas = new Set(), minSurpresas = 0 } = {}) {
   const seguras = celulasSeguras();
   const grade = [];
   for (let y = 0; y < LINHAS; y++) {
@@ -320,7 +380,51 @@ export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeC
   }
   for (let i = 0; i < grade.length; i++) {
     if (grade[i] !== CHAO || seguras.has(i) || livres.has(i)) continue;
-    if (caixas.has(i) || sorteio() < densidade) grade[i] = CAIXA;
+    if (caixas.has(i) || sorteio() < densidade) grade[i] = sorteio() < 0.24 ? CAIXA_MISTERIO : CAIXA;
+  }
+  // Mystery crates need at least two useful blast corridors, each three cells long.
+  const quantidadeCaixas = grade.filter(ehCaixa).length;
+  const corredores = new Set();
+  for (let i = 0; i < grade.length; i++) {
+    if (grade[i] !== CAIXA_MISTERIO) continue;
+    const x = i % COLUNAS, y = Math.floor(i / COLUNAS);
+    const caminhos = BRACOS.map(([dx, dy]) => [1, 2, 3].map(passo => [x + dx * passo, y + dy * passo]))
+      .filter(caminho => caminho.every(([cx, cy]) => cx > 0 && cy > 0 && cx < COLUNAS - 1 && cy < LINHAS - 1 && grade[indice(cx, cy)] !== PAREDE && grade[indice(cx, cy)] !== CAIXA_MISTERIO));
+    if (caminhos.length < 2) { grade[i] = CAIXA; continue; }
+    for (const caminho of caminhos.slice(0, 2)) for (const [cx, cy] of caminho) {
+      const posicao = indice(cx, cy);
+      corredores.add(posicao);
+      if (grade[posicao] === CAIXA) grade[posicao] = CHAO;
+    }
+  }
+  // Generated matches always have enough surprise crates to hide their guaranteed shields.
+  let quantidadeSurpresas = grade.filter(celula => celula === CAIXA_MISTERIO).length;
+  while (quantidadeSurpresas < minSurpresas) {
+    const opcoes = [];
+    for (let i = 0; i < grade.length; i++) {
+      if (grade[i] === PAREDE || grade[i] === CAIXA_MISTERIO || seguras.has(i) || livres.has(i) || corredores.has(i)) continue;
+      const x = i % COLUNAS, y = Math.floor(i / COLUNAS);
+      const caminhos = BRACOS.map(([dx, dy]) => [1, 2, 3].map(passo => [x + dx * passo, y + dy * passo]))
+        .filter(caminho => caminho.every(([cx, cy]) => cx > 0 && cy > 0 && cx < COLUNAS - 1 && cy < LINHAS - 1 && grade[indice(cx, cy)] !== PAREDE && grade[indice(cx, cy)] !== CAIXA_MISTERIO));
+      if (caminhos.length >= 2) opcoes.push({ i, caminhos });
+    }
+    if (!opcoes.length) break;
+    const { i, caminhos } = opcoes[Math.floor(sorteio() * opcoes.length)];
+    grade[i] = CAIXA_MISTERIO;
+    quantidadeSurpresas++;
+    for (const caminho of caminhos.slice(0, 2)) for (const [cx, cy] of caminho) {
+      const posicao = indice(cx, cy);
+      corredores.add(posicao);
+      if (grade[posicao] === CAIXA) grade[posicao] = CHAO;
+    }
+  }
+  // Replace crates displaced by those corridors in other eligible cells.
+  let faltam = quantidadeCaixas - grade.filter(ehCaixa).length;
+  const candidatos = grade.flatMap((celula, i) => celula === CHAO && !seguras.has(i) && !livres.has(i) && !corredores.has(i) ? [i] : []);
+  while (faltam > 0 && candidatos.length) {
+    const [i] = candidatos.splice(Math.floor(sorteio() * candidatos.length), 1);
+    grade[i] = CAIXA;
+    faltam--;
   }
   return grade;
 }
@@ -328,7 +432,7 @@ export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeC
 // The grid of one match of a map variant.
 export function gradeDoMapa(mapa, variante = 0, sorteio = Math.random) {
   const { muros, ...regras } = layoutDoMapa(mapa, variante);
-  return gerarGrade(sorteio, mapa.densidade ?? AJUSTES.densidadeCaixas, muros, regras);
+  return gerarGrade(sorteio, mapa.densidade ?? AJUSTES.densidadeCaixas, muros, { ...regras, minSurpresas: 2 });
 }
 
 export function gradeVazia(muros = []) {
@@ -445,14 +549,20 @@ function novoJogador({ id, slot, remoto = false }, n) {
     olhar: DIRECAO.BAIXO,
     andando: false,
     bombasMax: 1,
+    bombasBonus: [],
     alcance: AJUSTES.alcanceInicial,
+    fogosBonus: [],
+    atordoado: 0,
     tenis: 0,
-    escudo: false,
+    escudo: 0,
     perfurante: false,
+    perfurantesBonus: [],
     chute: false,
+    chuteTempo: 0,
     detonador: false,
     ima: 0,
     gelo: 0,
+    molotov: 0,
     pedidosGelo: 0,
     atalhos: 0,
     empurrao: 0, // seconds spent pushing against crates that a shortcut can cross
@@ -506,10 +616,20 @@ export class Partida {
     this.itens = mapa.itens ?? Object.values(ITEM);
     this.morteSubitaS = mapa.morteSubitaS ?? AJUSTES.morteSubitaS;
     this.grade = grade ? [...grade] : gradeDoMapa(mapa, variante, sorteio);
+    this.escudosNasCaixas = new Set();
+    if (!grade) {
+      const candidatas = this.grade.flatMap((celula, i) => celula === CAIXA_MISTERIO ? [i] : []);
+      while (this.escudosNasCaixas.size < 2 && candidatas.length) {
+        const [i] = candidatas.splice(Math.floor(this.sorteio() * candidatas.length), 1);
+        this.escudosNasCaixas.add(i);
+      }
+    }
     this.versaoGrade = 0;
     this.jogadores = participantes.map((participante, n) => novoJogador(participante, n));
     this.bombas = [];
+    this.molotovs = [];
     this.chamas = new Map(); // cell index -> { restante, idade, forma, item }
+    this.bananasDeslizando = [];
     this.voando = []; // items flying to a magnet: { x, y, item, alvo }
     this.gelos = []; // ice shots in flight: { x, y, d, andou, dono }, x and y being where it was thrown from
     this.eventos = [];
@@ -530,7 +650,7 @@ export class Partida {
   // Remote players move on their own device; the host accepts plausible positions only.
   aplicarPosicao(id, { x, y, o, a, c } = {}) {
     const jogador = this.#jogador(id);
-    if (!jogador?.vivo || !jogador.remoto) return false;
+    if (!jogador?.vivo || !jogador.remoto || jogador.atordoado > 0) return false;
     if (![x, y, c].every(Number.isFinite)) return false;
     if (jogador.relogioRemoto !== null && c <= jogador.relogioRemoto) return false;
     const segundos = jogador.relogioRemoto === null ? 1 : Math.min((c - jogador.relogioRemoto) / 1000, 1);
@@ -552,16 +672,27 @@ export class Partida {
   // way out from the cell where they decide).
   pedirBomba(id, { espera = AJUSTES.bufferBombaS } = {}) {
     const jogador = this.#jogador(id);
-    if (!jogador?.vivo) return;
+    if (!jogador?.vivo || jogador.atordoado > 0) return;
     jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
     jogador.validadeBomba = espera;
   }
 
-  // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
+  // Place one collected Molotov on the player's cell; its fuse is decided by the host.
+  usarMolotov(id) {
+    const jogador = this.#jogador(id);
+    if (!jogador?.vivo || jogador.atordoado > 0 || jogador.molotov <= 0) return false;
+    const x = Math.round(jogador.x), y = Math.round(jogador.y);
+    if (this.#bombaEm(x, y) || this.chamas.has(indice(x, y)) || this.molotovs.some(m => m.x === x && m.y === y)) return false;
+    jogador.molotov--;
+    this.molotovs.push({ x, y, dono: id, restante: AJUSTES.pavioMolotovS });
+    return true;
+  }
+
+  // A directed portal request crosses the obstacle ahead when the host validates it.
   // With posicao (the member's report sent with the request), it hops only from where the member was then.
   atravessar(id, direcao, posicao = null) {
     const jogador = this.#jogador(id);
-    if (!jogador?.vivo || jogador.atalhos <= 0) return false;
+    if (!jogador?.vivo || jogador.atordoado > 0 || jogador.atalhos <= 0) return false;
     if (posicao && !this.aplicarPosicao(id, posicao)) return false;
     const destino = this.#destinoAtalho(jogador, direcao, jogador.remoto ? FOLGA_EMPURRAO : EPS);
     if (!destino) return false;
@@ -572,19 +703,27 @@ export class Partida {
   // Throws an ice shot where the player is facing, if it has any left.
   jogarGelo(id) {
     const jogador = this.#jogador(id);
-    if (jogador?.vivo) jogador.pedidosGelo = Math.min(jogador.pedidosGelo + 1, 2);
+    if (jogador?.vivo && jogador.atordoado <= 0) jogador.pedidosGelo = Math.min(jogador.pedidosGelo + 1, 2);
   }
 
   // A player with the kick power pushing against a still bomb sends it sliding until it hits something.
   // Local players kick by walking; remote ones ask for it (their position is checked with some slack).
   chutar(id, direcao) {
     const jogador = this.#jogador(id);
-    if (!jogador?.vivo || !jogador.chute) return false;
+    if (!jogador?.vivo || jogador.atordoado > 0 || !jogador.chute) return false;
     const d = valida(direcao);
-    const alvo = celulaAFrente(jogador, d, (x, y) => Boolean(this.#bombaEm(x, y)), jogador.remoto ? FOLGA_EMPURRAO : EPS);
+    const alvo = celulaAFrente(jogador, d, (x, y) => Boolean(this.#bombaEm(x, y)) || this.grade[indice(x, y)] === ITEM.BANANA, jogador.remoto ? FOLGA_EMPURRAO : EPS);
     if (!alvo) return false;
     const bomba = this.#bombaEm(...alvo);
     const [dx, dy] = VETOR[d];
+    if (!bomba) {
+      const [x, y] = alvo;
+      if (this.#bloqueiaBomba(x + dx, y + dy)) return false;
+      this.#mudarCelula(indice(x, y), CHAO);
+      this.bananasDeslizando.push({ x, y, deslize: d, avanco: 0 });
+      this.eventos.push({ e: 'chute', j: jogador.n, x, y });
+      return true;
+    }
     if (bomba.deslize || this.#bloqueiaBomba(bomba.x + dx, bomba.y + dy, bomba)) return false;
     bomba.deslize = d;
     // Whoever kicks a bomb answers for what it hits.
@@ -604,7 +743,23 @@ export class Partida {
     this.tempo += dt;
     for (const jogador of this.jogadores) {
       jogador.invulneravel = Math.max(0, jogador.invulneravel - dt);
+      jogador.atordoado = Math.max(0, jogador.atordoado - dt);
       jogador.ima = Math.max(0, jogador.ima - dt);
+      if (jogador.chuteTempo > 0) {
+        jogador.chuteTempo = Math.max(0, jogador.chuteTempo - dt);
+        if (jogador.chuteTempo === 0) jogador.chute = false;
+      }
+      for (const [campo, atributo, inicial, limite] of [['bombasBonus', 'bombasMax', 1, AJUSTES.maxBombas], ['fogosBonus', 'alcance', AJUSTES.alcanceInicial, AJUSTES.maxAlcance]]) {
+        const bonus = jogador[campo];
+        if (!bonus.length) continue;
+        for (const efeito of bonus) efeito.restante -= dt;
+        jogador[campo] = bonus.filter(efeito => efeito.restante > 0);
+        jogador[atributo] = Math.min(limite, inicial + jogador[campo].reduce((soma, efeito) => soma + efeito.valor, 0));
+      }
+      if (jogador.perfurantesBonus.length) {
+        jogador.perfurantesBonus = jogador.perfurantesBonus.map(restante => restante - dt).filter(restante => restante > 0);
+        jogador.perfurante = jogador.perfurantesBonus.length > 0;
+      }
       if (jogador.fantasma > 0) {
         jogador.fantasma = Math.max(0, jogador.fantasma - dt);
         // A ghost that wears off inside crates stays one until it is out of them, so it is never trapped.
@@ -614,10 +769,10 @@ export class Partida {
       } else {
         jogador.fantasmaFolga = Math.max(0, jogador.fantasmaFolga - dt);
       }
-      if (!jogador.vivo || jogador.remoto) continue;
+      if (!jogador.vivo || jogador.remoto || jogador.atordoado > 0) continue;
+      if (jogador.chute && jogador.entrada.d) this.chutar(jogador.id, jogador.entrada.d);
       moverComColisao(jogador, jogador.entrada, dt, (x, y) => this.#bloqueia(x, y, jogador));
       if (jogador.chute && jogador.entrada.d) this.chutar(jogador.id, jogador.entrada.d);
-      if (jogador.atalhos > 0) this.#empurrarCaixa(jogador, dt);
     }
     this.#medirDistancias();
     for (const jogador of this.jogadores) {
@@ -627,9 +782,11 @@ export class Partida {
     }
     this.#atualizarPassantes();
     this.#deslizarBombas(dt);
+    this.#deslizarBananas(dt);
     this.#moverGelos(dt);
     this.#atualizarBombas(dt);
     this.#atualizarChamas(dt);
+    this.#atualizarMolotovs(dt);
     this.#aplicarChamasEItens();
     this.#atrairItens(dt);
     this.#morteSubita(dt);
@@ -651,10 +808,19 @@ export class Partida {
         g: j.fantasma > 0 ? 1 : 0,
         p: j.perfurante ? 1 : 0,
         k: j.chute ? 1 : 0,
+        kt: Math.ceil(j.chuteTempo),
         r: j.detonador ? 1 : 0,
         m: j.ima > 0 ? 1 : 0,
         gl: j.gelo,
+        mo: j.molotov,
         at: j.atalhos,
+        es: j.escudo,
+        st: Math.ceil(j.atordoado * 10) / 10,
+        bt: j.bombasBonus.map(efeito => [efeito.valor, Math.ceil(efeito.restante)]),
+        ft: j.fogosBonus.map(efeito => [efeito.valor, Math.ceil(efeito.restante)]),
+        pt: j.perfurantesBonus.map(restante => Math.ceil(restante)),
+        gt: Math.ceil(j.fantasma),
+        mt: Math.ceil(j.ima),
         b: j.bombasMax,
         f: j.alcance,
         t: j.tenis,
@@ -667,12 +833,13 @@ export class Partida {
         const pos = [arredondar(b.x + dx * b.avanco), arredondar(b.y + dy * b.avanco)];
         return [...pos, arredondar(b.restante), b.deslize, b.remota ? 1 : 0, b.congelada > 0 ? 1 : 0];
       }),
+      ml: this.molotovs.map(m => [m.x, m.y, arredondar(AJUSTES.pavioMolotovS - m.restante)]),
       gl: this.gelos.map(t => {
         const [dx, dy] = VETOR[t.d];
         return [arredondar(t.x + dx * t.andou), arredondar(t.y + dy * t.andou), t.d];
       }),
       c: [...this.chamas].map(([i, chama]) => [i, chama.forma]),
-      iv: this.voando.map(v => [arredondar(v.x), arredondar(v.y), v.item, v.alvo.n]),
+      iv: [...this.voando.map(v => [arredondar(v.x), arredondar(v.y), v.item, v.alvo.n]), ...this.bananasDeslizando.map(v => { const [dx, dy] = VETOR[v.deslize]; return [arredondar(v.x + dx * v.avanco), arredondar(v.y + dy * v.avanco), ITEM.BANANA, -1]; })],
       tm: arredondar(this.tempo),
       ms: this.morteSubitaS,
     };
@@ -715,7 +882,7 @@ export class Partida {
     if (celula === PAREDE) return true;
     // A ghost walks through crates and bombs.
     if (jogador.fantasma > 0) return false;
-    if (celula === CAIXA) return true;
+    if (ehCaixa(celula)) return true;
     const bomba = this.#bombaEm(x, y);
     return Boolean(bomba && !bomba.passantes.has(jogador.id));
   }
@@ -726,7 +893,7 @@ export class Partida {
     for (let k = 1; k <= passos; k++) {
       const px = x0 + ((x1 - x0) * k) / passos;
       const py = y0 + ((y1 - y0) * k) / passos;
-      if (this.grade[indice(Math.round(px), Math.round(py))] === CAIXA) return true;
+      if (ehCaixa(this.grade[indice(Math.round(px), Math.round(py))])) return true;
     }
     return false;
   }
@@ -734,7 +901,7 @@ export class Partida {
   #sobreCaixa(jogador) {
     for (let cy = Math.round(jogador.y - 0.49); cy <= Math.round(jogador.y + 0.49); cy++) {
       for (let cx = Math.round(jogador.x - 0.49); cx <= Math.round(jogador.x + 0.49); cx++) {
-        if (this.grade[indice(cx, cy)] === CAIXA) return true;
+        if (ehCaixa(this.grade[indice(cx, cy)])) return true;
       }
     }
     return false;
@@ -745,7 +912,7 @@ export class Partida {
     for (let cy = Math.round(y - 0.49); cy <= Math.round(y + 0.49); cy++) {
       for (let cx = Math.round(x - 0.49); cx <= Math.round(x + 0.49); cx++) {
         const celula = this.grade[indice(cx, cy)];
-        if (celula === PAREDE || (celula === CAIXA && !ignorarCaixas)) return false;
+        if (celula === PAREDE || (ehCaixa(celula) && !ignorarCaixas)) return false;
       }
     }
     return true;
@@ -759,13 +926,31 @@ export class Partida {
   #bloqueiaBomba(x, y, propria = null) {
     if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return true;
     const celula = this.grade[indice(x, y)];
-    if (celula === PAREDE || celula === CAIXA || ITENS.has(celula)) return true;
+    if (celula === PAREDE || ehCaixa(celula) || ITENS.has(celula)) return true;
     if (this.jogadores.some(j => j.vivo && sobrepoe(j, x, y))) return true;
     return this.bombas.some(b => {
       if (b === propria) return false;
       if (b.x === x && b.y === y) return true;
       const [dx, dy] = VETOR[b.deslize];
       return b.avanco > 0 && b.x + dx === x && b.y + dy === y;
+    });
+  }
+
+  #deslizarBananas(dt) {
+    this.bananasDeslizando = this.bananasDeslizando.filter(banana => {
+      const [dx, dy] = VETOR[banana.deslize];
+      banana.avanco += Math.min(AJUSTES.velocidadeChute * dt, 0.5);
+      if (banana.avanco >= 0 && this.#bloqueiaBomba(banana.x + dx, banana.y + dy)) {
+        if (this.grade[indice(banana.x, banana.y)] === CHAO && !this.chamas.has(indice(banana.x, banana.y))) this.#mudarCelula(indice(banana.x, banana.y), ITEM.BANANA);
+        return false;
+      }
+      if (banana.avanco >= 0.5) {
+        banana.x += dx;
+        banana.y += dy;
+        banana.avanco -= 1;
+        if (this.chamas.has(indice(banana.x, banana.y))) return false;
+      }
+      return true;
     });
   }
 
@@ -805,7 +990,7 @@ export class Partida {
       const x = Math.round(jogador.x);
       const y = Math.round(jogador.y);
       const ativas = this.bombas.filter(b => b.dono === jogador.id).length;
-      if (this.#bombaEm(x, y) || this.chamas.has(indice(x, y)) || ativas >= jogador.bombasMax) {
+      if (this.#bombaEm(x, y) || this.molotovs.some(m => m.x === x && m.y === y) || this.chamas.has(indice(x, y)) || ativas >= jogador.bombasMax) {
         // The detonator uses such a press; otherwise it waits a moment (stepping off the last bomb, or one
         // blowing up, lets it through) so a press made a little early is not lost.
         if (!this.#detonar(jogador)) break;
@@ -847,19 +1032,13 @@ export class Partida {
 
   #destinoAtalho(jogador, direcao, folga) {
     if (jogador.fantasma > 0) return null;
-    const ehCaixa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && this.grade[indice(x, y)] === CAIXA;
+    const caixaNoMapa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && ehCaixa(this.grade[indice(x, y)]);
     const livre = (x, y) => {
       const celula = this.grade[indice(x, y)];
-      return celula !== PAREDE && celula !== CAIXA && !this.#bombaEm(x, y);
+      return celula !== PAREDE && !ehCaixa(celula) && !this.#bombaEm(x, y);
     };
-    return destinoAtalho(jogador, valida(direcao), jogador.atalhos, ehCaixa, livre, folga);
-  }
-
-  // Pushing against crates for a moment with enough charges takes a local player straight past them.
-  #empurrarCaixa(jogador, dt) {
-    const destino = jogador.entrada.d ? this.#destinoAtalho(jogador, jogador.entrada.d, EPS) : null;
-    jogador.empurrao = destino ? jogador.empurrao + dt : 0;
-    if (destino && jogador.empurrao >= AJUSTES.empurrarAtalhoS) this.#saltar(jogador, destino);
+    const ehParede = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && this.grade[indice(x, y)] === PAREDE;
+    return destinoAtalho(jogador, valida(direcao), jogador.atalhos, caixaNoMapa, livre, folga, ehParede);
   }
 
   #saltar(jogador, destino) {
@@ -902,7 +1081,7 @@ export class Partida {
           return false;
         }
         const celula = this.grade[indice(x, y)];
-        if (celula === PAREDE || celula === CAIXA) return false;
+        if (celula === PAREDE || ehCaixa(celula)) return false;
         if (this.jogadores.some(j => j.vivo && j.id !== tiro.dono && sobrepoe(j, x, y))) return false;
       }
       return true;
@@ -931,9 +1110,9 @@ export class Partida {
       let explodidas = 0;
       while (fila.length) {
         const bomba = fila.shift();
-        if (!this.bombas.includes(bomba)) continue;
+        if (!bomba.especial && !this.bombas.includes(bomba)) continue;
         this.#explodir(bomba, fila);
-        explodidas++;
+        if (!bomba.especial) explodidas++;
       }
       const dono = this.#jogador(raiz.dono);
       if (dono) dono.maiorCadeia = Math.max(dono.maiorCadeia, explodidas);
@@ -959,11 +1138,8 @@ export class Partida {
           if (bomba.perfurante) continue;
           break;
         }
-        if (celula === CAIXA) {
-          this.#mudarCelula(i, CHAO);
-          this.#acenderChama(x, y, 'x', autor, sortearItem(this.sorteio, this.itens));
-          if (dono) dono.caixas++;
-          this.eventos.push({ e: 'caixa', j: dono?.n ?? -1, x, y });
+        if (ehCaixa(celula)) {
+          this.#queimarCaixa(x, y, autor, fila);
           // A piercing blast keeps going through crates.
           if (bomba.perfurante) continue;
           break;
@@ -986,11 +1162,63 @@ export class Partida {
     }
   }
 
-  #acenderChama(x, y, forma, dono, item = null) {
+  #queimarCaixa(x, y, autor, fila, duracao = AJUSTES.chamaS) {
+    const i = indice(x, y);
+    const celula = this.grade[i];
+    const dono = this.#jogador(autor);
+    this.#mudarCelula(i, CHAO);
+    let item = null;
+    if (this.escudosNasCaixas.delete(i)) item = ITEM.ESCUDO;
+    else if (celula === CAIXA_MISTERIO) {
+      const resultado = this.sorteio();
+      if (resultado < 0.275) fila.push({ x, y, alcance: 4, autor, especial: true });
+      else if (resultado < 0.6375) {
+        const melhores = [[ITEM.BOMBA2, 10], [ITEM.FOGO5, 10], [ITEM.PERFURANTE, 10], [ITEM.ATALHO, 10], [ITEM.ESCUDO, 4], [ITEM.ESCUDO2, 0.1]];
+        let sorte = this.sorteio() * melhores.reduce((soma, [, peso]) => soma + peso, 0);
+        for (const [premio, peso] of melhores) {
+          sorte -= peso;
+          if (sorte < 0) { item = premio; break; }
+        }
+      }
+    } else item = sortearItem(this.sorteio, this.itens);
+    this.#acenderChama(x, y, 'x', autor, item, duracao);
+    if (dono) dono.caixas++;
+    this.eventos.push({ e: 'caixa', j: dono?.n ?? -1, x, y });
+  }
+
+  #atualizarMolotovs(dt) {
+    for (const molotov of this.molotovs) molotov.restante -= dt;
+    const prontos = this.molotovs.filter(m => m.restante <= 0);
+    this.molotovs = this.molotovs.filter(m => m.restante > 0);
+    for (const molotov of prontos) {
+      const fila = [];
+      this.eventos.push({ e: 'bum', x: molotov.x, y: molotov.y });
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = molotov.x + dx, y = molotov.y + dy;
+        if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) continue;
+        const i = indice(x, y), celula = this.grade[i];
+        if (celula === PAREDE || celula === undefined) continue;
+        if (ehCaixa(celula)) this.#queimarCaixa(x, y, molotov.dono, fila, AJUSTES.fogoMolotovS);
+        else {
+          if (ITENS.has(celula)) this.#mudarCelula(i, CHAO);
+          this.#acenderChama(x, y, 'c', molotov.dono, null, AJUSTES.fogoMolotovS);
+        }
+        const bomba = this.#bombaEm(x, y);
+        if (bomba) { bomba.restante = 0; bomba.congelada = 0; fila.push(bomba); }
+      }
+      while (fila.length) {
+        const bomba = fila.shift();
+        if (!bomba.especial && !this.bombas.includes(bomba)) continue;
+        this.#explodir(bomba, fila);
+      }
+    }
+  }
+
+  #acenderChama(x, y, forma, dono, item = null, duracao = AJUSTES.chamaS) {
     const i = indice(x, y);
     const atual = this.chamas.get(i);
     if (atual?.forma === 'x') {
-      atual.restante = AJUSTES.chamaS;
+      atual.restante = Math.max(atual.restante, duracao);
       return;
     }
     let nova = forma;
@@ -1000,7 +1228,7 @@ export class Partida {
       else nova = 'c';
     }
     this.chamas.set(i, {
-      restante: AJUSTES.chamaS,
+      restante: Math.max(atual?.restante ?? 0, duracao),
       idade: atual?.idade ?? 0,
       forma: nova,
       dono,
@@ -1029,7 +1257,7 @@ export class Partida {
       if (chama) {
         if (jogador.invulneravel > 0 || chama.idade < AJUSTES.gracaChamaS) continue;
         if (jogador.escudo) {
-          jogador.escudo = false;
+          jogador.escudo = Math.max(0, jogador.escudo - 1);
           jogador.invulneravel = AJUSTES.invulneravelEscudoS;
           this.eventos.push({ e: 'escudo', j: jogador.n, x: jogador.x, y: jogador.y });
         } else {
@@ -1050,13 +1278,29 @@ export class Partida {
 
   #ganharItem(jogador, item) {
     jogador.itensPegos[item] = (jogador.itensPegos[item] ?? 0) + 1;
-    if (item === ITEM.BOMBA) jogador.bombasMax = Math.min(jogador.bombasMax + 1, AJUSTES.maxBombas);
-    else if (item === ITEM.FOGO) jogador.alcance = Math.min(jogador.alcance + 1, AJUSTES.maxAlcance);
+    if (item === ITEM.BOMBA || item === ITEM.BOMBA2) {
+      jogador.bombasBonus.push({ valor: item === ITEM.BOMBA2 ? 2 : 1, restante: AJUSTES.bombaS });
+      jogador.bombasMax = Math.min(1 + jogador.bombasBonus.reduce((soma, efeito) => soma + efeito.valor, 0), AJUSTES.maxBombas);
+    }
+    else if ([ITEM.FOGO, ITEM.FOGO2, ITEM.FOGO3, ITEM.FOGO5].includes(item)) {
+      jogador.fogosBonus.push({ valor: ({ [ITEM.FOGO]: 1, [ITEM.FOGO2]: 2, [ITEM.FOGO3]: 3, [ITEM.FOGO5]: 5 })[item], restante: AJUSTES.fogoS });
+      jogador.alcance = Math.min(AJUSTES.alcanceInicial + jogador.fogosBonus.reduce((soma, efeito) => soma + efeito.valor, 0), AJUSTES.maxAlcance);
+    }
+    else if (item === ITEM.MOLOTOV) jogador.molotov++;
+    else if (item === ITEM.BANANA) {
+      jogador.atordoado = AJUSTES.bananaS;
+      jogador.andando = false;
+      jogador.pedidosBomba = 0;
+      jogador.pedidosGelo = 0;
+    }
     else if (item === ITEM.TENIS) jogador.tenis = Math.min(jogador.tenis + 1, AJUSTES.maxTenis);
-    else if (item === ITEM.ESCUDO) jogador.escudo = true;
-    else if (item === ITEM.PERFURANTE) jogador.perfurante = true;
+    else if (item === ITEM.ESCUDO || item === ITEM.ESCUDO2) jogador.escudo += item === ITEM.ESCUDO2 ? 2 : 1;
+    else if (item === ITEM.PERFURANTE) {
+      jogador.perfurantesBonus.push(AJUSTES.perfuranteS);
+      jogador.perfurante = true;
+    }
     else if (item === ITEM.FANTASMA) jogador.fantasma = AJUSTES.fantasmaS;
-    else if (item === ITEM.CHUTE) jogador.chute = true;
+    else if (item === ITEM.CHUTE) { jogador.chute = true; jogador.chuteTempo = AJUSTES.chuteS; }
     else if (item === ITEM.DETONADOR) jogador.detonador = true;
     else if (item === ITEM.IMA) jogador.ima = AJUSTES.imaS;
     else if (item === ITEM.GELO) jogador.gelo = Math.min(jogador.gelo + AJUSTES.cargasGelo, AJUSTES.maxGelo);
@@ -1075,7 +1319,7 @@ export class Partida {
       for (let y = Math.max(0, cy - raio); y <= Math.min(LINHAS - 1, cy + raio); y++) {
         for (let x = Math.max(0, cx - raio); x <= Math.min(COLUNAS - 1, cx + raio); x++) {
           const i = indice(x, y);
-          if (!ITENS.has(this.grade[i]) || (x - cx) ** 2 + (y - cy) ** 2 > raio * raio) continue;
+          if (!ITENS.has(this.grade[i]) || this.grade[i] === ITEM.BANANA || (x - cx) ** 2 + (y - cy) ** 2 > raio * raio) continue;
           this.voando.push({ x, y, item: this.grade[i], alvo: jogador });
           this.#mudarCelula(i, CHAO);
         }
@@ -1120,6 +1364,7 @@ export class Partida {
       this.#mudarCelula(i, PAREDE);
       this.chamas.delete(i);
       this.bombas = this.bombas.filter(b => b.x !== x || b.y !== y);
+      this.molotovs = this.molotovs.filter(m => m.x !== x || m.y !== y);
       for (const jogador of this.jogadores) {
         if (jogador.vivo && Math.round(jogador.x) === x && Math.round(jogador.y) === y) this.#matar(jogador, 'subita');
       }

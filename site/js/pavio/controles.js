@@ -16,7 +16,11 @@ const TECLAS = {
   ArrowRight: DIRECAO.DIREITA,
 };
 const TECLAS_BOMBA = new Set(['Space', 'Enter', 'NumpadEnter']);
-const TECLAS_GELO = new Set(['KeyE', 'ShiftLeft', 'ShiftRight']);
+const TECLAS_MOLOTOV = new Set(['KeyQ']);
+const BOTOES_MOLOTOV = [4, 5];
+const TECLAS_GELO = new Set(['KeyF', 'ShiftLeft', 'ShiftRight']);
+const TECLAS_PORTAL = new Set(['KeyE']);
+const BOTOES_PORTAL = [6, 7];
 const BOTOES_BOMBA = [0, 2];
 const BOTOES_GELO = [1, 3];
 const FOLGA_BOTAO_GELO_PX = 12;
@@ -85,7 +89,7 @@ function direcaoDoManche(dx, dy, zonaMorta, anterior) {
   };
 }
 
-export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEntrada, aoBomba, aoGelo }) {
+export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, dicaMolotov, dicaPortal, aoEntrada, aoBomba, aoGelo, aoMolotov = () => {}, aoPrepararPortal = () => true, aoCancelarPortal = () => {}, aoPortal = () => {} }) {
   const pressionadas = []; // held direction keys, the most recent last
   let toque = NENHUMA;
   let controle = NENHUMA;
@@ -94,6 +98,9 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
   let origem = null;
   let bombaNoControle = false;
   let geloNoControle = false;
+  let molotovNoControle = false;
+  let portalNoControle = false;
+  let portalArmado = false;
   let toqueAtivo = false;
   // Space and Enter only drop bombs while playing, so they still press buttons in the menus.
   let emJogo = false;
@@ -108,10 +115,22 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
     return { d, d2: DIRECAO.NENHUMA };
   };
 
+  const armarPortal = () => {
+    if (!emJogo) return;
+    if (portalArmado) { portalArmado = false; aoCancelarPortal(); return; }
+    portalArmado = Boolean(aoPrepararPortal());
+  };
+  const direcionarPortal = direcao => {
+    if (!portalArmado || !direcao) return;
+    portalArmado = false;
+    aoPortal(direcao);
+  };
+
   const recalcular = () => {
     const nova = toque.d ? toque : controle.d ? controle : entradaTeclado();
     if (iguais(nova, atual)) return;
     atual = nova;
+    direcionarPortal(nova.d);
     aoEntrada(atual);
   };
 
@@ -127,10 +146,17 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
       if (evento.repeat) return;
       soltarTecla(evento.code);
       pressionadas.push(evento.code);
+      direcionarPortal(TECLAS[evento.code]);
       recalcular();
+    } else if (TECLAS_PORTAL.has(evento.code) && emJogo) {
+      evento.preventDefault();
+      if (!evento.repeat) armarPortal();
     } else if (TECLAS_BOMBA.has(evento.code) && emJogo) {
       evento.preventDefault();
       if (!evento.repeat) aoBomba();
+    } else if (TECLAS_MOLOTOV.has(evento.code) && emJogo) {
+      evento.preventDefault();
+      if (!evento.repeat) aoMolotov();
     } else if (TECLAS_GELO.has(evento.code) && emJogo) {
       evento.preventDefault();
       if (!evento.repeat) aoGelo();
@@ -143,6 +169,7 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
   };
   const zerar = () => {
     pressionadas.length = 0;
+    portalArmado = false;
     soltarManche();
     recalcular();
   };
@@ -162,7 +189,7 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
   const aoTocar = evento => {
     if (!toqueAtivo) return;
     evento.preventDefault();
-    if (evento.clientX < window.innerWidth / 2) {
+    if (evento.clientX < window.innerWidth / 2 && !noBotao(dicaMolotov, evento) && !noBotao(dicaGelo, evento) && !noBotao(dicaPortal, evento)) {
       if (ponteiroManche !== null) return;
       ponteiroManche = evento.pointerId;
       origem = { x: evento.clientX, y: evento.clientY };
@@ -176,10 +203,16 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
       }
       return;
     }
-    const gelo = noBotao(dicaGelo, evento);
-    (gelo ? aoGelo : aoBomba)();
-    const botao = gelo ? dicaGelo : dicaBomba;
-    const classe = gelo ? 'pavio-dica-gelo--toque' : 'pavio-dica-bomba--toque';
+    if (noBotao(dicaPortal, evento)) {
+      armarPortal();
+      navigator.vibrate?.(12);
+      return;
+    }
+    const molotov = noBotao(dicaMolotov, evento);
+    const gelo = !molotov && noBotao(dicaGelo, evento);
+    (molotov ? aoMolotov : gelo ? aoGelo : aoBomba)();
+    const botao = molotov ? dicaMolotov : gelo ? dicaGelo : dicaBomba;
+    const classe = molotov ? 'pavio-dica-molotov--toque' : gelo ? 'pavio-dica-gelo--toque' : 'pavio-dica-bomba--toque';
     botao.classList.remove(classe);
     void botao.offsetWidth; // restart the press animation
     botao.classList.add(classe);
@@ -245,16 +278,24 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
       let novo = NENHUMA;
       let bomba = false;
       let gelo = false;
+      let molotov = false;
+      let portal = false;
       for (const pad of controles) {
         if (!pad?.connected) continue;
         bomba = BOTOES_BOMBA.some(botao => pad.buttons[botao]?.pressed);
+        portal = BOTOES_PORTAL.some(botao => pad.buttons[botao]?.pressed);
+        molotov = BOTOES_MOLOTOV.some(botao => pad.buttons[botao]?.pressed);
         gelo = BOTOES_GELO.some(botao => pad.buttons[botao]?.pressed);
         const cruz = BOTOES_DIRECAO.find(([botao]) => pad.buttons[botao]?.pressed);
         novo = cruz ? { d: cruz[1], d2: DIRECAO.NENHUMA } : direcaoDoManche(pad.axes[0] ?? 0, pad.axes[1] ?? 0, ZONA_MORTA_CONTROLE, controle);
         break;
       }
+      if (portal && !portalNoControle && emJogo) armarPortal();
+      portalNoControle = portal;
       if (bomba && !bombaNoControle && emJogo) aoBomba();
       if (gelo && !geloNoControle && emJogo) aoGelo();
+      if (molotov && !molotovNoControle && emJogo) aoMolotov();
+      molotovNoControle = molotov;
       bombaNoControle = bomba;
       geloNoControle = gelo;
       if (!iguais(novo, controle)) {
@@ -264,6 +305,7 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
     },
     definirModo({ jogando, toqueVisivel }) {
       emJogo = jogando;
+      if (!jogando) portalArmado = false;
       toqueAtivo = jogando && toqueVisivel;
       camada.hidden = !toqueAtivo;
       if (!toqueAtivo) soltarManche();
