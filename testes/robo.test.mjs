@@ -1,0 +1,203 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, COLUNAS } from '../site/js/pavio/regras.js';
+import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
+
+const DT = 1 / 60;
+const PASSO = 1 / velocidade(0);
+const semItens = () => 0.99;
+const bomba = (x, y, restante, alcance = 2, perfurante = false) => ({ x, y, restante, alcance, perfurante });
+// The danger map reads only the grid, the bombs and the flames of a match.
+const cena = ({ grade = gradeVazia(), bombas = [], chamas = new Map() } = {}) => ({ grade, bombas, chamas });
+const vizinhas = (a, b) => [1, COLUNAS].includes(Math.abs(a - b));
+
+// Small seeded generator (mulberry32): the long simulations always play the same way.
+function sorteador(semente) {
+  let estado = semente >>> 0;
+  return () => {
+    estado = (estado + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(estado ^ (estado >>> 15), 1 | estado);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Runs a match where every player is a robot, the way the host does: brains first, then the rules.
+function jogarComRobos(partida, robos, segundos, aCadaPasso = () => {}) {
+  for (let t = 0; t < segundos && !partida.resultado; t += DT) {
+    for (const robo of robos) {
+      const { d, d2, bomba: soltar } = robo.pensar(partida, DT);
+      partida.definirEntrada(robo.id, d, d2);
+      if (soltar) partida.pedirBomba(robo.id);
+    }
+    partida.passo(DT);
+    aCadaPasso(partida);
+  }
+}
+
+test('danger map covers the blast cross at the fuse time and stops at pillars', () => {
+  const perigo = mapaDePerigo(cena({ bombas: [bomba(3, 1, 1)] }));
+  for (const [x, y] of [[3, 1], [2, 1], [1, 1], [4, 1], [5, 1], [3, 2], [3, 3]]) {
+    assert.equal(perigo.ini[indice(x, y)], 1, `${x},${y} burns when the bomb goes off`);
+    assert.equal(perigo.fim[indice(x, y)], 1 + AJUSTES.chamaS);
+  }
+  for (const [x, y] of [[6, 1], [3, 4], [4, 2]]) assert.equal(perigo.ini[indice(x, y)], Infinity, `${x},${y} is out of reach`);
+});
+
+test('danger map: a crate stops the flame, a piercing flame goes through', () => {
+  const grade = gradeVazia();
+  grade[indice(4, 1)] = CAIXA;
+  const normal = mapaDePerigo(cena({ grade, bombas: [bomba(2, 1, 1, 3)] }));
+  assert.equal(normal.ini[indice(4, 1)], 1, 'the crate itself burns');
+  assert.equal(normal.ini[indice(5, 1)], Infinity);
+  const perfurante = mapaDePerigo(cena({ grade, bombas: [bomba(2, 1, 1, 3, true)] }));
+  assert.equal(perfurante.ini[indice(5, 1)], 1);
+});
+
+test('danger map: a chain reaction brings the next bomb forward', () => {
+  const perigo = mapaDePerigo(cena({ bombas: [bomba(1, 1, 0.5), bomba(3, 1, 2), bomba(9, 1, 2)] }));
+  assert.equal(perigo.ini[indice(5, 1)], 0.5, 'the second bomb blows with the first one');
+  assert.equal(perigo.ini[indice(3, 3)], 0.5);
+  assert.equal(perigo.ini[indice(9, 3)], 2, 'a bomb out of reach keeps its own fuse');
+});
+
+test('danger map: a crate broken by an earlier blast lets later flames through once it is out', () => {
+  const grade = gradeVazia();
+  grade[indice(5, 1)] = CAIXA;
+  // The bomb below breaks the crate at 0.5 s; it burns until 0.5 + chamaS.
+  const depois = mapaDePerigo(cena({ grade, bombas: [bomba(5, 3, 0.5), bomba(3, 1, 2, 4)] }));
+  assert.equal(depois.ini[indice(7, 1)], 2, 'the late blast crosses the cleared cell');
+  const durante = mapaDePerigo(cena({ grade, bombas: [bomba(5, 3, 0.5), bomba(3, 1, 0.8, 4)] }));
+  assert.equal(durante.ini[indice(6, 1)], Infinity, 'the burning crate still stops it');
+});
+
+test('danger map: flames on the ground are dangerous until they burn out', () => {
+  const perigo = mapaDePerigo(cena({ chamas: new Map([[indice(2, 1), { restante: 0.3, idade: 0.2, forma: 'h' }]]) }));
+  assert.equal(perigo.ini[indice(2, 1)], 0);
+  assert.equal(perigo.fim[indice(2, 1)], 0.3);
+});
+
+test('danger map: sudden death marks the next cells of the spiral for good', () => {
+  const partida = new Partida([{ id: 'a', slot: 0 }], { grade: gradeVazia() });
+  partida.tempo = partida.morteSubitaS - 1;
+  const perigo = mapaDePerigo(partida);
+  const [x, y] = partida.espiral[0];
+  assert.equal(perigo.ini[indice(x, y)], 1 + AJUSTES.morteSubitaPassoS);
+  assert.equal(perigo.fim[indice(x, y)], Infinity);
+  const [xl, yl] = partida.espiral.at(-1);
+  assert.equal(perigo.ini[indice(xl, yl)], Infinity, 'cells far ahead in the spiral are not counted yet');
+});
+
+test('escape route leaves the blast through open cells and ends somewhere safe', () => {
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade: gradeVazia(), sorteio: semItens });
+  partida.pedirBomba('a');
+  partida.passo(DT);
+  const perigo = mapaDePerigo(partida);
+  const origem = indice(1, 1);
+  const rota = rotaDeFuga(partida, perigo, origem, { passo: PASSO });
+  assert.ok(rota?.length >= 2);
+  let anterior = origem;
+  for (const { celula } of rota) {
+    assert.ok(vizinhas(anterior, celula), 'one cell at a time');
+    anterior = celula;
+  }
+  assert.equal(perigo.ini[rota.at(-1).celula], Infinity);
+  assert.deepEqual(rotaDeFuga(partida, perigo, indice(9, 9), { passo: PASSO }), [], 'nothing to do when already safe');
+});
+
+test('escape route is null inside a pocket the blast fills', () => {
+  const grade = gradeVazia();
+  grade[indice(3, 1)] = CAIXA;
+  grade[indice(1, 3)] = CAIXA;
+  const partida = cena({ grade, bombas: [bomba(1, 1, AJUSTES.pavioS)] });
+  assert.equal(rotaDeFuga(partida, mapaDePerigo(partida), indice(1, 1), { passo: PASSO }), null);
+});
+
+test('escape route waits for a flame ahead to burn out when that is the only way', () => {
+  const grade = gradeVazia();
+  grade[indice(1, 3)] = CAIXA;
+  // Own bomb at (1, 1) with range 1; the only way out, (3, 1), is on fire for another 0.5 s.
+  const partida = cena({
+    grade,
+    bombas: [bomba(1, 1, AJUSTES.pavioS, 1)],
+    chamas: new Map([[indice(3, 1), { restante: 0.5, idade: 0.1, forma: 'h' }]]),
+  });
+  const rota = rotaDeFuga(partida, mapaDePerigo(partida), indice(1, 1), { passo: PASSO });
+  const naChama = rota?.find(({ celula }) => celula === indice(3, 1));
+  assert.ok(naChama, 'the way out goes through the burning cell');
+  // It enters only after the fire is out (with the safety margin), half a step after leaving.
+  assert.ok(naChama.saida + PASSO / 2 > 0.5 + MARGEM_S - 1e-9, `left at ${naChama.saida}`);
+});
+
+test('a bomb is refused where it would leave no way out', () => {
+  const grade = gradeVazia();
+  grade[indice(3, 1)] = CAIXA;
+  grade[indice(1, 3)] = CAIXA;
+  const partida = cena({ grade });
+  const jogador = { alcance: 2, perfurante: false, tenis: 0 };
+  assert.equal(fugaDepoisDaBomba(partida, jogador, indice(1, 1)).rota, null, 'the blast fills the pocket');
+  assert.ok(fugaDepoisDaBomba(partida, jogador, indice(2, 1)).rota?.length, 'from the side cell it can hide around the corner');
+});
+
+test('a robot never bombs a dead end it cannot escape, and bombs it once the blast is short enough', () => {
+  const grade = gradeVazia();
+  // A one-cell-wide corridor (1,1)-(1,3) closed by crates.
+  for (const [x, y] of [[2, 1], [2, 3], [1, 4]]) grade[indice(x, y)] = CAIXA;
+  for (const nivel of ORDEM_NIVEIS) {
+    const longo = new Partida([{ id: 'r', slot: 0 }], { grade, sorteio: semItens });
+    longo.jogadores[0].alcance = 3;
+    let bombas = 0;
+    jogarComRobos(longo, [criarRobo({ id: 'r', nivel, sorteio: sorteador(1) })], 8, p => (bombas += p.bombas.length));
+    assert.equal(bombas, 0, `${nivel}: no bomb when the blast covers the whole corridor`);
+    assert.equal(longo.jogadores[0].vivo, true);
+
+    const curto = new Partida([{ id: 'r', slot: 0 }], { grade, sorteio: semItens });
+    curto.jogadores[0].alcance = 1;
+    jogarComRobos(curto, [criarRobo({ id: 'r', nivel, sorteio: sorteador(1) })], 8);
+    assert.equal(curto.jogadores[0].vivo, true, `${nivel}: survives its own bombs`);
+    assert.ok(curto.jogadores[0].caixas >= 1, `${nivel}: breaks out of the corridor`);
+  }
+});
+
+test('a robot alone never dies by its own bombs and keeps clearing crates', () => {
+  for (const nivel of ORDEM_NIVEIS) {
+    for (const mapa of [MAPAS[0], MAPAS[3], MAPAS[4]]) {
+      const sorteio = sorteador(7);
+      const partida = new Partida([{ id: 'r', slot: 0 }], { mapa, sorteio });
+      jogarComRobos(partida, [criarRobo({ id: 'r', nivel, sorteio })], 80);
+      const [robo] = partida.jogadores;
+      assert.equal(robo.vivo, true, `${nivel} on ${mapa.nome}`);
+      assert.ok(robo.caixas >= 20, `${nivel} on ${mapa.nome} broke only ${robo.caixas} crates`);
+    }
+  }
+});
+
+test('a full arena of robots of every level plays each map to the end', () => {
+  const niveis = ['facil', 'medio', 'dificil', 'facil', 'medio', 'dificil', 'medio', 'dificil'];
+  for (const [n, mapa] of MAPAS.entries()) {
+    const sorteio = sorteador(100 + n);
+    const partida = new Partida(niveis.map((_, slot) => ({ id: `r${slot}`, slot })), { mapa, sorteio });
+    const robos = niveis.map((nivel, slot) => criarRobo({ id: `r${slot}`, nivel, sorteio }));
+    let entradasValidas = true;
+    const robosVigiados = robos.map(robo => ({
+      id: robo.id,
+      pensar(...args) {
+        const acao = robo.pensar(...args);
+        entradasValidas &&= Number.isInteger(acao.d) && Number.isInteger(acao.d2) && typeof acao.bomba === 'boolean';
+        return acao;
+      },
+    }));
+    jogarComRobos(partida, robosVigiados, partida.morteSubitaS + 80);
+    assert.ok(partida.resultado, `${mapa.nome} ended`);
+    assert.ok(entradasValidas, 'robots answer with the same input a person gives');
+    assert.ok(partida.jogadores.reduce((soma, j) => soma + j.caixas, 0) > 30, `${mapa.nome}: crates were broken`);
+  }
+});
+
+test('robot levels and helpers are consistent', () => {
+  assert.deepEqual(ORDEM_NIVEIS, ['facil', 'medio', 'dificil']);
+  for (const nivel of ORDEM_NIVEIS) assert.ok(NIVEIS[nivel].nome);
+  assert.ok(NIVEIS.facil.reacao > NIVEIS.medio.reacao && NIVEIS.medio.reacao > NIVEIS.dificil.reacao, 'harder robots react faster');
+  assert.equal(criarRobo({ id: 'x', nivel: 'inexistente' }).nivel, 'medio');
+  assert.equal(celulaDe({ x: 3.49, y: 1.51 }), indice(3, 2));
+});

@@ -7,6 +7,7 @@ O primeiro jogo é o **Pavio**, uma arena de bombas original (nome, personagens 
 Fluxo de uma sala (pedidos do Victor de 27/10/2026):
 
 - **Lobby:** cada um marca "Estou pronto"; quando todos estão prontos, a rodada começa sozinha. Sozinho na sala vira treino.
+- **Robôs:** no lobby, o anfitrião adiciona robôs (🤖 Nome) para treinar sozinho ou completar a sala até 8 jogadores, escolhe a dificuldade de cada um (fácil, médio, difícil) e tira quando quiser. Robôs estão sempre prontos, não contam para "se alguém sai, a rodada acaba" e cedem a vaga se entrar gente e a sala passar de 8.
 - **Rodada de 5 partidas:** cada partida usa um mapa mais fechado (Pátio, Depósito, Muralhas, Labirinto, Fornalha) e libera um poder novo: 💣 mais bombas e 🔥 mais alcance desde a primeira, depois 👟 tênis, 🛡️ escudo, 💥 fogo perfurante (atravessa caixas) e 👻 fantasma (atravessa caixas e bombas por 8 s).
 - **Pontos:** caixa destruída vale 1 ponto para o dono da bomba, eliminação vale 5 (explodir a si mesmo não conta) e partida vencida vale 15. Depois de cada partida aparece o placar com a quebra por tipo; no fim da rodada, o campeão é quem tem mais pontos (desempate por vitórias).
 - **Se alguém sai** no meio da rodada, ela acaba, o placar final aparece com o motivo e todos voltam ao lobby.
@@ -16,6 +17,7 @@ Fluxo de uma sala (pedidos do Victor de 27/10/2026):
 - `site/js/sala.js` é a camada de sala, comum a todos os jogos: conexões WebRTC (canais de dados) por meio do PeerJS, em estrela em volta de quem criou a sala (o anfitrião). O código da sala (5 letras) é o id do anfitrião no servidor de sinalização; o link é `https://<site>/#CODIGO`. A sala cuida de entrada e saída, lista de membros, ping e queda; o jogo só troca as próprias mensagens.
 - O servidor de sinalização é o gratuito do PeerJS (`0.peerjs.com`), usado só para os navegadores se acharem; os dados do jogo vão direto entre os navegadores. A configuração padrão do PeerJS 1.5.4 inclui STUN do Google e TURN do próprio PeerJS para redes mais fechadas.
 - Cada ligação tem dois canais: o confiável do PeerJS (controle da sala, estado da rodada, bombas) e um canal rápido pré-negociado, sem ordem e sem retransmissão (retratos e posições), para um pacote perdido nunca segurar os seguintes.
+- `site/js/pavio/robo.js` é a IA dos robôs, que só existem no anfitrião: a cada passo da simulação cada robô lê a partida e devolve a mesma entrada de uma pessoa (`{ d, d2 }` e bomba). Ela calcula um mapa de perigo (quando cada célula vai pegar fogo, com reação em cadeia e morte súbita) e uma rota de fuga com tempo, e nunca solta bomba sem ter para onde correr. O fácil reage devagar, vagueia e só quebra caixas; o médio caça os outros; o difícil reage rápido, prefere fugas longe dos adversários e procura encurralar quem está perto.
 - `site/js/pavio/regras.js` é a simulação pura (sem DOM nem rede). O anfitrião roda a 60 passos por segundo e manda um retrato 20 vezes por segundo, com a grade só quando ela muda e eventos repetidos em 3 retratos seguidos.
 - Cada jogador anda no próprio aparelho, sem esperar a rede, com a mesma função de movimento das regras (`moverComColisao`), e manda a posição ~30 vezes por segundo; o anfitrião aceita só posição plausível (velocidade e paredes) e o aparelho se corrige se ficar longe da versão do anfitrião. Os outros jogadores aparecem com um atraso que se ajusta à oscilação da rede. Chamas só machucam depois de 0,12 s, para compensar o atraso das posições.
 - A lista da sala mostra o ping de cada um até o anfitrião, e 🐢 quando a ligação passa por retransmissor (TURN), que é mais lenta.
@@ -32,7 +34,7 @@ O site é estático, sem build. Para abrir localmente (abrir duas abas, criar a 
 python3 -m http.server 8792 --directory site
 ```
 
-Testes das regras do jogo (Node 22, sem dependências):
+Testes das regras do jogo e da IA dos robôs (Node 22, sem dependências):
 
 ```bash
 node --test testes/*.test.mjs
