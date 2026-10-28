@@ -869,6 +869,66 @@ html.em-sala body {
   color: #8ce99a;
 }
 
+.pavio-robos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.pavio-aviso .pavio-robos .botao {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.pavio-robo-nivel {
+  padding: 4px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--painel-2);
+  color: var(--texto);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pavio-prontos-texto .pavio-robo-nivel {
+  justify-self: start;
+  padding: 1px 8px;
+  font-size: 11px;
+}
+
+.pavio-robo-nivel[aria-pressed='true'] {
+  border-color: var(--destaque);
+  background: var(--destaque);
+  color: #1a0d03;
+}
+
+.pavio-robo-nivel:focus-visible,
+.pavio-robo-tirar:focus-visible {
+  outline: 3px solid rgba(255, 138, 61, 0.6);
+  outline-offset: 2px;
+}
+
+.pavio-robo-tirar {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pavio-robo-tirar:hover {
+  color: var(--texto);
+}
+
 .pavio-placar {
   width: min(560px, 100%);
   border-collapse: collapse;
