@@ -1,9 +1,24 @@
 // End-to-end tests: every player gets its own browser context (its own page), all in headless Chromium.
 // Signaling goes through the public PeerJS server, so these tests need internet access.
 
+import net from 'node:net';
 import { defineConfig } from '@playwright/test';
 
-const PORTA = 8805;
+// A free port, chosen once by the runner and inherited by the workers through the environment, so several
+// worktrees can run the suite at the same time. SALINHA_PORTA fixes it.
+function portaLivre() {
+  return new Promise((resolve, reject) => {
+    const servidor = net.createServer();
+    servidor.on('error', reject);
+    servidor.listen(0, '127.0.0.1', () => {
+      const { port } = servidor.address();
+      servidor.close(() => resolve(port));
+    });
+  });
+}
+
+process.env.SALINHA_PORTA ??= String(await portaLivre());
+const PORTA = Number(process.env.SALINHA_PORTA);
 
 export default defineConfig({
   testDir: 'testes/e2e',
