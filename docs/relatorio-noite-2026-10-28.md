@@ -41,6 +41,7 @@ Nenhum até agora.
 - 00:55, frente 5: as checagens novas de acessibilidade e rede ruim entram no `npm run e2e` (todos rodam antes de integrar); a regressão visual fica fora dele, porque as telas mudam de propósito a noite toda, e a frente 5 cuida das imagens de referência.
 - 00:55, frente 5: o cenário dos robôs falhava às vezes porque conferia na hora que o convidado via um robô quebrar caixa, e o convidado desenha os outros um pouco no passado; virou uma espera de até 15 s.
 - 00:50, frente 5: o servidor dos testes passou a usar uma porta livre a cada execução, porque a porta fixa 8805 colidia quando duas frentes rodavam a suíte ao mesmo tempo.
+- 01:06, frente 5: o axe-core só aponta `meta-viewport` (zoom desligado), de impacto moderado; fica assim de propósito, porque o Victor pediu a sala sem zoom nem rolagem no iPad, e o teste só reprova problemas sérios ou críticos.
 
 ## Pendências do Victor
 
