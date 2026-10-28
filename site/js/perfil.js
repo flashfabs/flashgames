@@ -2,8 +2,9 @@
 // few numbers, and taking the profile to another device. The data lives in conta.js; this module only shows it.
 // The color starts "automatic" (the room picks a free one, as before) until the person chooses one here.
 
-import { obterPerfil, salvarPerfil, codigoDeRecuperacao, recuperar } from './conta.js';
+import { obterPerfil, salvarPerfil, codigoDeRecuperacao, recuperar, ranking } from './conta.js';
 import * as desenho from './pavio/desenho.js';
+import { MAPAS } from './pavio/regras.js';
 
 const CHAVE_COR_ESCOLHIDA = 'salinha:cor-escolhida';
 const CORES_DA_SALA = desenho.CORES.length;
@@ -46,6 +47,27 @@ function numeros(estatisticas) {
   return `${partes.join(' · ')}${recorde ? ` · recorde de ${plural(recorde, 'ponto', 'pontos')} numa partida` : ''}`;
 }
 
+const ULTIMAS_PARTIDAS = 5;
+const TOPO_RANKING = 10;
+
+function quandoFoi(em) {
+  const minutos = Math.round((Date.now() - em) / 60000);
+  if (minutos < 1) return 'agora';
+  if (minutos < 60) return `há ${minutos} min`;
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `há ${horas} h`;
+  const dias = Math.round(horas / 24);
+  return dias === 1 ? 'ontem' : `há ${dias} dias`;
+}
+
+function linhaDoHistorico(partida) {
+  const mapa = MAPAS.find(item => item.tema === partida.mapa)?.nome ?? 'Partida';
+  const com = partida.robos >= partida.jogadores - 1 ? `contra ${plural(partida.robos, 'robô', 'robôs')}` : `com ${plural(partida.jogadores - 1, 'pessoa', 'pessoas')}`;
+  return elemento('li', { class: partida.venceu ? 'venceu' : '' },
+    elemento('span', { class: 'perfil-lista-principal' }, `${partida.venceu ? '🏆 ' : ''}${mapa} · ${plural(partida.pontos, 'ponto', 'pontos')}`),
+    elemento('span', { class: 'perfil-lista-detalhe' }, `${com} · ${quandoFoi(partida.em)}`));
+}
+
 // raiz: the profile section of the home screen; campoNome: the nickname input (inside the home form).
 // aoMudar(perfil) runs whenever the shown profile changes; perfil.corPreferida is null while the color is automatic.
 export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
@@ -53,6 +75,9 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
   const textoNumeros = raiz.querySelector('#perfil-numeros');
   const cores = raiz.querySelector('#perfil-cores');
   const outroAparelho = raiz.querySelector('#perfil-outro-aparelho');
+  const historicoLista = raiz.querySelector('#perfil-historico-lista');
+  const rankingSecao = raiz.querySelector('#perfil-ranking');
+  const rankingLista = raiz.querySelector('#perfil-ranking-lista');
   let perfil = null;
   let corEscolhida = lerCorEscolhida();
   let nomeMostrado = '';
@@ -115,6 +140,10 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
     if (campoNome.value === '' || campoNome.value === nomeMostrado) campoNome.value = perfil.nome;
     if (campoNome.value === perfil.nome) nomeMostrado = perfil.nome;
     textoNumeros.textContent = numeros(perfil.estatisticas);
+    const ultimas = (perfil.historico ?? []).slice(0, ULTIMAS_PARTIDAS);
+    historicoLista.replaceChildren(...(ultimas.length
+      ? ultimas.map(linhaDoHistorico)
+      : [elemento('li', { class: 'perfil-lista-vazia' }, 'Nenhuma partida ainda.')]));
     desenharBoneco();
     desenharCores();
     avisarMudanca();
@@ -213,6 +242,25 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
     );
   }
 
+  // The ranking comes from the server: it loads only when someone opens it.
+  async function mostrarRanking() {
+    rankingLista.replaceChildren(elemento('li', { class: 'perfil-lista-vazia' }, 'Carregando…'));
+    try {
+      const linhas = (await ranking()).slice(0, TOPO_RANKING);
+      rankingLista.replaceChildren(...(linhas.length
+        ? linhas.map(linha => elemento('li', { class: linha.eu ? 'eu' : '' },
+          elemento('span', { class: 'perfil-lista-principal' }, `${linha.posicao}º `, desenho.marcaJogador(linha.cor), ` ${linha.nome}${linha.eu ? ' (você)' : ''}`),
+          elemento('span', { class: 'perfil-lista-detalhe' }, `${plural(linha.pontos, 'ponto', 'pontos')} · ${plural(linha.vitorias, 'vitória', 'vitórias')}`)))
+        : [elemento('li', { class: 'perfil-lista-vazia' }, 'Ninguém no ranking ainda: ele conta partidas com outras pessoas.')]));
+    } catch (erro) {
+      console.warn('Ranking unavailable', erro);
+      rankingLista.replaceChildren(elemento('li', { class: 'perfil-lista-vazia' }, 'Não consegui carregar o ranking agora.'));
+    }
+  }
+
+  rankingSecao.addEventListener('toggle', () => {
+    if (rankingSecao.open) mostrarRanking();
+  });
   campoNome.addEventListener('change', () => salvarNome(campoNome.value));
   montarOutroAparelho();
   obterPerfil().then(mostrar).catch(erro => {
