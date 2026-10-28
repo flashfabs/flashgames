@@ -56,7 +56,10 @@ test('someone leaving mid-round ends it with the reason, then everyone goes back
   await mesa.todosProntos([host, fe, gabi]);
   for (const jogador of [host, fe, gabi]) await jogador.esperarFase('jogo');
 
+  // Leaving mid-round ends it for the others, so it asks first.
   await gabi.pagina.locator('#botao-sair').click();
+  await expect(gabi.pagina.locator('#confirmar-texto')).toHaveText('A rodada está rolando: se você sair agora, ela acaba para todo mundo.');
+  await gabi.pagina.getByRole('button', { name: 'Sair da sala' }).click();
   await expect(gabi.pagina.locator('#inicio')).toBeVisible();
 
   const motivo = 'Gabi saiu da sala, então a rodada acabou.';

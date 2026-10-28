@@ -13,7 +13,7 @@ import { criarHud } from './hud.js';
 import { tratarEventos as traduzirEventos } from './efeitos.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, aplicarAcaoDoRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
-import { criarTelas, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
+import { criarTelas, atualizarConexoes, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -166,6 +166,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
   let chaveAviso = '';
   let refContagem = null;
   const partidasRegistradas = new Set();
+  let primeiroEstadoVisto = false;
   let faseDoAviso = null;
   let ultimaContagem = null;
   let timerFaixa = 0;
@@ -225,6 +226,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       if (jogador) jogador.andando = false;
     }),
     sala.on('reconectou', () => sala.enviarAoAnfitriao({ t: 'pedirEstado' })),
+    // Pings change every second: the lobby badges update in place.
+    sala.on('qualidade', () => {
+      if (estado.fase === 'lobby') atualizarConexoes(el.aviso, sala.membrosOrdenados());
+    }),
   ];
 
   function ajustarArena() {
@@ -633,6 +638,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
     if (estado.idPartida !== partidaAnterior) prepararPartidaLocal();
     if (estado.fase !== anterior) aoEntrarNaFase(estado.fase, anterior);
+    // Arriving with a round under way: say what happens now, once.
+    if (!primeiroEstadoVisto) {
+      primeiroEstadoVisto = true;
+      if (estado.fase !== 'lobby' && estado.fase !== 'final' && meuIndice() < 0) mostrarFaixa('A rodada já começou: você assiste agora e entra na próxima.');
+    }
     chaveAviso = '';
     informar();
   }
@@ -891,6 +901,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       estado,
       meuId: sala.meuId,
       souAnfitriao: sala.souAnfitriao,
+      idAnfitriao: sala.idAnfitriao,
+      link: sala.link,
+      codigo: sala.codigo,
       membros: sala.membrosOrdenados(),
       toque: toqueDisponivel,
       placarInicio,

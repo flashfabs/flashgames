@@ -12,7 +12,7 @@ const APARELHOS = {
   celular: semNavegador(devices['Pixel 7']),
 };
 
-const mascaras = pagina => [pagina.locator('#sala-codigo'), pagina.locator('.etiqueta--ping'), pagina.locator('#avisos')];
+const mascaras = pagina => ['#sala-codigo', '.etiqueta--ping', '.pavio-conexao', '.pavio-convite-titulo strong', '#avisos'].map(seletor => pagina.locator(seletor));
 const SEM_CANVAS = 'canvas { visibility: hidden !important; }';
 
 async function prontaParaFoto(pagina) {
