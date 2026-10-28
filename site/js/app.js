@@ -2,7 +2,7 @@
 
 import { Sala, normalizarCodigo, limparNome } from './sala.js';
 import { criarPavio } from './pavio/pavio.js';
-import { CORES } from './pavio/desenho.js';
+import { marcaJogador } from './pavio/desenho.js';
 import { som } from './som.js';
 
 const CHAVE_NOME = 'salinha:nome';
@@ -124,8 +124,14 @@ function abrirSala(sala) {
   mostrarTela('sala');
   sala.on('membros', desenharMembros);
   sala.on('qualidade', desenharMembros);
-  sala.on('entrou', membro => avisar(`${membro.nome} entrou na sala`));
-  sala.on('saiu', membro => avisar(`${membro.nome} saiu da sala`));
+  sala.on('entrou', membro => {
+    avisar(`${membro.nome} entrou na sala`);
+    som.tocar('entrou');
+  });
+  sala.on('saiu', membro => {
+    avisar(`${membro.nome} saiu da sala`);
+    som.tocar('saiu');
+  });
   sala.on('caiu', motivo => mostrarQueda(motivo));
   jogoAtual = criarPavio({
     sala,
@@ -175,9 +181,7 @@ function desenharMembros() {
   $('#contagem-membros').textContent = `${membros.length}/${MAX_MEMBROS}`;
   $('#lista-membros').replaceChildren(...membros.map((membro, n) => {
     const item = document.createElement('li');
-    const cor = document.createElement('span');
-    cor.className = 'membro-cor';
-    cor.style.setProperty('--cor', (CORES[infoJogo.cores[membro.id] ?? n] ?? CORES[0]).base);
+    const cor = marcaJogador(infoJogo.cores[membro.id] ?? n);
     const nome = document.createElement('span');
     nome.className = 'membro-nome';
     nome.textContent = membro.nome;
@@ -238,6 +242,10 @@ function atualizarBotaoSom() {
   const botao = $('#botao-som');
   botao.textContent = som.mudo ? '🔇' : '🔊';
   botao.setAttribute('aria-label', som.mudo ? 'Ligar o som' : 'Desligar o som');
+  const musica = $('#botao-musica');
+  musica.setAttribute('aria-pressed', String(som.musicaLigada));
+  musica.title = som.musicaLigada ? 'Desligar a música' : 'Ligar a música';
+  musica.disabled = som.mudo;
 }
 
 $('#form-inicio').addEventListener('submit', evento => {
@@ -272,6 +280,10 @@ $('#botao-copiar').addEventListener('click', compartilharLink);
 $('#botao-sair').addEventListener('click', () => voltarAoInicio());
 $('#botao-som').addEventListener('click', () => {
   som.alternar();
+  atualizarBotaoSom();
+});
+$('#botao-musica').addEventListener('click', () => {
+  som.alternarMusica();
   atualizarBotaoSom();
 });
 $('#botao-reconectar').addEventListener('click', () => {
