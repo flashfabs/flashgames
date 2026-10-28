@@ -4,9 +4,9 @@
 // frames. The resolution adapts to the device: up to 3x while frames keep their pace, lower when not.
 
 import { COLUNAS, ITEM, DIRECAO, AJUSTES } from './regras.js';
-import { TAM, LARGURA, ALTURA, retangulo, circulo, elipse, aleatorio, criarCenario } from './cenario.js';
+import { TAM, LARGURA, ALTURA, retangulo, circulo, elipse, aleatorio, criarCenario, chaveDoTema } from './cenario.js';
 
-export { TAM, LARGURA, ALTURA };
+export { TAM, LARGURA, ALTURA, chaveDoTema };
 
 export const CORES = [
   { base: '#ff6b6b', escura: '#a51d1d' },

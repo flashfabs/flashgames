@@ -393,6 +393,11 @@ const TEMAS = {
   },
 };
 
+// Theme key of a map: its own, or by the round order while the maps do not carry one.
+export function chaveDoTema(chave, ordem) {
+  return TEMAS[chave] ? chave : TEMA_POR_ORDEM[ordem] ?? 'padrao';
+}
+
 export function temaDe(chave, ordem) {
   if (chave === undefined) return TEMAS[TEMA_POR_ORDEM[ordem]] ?? TEMAS.padrao;
   return TEMAS[chave] ?? TEMAS.padrao;

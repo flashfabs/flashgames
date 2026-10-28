@@ -6,7 +6,7 @@ import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
   indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
 } from './regras.js';
-import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
+import { criarPintor, efeitoAtivo, marcaJogador, chaveDoTema, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarPassoFixo } from '../relogio.js';
 
@@ -37,7 +37,10 @@ const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
 const PARA_GELO = new Set([PAREDE, CAIXA]);
 const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
-const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo' };
+const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo', resultado: 'resultado', final: 'resultado' };
+// Stereo position of a sound from its column on the arena (-1 left, 1 right).
+const panDe = x => (Number.isFinite(x) ? (x / (COLUNAS - 1)) * 2 - 1 : undefined);
+const mediaDe = valores => (valores.length ? valores.reduce((soma, valor) => soma + valor, 0) / valores.length : undefined);
 const CONFETES = 26;
 
 function h(tag, atributos = {}, ...filhos) {
@@ -202,7 +205,6 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // Everyone.
   let entrada = { d: DIRECAO.NENHUMA, d2: DIRECAO.NENHUMA };
   const efeitos = [];
-  let tremor = 0;
   let chaveAviso = '';
   let refContagem = null;
   let ultimaContagem = null;
@@ -781,7 +783,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function aoEntrarNaFase(fase) {
     chaveAviso = '';
     controles.definirModo({ jogando: (fase === 'contagem' || fase === 'jogo') && meuIndice() >= 0, toqueVisivel: toqueDisponivel });
-    som.musica(MUSICA_DA_FASE[fase] ?? null);
+    som.musica(MUSICA_DA_FASE[fase] ?? null, { tema: chaveDoTema(MAPAS[estado.mapa]?.tema, estado.mapa) });
     if (fase === 'contagem') {
       efeitos.length = 0;
       ultimaContagem = null;
@@ -806,31 +808,32 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function tratarEventos(eventos) {
     const agora = performance.now() / 1000;
     const eu = meuIndice();
-    let explosoes = 0;
-    let caixas = 0;
-    let blocos = 0;
+    const explosoes = [];
+    const caixas = [];
+    const blocos = [];
     for (const evento of eventos) {
+      const pan = panDe(evento?.x);
       switch (evento?.e) {
         case 'bum':
-          explosoes++;
+          explosoes.push(evento.x);
           efeitos.push({ tipo: 'explosao', x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'bomba':
         case 'chute':
-          som.tocar('bomba');
+          som.tocar('bomba', { pan });
           break;
         case 'caixa':
-          caixas++;
+          caixas.push(evento.x);
           efeitos.push({ tipo: 'caixa', x: evento.x, y: evento.y, inicio: agora });
           if (evento.j === eu) efeitos.push({ tipo: 'ponto', texto: `+${PONTOS.caixa}`, x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'item':
-          som.tocar('item', { item: evento.item });
+          som.tocar('item', { item: evento.item, pan });
           efeitos.push({ tipo: 'item', x: evento.x, y: evento.y, item: evento.item, inicio: agora });
           break;
         case 'escudo':
         case 'congela':
-          som.tocar('escudo');
+          som.tocar('escudo', { pan });
           efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'gelo':
@@ -842,7 +845,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           efeitos.push({ tipo: 'escudo', x: evento.x2, y: evento.y2, inicio: agora });
           break;
         case 'morte':
-          som.tocar('morte', { eu: evento.j === eu });
+          som.tocar('morte', { eu: evento.j === eu, pan });
           efeitos.push({ tipo: 'morte', x: evento.x, y: evento.y, cor: estado.escalacao[evento.j]?.cor ?? 0, inicio: agora });
           break;
         case 'subita':
@@ -851,19 +854,16 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           mostrarFaixa('Morte súbita! A arena está fechando.');
           break;
         case 'bloco':
-          blocos++;
+          blocos.push(evento.x);
           efeitos.push({ tipo: 'bloco', x: evento.x, y: evento.y, inicio: agora });
           break;
         default:
           break;
       }
     }
-    if (explosoes) {
-      som.tocar('bum', { n: explosoes });
-      tremor = Math.min(tremor + 3 + explosoes, 7);
-    }
-    if (caixas) som.tocar('caixa', { n: caixas });
-    if (blocos) som.tocar('bloco');
+    if (explosoes.length) som.tocar('bum', { n: explosoes.length, pan: panDe(mediaDe(explosoes)) });
+    if (caixas.length) som.tocar('caixa', { n: caixas.length, pan: panDe(mediaDe(caixas)) });
+    if (blocos.length) som.tocar('bloco', { pan: panDe(mediaDe(blocos)) });
     if (efeitos.length > MAX_EFEITOS) efeitos.splice(0, efeitos.length - MAX_EFEITOS);
   }
 
@@ -1177,7 +1177,6 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       })
       : jogadoresDoLobby();
     const agora = agoraMs / 1000;
-    tremor *= 0.85;
     for (let k = efeitos.length - 1; k >= 0; k--) if (!efeitoAtivo(efeitos[k], agora)) efeitos.splice(k, 1);
     const mapa = vista ? estado.mapa : 0;
     pintor.desenhar({
@@ -1192,7 +1191,6 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       gl: vista?.gl ?? [],
       agora,
       efeitos,
-      tremor,
       contagem: estado.fase === 'contagem',
       subita: estado.fase === 'jogo' && Boolean(vista) && (Number(vista.tm) || 0) >= (vista.ms ?? 120),
     });
@@ -1207,7 +1205,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     sala.enviarAoAnfitriao({ t: 'pedirEstado' });
   }
   controles.definirModo({ jogando: false, toqueVisivel: toqueDisponivel });
-  som.musica(MUSICA_DA_FASE[estado.fase]);
+  som.musica(MUSICA_DA_FASE[estado.fase], { tema: 'padrao' });
   const relogio = sala.souAnfitriao ? criarPassoFixo(HZ_SIMULACAO, passoAnfitriao) : null;
   ajustarArena();
   quadro();
