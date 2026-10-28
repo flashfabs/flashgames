@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, COLUNAS } from '../site/js/pavio/regras.js';
+import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, COLUNAS, DIRECAO } from '../site/js/pavio/regras.js';
 import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
 
 const DT = 1 / 60;
@@ -75,6 +75,37 @@ test('danger map: flames on the ground are dangerous until they burn out', () =>
   const perigo = mapaDePerigo(cena({ chamas: new Map([[indice(2, 1), { restante: 0.3, idade: 0.2, forma: 'h' }]]) }));
   assert.equal(perigo.ini[indice(2, 1)], 0);
   assert.equal(perigo.fim[indice(2, 1)], 0.3);
+});
+
+test('danger map: an armed remote bomb of someone else can go off at once, our own one looks like a fuse', () => {
+  // Dropped 2 s ago with the detonator: 8 s left on its own timer.
+  const remota = { ...bomba(3, 1, AJUSTES.detonadorS - 2), remota: true, dono: 'outro' };
+  const deles = mapaDePerigo(cena({ bombas: [remota] }), [], { eu: 'eu' });
+  assert.equal(deles.ini[indice(5, 1)], 0, 'its owner may press now');
+  assert.equal(deles.fim[indice(5, 1)], remota.restante + AJUSTES.chamaS, 'or let it go off by itself');
+  const minha = mapaDePerigo(cena({ bombas: [{ ...remota, dono: 'eu' }] }), [], { eu: 'eu' });
+  assert.ok(Math.abs(minha.ini[indice(5, 1)] - 1) < 1e-9, 'our own one never looks closer than a second away');
+  const nova = { ...bomba(3, 1, AJUSTES.detonadorS), remota: true, dono: 'eu' };
+  assert.ok(Math.abs(mapaDePerigo(cena({ bombas: [nova] }), [], { eu: 'eu' }).ini[indice(5, 1)] - AJUSTES.pavioS) < 1e-9, 'a fresh one is planned like a normal fuse');
+  const detonada = mapaDePerigo(cena({ bombas: [nova] }), [], { eu: 'eu', detonar: nova });
+  assert.equal(detonada.ini[indice(5, 1)], 0, 'unless we are about to set it off');
+});
+
+test('danger map: a frozen fuse waits, but a chain reaction still sets it off', () => {
+  const congelada = { ...bomba(3, 1, 1), congelada: 2 };
+  assert.equal(mapaDePerigo(cena({ bombas: [congelada] })).ini[indice(5, 1)], 3);
+  const comOutra = mapaDePerigo(cena({ bombas: [congelada, bomba(3, 3, 0.5)] }));
+  assert.equal(comOutra.ini[indice(5, 1)], 0.5);
+});
+
+test('danger map: a kicked bomb may blow anywhere along its slide', () => {
+  const grade = gradeVazia();
+  grade[indice(9, 1)] = CAIXA;
+  const chutada = { ...bomba(3, 1, 2, 1), deslize: DIRECAO.DIREITA, avanco: 0.2 };
+  const perigo = mapaDePerigo(cena({ grade, bombas: [chutada] }));
+  for (const x of [3, 5, 8]) assert.equal(perigo.ini[indice(x, 1)], 2, `fire may reach ${x},1`);
+  assert.equal(perigo.ini[indice(7, 2)], 2, 'stopping at (7, 1) would burn below it');
+  assert.equal(perigo.ini[indice(10, 1)], Infinity, 'the crate stops the slide and the blast');
 });
 
 test('danger map: sudden death marks the next cells of the spiral for good', () => {
@@ -169,6 +200,50 @@ test('a robot alone never dies by its own bombs and keeps clearing crates', () =
       assert.equal(robo.vivo, true, `${nivel} on ${mapa.nome}`);
       assert.ok(robo.caixas >= 20, `${nivel} on ${mapa.nome} broke only ${robo.caixas} crates`);
     }
+  }
+});
+
+test('a robot with the detonator and a single bomb sets its bombs off from a safe place', () => {
+  for (const nivel of ORDEM_NIVEIS) {
+    const sorteio = sorteador(5);
+    const partida = new Partida([{ id: 'r', slot: 0 }], { mapa: MAPAS[1], sorteio });
+    const [robo] = partida.jogadores;
+    robo.detonador = true;
+    let detonadas = 0;
+    let soltas = 0;
+    let antes = new Map();
+    jogarComRobos(partida, [criarRobo({ id: 'r', nivel, sorteio })], 30, p => {
+      for (const [b, restante] of antes) if (!p.bombas.includes(b) && restante > 0.05) detonadas++;
+      for (const b of p.bombas) if (!antes.has(b)) soltas++;
+      antes = new Map(p.bombas.map(b => [b, b.restante]));
+    });
+    assert.equal(robo.vivo, true, nivel);
+    assert.ok(soltas >= 4, `${nivel} dropped ${soltas} bombs`);
+    assert.ok(detonadas >= soltas / 2, `${nivel} set off ${detonadas} of ${soltas} before their time`);
+  }
+});
+
+test('robots holding kick, shortcut and ice never use them by accident nor get stuck', () => {
+  const niveis = ['facil', 'medio', 'dificil', 'dificil'];
+  for (const mapa of [MAPAS[1], MAPAS[3]]) {
+    const sorteio = sorteador(11);
+    const partida = new Partida(niveis.map((_, slot) => ({ id: `r${slot}`, slot })), { mapa, sorteio });
+    for (const jogador of partida.jogadores) Object.assign(jogador, { chute: true, atalhos: AJUSTES.maxAtalhos, gelo: AJUSTES.maxGelo, bombasMax: 2 });
+    const robos = niveis.map((nivel, slot) => criarRobo({ id: `r${slot}`, nivel, sorteio }));
+    const usados = [];
+    const paradoDesde = new Map();
+    let maiorParada = 0;
+    jogarComRobos(partida, robos, 60, p => {
+      for (const ev of p.tirarEventos()) if (['chute', 'atalho', 'gelo'].includes(ev.e)) usados.push(ev.e);
+      for (const j of p.jogadores.filter(vivo => vivo.vivo)) {
+        const onde = `${j.x},${j.y}`;
+        const visto = paradoDesde.get(j.id);
+        if (visto?.onde !== onde) paradoDesde.set(j.id, { onde, desde: p.tempo });
+        else maiorParada = Math.max(maiorParada, p.tempo - visto.desde);
+      }
+    });
+    assert.deepEqual(usados, [], `${mapa.nome}: no kick, shortcut or ice shot`);
+    assert.ok(maiorParada < 20, `${mapa.nome}: a robot stood still for ${maiorParada.toFixed(1)} s`);
   }
 });
 
