@@ -5,7 +5,7 @@
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
   indice, gradeVazia, moverComColisao, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
-  somarEstatisticasRodada, bloqueiaPrevisto,
+  somarEstatisticasRodada, bloqueiaPrevisto, layoutDoMapa,
 } from './regras.js';
 import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
@@ -33,7 +33,13 @@ const FINAL_S = 15;
 const MAX_EFEITOS = 90;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
 const TOTAL_PARTIDAS = MAPAS.length;
-const MUROS = MAPAS.map(mapa => new Set(mapa.muros.map(([x, y]) => indice(x, y))));
+// Each match plays a variant of its map, picked by the match number (members know it from the state).
+const murosGuardados = new Map();
+function murosDaPartida(mapa, variante) {
+  const chave = `${mapa}:${variante}`;
+  if (!murosGuardados.has(chave)) murosGuardados.set(chave, new Set(layoutDoMapa(MAPAS[mapa], variante).muros.map(([x, y]) => indice(x, y))));
+  return murosGuardados.get(chave);
+}
 const GRADE_LOBBY = gradeVazia().join('');
 const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
@@ -496,7 +502,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     // Robots are local players of the host's simulation: their brains give the input on every step.
     partida = new Partida(
       estado.escalacao.map(({ id, slot, robo }) => ({ id, slot, remoto: id !== sala.meuId && !robo })),
-      { mapa: MAPAS[estado.mapa] },
+      { mapa: MAPAS[estado.mapa], variante: estado.idPartida },
     );
     cerebros = estado.escalacao.filter(item => item.robo).map(item => criarRobo({ id: item.id, nivel: item.robo }));
     partida.definirEntrada(sala.meuId, entrada.d, entrada.d2);
@@ -1309,8 +1315,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const mapa = vista ? estado.mapa : 0;
     pintor.desenhar({
       g: vista?.g ?? GRADE_LOBBY,
-      muros: MUROS[mapa],
-      chaveMuros: mapa,
+      muros: murosDaPartida(mapa, estado.idPartida),
+      chaveMuros: `${mapa}:${estado.idPartida}`,
       j: jogadores,
       b: vista?.b ?? [],
       c: vista?.c ?? [],
