@@ -62,6 +62,8 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
   let visivel = null;
   let desempenho = null;
   let desempenhoEm = 0;
+  let medirAperto = false;
+  let larguraDosTextos = '';
 
   const chip = (campo, icone, nome, tipo) => {
     if (!chips.has(campo)) {
@@ -111,6 +113,7 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
       itens.replaceChildren(...visiveis.map(campo => chips.get(campo).elemento));
       // Many powers at once: tighter chips, so they still fit next to the points and the clock.
       itens.classList.toggle('pavio-hud-itens--compacto', visiveis.length > 5);
+      medirAperto = true;
     }
   };
 
@@ -149,11 +152,22 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
     if (total !== null && ultimoTotal !== null && total > ultimoTotal && fase === 'jogo') reiniciarAnimacao(pontos, 'pavio-hud-pontos--sobe');
     ultimoTotal = total;
     const textoTempo = paraSubita > 0 ? `⏱ ${formatarTempo(paraSubita)}` : '☠ Morte súbita';
+    const larguras = `${textoPontos.length}|${textoTempo.length}`;
+    if (larguras !== larguraDosTextos) {
+      larguraDosTextos = larguras;
+      medirAperto = true;
+    }
     if (textoTempo !== ultimoTempo) {
       ultimoTempo = textoTempo;
       tempo.textContent = textoTempo;
       tempo.classList.toggle('pavio-hud-tempo--subita', paraSubita <= 0);
       tempo.classList.toggle('pavio-hud-tempo--alerta', paraSubita > 0 && paraSubita <= ALERTA_SUBITA_S && fase === 'jogo');
+    }
+    if (medirAperto) {
+      // Chips that still overflow (a short phone in landscape) squeeze the whole HUD.
+      medirAperto = false;
+      raiz.classList.remove('pavio-hud--apertado');
+      if (itens.scrollWidth > itens.clientWidth + 1) raiz.classList.add('pavio-hud--apertado');
     }
   };
 

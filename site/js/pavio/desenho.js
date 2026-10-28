@@ -254,8 +254,10 @@ function desenharItem(ctx, quadro, i, item, agora, reduzido) {
 function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzido) {
   const cx = (x + 0.5) * TAM;
   const cy = (y + 0.5) * TAM + 3;
-  const idade = AJUSTES.pavioS - restante;
-  const entrada = reduzido ? 1 : limitar(idade / 0.18, 0, 1);
+  // A detonator bomb is born with a longer safety fuse; a frozen one keeps its time, so it never pops in.
+  const pavioDaBomba = remota ? AJUSTES.detonadorS : AJUSTES.pavioS;
+  const idade = pavioDaBomba - restante;
+  const entrada = reduzido || congelada ? 1 : limitar(idade / 0.18, 0, 1);
   const ritmo = restante < 0.7 ? 24 : restante < 1.4 ? 13 : 7;
   const pulso = reduzido ? 0 : Math.sin(agora * ritmo);
   const raio = TAM * 0.3 * (1 + pulso * 0.06) * (0.35 + 0.65 * voltaPorCima(entrada));
@@ -279,7 +281,7 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
   circulo(ctx, cx - raio * 0.35, cy - raio * 0.38, raio * 0.28);
   ctx.fill();
   // The fuse burns down with the timer: the remaining length is the time left.
-  const t = 0.18 + 0.82 * limitar(restante / AJUSTES.pavioS, 0, 1);
+  const t = 0.18 + 0.82 * limitar(restante / pavioDaBomba, 0, 1);
   const x0 = cx + raio * 0.45;
   const y0 = cy - raio * 0.8;
   const x1 = cx + raio * 0.75;
@@ -1145,6 +1147,45 @@ function confete(ctx, agora) {
   }
 }
 
+// Draws one small character portrait into its canvas, sized to how big the canvas is on screen.
+function desenharRetrato(quadro, retrato, agora, reduzido) {
+  const lado = quadro.clientWidth;
+  if (!lado) return;
+  const pixels = Math.round(lado * Math.min(ESCALA_MAX, window.devicePixelRatio || 1));
+  if (quadro.width !== pixels) quadro.width = quadro.height = pixels;
+  const k = pixels / RETRATO;
+  retrato.ctx.setTransform(1, 0, 0, 1, 0, 0);
+  retrato.ctx.clearRect(0, 0, pixels, pixels);
+  retrato.ctx.setTransform(k, 0, 0, k, 0, 0);
+  if (retrato.pose === 'festa' && !reduzido) confete(retrato.ctx, agora);
+  desenharBoneco(retrato.ctx, RETRATO / 2, RETRATO - 8, { cor: retrato.cor, o: DIRECAO.BAIXO }, retrato.pose, agora, reduzido);
+}
+
+// Portraits outside a match (home screen, profile): one shared animation loop for all of them, which
+// stops by itself when none is left on the page. A canvas that never reaches the page is dropped after 10 s.
+const retratosSoltos = new Map();
+let lacoDosRetratos = 0;
+
+function animarRetratosSoltos() {
+  const agoraMs = performance.now();
+  const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  for (const [quadro, retrato] of retratosSoltos) {
+    if (quadro.isConnected) {
+      retrato.visto = true;
+      desenharRetrato(quadro, retrato, agoraMs / 1000, reduzido);
+    } else if (retrato.visto || agoraMs - retrato.criadoEm > 10000) {
+      retratosSoltos.delete(quadro);
+    }
+  }
+  lacoDosRetratos = retratosSoltos.size ? requestAnimationFrame(animarRetratosSoltos) : 0;
+}
+
+export function retratoSolto(quadro, { cor, pose = 'jogo' } = {}) {
+  retratosSoltos.set(quadro, { ctx: quadro.getContext('2d'), cor, pose, visto: false, criadoEm: performance.now() });
+  if (!lacoDosRetratos) lacoDosRetratos = requestAnimationFrame(animarRetratosSoltos);
+  return quadro;
+}
+
 export function efeitoAtivo(efeito, agora) {
   return agora - efeito.inicio < (DURACAO_EFEITO[efeito.tipo] ?? 0);
 }
@@ -1261,10 +1302,14 @@ export function criarPintor(canvas) {
   };
 
   // Backing store sized to what is actually on screen, in steps of 0.25 so every tile has whole pixels.
+  // ?escala=2 (or 0.5 to 3) in the page address pins the scale, for measuring the raster cost of high densities.
+  const escalaForcada = Number(new URLSearchParams(location.search).get('escala'));
+  const fixarEscala = Number.isFinite(escalaForcada) && escalaForcada >= 0.5 && escalaForcada <= ESCALA_MAX;
+
   const ajustarResolucao = () => {
     const pixels = (canvas.clientWidth || LARGURA) * (window.devicePixelRatio || 1);
     const necessaria = Math.ceil((pixels / LARGURA) * 4) / 4;
-    const nova = limitar(Math.min(necessaria, qualidade.teto), 0.5, ESCALA_MAX);
+    const nova = fixarEscala ? Math.round(escalaForcada * 4) / 4 : limitar(Math.min(necessaria, qualidade.teto), 0.5, ESCALA_MAX);
     if (nova === qualidade.escala) return;
     qualidade.escala = nova;
     canvas.width = Math.round(LARGURA * nova);
@@ -1508,16 +1553,7 @@ export function criarPintor(canvas) {
         retratos.delete(quadro);
         continue;
       }
-      const lado = quadro.clientWidth;
-      if (!lado) continue;
-      const pixels = Math.round(lado * Math.min(ESCALA_MAX, window.devicePixelRatio || 1));
-      if (quadro.width !== pixels) quadro.width = quadro.height = pixels;
-      const k = pixels / RETRATO;
-      retrato.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      retrato.ctx.clearRect(0, 0, pixels, pixels);
-      retrato.ctx.setTransform(k, 0, 0, k, 0, 0);
-      if (retrato.pose === 'festa' && !reduzido) confete(retrato.ctx, agora);
-      desenharBoneco(retrato.ctx, RETRATO / 2, RETRATO - 8, { cor: retrato.cor, o: DIRECAO.BAIXO }, retrato.pose, agora, reduzido);
+      desenharRetrato(quadro, retrato, agora, reduzido);
     }
   };
 
