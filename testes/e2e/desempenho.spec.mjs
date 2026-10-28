@@ -35,12 +35,28 @@ function medir() {
     }
   };
 
+  // Several loops may share a frame (the game and the animated portraits): callbacks with the same timestamp are
+  // one frame, and their work is added up.
   const raf = window.requestAnimationFrame.bind(window);
-  let anterior = null;
+  let quadro = null; // { instante, trabalho } of the frame being run
   window.requestAnimationFrame = callback => raf(instante => {
-    if (medidas.ativo && anterior !== null) medidas.intervalos.push(instante - anterior);
-    anterior = medidas.ativo ? instante : null;
-    cronometrar(medidas.trabalho, callback, window, [instante]);
+    const inicio = performance.now();
+    try {
+      return callback(instante);
+    } finally {
+      const gasto = performance.now() - inicio;
+      if (!medidas.ativo) {
+        quadro = null;
+      } else if (quadro?.instante === instante) {
+        quadro.trabalho += gasto;
+      } else {
+        if (quadro) {
+          medidas.intervalos.push(instante - quadro.instante);
+          medidas.trabalho.push(quadro.trabalho);
+        }
+        quadro = { instante, trabalho: gasto };
+      }
+    }
   });
 
   const WorkerOriginal = window.Worker;

@@ -2,21 +2,24 @@
 
 Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a cada publicação. O plano da noite está em [plano-noite-2026-10-28.md](plano-noite-2026-10-28.md) e o protocolo de integração no [AGENTS.md](../AGENTS.md). Horários no fuso de Brasília.
 
-## Estado agora
+## Estado final (05:15)
 
-- Produção (https://salinha-jogos.netlify.app): ver a última linha da tabela de publicações; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
-- `main`: igual à produção no que vai ao ar, com `npm test` (115) e `npm run e2e` (23 cenários) passando às 02:00.
+- Produção (https://salinha-jogos.netlify.app): `c367daf`, publicado às 04:24 pela frente 1; https://salinha-jogos.netlify.app/versao.json mostra o commit. Nenhum 500 nos registros da Netlify desde a correção da API de perfis às 01:38; os 503 de `/api/ice` são esperados enquanto a chave do TURN não existir.
+- `main`: a mesma coisa que está no ar, mais testes e este relatório (nada publicado ficou de fora).
+- Verificação final às 05:10 na `main`: `npm test` 121 de 121 (2,5 s); `npm run e2e` 29 cenários funcionais e 2 de desempenho, todos passando de primeira (cerca de 5 min); `npm run visual` 3 de 3; `npm run fumaca` 4 de 4 em produção.
+- Desempenho na verificação final (8 jogadores; anfitrião e convidado medidos em densidade 2x com a GPU do Mac): 60 fps, quadro p95 de 16,7 ms, JavaScript por quadro de 0,6 a 0,7 ms (p95) e de 2,0 a 2,1 ms com a CPU 4x mais lenta, tique da simulação de 0,2 ms (0,4 ms com a CPU 4x), nenhuma tarefa longa; anfitrião com 7 robôs difíceis também a 60 fps (tique de 2,3 ms com a CPU 4x).
+- Foram 26 publicações em produção ao longo da noite (tabela abaixo: 10 da frente 1, 4 da frente 2, 6 da frente 3, 3 da frente 4 e 3 da frente 5), 9 achados da revisão de integração corrigidos e um incidente em produção (500 intermitente na API de perfis, 01:30 a 01:38).
 
 ## O que testar primeiro de manhã
 
-Rascunho de 03:20, revisado no fim da noite.
-
-1. No iPad, abrir https://salinha-jogos.netlify.app: a página inicial agora tem o perfil do aparelho (nome, cor e símbolo, boneco animado), últimas partidas, ranking e configurações de som e controle. Criar uma sala.
+1. No iPad, abrir https://salinha-jogos.netlify.app: a página inicial tem o perfil do aparelho (nome, cor e símbolo, boneco animado), últimas partidas, ranking e configurações de som e controle. Criar uma sala.
 2. No celular, ler o QR code do bloco de convite do lobby e entrar; conferir os cartões dos jogadores com boneco, pronto/esperando e ping.
-3. No lobby, pôr dois robôs (um fácil e um difícil), todos prontos, e jogar a rodada de 5 partidas: mapas com tema e variantes, poderes novos (atalho, chute, detonador, ímã, gelo), explosões, sons, música e joystick. Ver as dicas da primeira vez.
-4. Depois de cada partida, o resumo (destaques, eliminações, votação para pular); no fim, o pódio e "Jogar de novo".
-5. Com a partida rolando, desligar o Wi-Fi do celular por uns 5 s e religar: a vaga volta e a partida segue. No anfitrião, clicar em "Sair": a sala passa para o convidado mais antigo.
+3. No lobby, pôr dois robôs (um fácil e um difícil), todos prontos, e jogar a rodada de 5 partidas: mapas com tema e variantes, poderes novos (atalho, chute, detonador, ímã, gelo), explosões, sons, música e joystick. No celular em pé, o painel da sala some durante a partida e os controles ficam embaixo da arena. Ver as dicas da primeira vez.
+4. Depois de cada partida, o resumo (destaques, eliminações, votação para pular); no fim, o pódio, as conquistas e "Jogar de novo".
+5. Com a partida rolando, desligar o Wi-Fi do celular por uns 5 s e religar: a vaga volta e a partida segue. Depois, no anfitrião, clicar em "Sair": a sala passa para o convidado mais antigo.
 6. Abrir as configurações (volume de efeitos e música, sensibilidade do toque, contador de quadros por segundo).
+
+As [capturas da noite](capturas-2026-10-28/) mostram cada uma dessas telas como estão no ar.
 
 ## Publicações
 
@@ -29,8 +32,9 @@ Rascunho de 03:20, revisado no fim da noite.
 | 00:59 | 5 (testes) | `902c5c2` | Só testes e documentação: porta livre nos testes, desempenho com CPU 4x mais lenta, acessibilidade com axe-core, rede ruim, regressão visual (`npm run visual`), fumaça cobrindo a API de perfis e correção de uma corrida no cenário dos robôs. | `npm test` 104, `npm run e2e` 9 de 9, `npm run visual` 3 de 3, fumaça 4 de 4. |
 | 01:06 | 1 (jornada, telas) | `3136467` | Telas do Pavio extraídas de `pavio.js` para `telas.js`, sem mudar comportamento; cores do lobby não repetem com robôs; lobby mostra "📶 reconectando" e espera quem caiu; cartões não cortam o botão de pronto no celular deitado com 7 ou 8 jogadores; contagem cabe no celular. Novo cenário Playwright `lobby.spec.mjs`. | Frente 5, depois: suíte inteira na `main`. |
 | 01:10 | 2 (jogo, mapas, robôs) | `72f2709` | Mapas com layouts e variantes sorteadas por partida (protocolo 8), morte súbita um pouco mais cedo a cada partida, robôs que congelam a bomba que os mataria, se caçam na morte súbita e usam gelo de propósito. | Fumaça em produção depois da publicação. |
-| 01:21 | 2 (jogo, robôs) | `8a2c5cc` | Correção do achado do atalho (posição que cruza caixa é recusada e o pedido de atalho só salta a partir da posição dele, com 2 testes); robôs médio e difícil chutam bomba contra adversário; quem chuta leva o crédito do que a bomba quebra e de quem ela atinge. | Frente 2: `npm test` 112, `npm run e2e` 13, fumaça 4 de 4. |
+| 01:16 | 3 (visual, som) | `b7ba807` | Primeira publicação do visual: arte por tema de mapa (`cenario.js`), luz das explosões, resolução adaptativa até 3x, personagens com reações e morte em etapas, explosões com onda de choque, fumaça e estilhaços, tremor dosado pela distância, abertura com cortina, final em câmera lenta com zoom no vencedor, blocos da morte súbita caindo, HUD em `hud.js`, joystick com marcas de direção, sons posicionados no estéreo, música por tema e alto contraste automático. | Frente 3: `npm test` 108, `npm run e2e` 13 de 13, fumaça 4 de 4; bancada com CPU 4x a 59 fps. |
 | 01:20 | 3 (visual, som) | `e0fa377` | Segunda publicação do visual: chamas com línguas e brasas, poderes com profundidade e sombra, faíscas no pavio, forma do jogador nas costas, arena de alto contraste quando o aparelho pede, vinheta mais barata. | Frente 5, depois: `npm run e2e` 15 + 2, visual 3 de 3, fumaça 4 de 4 (com uma falha de `/api/ranking` na primeira tentativa, ver problemas). |
+| 01:21 | 2 (jogo, robôs) | `8a2c5cc` | Correção do achado do atalho (posição que cruza caixa é recusada e o pedido de atalho só salta a partir da posição dele, com 2 testes); robôs médio e difícil chutam bomba contra adversário; quem chuta leva o crédito do que a bomba quebra e de quem ela atinge. | Frente 2: `npm test` 112, `npm run e2e` 13, fumaça 4 de 4. |
 | 01:29 | 1 (jornada, perfil) | `2f62d6e` | Página inicial com o perfil do aparelho (nome, cor, símbolo, "levar meu perfil para outro aparelho") e partidas registradas no perfil. | Frente 5, depois: `npm run e2e` 16 + 2; imagens de referência da página inicial atualizadas. |
 | 01:38 | 5 (testes, conserto) | `a59b658` | Correção do 500 intermitente da API de perfis (loja do Netlify Blobs aberta a cada requisição); fumaça sem escrever perfis em produção; cenários novos de reconexão, jornada, estatísticas, desempenho com robôs; `npm run e2e` em 2 processos. | `npm run e2e` 16 + 2, visual 3 de 3, fumaça 4 de 4, 40 chamadas a `/api/ranking` sem erro. |
 | 01:46 | 4 (rede, contas) | `f4ca66e` | Reconexão do anfitrião em até 10 s; perda de pacotes medida por membro; cada partida registrada uma vez no perfil; cor e símbolo do perfil levados para a sala; leituras de perfil e ranking reaproveitadas; a mesma correção do Blobs feita pela frente (`4159efa`). | Frente 5, depois: `npm test` 115, `npm run e2e` 17 + 2, fumaça 4 de 4. |
