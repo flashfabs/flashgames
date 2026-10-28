@@ -4,7 +4,7 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `c749169`, publicado às 00:50; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- Produção (https://salinha-jogos.netlify.app): `8648563`, publicado às 00:48; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
 - `main`: igual à produção no que vai ao ar, com `npm test` (54) e `npm run e2e` (5 cenários) passando.
 
 ## O que testar primeiro de manhã
@@ -15,13 +15,18 @@ A preencher no fim da noite.
 
 | Hora | Frente | Commit na `main` | O que foi ao ar | Verificação |
 | --- | --- | --- | --- | --- |
-| 00:50 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
+| 00:40 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
+| 00:45 | 1 (jornada, robôs) | `d26cf8f` | Robôs no lobby: o anfitrião adiciona e tira robôs de nível fácil, médio ou difícil; eles jogam a partida, usam os poderes (detonador, gelo, chute, atalho) e só as pessoas precisam ficar prontas. | Frente 1: `npm test`, `npm run e2e` e fumaça. Frente 5, depois: `npm test` 73, `npm run e2e` 6 de 6 (com o cenário novo dos robôs), fumaça 3 de 3. |
+| 00:48 | 4 (rede, contas) | `8648563` | Perfil do aparelho: `site/js/conta.js` (com alternativa local) e a API `/api/perfil` e `/api/ranking` em Netlify Functions com Netlify Blobs; ainda sem tela que use. Primeira publicação com dependência de função (`@netlify/blobs`), instalada pelo script. | Frente 5, depois: `npm test` 88, `/api/perfil` sem credencial responde 401 e `/api/ranking` 200 em produção. |
 
 ## O que foi testado e como
 
 - `npm test`: testes de regras, rede e poderes, em Node, a cada integração.
-- `npm run e2e`: cenários Playwright com Chromium sem janela, cada jogador num navegador próprio, contra a `main` servida em `127.0.0.1:8805`: entrada pelo link e prontos com 5 jogadores, andar e bomba vistos pelo anfitrião, saída no meio da rodada, eliminação com o placar certo, iPad com toque (camada, joystick, bomba, sem rolagem nem zoom) e desempenho com 8 jogadores.
-- `npm run fumaca`: contra a produção, depois de cada publicação: `versao.json` com o commit da `main`, `/api/ice` respondendo e dois jogadores começando uma rodada pelo servidor de sinalização real.
+- `npm run e2e`: cenários Playwright com Chromium sem janela, cada jogador num navegador próprio, contra a `main` servida numa porta livre de `127.0.0.1`: entrada pelo link e prontos com 5 jogadores, andar e bomba vistos pelo anfitrião, saída no meio da rodada, eliminação com o placar certo, iPad com toque (camada, joystick, bomba, sem rolagem nem zoom) e desempenho com 8 jogadores, normal e com a CPU 4x mais lenta.
+- `npm run fumaca`: contra a produção, depois de cada publicação: `versao.json` com o commit da `main`, `/api/ice` respondendo, `/api/ranking` lido e `/api/perfil` recusando sem credencial (só leitura, nenhum perfil é criado) e dois jogadores começando uma rodada pelo servidor de sinalização real.
+- Acessibilidade (`acessibilidade.spec.mjs`, dentro do `npm run e2e`): axe-core com as regras WCAG 2.1 A e AA na tela inicial e no lobby, no computador e no celular; problema sério ou crítico reprova.
+- Rede ruim (`rede-ruim.spec.mjs`, dentro do `npm run e2e`): 120 a 200 ms de atraso em todos os canais e 10% de perda no canal rápido; o convidado anda sem ser puxado para trás, o anfitrião vê o movimento e a bomba na casa certa, o convidado vê o anfitrião andar e o ping aparece alto na lista.
+- Regressão visual (`npm run visual`, fora do `npm run e2e`): tela inicial e lobby no computador, no iPad e no celular comparados com as imagens em `testes/e2e/visual/`; a frente 5 roda depois de cada integração, olha cada diferença e atualiza as imagens quando a mudança foi de propósito.
 
 ## Problemas conhecidos
 
@@ -29,8 +34,11 @@ Nenhum até agora.
 
 ## Decisões tomadas
 
-- 00:40, frente 5: a pasta de publicação leva só `netlify.toml`, `site/` e `netlify/`; quando as funções precisarem de pacotes, eles entram em `dependencies` do `package.json` da raiz e o script os instala com `npm ci --omit=dev`, sem levar o Playwright.
-- 00:52, frente 5: integração só de documentação ou de testes (sem mudar `site/`, `netlify/`, `netlify.toml` nem `package.json`) roda `npm test` e não republica; a fumaça aceita produção num commit anterior da `main` quando os arquivos publicados são os mesmos.
+- 00:38, frente 5: a pasta de publicação leva só `netlify.toml`, `site/` e `netlify/`; quando as funções precisarem de pacotes, eles entram em `dependencies` do `package.json` da raiz e o script os instala com `npm ci --omit=dev`, sem levar o Playwright.
+- 00:42, frente 5: integração só de documentação ou de testes (sem mudar `site/`, `netlify/`, `netlify.toml` nem `package.json`) roda `npm test` e não republica; a fumaça aceita produção num commit anterior da `main` quando os arquivos publicados são os mesmos.
+- 00:55, frente 5: as checagens novas de acessibilidade e rede ruim entram no `npm run e2e` (todos rodam antes de integrar); a regressão visual fica fora dele, porque as telas mudam de propósito a noite toda, e a frente 5 cuida das imagens de referência.
+- 00:55, frente 5: o cenário dos robôs falhava às vezes porque conferia na hora que o convidado via um robô quebrar caixa, e o convidado desenha os outros um pouco no passado; virou uma espera de até 15 s.
+- 00:50, frente 5: o servidor dos testes passou a usar uma porta livre a cada execução, porque a porta fixa 8805 colidia quando duas frentes rodavam a suíte ao mesmo tempo.
 
 ## Pendências do Victor
 

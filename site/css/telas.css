@@ -1,0 +1,35 @@
+/* Screens of the Pavio (site/js/pavio/telas.js): lobby, countdown, results. Loaded after estilo.css. */
+
+/* The countdown sits on the arena: its sizes follow the arena's height, so two new powers still fit on a phone. */
+.pavio-arena {
+  container-type: size;
+}
+
+.pavio-aviso--contagem .pavio-mapa {
+  font-size: clamp(20px, 10cqh, 44px);
+}
+
+.pavio-aviso--contagem .pavio-numero {
+  font-size: clamp(40px, 22cqh, 150px);
+}
+
+@container (max-height: 400px) {
+  .pavio-aviso--contagem {
+    gap: 4px;
+  }
+
+  .pavio-aviso--contagem .pavio-poder-descricao,
+  .pavio-aviso--contagem > p:not(.pavio-sobretitulo):not(.pavio-poder):not(.pavio-pilula) {
+    display: none;
+  }
+}
+
+.pavio-prontos li.fora {
+  border-color: rgba(255, 212, 59, 0.6);
+}
+
+/* A full-screen card keeps its height and the notice around it scrolls (a short phone in landscape with 8 players
+   would otherwise squeeze the card and cut the ready button off). */
+.pavio-aviso--cartao > .pavio-cartao {
+  flex-shrink: 0;
+}

@@ -4,12 +4,15 @@
 
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
-  indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  indice, gradeVazia, moverComColisao, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  somarEstatisticasRodada, bloqueiaPrevisto, layoutDoMapa,
 } from './regras.js';
-import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
+import { criarPintor, efeitoAtivo, chaveDoTema } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
+import { criarHud } from './hud.js';
 import { criarPassoFixo } from '../relogio.js';
-import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
+import { criarRobo, aplicarAcaoDoRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
+import { criarTelas, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
 import { criarRegistro } from './registro.js';
 
 const HZ_SIMULACAO = 60;
@@ -32,26 +35,21 @@ const RESULTADO_S = 7;
 const FINAL_S = 15;
 const MAX_EFEITOS = 90;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
-const TOTAL_PARTIDAS = MAPAS.length;
-const MUROS = MAPAS.map(mapa => new Set(mapa.muros.map(([x, y]) => indice(x, y))));
+// Each match plays a variant of its map, picked by the match number (members know it from the state).
+const murosGuardados = new Map();
+function murosDaPartida(mapa, variante) {
+  const chave = `${mapa}:${variante}`;
+  if (!murosGuardados.has(chave)) murosGuardados.set(chave, new Set(layoutDoMapa(MAPAS[mapa], variante).muros.map(([x, y]) => indice(x, y))));
+  return murosGuardados.get(chave);
+}
 const GRADE_LOBBY = gradeVazia().join('');
 const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
 const PARA_GELO = new Set([PAREDE, CAIXA]);
-const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
-const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo' };
-const CONFETES = 26;
-
-function h(tag, atributos = {}, ...filhos) {
-  const elemento = document.createElement(tag);
-  for (const [chave, valor] of Object.entries(atributos)) {
-    if (chave === 'class') elemento.className = valor;
-    else if (chave.startsWith('on')) elemento.addEventListener(chave.slice(2), valor);
-    else if (valor !== false && valor != null) elemento.setAttribute(chave, valor === true ? '' : valor);
-  }
-  elemento.append(...filhos.flat().filter(filho => filho != null && filho !== false));
-  return elemento;
-}
+const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo', resultado: 'resultado', final: 'resultado' };
+// Stereo position of a sound from its column on the arena (-1 left, 1 right).
+const panDe = x => (Number.isFinite(x) ? (x / (COLUNAS - 1)) * 2 - 1 : undefined);
+const mediaDe = valores => (valores.length ? valores.reduce((soma, valor) => soma + valor, 0) / valores.length : undefined);
 
 function embaralhar(lista) {
   for (let i = lista.length - 1; i > 0; i--) {
@@ -66,15 +64,6 @@ function reiniciarAnimacao(elemento, classe) {
   elemento.classList.remove(classe);
   void elemento.offsetWidth;
   elemento.classList.add(classe);
-}
-
-function formatarTempo(segundos) {
-  const total = Math.max(0, Math.ceil(segundos));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
-
-export function pontosDe(placar = ZERO) {
-  return placar.caixas * PONTOS.caixa + placar.eliminacoes * PONTOS.eliminacao + placar.vitorias * PONTOS.vitoria;
 }
 
 function compactarJogador(j) {
@@ -114,46 +103,11 @@ function montarPalco(palco) {
   return el;
 }
 
-function legendaControles(toque) {
-  if (toque) {
-    return h('div', { class: 'pavio-legenda' },
-      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba. Com gelo, aparece o botão ❄️.'),
-      h('p', {}, 'Teclado e controle de videogame também funcionam.'),
-    );
-  }
-  return h('div', { class: 'pavio-legenda' },
-    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · ', h('kbd', {}, 'E'), ' joga gelo · controle de videogame também funciona'),
-    h('p', {}, 'Segurando duas direções, você segue numa e vira na outra assim que der.'),
-  );
-}
-
-function nomeItem(item) {
-  return `${VISUAL_ITEM[item].emoji} ${VISUAL_ITEM[item].nome}`;
-}
-
-function linhasPoder(itens = []) {
-  return itens.map(item => {
-    const visual = VISUAL_ITEM[item];
-    const icone = h('span', { class: 'pavio-poder-icone', 'aria-hidden': 'true' }, visual.emoji);
-    icone.style.setProperty('--fundo', visual.fundo);
-    return h('p', { class: 'pavio-poder' }, icone, h('span', {}, 'Poder novo: ', h('strong', {}, visual.nome), ` · ${DESCRICAO_ITEM[item]}`));
-  });
-}
-
-function confetes() {
-  return h('div', { class: 'pavio-confete', 'aria-hidden': 'true' }, Array.from({ length: CONFETES }, (_, n) => {
-    const peca = h('span');
-    peca.style.setProperty('--x', `${(n * 37) % 100}%`);
-    peca.style.setProperty('--atraso', `${((n * 0.13) % 1.2).toFixed(2)}s`);
-    peca.style.setProperty('--giro', `${(n % 2 ? 1 : -1) * (240 + ((n * 53) % 360))}deg`);
-    peca.style.setProperty('--cor', CORES[n % CORES.length].base);
-    return peca;
-  }));
-}
-
 export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
+  const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
+  const telas = criarTelas({ pintor });
   const toqueDisponivel = temToque();
   const estado = {
     fase: 'lobby',
@@ -165,6 +119,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     prontos: [],
     robos: [], // [{ id, nome, nivel }]: computer players added by the host, always ready
     placar: {}, // id -> { vitorias, caixas, eliminacoes } of the current round
+    estatisticas: null, // Partida.estatisticas() of the last match that ended
+    estatisticasRodada: {}, // id -> round totals, see somarEstatisticasRodada
     resultado: null,
     motivo: null,
     fimFaseEm: 0,
@@ -209,12 +165,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // Everyone.
   let entrada = { d: DIRECAO.NENHUMA, d2: DIRECAO.NENHUMA };
   const efeitos = [];
-  let tremor = 0;
   let chaveAviso = '';
   let refContagem = null;
+  let faseDoAviso = null;
   let ultimaContagem = null;
-  let ultimoHud = '';
-  let ultimoTotal = 0;
   let timerFaixa = 0;
   let quadroId = 0;
   let ultimoQuadro = performance.now();
@@ -334,12 +288,14 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function atribuirCores() {
     const jogadores = [...sala.membrosOrdenados(), ...estado.robos];
     const presentes = new Set(jogadores.map(({ id }) => id));
-    for (const id of Object.keys(estado.cores)) if (!presentes.has(id)) delete estado.cores[id];
+    for (const id of Object.keys(estado.cores)) if (!presentes.has(id) || estado.cores[id] >= MAX_JOGADORES) delete estado.cores[id];
     const usadas = new Set(Object.values(estado.cores));
     for (const { id } of jogadores) {
       if (estado.cores[id] !== undefined) continue;
       let cor = 0;
       while (usadas.has(cor)) cor++;
+      // A ninth player (a person joining while robots fill the arena) only watches: no color until one frees up.
+      if (cor >= MAX_JOGADORES) continue;
       estado.cores[id] = cor;
       usadas.add(cor);
     }
@@ -382,11 +338,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function moverRobos(dt) {
-    for (const cerebro of cerebros) {
-      const { d, d2, bomba } = cerebro.pensar(partida, dt);
-      partida.definirEntrada(cerebro.id, d, d2);
-      if (bomba) partida.pedirBomba(cerebro.id);
-    }
+    for (const cerebro of cerebros) aplicarAcaoDoRobo(partida, cerebro.id, cerebro.pensar(partida, dt));
   }
 
   function publicarEstado(para = null) {
@@ -401,6 +353,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       prontos: estado.prontos,
       robos: estado.robos,
       placar: estado.placar,
+      estatisticas: estado.estatisticas,
+      estatisticasRodada: estado.estatisticasRodada,
       resultado: estado.resultado,
       motivo: estado.motivo,
       restante: Math.max(0, restanteFase),
@@ -476,6 +430,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       ...robos.map(robo => ({ id: robo.id, nome: robo.nome, slot: 0, cor: estado.cores[robo.id], robo: robo.nivel })),
     ];
     estado.placar = Object.fromEntries(estado.escalacao.map(item => [item.id, { ...ZERO }]));
+    estado.estatisticas = null;
+    estado.estatisticasRodada = {};
     estado.numero = 0;
     estado.motivo = null;
     comecarPartida();
@@ -491,7 +447,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     // Robots are local players of the host's simulation: their brains give the input on every step.
     partida = new Partida(
       estado.escalacao.map(({ id, slot, robo }) => ({ id, slot, remoto: id !== sala.meuId && !robo })),
-      { mapa: MAPAS[estado.mapa] },
+      { mapa: MAPAS[estado.mapa], variante: estado.idPartida },
     );
     cerebros = estado.escalacao.filter(item => item.robo).map(item => criarRobo({ id: item.id, nivel: item.robo }));
     partida.definirEntrada(sala.meuId, entrada.d, entrada.d2);
@@ -503,7 +459,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function somarEstatisticas(vencedor) {
-    for (const { id, caixas, eliminacoes } of partida.estatisticas()) {
+    estado.estatisticas = partida.estatisticas();
+    estado.estatisticasRodada = somarEstatisticasRodada(estado.estatisticasRodada, estado.estatisticas);
+    for (const { id, caixas, eliminacoes } of estado.estatisticas) {
       const placar = estado.placar[id];
       if (!placar) continue;
       placar.caixas += caixas;
@@ -535,6 +493,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     partida = null;
     cerebros = [];
     ajustarRobos();
+    // A robot that made room frees its color for whoever joined meanwhile.
+    atribuirCores();
     estado.escalacao = [];
     estado.prontos = [];
     estado.placar = {};
@@ -654,6 +614,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       }))
       : [];
     estado.placar = mensagem.placar && typeof mensagem.placar === 'object' ? mensagem.placar : {};
+    estado.estatisticas = Array.isArray(mensagem.estatisticas) ? mensagem.estatisticas : null;
+    estado.estatisticasRodada = mensagem.estatisticasRodada && typeof mensagem.estatisticasRodada === 'object' ? mensagem.estatisticasRodada : {};
     estado.resultado = mensagem.resultado ?? null;
     estado.motivo = typeof mensagem.motivo === 'string' ? mensagem.motivo : null;
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
@@ -751,13 +713,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function bloqueiaLocal(x, y) {
-    if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return true;
-    const celula = gradeAtual.g[indice(x, y)];
-    if (celula === PAREDE) return true;
-    if (local.fantasma) return false;
-    if (celula === CAIXA) return true;
-    // A sliding bomb sits between two cells and blocks both.
-    return bombasVisiveis.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(local, bx, by));
+    return bloqueiaPrevisto(gradeAtual.g, bombasVisiveis, local, x, y);
   }
 
   // Kicked bombs slide between snapshots: draw them (and collide with them) where they should be by now.
@@ -854,7 +810,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     registro.aoMudarFase(estado);
     chaveAviso = '';
     controles.definirModo({ jogando: (fase === 'contagem' || fase === 'jogo') && meuIndice() >= 0, toqueVisivel: toqueDisponivel });
-    som.musica(MUSICA_DA_FASE[fase] ?? null);
+    som.musica(MUSICA_DA_FASE[fase] ?? null, { tema: chaveDoTema(MAPAS[estado.mapa]?.tema, estado.mapa) });
     if (fase === 'contagem') {
       efeitos.length = 0;
       ultimaContagem = null;
@@ -869,7 +825,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     } else if (fase === 'resultado') {
       som.tocar(estado.resultado?.vencedor === sala.meuId ? 'vitoria' : 'fim');
     } else if (fase === 'final') {
-      som.tocar(campeoes().some(linha => linha.id === sala.meuId) ? 'campeao' : 'fim');
+      som.tocar(campeoes(estado).some(linha => linha.id === sala.meuId) ? 'campeao' : 'fim');
     } else {
       efeitos.length = 0;
       local.ativo = false;
@@ -879,31 +835,32 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function tratarEventos(eventos) {
     const agora = performance.now() / 1000;
     const eu = meuIndice();
-    let explosoes = 0;
-    let caixas = 0;
-    let blocos = 0;
+    const explosoes = [];
+    const caixas = [];
+    const blocos = [];
     for (const evento of eventos) {
+      const pan = panDe(evento?.x);
       switch (evento?.e) {
         case 'bum':
-          explosoes++;
+          explosoes.push(evento.x);
           efeitos.push({ tipo: 'explosao', x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'bomba':
         case 'chute':
-          som.tocar('bomba');
+          som.tocar('bomba', { pan });
           break;
         case 'caixa':
-          caixas++;
+          caixas.push(evento.x);
           efeitos.push({ tipo: 'caixa', x: evento.x, y: evento.y, inicio: agora });
           if (evento.j === eu) efeitos.push({ tipo: 'ponto', texto: `+${PONTOS.caixa}`, x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'item':
-          som.tocar('item', { item: evento.item });
+          som.tocar('item', { item: evento.item, pan });
           efeitos.push({ tipo: 'item', x: evento.x, y: evento.y, item: evento.item, inicio: agora });
           break;
         case 'escudo':
         case 'congela':
-          som.tocar('escudo');
+          som.tocar('escudo', { pan });
           efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
           break;
         case 'gelo':
@@ -915,7 +872,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           efeitos.push({ tipo: 'escudo', x: evento.x2, y: evento.y2, inicio: agora });
           break;
         case 'morte':
-          som.tocar('morte', { eu: evento.j === eu });
+          som.tocar('morte', { eu: evento.j === eu, pan });
           efeitos.push({ tipo: 'morte', x: evento.x, y: evento.y, cor: estado.escalacao[evento.j]?.cor ?? 0, inicio: agora });
           break;
         case 'subita':
@@ -924,19 +881,16 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           mostrarFaixa('Morte súbita! A arena está fechando.');
           break;
         case 'bloco':
-          blocos++;
+          blocos.push(evento.x);
           efeitos.push({ tipo: 'bloco', x: evento.x, y: evento.y, inicio: agora });
           break;
         default:
           break;
       }
     }
-    if (explosoes) {
-      som.tocar('bum', { n: explosoes });
-      tremor = Math.min(tremor + 3 + explosoes, 7);
-    }
-    if (caixas) som.tocar('caixa', { n: caixas });
-    if (blocos) som.tocar('bloco');
+    if (explosoes.length) som.tocar('bum', { n: explosoes.length, pan: panDe(mediaDe(explosoes)) });
+    if (caixas.length) som.tocar('caixa', { n: caixas.length, pan: panDe(mediaDe(caixas)) });
+    if (blocos.length) som.tocar('bloco', { pan: panDe(mediaDe(blocos)) });
     if (efeitos.length > MAX_EFEITOS) efeitos.splice(0, efeitos.length - MAX_EFEITOS);
   }
 
@@ -949,247 +903,65 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     }, 3500);
   }
 
-  function linhasDoPlacar() {
-    return estado.escalacao
-      .map(item => {
-        const placar = { ...ZERO, ...estado.placar[item.id] };
-        return { ...item, ...placar, pontos: pontosDe(placar) };
-      })
-      .sort((a, b) => b.pontos - a.pontos || b.vitorias - a.vitorias);
-  }
-
-  function campeoes() {
-    const linhas = linhasDoPlacar();
-    if (!linhas.length) return [];
-    return linhas.filter(linha => linha.pontos === linhas[0].pontos && linha.vitorias === linhas[0].vitorias);
-  }
-
   function informar() {
     const pontos = Object.fromEntries(Object.entries(estado.placar).map(([id, placar]) => [id, pontosDe({ ...ZERO, ...placar })]));
     aoMudarInfo?.({ fase: estado.fase, cores: estado.cores, prontos: estado.prontos, pontos, escalacao: estado.escalacao });
   }
 
-  function retratoDe(cor, pose, classe = '') {
-    return pintor.retrato(h('canvas', { class: `pavio-retrato ${classe}`.trim(), 'aria-hidden': 'true' }), { cor, pose });
-  }
-
-  function tabelaPlacar({ comGanho = false } = {}) {
-    const linhas = linhasDoPlacar();
-    const inicio = comGanho && placarInicio.idPartida === estado.idPartida ? placarInicio.placar : null;
-    const coluna = (icone, rotulo, titulo) => h('th', { scope: 'col', title: titulo },
-      h('span', { 'aria-hidden': 'true' }, icone), h('span', { class: 'pavio-placar-rotulo' }, rotulo));
-    return h('table', { class: 'pavio-placar' },
-      h('thead', {}, h('tr', {},
-        h('th', { scope: 'col' }, '#'), h('th', { scope: 'col', class: 'pavio-placar-nome' }, 'Jogador'),
-        coluna('🏆', 'Vitórias', `Partidas vencidas, ${PONTOS.vitoria} pontos cada`),
-        coluna('📦', 'Caixas', `Caixas destruídas, ${PONTOS.caixa} ponto cada`),
-        coluna('💀', 'Eliminações', `Eliminações, ${PONTOS.eliminacao} pontos cada`),
-        coluna('⭐', 'Pontos', 'Pontos na rodada'),
-      )),
-      h('tbody', {}, linhas.map((linha, posicao) => {
-        const ganho = inicio?.[linha.id] ? linha.pontos - pontosDe(inicio[linha.id]) : 0;
-        return h('tr', { class: linha.id === sala.meuId ? 'pavio-placar-eu' : '' },
-          h('td', { class: 'pavio-placar-posicao' }, String(posicao + 1)),
-          h('td', { class: 'pavio-placar-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
-          h('td', {}, String(linha.vitorias)),
-          h('td', {}, String(linha.caixas)),
-          h('td', {}, String(linha.eliminacoes)),
-          h('td', { class: 'pavio-placar-pontos' }, String(linha.pontos),
-            ganho > 0 && h('span', { class: 'pavio-placar-ganho', title: 'Pontos nesta partida' }, `+${ganho}`)),
-        );
-      })),
-    );
-  }
-
-  function legendaPontos() {
-    return h('p', { class: 'pavio-regra-pontos' },
-      `📦 caixa destruída = ${PONTOS.caixa} ponto · 💀 eliminação = ${PONTOS.eliminacao} · 🏆 partida vencida = ${PONTOS.vitoria}`);
-  }
-
-  // Remaining time of the current screen as a shrinking bar (hidden when motion is reduced).
-  function barraTempo() {
-    const restante = Math.max(0, (estado.fimFaseEm - performance.now()) / 1000);
-    const barra = h('div', { class: 'pavio-tempo', 'aria-hidden': 'true' }, h('span'));
-    barra.style.setProperty('--duracao', `${restante.toFixed(2)}s`);
-    return barra;
-  }
-
-  // Robots are always ready; the host sees buttons to change their level and to take them out.
-  function linhaRobo(robo, n) {
-    const nivel = NIVEIS_ROBO[robo.nivel]?.nome ?? robo.nivel;
-    const cor = estado.cores[robo.id] ?? n;
-    return h('li', { class: 'pronto pavio-prontos-robo' },
-      h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, 'pronto'), marcaJogador(cor)),
-      h('span', { class: 'pavio-prontos-texto' },
-        h('span', { class: 'pavio-prontos-nome' }, robo.nome),
-        sala.souAnfitriao
-          ? h('button', {
-            class: 'pavio-robo-nivel',
-            type: 'button',
-            title: 'Trocar a dificuldade',
-            'aria-label': `${robo.nome}: ${nivel}. Trocar a dificuldade`,
-            onclick: () => trocarNivelRobo(robo.id),
-          }, nivel)
-          : h('span', { class: 'pavio-prontos-estado' }, `robô ${nivel.toLowerCase()}`)),
-      sala.souAnfitriao && h('button', {
-        class: 'pavio-robo-tirar',
-        type: 'button',
-        title: 'Tirar o robô',
-        'aria-label': `Tirar ${robo.nome}`,
-        onclick: () => removerRobo(robo.id),
-      }, '✕'));
-  }
-
-  // Host only: pick the level of the next robot and add it.
-  function controlesRobos() {
-    if (!sala.souAnfitriao) return null;
-    return h('div', { class: 'pavio-robos' },
-      h('span', {}, 'Robôs:'),
-      ORDEM_NIVEIS.map(nivel => h('button', {
-        class: 'pavio-robo-nivel',
-        type: 'button',
-        'aria-pressed': String(nivel === nivelNovoRobo),
-        onclick: () => {
+  // What the screens in telas.js get: the state, who is looking, and what their buttons do.
+  function contextoDaTela() {
+    return {
+      estado,
+      meuId: sala.meuId,
+      souAnfitriao: sala.souAnfitriao,
+      membros: sala.membrosOrdenados(),
+      toque: toqueDisponivel,
+      placarInicio,
+      nivelNovoRobo,
+      vagasRobos: sala.souAnfitriao ? vagasParaRobos() : 0,
+      acoes: {
+        pronto: valor => {
+          som.tocar(valor ? 'pronto' : 'cancelar');
+          sala.enviarAoAnfitriao({ t: 'pronto', v: valor });
+        },
+        voltarAoLobby,
+        adicionarRobo,
+        removerRobo,
+        trocarNivelRobo,
+        escolherNivelRobo: nivel => {
           nivelNovoRobo = nivel;
           chaveAviso = '';
         },
-      }, NIVEIS_ROBO[nivel].nome)),
-      h('button', {
-        class: 'botao botao--secundario botao--pequeno',
-        type: 'button',
-        disabled: estado.robos.length >= vagasParaRobos(),
-        onclick: () => adicionarRobo(),
-      }, '+ Robô'));
-  }
-
-  function cartaoLobby() {
-    const membros = sala.membrosOrdenados();
-    const prontos = new Set(estado.prontos);
-    const estouPronto = prontos.has(sala.meuId);
-    const faltam = membros.filter(membro => !prontos.has(membro.id)).length;
-    const lista = h('ul', { class: 'pavio-prontos' }, membros.map((membro, n) => {
-      const pronto = prontos.has(membro.id);
-      const eu = membro.id === sala.meuId;
-      const cor = estado.cores[membro.id] ?? n;
-      return h('li', { class: [pronto && 'pronto', eu && 'eu'].filter(Boolean).join(' ') },
-        h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, pronto ? 'pronto' : 'jogo'), marcaJogador(cor)),
-        h('span', { class: 'pavio-prontos-texto' },
-          h('span', { class: 'pavio-prontos-nome' }, membro.nome, eu && h('span', { class: 'pavio-prontos-voce' }, ' (você)')),
-          h('span', { class: 'pavio-prontos-estado' }, pronto ? '✅ pronto' : '⏳ esperando')),
-      );
-    }), estado.robos.map((robo, n) => linhaRobo(robo, membros.length + n)));
-    let situacao = 'Todo mundo pronto!';
-    if (faltam) situacao = faltam === 1 && !estouPronto ? 'Só falta você.' : `Esperando ${faltam} ${faltam === 1 ? 'pessoa ficar pronta' : 'pessoas ficarem prontas'}.`;
-    const robos = estado.robos.length;
-    let dica = situacao;
-    if (membros.length === 1 && robos) dica = `Você contra ${robos} ${robos === 1 ? 'robô' : 'robôs'}. Fique pronto para começar.`;
-    else if (membros.length === 1) dica = 'Mande o link lá de cima pra galera ou chame robôs. Sozinho vira treino.';
-    return [
-      h('h2', { class: 'pavio-titulo' }, 'Pavio'),
-      h('p', { class: 'pavio-subtitulo' }, `Rodada de ${TOTAL_PARTIDAS} partidas: cada uma num mapa mais fechado e com poderes novos.`),
-      lista,
-      controlesRobos(),
-      h('button', {
-        class: estouPronto ? 'botao botao--secundario' : 'botao botao--grande',
-        type: 'button',
-        onclick: () => {
-          som.tocar(estouPronto ? 'cancelar' : 'pronto');
-          sala.enviarAoAnfitriao({ t: 'pronto', v: !estouPronto });
-        },
-      }, estouPronto ? 'Cancelar pronto' : 'Estou pronto'),
-      h('p', { class: 'pavio-dica' }, dica),
-      legendaControles(toqueDisponivel),
-    ];
-  }
-
-  function cartaoContagem(jogando) {
-    const mapa = MAPAS[estado.mapa];
-    refContagem = h('div', { class: 'pavio-numero pavio-numero--pop', 'data-n': String(CONTAGEM_S) }, String(CONTAGEM_S));
-    return [
-      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS}`),
-      h('h2', { class: 'pavio-mapa' }, mapa.nome),
-      h('p', {}, mapa.descricao),
-      ...linhasPoder(mapa.novos),
-      refContagem,
-      !jogando && h('p', { class: 'pavio-pilula' }, 'Você entra na próxima rodada.'),
-    ];
-  }
-
-  function cartaoResultado() {
-    const vencedor = estado.resultado?.vencedor ?? null;
-    const campeao = estado.escalacao.find(item => item.id === vencedor);
-    let titulo = estado.escalacao.length > 1 ? 'Empate! Ninguém sobrou.' : 'Fim da partida';
-    if (vencedor === sala.meuId) titulo = 'Você venceu a partida! 🏆';
-    else if (vencedor) titulo = `${campeao?.nome ?? 'Alguém'} venceu a partida! 🏆`;
-    const proximo = MAPAS[Math.min(estado.numero, TOTAL_PARTIDAS - 1)];
-    const poderes = proximo.novos.length
-      ? ` · ${proximo.novos.length > 1 ? 'poderes novos' : 'poder novo'} ${proximo.novos.map(nomeItem).join(' e ')}`
-      : '';
-    refContagem = h('strong', {}, String(RESULTADO_S));
-    return [
-      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS} · ${MAPAS[estado.mapa].nome}`),
-      campeao && retratoDe(campeao.cor, 'festa', 'pavio-retrato--vencedor'),
-      h('h2', {}, titulo),
-      tabelaPlacar({ comGanho: true }),
-      legendaPontos(),
-      h('p', { class: 'pavio-proximo' }, `Próxima: ${proximo.nome}`, poderes, ' · começa em ', refContagem, ' s'),
-      barraTempo(),
-    ];
-  }
-
-  // Top three on steps: the DOM keeps the ranking order (1st, 2nd, 3rd) and CSS puts 1st in the middle.
-  function podio() {
-    const linhas = linhasDoPlacar().slice(0, 3);
-    if (!linhas.length) return null;
-    const topo = new Set(campeoes().map(linha => linha.id));
-    return h('ol', { class: 'pavio-podio', 'aria-label': 'Pódio' }, linhas.map((linha, n) => h('li', { class: `pavio-podio-lugar pavio-podio-lugar--${n + 1}` },
-      retratoDe(linha.cor, topo.has(linha.id) ? 'festa' : 'jogo', 'pavio-retrato--podio'),
-      h('span', { class: 'pavio-podio-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
-      h('span', { class: 'pavio-podio-pontos' }, `${linha.pontos} ${linha.pontos === 1 ? 'ponto' : 'pontos'}`),
-      h('span', { class: 'pavio-podio-degrau' }, `${n + 1}º`),
-    )));
-  }
-
-  function cartaoFinal() {
-    const topo = campeoes();
-    const varios = estado.escalacao.length > 1;
-    let titulo = 'Fim do treino';
-    if (varios && topo.length === 1) {
-      titulo = topo[0].id === sala.meuId ? 'Você é o campeão da rodada! 🏆' : `${topo[0].nome} é o campeão da rodada! 🏆`;
-    } else if (varios) {
-      titulo = `Empate entre ${topo.map(linha => linha.nome).join(' e ')}`;
-    }
-    refContagem = h('strong', {}, String(FINAL_S));
-    return [
-      varios && !estado.motivo && confetes(),
-      h('p', { class: 'pavio-sobretitulo' }, estado.motivo ? 'Rodada interrompida' : 'Fim da rodada'),
-      estado.motivo && h('p', { class: 'pavio-motivo' }, estado.motivo),
-      h('h2', {}, titulo),
-      varios && podio(),
-      tabelaPlacar(),
-      legendaPontos(),
-      h('p', {}, 'Voltando ao lobby em ', refContagem, ' s'),
-      sala.souAnfitriao && h('button', { class: 'botao botao--secundario', type: 'button', onclick: () => voltarAoLobby() }, 'Voltar ao lobby agora'),
-    ];
+      },
+    };
   }
 
   function montarAviso({ jogando, morto }) {
+    // Rebuilding the card in the same phase (someone got ready, a robot was added) keeps where it was scrolled.
+    const rolagem = faseDoAviso === estado.fase ? el.aviso.scrollTop : 0;
+    faseDoAviso = estado.fase;
     refContagem = null;
     let conteudo = [];
     let estilo = 'cartao';
+    const tela = contextoDaTela();
+    let cartao = null;
     if (estado.fase === 'lobby') {
-      conteudo = cartaoLobby();
+      cartao = telas.cartaoLobby(tela);
     } else if (estado.fase === 'contagem') {
       estilo = 'contagem';
-      conteudo = cartaoContagem(jogando);
+      cartao = telas.cartaoContagem(tela, { jogando, segundos: CONTAGEM_S });
     } else if (estado.fase === 'jogo') {
       estilo = 'pilula';
       if (!jogando) conteudo = [h('p', {}, 'Assistindo · você entra na próxima rodada')];
       else if (morto) conteudo = [h('p', {}, 'Você explodiu! Agora é torcer.')];
     } else if (estado.fase === 'resultado') {
-      conteudo = cartaoResultado();
+      cartao = telas.cartaoResultado(tela, { segundos: RESULTADO_S });
     } else {
-      conteudo = cartaoFinal();
+      cartao = telas.cartaoFinal(tela, { segundos: FINAL_S });
+    }
+    if (cartao) {
+      conteudo = cartao.conteudo;
+      refContagem = cartao.contagem;
     }
     conteudo = conteudo.filter(Boolean);
     const destino = estilo === 'cartao' ? el.raiz : el.arena;
@@ -1197,7 +969,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     el.aviso.className = `pavio-aviso pavio-aviso--${estilo}`;
     el.aviso.hidden = conteudo.length === 0;
     el.aviso.replaceChildren(...(estilo === 'cartao' ? [h('div', { class: 'pavio-cartao' }, conteudo)] : conteudo));
-    el.aviso.scrollTop = 0;
+    el.aviso.scrollTop = rolagem;
   }
 
   function atualizarAviso(vista, agoraMs) {
@@ -1227,36 +999,22 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function atualizarHud(vista) {
-    const mostrar = Boolean(vista) && estado.fase !== 'lobby';
-    el.hud.style.visibility = mostrar ? 'visible' : 'hidden';
-    if (!mostrar) return;
+    if (!vista || estado.fase === 'lobby') {
+      hud.atualizar(null);
+      return;
+    }
     const n = meuIndice();
     const eu = vista.j[n];
-    const paraSubita = (vista.ms ?? 120) - (Number(vista.tm) || 0);
-    const tempo = paraSubita > 0 ? `⏱ ${formatarTempo(paraSubita)}` : '☠ Morte súbita';
-    let pontos = '';
-    let total = 0;
+    let total = null;
     if (n >= 0) {
       const placar = { ...ZERO, ...estado.placar[sala.meuId] };
       const aoVivo = estado.fase === 'contagem' || estado.fase === 'jogo';
       total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
-      pontos = `⭐ ${total}`;
     }
-    const itens = eu
-      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.gl && `❄️ ${eu.gl}`, eu.at && `🌀 ${eu.at}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
-      : '';
-    const temGelo = Boolean(eu?.v && eu.gl > 0);
-    const chave = `${itens}|${pontos}|${tempo}|${temGelo}`;
-    if (chave === ultimoHud) return;
-    ultimoHud = chave;
-    el.dicaGelo.hidden = !temGelo;
-    el.hudItens.textContent = itens;
-    el.hudPontos.textContent = pontos;
-    el.hudTempo.textContent = tempo;
-    el.hudTempo.classList.toggle('pavio-hud-tempo--subita', paraSubita <= 0);
-    if (total > ultimoTotal && estado.fase === 'jogo') reiniciarAnimacao(el.hudPontos, 'pavio-hud-pontos--sobe');
-    ultimoTotal = total;
+    el.dicaGelo.hidden = !(eu?.v && eu.gl > 0);
+    hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase });
   }
+
 
   function jogadoresDoLobby() {
     return [...sala.membrosOrdenados(), ...estado.robos].slice(0, MAX_JOGADORES).map((jogador, n) => ({
@@ -1275,7 +1033,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // Who celebrates on the arena behind the results: the match winner, then the round champions.
   function festejando() {
     if (estado.fase === 'resultado') return new Set([estado.resultado?.vencedor]);
-    if (estado.fase === 'final' && estado.escalacao.length > 1) return new Set(campeoes().map(linha => linha.id));
+    if (estado.fase === 'final' && estado.escalacao.length > 1) return new Set(campeoes(estado).map(linha => linha.id));
     return null;
   }
 
@@ -1303,13 +1061,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       })
       : jogadoresDoLobby();
     const agora = agoraMs / 1000;
-    tremor *= 0.85;
     for (let k = efeitos.length - 1; k >= 0; k--) if (!efeitoAtivo(efeitos[k], agora)) efeitos.splice(k, 1);
     const mapa = vista ? estado.mapa : 0;
     pintor.desenhar({
       g: vista?.g ?? GRADE_LOBBY,
-      muros: MUROS[mapa],
-      chaveMuros: mapa,
+      muros: murosDaPartida(mapa, estado.idPartida),
+      chaveMuros: `${mapa}:${estado.idPartida}`,
+      tema: vista ? MAPAS[mapa].tema : 'padrao',
       j: jogadores,
       b: vista?.b ?? [],
       c: vista?.c ?? [],
@@ -1317,7 +1075,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       gl: vista?.gl ?? [],
       agora,
       efeitos,
-      tremor,
+      fase: estado.fase,
       contagem: estado.fase === 'contagem',
       subita: estado.fase === 'jogo' && Boolean(vista) && (Number(vista.tm) || 0) >= (vista.ms ?? 120),
     });
@@ -1332,7 +1090,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     sala.enviarAoAnfitriao({ t: 'pedirEstado' });
   }
   controles.definirModo({ jogando: false, toqueVisivel: toqueDisponivel });
-  som.musica(MUSICA_DA_FASE[estado.fase]);
+  som.musica(MUSICA_DA_FASE[estado.fase], { tema: 'padrao' });
   const relogio = sala.souAnfitriao ? criarPassoFixo(HZ_SIMULACAO, passoAnfitriao) : null;
   ajustarArena();
   quadro();
