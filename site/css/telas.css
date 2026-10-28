@@ -313,3 +313,136 @@
 .versao-nova[hidden] {
   display: none;
 }
+
+/* Result and round end: highlights, the timeline of eliminations, achievements. */
+.pavio-destaques,
+.pavio-conquistas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px;
+  width: min(560px, 100%);
+  margin: 2px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pavio-destaque,
+.pavio-conquista {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(14, 20, 28, 0.7);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  text-align: left;
+  animation: destaque-entra 0.4s ease-out both;
+}
+
+.pavio-destaque:nth-child(2),
+.pavio-conquista:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.pavio-destaque:nth-child(3),
+.pavio-conquista:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.pavio-destaque:nth-child(n + 4),
+.pavio-conquista:nth-child(n + 4) {
+  animation-delay: 0.24s;
+}
+
+@keyframes destaque-entra {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.pavio-conquista {
+  border-color: rgba(255, 212, 59, 0.45);
+}
+
+.pavio-destaque-icone {
+  flex: none;
+  font-size: 20px;
+}
+
+.pavio-destaque-texto {
+  display: grid;
+  min-width: 0;
+}
+
+.pavio-destaque-titulo {
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pavio-destaque-quem {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pavio-destaque-quem .marca-jogador {
+  width: 14px;
+  height: 14px;
+}
+
+.pavio-linha-tempo {
+  width: min(560px, 100%);
+  color: var(--texto-suave);
+  font-size: 13px;
+  text-align: left;
+}
+
+.pavio-linha-tempo summary {
+  cursor: pointer;
+  text-align: center;
+}
+
+.pavio-linha-tempo ol {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pavio-linha-tempo li {
+  display: flex;
+  gap: 8px;
+}
+
+.pavio-linha-tempo-hora {
+  flex: none;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.pavio-linha-tempo .marca-jogador {
+  width: 14px;
+  height: 14px;
+}
+
+.pavio-aviso .pavio-pular {
+  min-width: 0;
+}
+
+.pavio-final-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pavio-destaque,
+  .pavio-conquista {
+    animation: none;
+  }
+}

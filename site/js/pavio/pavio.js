@@ -32,6 +32,7 @@ const ATALHO_ESPERA_MS = 400; // after a shortcut, the host's count of charges t
 const QUADRO_MIN_MS = 15; // caps drawing near 60 fps on 120 Hz screens
 const CONTAGEM_S = 3;
 const RESULTADO_S = 7;
+const PULO_S = 0.8; // once everyone voted to skip the result, the next match starts this soon
 const FINAL_S = 15;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
 // Each match plays a variant of its map, picked by the match number (members know it from the state).
@@ -99,9 +100,9 @@ function montarPalco(palco) {
   return el;
 }
 
-// corPreferida: this device's profile color (0-7) or null for "any free one"; aoTerminarPartida(resumo) records each
-// finished match of this device's player in its profile (conta.js registrarPartida).
-export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null, aoTerminarPartida = null }) {
+// aoTerminarPartida(resumo) records each finished match of this device's player in its profile (conta.js
+// registrarPartida). The profile color comes with each member (sala.membros, cor), set when joining.
+export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = null }) {
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
   const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
@@ -116,6 +117,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     cores: {},
     prontos: [],
     robos: [], // [{ id, nome, nivel }]: computer players added by the host, always ready
+    pulos: [], // ids that voted to skip the current result screen
     placar: {}, // id -> { vitorias, caixas, eliminacoes } of the current round
     estatisticas: null, // Partida.estatisticas() of the last match that ended
     estatisticasRodada: {}, // id -> round totals, see somarEstatisticasRodada
@@ -136,7 +138,6 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
   let gradeRestante = 0;
   let ultimaVersaoGrade = -1;
   const suavizados = new Map();
-  const preferencias = new Map(); // id -> profile color asked by that player
   let cerebros = []; // robot brains of the current match
   let contadorRobos = 0;
   let nivelNovoRobo = 'medio';
@@ -166,6 +167,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
   let chaveAviso = '';
   let refContagem = null;
   const partidasRegistradas = new Set();
+  let queroJogarDeNovo = false; // a member asked to come back ready from the round's end
   let primeiroEstadoVisto = false;
   let faseDoAviso = null;
   let ultimaContagem = null;
@@ -293,13 +295,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     const jogadores = [...sala.membrosOrdenados(), ...estado.robos];
     const presentes = new Set(jogadores.map(({ id }) => id));
     for (const id of Object.keys(estado.cores)) if (!presentes.has(id) || estado.cores[id] >= MAX_JOGADORES) delete estado.cores[id];
-    for (const id of preferencias.keys()) if (!presentes.has(id)) preferencias.delete(id);
     const usadas = new Set(Object.values(estado.cores));
     for (const { id } of jogadores) {
       if (estado.cores[id] !== undefined) continue;
-      // Someone's profile color when it is free, otherwise the lowest free one.
-      let cor = preferencias.get(id);
-      if (cor === undefined || usadas.has(cor)) cor = 0;
+      // Someone's profile color (when it is one of the arena's and free), otherwise the lowest free one.
+      let cor = sala.membros.get(id)?.cor;
+      if (!Number.isInteger(cor) || cor >= MAX_JOGADORES || usadas.has(cor)) cor = 0;
       while (usadas.has(cor)) cor++;
       // A ninth player (a person joining while robots fill the arena) only watches: no color until one frees up.
       if (cor >= MAX_JOGADORES) continue;
@@ -308,13 +309,16 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     }
   }
 
-  // A member's profile color arrives after it joined (and already got one): in the lobby it moves to it if free.
-  function preferirCor(id, cor) {
-    if (!Number.isInteger(cor) || cor < 0 || cor >= MAX_JOGADORES) return;
-    preferencias.set(id, cor);
-    const ocupada = Object.entries(estado.cores).some(([outro, usada]) => outro !== id && usada === cor);
-    if (estado.fase !== 'lobby' || ocupada || estado.cores[id] === cor) return;
-    estado.cores[id] = cor;
+  // Skipping the result screen: once every person of the match (still in the room) voted, the next match starts.
+  function registrarPulo(id) {
+    if (estado.fase !== 'resultado' || estado.pulos.includes(id)) return;
+    const pessoas = estado.escalacao.filter(item => !item.robo && sala.membros.has(item.id));
+    if (!pessoas.some(item => item.id === id)) return;
+    estado.pulos = [...estado.pulos, id];
+    if (pessoas.every(item => estado.pulos.includes(item.id) || sala.membros.get(item.id)?.fora)) {
+      restanteFase = Math.min(restanteFase, PULO_S);
+      estado.fimFaseEm = performance.now() + restanteFase * 1000;
+    }
     publicarEstado();
   }
 
@@ -369,6 +373,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       cores: estado.cores,
       prontos: estado.prontos,
       robos: estado.robos,
+      pulos: estado.pulos,
       placar: estado.placar,
       estatisticas: estado.estatisticas,
       estatisticasRodada: estado.estatisticasRodada,
@@ -414,8 +419,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       case 'pedirEstado':
         if (de !== sala.meuId) publicarEstado(de);
         break;
-      case 'cor':
-        if (sala.membros.has(de)) preferirCor(de, Number(mensagem.cor));
+      case 'pular':
+        registrarPulo(de);
         break;
       default:
         break;
@@ -489,6 +494,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
 
   function encerrarPartida(resultado) {
     estado.resultado = resultado;
+    estado.pulos = [];
     somarEstatisticas(resultado.vencedor);
     if (estado.numero >= TOTAL_PARTIDAS) {
       estado.motivo = null;
@@ -623,6 +629,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     estado.escalacao = Array.isArray(mensagem.escalacao) ? mensagem.escalacao.slice(0, MAX_JOGADORES) : [];
     estado.cores = mensagem.cores && typeof mensagem.cores === 'object' ? mensagem.cores : {};
     estado.prontos = Array.isArray(mensagem.prontos) ? mensagem.prontos.map(String) : [];
+    estado.pulos = Array.isArray(mensagem.pulos) ? mensagem.pulos.map(String) : [];
     estado.robos = Array.isArray(mensagem.robos)
       ? mensagem.robos.slice(0, MAX_JOGADORES).map(robo => ({
         id: String(robo?.id ?? ''),
@@ -638,6 +645,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
     if (estado.idPartida !== partidaAnterior) prepararPartidaLocal();
     if (estado.fase !== anterior) aoEntrarNaFase(estado.fase, anterior);
+    if (estado.fase === 'lobby' && queroJogarDeNovo) {
+      queroJogarDeNovo = false;
+      sala.enviarAoAnfitriao({ t: 'pronto', v: true });
+    }
     // Arriving with a round under way: say what happens now, once.
     if (!primeiroEstadoVisto) {
       primeiroEstadoVisto = true;
@@ -908,6 +919,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       toque: toqueDisponivel,
       placarInicio,
       nivelNovoRobo,
+      queroJogarDeNovo,
       vagasRobos: sala.souAnfitriao ? vagasParaRobos() : 0,
       acoes: {
         pronto: valor => {
@@ -915,6 +927,19 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
           sala.enviarAoAnfitriao({ t: 'pronto', v: valor });
         },
         voltarAoLobby,
+        pular: () => {
+          if (sala.souAnfitriao) registrarPulo(sala.meuId);
+          else sala.enviarAoAnfitriao({ t: 'pular' });
+        },
+        jogarDeNovo: () => {
+          if (sala.souAnfitriao) {
+            voltarAoLobby();
+            definirPronto(sala.meuId, true);
+            return;
+          }
+          queroJogarDeNovo = true;
+          chaveAviso = '';
+        },
         adicionarRobo,
         removerRobo,
         trocarNivelRobo,
@@ -1074,12 +1099,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
   }
 
   if (sala.souAnfitriao) {
-    if (corPreferida !== null) preferencias.set(sala.meuId, corPreferida);
     atribuirCores();
     informar();
   } else {
     sala.enviarAoAnfitriao({ t: 'pedirEstado' });
-    if (corPreferida !== null) sala.enviarAoAnfitriao({ t: 'cor', cor: corPreferida });
   }
   controles.definirModo({ jogando: false, toqueVisivel: toqueDisponivel });
   som.musica(MUSICA_DA_FASE[estado.fase], { tema: 'padrao' });
