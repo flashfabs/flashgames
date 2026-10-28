@@ -121,14 +121,28 @@ function abrirSala(sala) {
   });
   sala.on('fora', membro => avisar(`${membro.nome} caiu; a vaga fica guardada por ${TOLERANCIA_S} s`));
   sala.on('voltou', membro => avisar(`${membro.nome} voltou`));
-  sala.on('reconectando', () => mostrarReconexao());
+  sala.on('reconectando', info => mostrarReconexao(info));
+  // The host left and handed the room over: the game starts over in the lobby with the new host.
+  sala.on('trocaDeAnfitriao', ({ anfitriao }) => {
+    pararContagemReconexao();
+    $('#queda').hidden = true;
+    avisar(anfitriao?.id === sala.meuId ? 'Agora você é o anfitrião da sala' : `${anfitriao?.nome ?? 'Outra pessoa'} agora é o anfitrião`);
+    jogoAtual?.destruir();
+    jogoAtual = montarJogo(sala);
+    desenharMembros();
+  });
   sala.on('reconectou', () => {
     pararContagemReconexao();
     $('#queda').hidden = true;
     avisar('Conexão de volta!');
   });
   sala.on('caiu', motivo => mostrarQueda(motivo));
-  jogoAtual = criarPavio({
+  jogoAtual = montarJogo(sala);
+  desenharMembros();
+}
+
+function montarJogo(sala) {
+  return criarPavio({
     sala,
     palco: $('#palco'),
     som,
@@ -142,7 +156,6 @@ function abrirSala(sala) {
       registrarPartida(resumo).catch(erro => console.warn('Could not record the match in the profile', erro));
     },
   });
-  desenharMembros();
 }
 
 function fecharSala() {
@@ -199,11 +212,12 @@ function mostrarQueda(motivo) {
 
 // Same dialog, without buttons: the room is trying to get this member back on its own, and the seconds left of
 // the guarded place count down.
-function mostrarReconexao() {
+function mostrarReconexao({ troca = false } = {}) {
   const fim = performance.now() + TOLERANCIA_MS;
   const atualizar = () => {
     const resta = Math.ceil((fim - performance.now()) / 1000);
-    $('#queda-motivo').textContent = resta > 0
+    if (troca) $('#queda-motivo').textContent = 'O anfitrião saiu. Passando a sala para quem chegou primeiro…';
+    else $('#queda-motivo').textContent = resta > 0
       ? `A conexão caiu. Sua vaga fica guardada por mais ${resta} s enquanto a gente tenta voltar.`
       : 'A conexão caiu. Ainda tentando voltar…';
   };
@@ -221,7 +235,11 @@ function custoDeSair() {
   const sala = salaAtual;
   if (!sala || sala.membros.size <= 1) return null;
   const outros = sala.membros.size - 1;
-  if (sala.souAnfitriao) return `Você é o anfitrião: se sair, a sala fecha para ${outros === 1 ? 'a outra pessoa' : `as outras ${outros} pessoas`}.`;
+  if (sala.souAnfitriao) {
+    const sucessor = sala.membrosOrdenados().find(membro => membro.id !== sala.meuId && !membro.fora);
+    if (sucessor) return `Você é o anfitrião: se sair, a sala passa para ${sucessor.nome} e a rodada em andamento acaba.`;
+    return `Você é o anfitrião: se sair, a sala fecha para ${outros === 1 ? 'a outra pessoa' : `as outras ${outros} pessoas`}.`;
+  }
   const naRodada = ['contagem', 'jogo', 'resultado'].includes(infoJogo.fase) && infoJogo.escalacao.some(item => item.id === sala.meuId);
   const outrasPessoas = infoJogo.escalacao.some(item => item.id !== sala.meuId && !item.robo);
   if (naRodada && outrasPessoas) return 'A rodada está rolando: se você sair agora, ela acaba para todo mundo.';

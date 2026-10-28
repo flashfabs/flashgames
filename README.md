@@ -111,7 +111,7 @@ Decisão da noite de 28/10/2026 (sem login com senha, e-mail ou Google, que fica
 
 ## Limitações conhecidas
 
-- Se o anfitrião fechar a aba, a sala acaba para todos (não há troca de anfitrião).
+- Troca de anfitrião (desde 28/10/2026): quando o anfitrião sai pelo botão Sair, a sala passa para o membro mais antigo ainda conectado, que recebe as chaves de todos e assume o mesmo código; os outros se religam a ele como depois de uma queda, e todo mundo volta a um lobby novo (a rodada em andamento acaba, como em qualquer saída, e os robôs saem). Se o anfitrião fechar a aba de repente, a despedida pode não sair a tempo, e aí a sala acaba como antes.
 - O anfitrião joga sem atraso de rede e os outros com o atraso da conexão até ele; numa mesma cidade isso fica em dezenas de milissegundos.
 - O servidor de sinalização do PeerJS é gratuito e sem garantia; se ficar fora do ar, ninguém consegue criar nem entrar em sala (quem já está jogando continua).
 - Se a rede do próprio anfitrião cair por mais de ~10 s, ou se o servidor de sinalização do PeerJS não aceitar a volta dele, os membros desistem e a sala acaba para eles.
@@ -123,4 +123,4 @@ Decisão da noite de 28/10/2026 (sem login com senha, e-mail ou Google, que fica
 
 - Login e microtransações (o passo seguinte que o Victor citou), por exemplo com Supabase Auth.
 - Sinalização própria, para não depender do servidor gratuito do PeerJS (o TURN já é da Cloudflare). Comparativo de 27/10/2026: servidor PeerJS no Fly.io em São Paulo (~US$ 2 a 3 por mês, conta nova) ou WebRTC próprio com Supabase Realtime (grátis, mas projeto grátis pausa depois de uma semana sem uso).
-- Troca de anfitrião quando ele sai (estimativa de 27/10/2026: 1,5 a 2 dias para a sala sobreviver e a partida em andamento recomeçar com o placar mantido; continuar a partida do ponto exato custa mais uns 2 dias), e mais jogos sobre a mesma sala.
+- Troca de anfitrião também quando ele some sem se despedir (aba fechada de repente) e mantendo o placar da rodada; continuar a partida do ponto exato custa mais uns 2 dias. Mais jogos sobre a mesma sala.
