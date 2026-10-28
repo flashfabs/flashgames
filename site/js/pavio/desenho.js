@@ -302,7 +302,31 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
   if (congelada) desenharBlocoGelo(ctx, x, y);
 }
 
-function desenharChama(ctx, [i, forma], agora) {
+// Points along the burning part of a flame cell, for the flickering tongues: [x, y, along the x axis].
+function trechosDaChama(forma, px, py, cx, cy) {
+  const horizontal = [[px + TAM * 0.2, cy, true], [cx, cy, true], [px + TAM * 0.8, cy, true]];
+  const vertical = [[cx, py + TAM * 0.2, false], [cx, cy, false], [cx, py + TAM * 0.8, false]];
+  switch (forma) {
+    case 'h':
+      return horizontal;
+    case 'v':
+      return vertical;
+    case 'l':
+      return horizontal.slice(1).concat([[px + TAM * 0.35, cy, true]]);
+    case 'r':
+      return horizontal.slice(0, 2).concat([[px + TAM * 0.65, cy, true]]);
+    case 'u':
+      return vertical.slice(1).concat([[cx, py + TAM * 0.35, false]]);
+    case 'd':
+      return vertical.slice(0, 2).concat([[cx, py + TAM * 0.65, false]]);
+    case 'x':
+      return [[cx, cy, true], [cx, cy, false]];
+    default:
+      return horizontal.concat(vertical);
+  }
+}
+
+function desenharChama(ctx, [i, forma], agora, reduzido) {
   const x = i % COLUNAS;
   const y = Math.floor(i / COLUNAS);
   const px = x * TAM;
@@ -316,6 +340,20 @@ function desenharChama(ctx, [i, forma], agora) {
     ctx.fill();
   }
   const pulso = 0.9 + Math.sin(agora * 38 + i) * 0.08;
+  if (!reduzido) {
+    // Flickering tongues bulge out of the edges, so the fire does not look like a ruler.
+    const trechos = trechosDaChama(forma, px, py, cx, cy);
+    for (const [camada, cor] of [[0, PALETA.chama[0]], [1, PALETA.chama[1]]]) {
+      ctx.fillStyle = cor;
+      trechos.forEach(([tx, ty, aoLongoDeX], k) => {
+        const onda = Math.sin(agora * 27 + i * 3.1 + k * 2.3 + camada);
+        const desvio = onda * TAM * 0.07;
+        const raio = TAM * (camada ? 0.2 : 0.3) * (0.85 + 0.3 * Math.sin(agora * 33 + i + k * 1.7 + camada * 2));
+        circulo(ctx, tx + (aoLongoDeX ? 0 : desvio), ty + (aoLongoDeX ? desvio : 0), raio);
+        ctx.fill();
+      });
+    }
+  }
   PALETA.chama.forEach((cor, camada) => {
     const largura = TAM * [0.82, 0.56, 0.28][camada] * pulso;
     const meia = largura / 2;
@@ -358,6 +396,13 @@ function desenharChama(ctx, [i, forma], agora) {
         ctx.fill();
     }
   });
+  if (!reduzido) {
+    const t = (agora * 1.6 + i * 0.37) % 1;
+    ctx.globalAlpha = 1 - t;
+    ctx.fillStyle = '#fff3bf';
+    ctx.fillRect(cx + Math.sin(i * 7.3 + agora * 3) * TAM * 0.3 - 1, cy - t * TAM * 0.9 - 1, 2.4, 2.4);
+    ctx.globalAlpha = 1;
+  }
 }
 
 // One character with its feet at (cx, chao). Poses: 'jogo' (walks, blinks, looks around), 'festa' (jumps
@@ -1409,7 +1454,7 @@ export function criarPintor(canvas) {
     for (let i = 0; i < cena.g.length; i++) {
       if (VISUAL_ITEM[cena.g[i]]) desenharItem(ctx, sprite(cena.g[i]), i, cena.g[i], agora, reduzido);
     }
-    for (const chama of cena.c) desenharChama(ctx, chama, agora);
+    for (const chama of cena.c) desenharChama(ctx, chama, agora, reduzido);
     for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, agora, reduzido);
     for (const tiro of cena.gl ?? []) desenharTiroGelo(ctx, tiro, agora);
