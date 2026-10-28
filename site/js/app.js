@@ -350,7 +350,7 @@ if (new URLSearchParams(location.search).has('teste')) {
       link: salaAtual.link,
       meuId: salaAtual.meuId,
       souAnfitriao: salaAtual.souAnfitriao,
-      membros: salaAtual.membrosOrdenados().map(({ id, nome }) => ({ id, nome })),
+      membros: salaAtual.membrosOrdenados().map(({ id, nome, fora }) => ({ id, nome, fora: Boolean(fora) })),
     },
     jogo: () => jogoAtual?.espiar() ?? null,
   });
