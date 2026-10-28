@@ -5,6 +5,7 @@
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
   indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  somarEstatisticasRodada,
 } from './regras.js';
 import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
@@ -162,6 +163,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     cores: {},
     prontos: [],
     placar: {}, // id -> { vitorias, caixas, eliminacoes } of the current round
+    estatisticas: null, // Partida.estatisticas() of the last match that ended
+    estatisticasRodada: {}, // id -> round totals, see somarEstatisticasRodada
     resultado: null,
     motivo: null,
     fimFaseEm: 0,
@@ -347,6 +350,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       cores: estado.cores,
       prontos: estado.prontos,
       placar: estado.placar,
+      estatisticas: estado.estatisticas,
+      estatisticasRodada: estado.estatisticasRodada,
       resultado: estado.resultado,
       motivo: estado.motivo,
       restante: Math.max(0, restanteFase),
@@ -418,6 +423,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const membros = sala.membrosOrdenados().slice(0, MAX_JOGADORES);
     estado.escalacao = membros.map(membro => ({ id: membro.id, nome: membro.nome, slot: 0, cor: estado.cores[membro.id] }));
     estado.placar = Object.fromEntries(membros.map(membro => [membro.id, { ...ZERO }]));
+    estado.estatisticas = null;
+    estado.estatisticasRodada = {};
     estado.numero = 0;
     estado.motivo = null;
     comecarPartida();
@@ -443,7 +450,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function somarEstatisticas(vencedor) {
-    for (const { id, caixas, eliminacoes } of partida.estatisticas()) {
+    estado.estatisticas = partida.estatisticas();
+    estado.estatisticasRodada = somarEstatisticasRodada(estado.estatisticasRodada, estado.estatisticas);
+    for (const { id, caixas, eliminacoes } of estado.estatisticas) {
       const placar = estado.placar[id];
       if (!placar) continue;
       placar.caixas += caixas;
@@ -582,6 +591,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     estado.cores = mensagem.cores && typeof mensagem.cores === 'object' ? mensagem.cores : {};
     estado.prontos = Array.isArray(mensagem.prontos) ? mensagem.prontos.map(String) : [];
     estado.placar = mensagem.placar && typeof mensagem.placar === 'object' ? mensagem.placar : {};
+    estado.estatisticas = Array.isArray(mensagem.estatisticas) ? mensagem.estatisticas : null;
+    estado.estatisticasRodada = mensagem.estatisticasRodada && typeof mensagem.estatisticasRodada === 'object' ? mensagem.estatisticasRodada : {};
     estado.resultado = mensagem.resultado ?? null;
     estado.motivo = typeof mensagem.motivo === 'string' ? mensagem.motivo : null;
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;

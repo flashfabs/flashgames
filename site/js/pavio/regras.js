@@ -85,12 +85,13 @@ const NOVOS = [
   [ITEM.FANTASMA, ITEM.GELO],
 ];
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
+// tema is a stable key the painter uses for each map's art: patio, deposito, muralhas, labirinto, fornalha.
 export const MAPAS = Object.freeze([
-  { nome: 'Pátio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
-  { nome: 'Depósito', descricao: 'Caixas por todo lado.', densidade: 0.74, muros: [], itens: ITENS_ATE[1], novos: NOVOS[1] },
-  { nome: 'Muralhas', descricao: 'Muros fecham alguns caminhos.', densidade: 0.68, muros: MUROS_MURALHAS, itens: ITENS_ATE[2], novos: NOVOS[2] },
-  { nome: 'Labirinto', descricao: 'Corredores apertados.', densidade: 0.66, muros: MUROS_LABIRINTO, itens: ITENS_ATE[3], novos: NOVOS[3] },
-  { nome: 'Fornalha', descricao: 'O mais fechado, e a morte súbita chega mais cedo.', densidade: 0.72, muros: MUROS_FORNALHA, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
+  { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
+  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado.', densidade: 0.74, muros: [], itens: ITENS_ATE[1], novos: NOVOS[1] },
+  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros fecham alguns caminhos.', densidade: 0.68, muros: MUROS_MURALHAS, itens: ITENS_ATE[2], novos: NOVOS[2] },
+  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados.', densidade: 0.66, muros: MUROS_LABIRINTO, itens: ITENS_ATE[3], novos: NOVOS[3] },
+  { nome: 'Fornalha', tema: 'fornalha', descricao: 'O mais fechado, e a morte súbita chega mais cedo.', densidade: 0.72, muros: MUROS_FORNALHA, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
 ]);
 
 export const indice = (x, y) => y * COLUNAS + x;
@@ -379,7 +380,36 @@ function novoJogador({ id, slot, remoto = false }, n) {
     relogioRemoto: null,
     caixas: 0,
     eliminacoes: 0,
+    // Match statistics (see estatisticas()).
+    bombasSoltas: 0,
+    itensPegos: {},
+    morte: null,
+    distancia: 0,
+    maiorCadeia: 0,
+    ultimaPosicao: { x, y },
   };
+}
+
+// Adds one match's statistics (Partida.estatisticas()) to the round totals, by player id.
+export function somarEstatisticasRodada(rodada = {}, partida = []) {
+  const soma = { ...rodada };
+  for (const linha of partida) {
+    const atual = soma[linha.id] ?? { partidas: 0, caixas: 0, eliminacoes: 0, bombas: 0, itens: {}, mortes: 0, tempoVivo: 0, distancia: 0, maiorCadeia: 0 };
+    const itens = { ...atual.itens };
+    for (const [item, quantidade] of Object.entries(linha.itens ?? {})) itens[item] = (itens[item] ?? 0) + quantidade;
+    soma[linha.id] = {
+      partidas: atual.partidas + 1,
+      caixas: atual.caixas + (linha.caixas ?? 0),
+      eliminacoes: atual.eliminacoes + (linha.eliminacoes ?? 0),
+      bombas: atual.bombas + (linha.bombas ?? 0),
+      itens,
+      mortes: atual.mortes + (linha.morte ? 1 : 0),
+      tempoVivo: arredondar(atual.tempoVivo + (linha.tempoVivo ?? 0)),
+      distancia: Math.round((atual.distancia + (linha.distancia ?? 0)) * 10) / 10,
+      maiorCadeia: Math.max(atual.maiorCadeia, linha.maiorCadeia ?? 0),
+    };
+  }
+  return soma;
 }
 
 // Score of one player: crates are the steady income, eliminations and match wins weigh more.
@@ -471,7 +501,7 @@ export class Partida {
 
   removerJogador(id) {
     const jogador = this.#jogador(id);
-    if (jogador?.vivo) this.#matar(jogador);
+    if (jogador?.vivo) this.#matar(jogador, 'saiu');
   }
 
   passo(dt) {
@@ -492,6 +522,7 @@ export class Partida {
       if (jogador.chute && jogador.entrada.d) this.chutar(jogador.id, jogador.entrada.d);
       if (jogador.atalhos > 0) this.#empurrarCaixa(jogador, dt);
     }
+    this.#medirDistancias();
     for (const jogador of this.jogadores) {
       if (!jogador.vivo) continue;
       this.#soltarBombas(jogador);
@@ -550,9 +581,20 @@ export class Partida {
     };
   }
 
-  // Per-player tally of this match, used for the round score.
+  // Per-player tally of this match, for the round score and the match summary. morte.causa is 'bomba'
+  // (someone else's, por is its owner), 'propria', 'subita' (sudden death) or 'saiu' (left the room).
   estatisticas() {
-    return this.jogadores.map(j => ({ id: j.id, caixas: j.caixas, eliminacoes: j.eliminacoes }));
+    return this.jogadores.map(j => ({
+      id: j.id,
+      caixas: j.caixas,
+      eliminacoes: j.eliminacoes,
+      bombas: j.bombasSoltas,
+      itens: { ...j.itensPegos },
+      morte: j.morte ? { ...j.morte } : null,
+      tempoVivo: arredondar(j.morte ? j.morte.tempo : this.tempo),
+      distancia: Math.round(j.distancia * 10) / 10,
+      maiorCadeia: j.maiorCadeia,
+    }));
   }
 
   tirarEventos() {
@@ -664,6 +706,7 @@ export class Partida {
       // Everyone standing on the cell may walk off the new bomb.
       for (const outro of this.jogadores) if (outro.vivo && sobrepoe(outro, x, y)) bomba.passantes.add(outro.id);
       this.bombas.push(bomba);
+      jogador.bombasSoltas++;
       this.eventos.push({ e: 'bomba', x, y });
     }
   }
@@ -741,16 +784,34 @@ export class Partida {
     });
   }
 
+  // Walked distance for the statistics; jumps (shortcuts, corrections) are left out.
+  #medirDistancias() {
+    for (const jogador of this.jogadores) {
+      const passo = Math.abs(jogador.x - jogador.ultimaPosicao.x) + Math.abs(jogador.y - jogador.ultimaPosicao.y);
+      if (jogador.vivo && passo <= 1) jogador.distancia += passo;
+      jogador.ultimaPosicao = { x: jogador.x, y: jogador.y };
+    }
+  }
+
   #atualizarBombas(dt) {
     // A frozen bomb's fuse waits; only another bomb's fire (the chain below) sets it off meanwhile.
     for (const bomba of this.bombas) {
       if (bomba.congelada > 0) bomba.congelada = Math.max(0, bomba.congelada - dt);
       else bomba.restante -= dt;
     }
-    const fila = this.bombas.filter(b => b.restante <= 0 && !b.congelada);
-    while (fila.length) {
-      const bomba = fila.shift();
-      if (this.bombas.includes(bomba)) this.#explodir(bomba, fila);
+    // Each bomb whose time is up starts a chain; its owner is credited with the chain's length.
+    for (const raiz of this.bombas.filter(b => b.restante <= 0 && !b.congelada)) {
+      if (!this.bombas.includes(raiz)) continue;
+      const fila = [raiz];
+      let explodidas = 0;
+      while (fila.length) {
+        const bomba = fila.shift();
+        if (!this.bombas.includes(bomba)) continue;
+        this.#explodir(bomba, fila);
+        explodidas++;
+      }
+      const dono = this.#jogador(raiz.dono);
+      if (dono) dono.maiorCadeia = Math.max(dono.maiorCadeia, explodidas);
     }
   }
 
@@ -845,10 +906,11 @@ export class Partida {
           jogador.invulneravel = AJUSTES.invulneravelEscudoS;
           this.eventos.push({ e: 'escudo', j: jogador.n, x: jogador.x, y: jogador.y });
         } else {
-          this.#matar(jogador);
+          const propria = chama.dono === jogador.id;
+          this.#matar(jogador, propria ? 'propria' : 'bomba', propria ? null : chama.dono ?? null);
           const autor = this.#jogador(chama.dono);
           // Blowing yourself up scores nothing.
-          if (autor && autor !== jogador) autor.eliminacoes++;
+          if (autor && !propria) autor.eliminacoes++;
         }
         continue;
       }
@@ -860,6 +922,7 @@ export class Partida {
   }
 
   #ganharItem(jogador, item) {
+    jogador.itensPegos[item] = (jogador.itensPegos[item] ?? 0) + 1;
     if (item === ITEM.BOMBA) jogador.bombasMax = Math.min(jogador.bombasMax + 1, AJUSTES.maxBombas);
     else if (item === ITEM.FOGO) jogador.alcance = Math.min(jogador.alcance + 1, AJUSTES.maxAlcance);
     else if (item === ITEM.TENIS) jogador.tenis = Math.min(jogador.tenis + 1, AJUSTES.maxTenis);
@@ -905,8 +968,9 @@ export class Partida {
     });
   }
 
-  #matar(jogador) {
+  #matar(jogador, causa, por = null) {
     jogador.vivo = false;
+    jogador.morte = { tempo: arredondar(this.tempo), por, causa };
     jogador.entrada = { d: DIRECAO.NENHUMA, d2: DIRECAO.NENHUMA };
     jogador.andando = false;
     // Nobody is left to press the detonator: remote bombs go back to a normal fuse.
@@ -930,7 +994,7 @@ export class Partida {
       this.chamas.delete(i);
       this.bombas = this.bombas.filter(b => b.x !== x || b.y !== y);
       for (const jogador of this.jogadores) {
-        if (jogador.vivo && Math.round(jogador.x) === x && Math.round(jogador.y) === y) this.#matar(jogador);
+        if (jogador.vivo && Math.round(jogador.x) === x && Math.round(jogador.y) === y) this.#matar(jogador, 'subita');
       }
       this.eventos.push({ e: 'bloco', x, y });
     }
