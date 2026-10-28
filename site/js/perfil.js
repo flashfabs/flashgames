@@ -67,7 +67,9 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
     const cor = corMostrada();
     if (typeof desenho.retratoSolto === 'function') {
       const quadro = elemento('canvas', { class: 'perfil-retrato', 'aria-hidden': 'true' });
-      boneco.replaceChildren(desenho.retratoSolto(quadro, { cor, pose: 'jogo' }));
+      const marca = desenho.marcaJogador(cor);
+      marca.classList.add('perfil-marca-canto');
+      boneco.replaceChildren(desenho.retratoSolto(quadro, { cor, pose: 'jogo' }), marca);
     } else {
       const marca = desenho.marcaJogador(cor);
       marca.classList.add('perfil-marca');
