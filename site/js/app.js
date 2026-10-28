@@ -237,7 +237,8 @@ function custoDeSair() {
   const outros = sala.membros.size - 1;
   if (sala.souAnfitriao) {
     const sucessor = sala.membrosOrdenados().find(membro => membro.id !== sala.meuId && !membro.fora);
-    if (sucessor) return `Você é o anfitrião: se sair, a sala passa para ${sucessor.nome} e a rodada em andamento acaba.`;
+    const emRodada = ['contagem', 'jogo', 'resultado'].includes(infoJogo.fase);
+    if (sucessor) return `Você é o anfitrião: se sair, a sala passa para ${sucessor.nome}${emRodada ? ' e a rodada em andamento acaba' : ''}.`;
     return `Você é o anfitrião: se sair, a sala fecha para ${outros === 1 ? 'a outra pessoa' : `as outras ${outros} pessoas`}.`;
   }
   const naRodada = ['contagem', 'jogo', 'resultado'].includes(infoJogo.fase) && infoJogo.escalacao.some(item => item.id === sala.meuId);
