@@ -429,3 +429,30 @@ test('the shortcut landing skips the whole run of crates', () => {
   assert.equal(destinoAtalho({ x: 1, y: 1 }, DIRECAO.DIREITA, 2, ehCaixa, () => false), null);
   assert.equal(destinoAtalho({ x: 1, y: 1 }, DIRECAO.CIMA, 2, ehCaixa, livre), null);
 });
+
+test('whoever kicks a bomb is credited with what it breaks and hits', () => {
+  const grade = gradeVazia();
+  grade[indice(9, 1)] = CAIXA;
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }, { id: 'c', slot: 2 }], { grade, sorteio: semItens });
+  const [a, b, c] = partida.jogadores;
+  // b drops a bomb at (3, 1), a kicks it toward c, standing in front of the crate.
+  b.x = 3;
+  b.y = 1;
+  partida.pedirBomba('b');
+  partida.passo(DT);
+  b.x = 19;
+  b.y = 13;
+  c.x = 7;
+  c.y = 1;
+  a.x = 2;
+  a.chute = true;
+  partida.bombas[0].restante = 1;
+  partida.chutar('a', DIRECAO.DIREITA);
+  a.x = 1;
+  a.y = 5;
+  rodar(partida, 1.5);
+  assert.equal(c.vivo, false);
+  assert.equal(a.eliminacoes, 1);
+  assert.equal(b.eliminacoes, 0);
+  assert.equal(partida.estatisticas()[2].morte.por, 'a');
+});

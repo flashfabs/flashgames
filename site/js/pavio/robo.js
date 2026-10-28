@@ -404,6 +404,50 @@ export function aplicarAcaoDoRobo(partida, id, { d, d2, bomba, gelo }) {
   if (gelo) partida.jogarGelo(id);
 }
 
+const DIRECOES_BRACOS = [DIRECAO.CIMA, DIRECAO.BAIXO, DIRECAO.ESQUERDA, DIRECAO.DIREITA];
+
+// With the kick: the direction of a still bomb right next to us whose slide ends with an enemy in its blast,
+// while we stay out of it (we are behind it, so far enough along the line). The fuse must outlast the slide.
+export function chuteContra(partida, eu, origem) {
+  if (!eu.chute) return null;
+  const inimigas = new Set(partida.jogadores.filter(j => j.vivo && j !== eu).map(celulaDe));
+  const ocupada = (x, y) => partida.jogadores.some(j => j.vivo && Math.abs(j.x - x) < 0.99 && Math.abs(j.y - y) < 0.99);
+  const solida = (x, y) => {
+    const celula = partida.grade[indice(x, y)];
+    return celula === undefined || celula === PAREDE || celula === CAIXA || ITENS.has(celula) || partida.bombas.some(b => b.x === x && b.y === y);
+  };
+  for (const [k, [dx, dy]] of BRACOS.entries()) {
+    const bx = xDe(origem) + dx;
+    const by = yDe(origem) + dy;
+    const bomba = partida.bombas.find(b => b.x === bx && b.y === by && !b.deslize);
+    if (!bomba) continue;
+    let x = bx;
+    let y = by;
+    let casas = 0;
+    while (casas < MAX_DESLIZE && !solida(x + dx, y + dy) && !ocupada(x + dx, y + dy)) {
+      x += dx;
+      y += dy;
+      casas++;
+    }
+    if (casas === 0 || casas + 1 <= bomba.alcance) continue;
+    // Never a bomb that could go off while sliding: we stand right behind it.
+    if (bomba.remota || Math.max(0, bomba.congelada ?? 0) + bomba.restante < casas / AJUSTES.velocidadeChute + 1) continue;
+    // The blast at the stop cell, as a cross that crates and walls cut.
+    let acerta = inimigas.has(indice(x, y));
+    for (const [ax, ay] of BRACOS) {
+      for (let passo = 1; passo <= bomba.alcance && !acerta; passo++) {
+        const i = indice(x + ax * passo, y + ay * passo);
+        const celula = partida.grade[i];
+        if (celula === undefined || celula === PAREDE) break;
+        if (inimigas.has(i)) acerta = true;
+        if (celula === CAIXA && !bomba.perfurante) break;
+      }
+    }
+    if (acerta) return DIRECOES_BRACOS[k];
+  }
+  return null;
+}
+
 // With ice and no safe way out: the direction of a bomb in line that, frozen, leaves a way out (or none).
 // The shot must get there before the fuse runs out; a bomb right next to us is skipped when we can kick,
 // because facing it would kick it instead.
@@ -442,6 +486,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
   let objetivo = -1;
   let relogio = sorteio() * ajustes.reacao; // robots do not all think on the same step
   let gelo = DIRECAO.NENHUMA; // facing this way for one step throws ice
+  let empurrar = { d: DIRECAO.NENHUMA, ate: 0 }; // walking into a bomb this way kicks it
   let pausa = 0;
 
   const adotar = (rota, agora) => rota.map(({ celula, saida }) => ({ celula, apos: agora + saida }));
@@ -451,6 +496,14 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
     const meio = passo / 2;
     const inimigos = partida.jogadores.filter(j => j.vivo && j.id !== id);
     const janela = janelaDe(partida);
+    // The hunters kick a bomb next to them at an enemy down the line (which also sends it away from them).
+    const chute = ajustes.caca && livre(perigo, origem, 0, 0.5, margem) ? chuteContra(partida, eu, origem) : null;
+    if (chute) {
+      plano = [];
+      modo = 'parado';
+      empurrar = { d: chute, ate: partida.tempo + 0.25 };
+      return false;
+    }
     if (!livre(perigo, origem, -meio, SEGURO_S, margem)) {
       if (modo === 'fuga' && planoServe(partida, eu, perigo, passo)) return false;
       modo = 'fuga';
@@ -674,6 +727,13 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
         gelo = DIRECAO.NENHUMA;
         return { d: direcao, d2: DIRECAO.NENHUMA, bomba: false, gelo: true };
       }
+      // Push until the bomb starts sliding, never after it: following it would walk into its line.
+      const [ex, ey] = VETOR[empurrar.d];
+      const aindaParada = empurrar.d && partida.bombas.some(b => !b.deslize && b.x === Math.round(eu.x) + ex && b.y === Math.round(eu.y) + ey);
+      if (aindaParada && partida.tempo < empurrar.ate && livre(perigo, celulaDe(eu), 0, 0.5, margem)) {
+        return { d: empurrar.d, d2: DIRECAO.NENHUMA, bomba: false };
+      }
+      empurrar.d = DIRECAO.NENHUMA;
       return seguir(partida, eu, perigo, passo);
     },
   };
