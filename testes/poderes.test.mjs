@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, gradeVazia, indice, bombaAFrente, preverBomba, preverItemVoando, preverGelo,
+  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, gradeVazia, indice, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
 } from '../site/js/pavio/regras.js';
 
 const DT = 1 / 60;
@@ -150,12 +150,12 @@ test('kick and detonator are picked up as items', () => {
   assert.deepEqual([partida.vista().j[0].k, partida.vista().j[0].r], [1, 1]);
 });
 
-test('kick detection needs the player at the edge of its cell, facing the bomb', () => {
+test('pushing detection needs the player at the edge of its cell, facing the cell', () => {
   const temBomba = (x, y) => x === 3 && y === 1;
-  assert.deepEqual(bombaAFrente({ x: 2, y: 1 }, DIRECAO.DIREITA, temBomba), [3, 1]);
-  assert.equal(bombaAFrente({ x: 1.8, y: 1 }, DIRECAO.DIREITA, temBomba), null);
-  assert.equal(bombaAFrente({ x: 2, y: 1.2 }, DIRECAO.DIREITA, temBomba), null);
-  assert.equal(bombaAFrente({ x: 2, y: 1 }, DIRECAO.ESQUERDA, temBomba), null);
+  assert.deepEqual(celulaAFrente({ x: 2, y: 1 }, DIRECAO.DIREITA, temBomba), [3, 1]);
+  assert.equal(celulaAFrente({ x: 1.8, y: 1 }, DIRECAO.DIREITA, temBomba), null);
+  assert.equal(celulaAFrente({ x: 2, y: 1.2 }, DIRECAO.DIREITA, temBomba), null);
+  assert.equal(celulaAFrente({ x: 2, y: 1 }, DIRECAO.ESQUERDA, temBomba), null);
 });
 
 test('members predict a sliding bomb up to the last free cell', () => {
@@ -168,7 +168,8 @@ test('members predict a sliding bomb up to the last free cell', () => {
 });
 
 test('each match of the round unlocks new powers on top of the previous ones', () => {
-  assert.deepEqual(MAPAS[0].itens, [ITEM.BOMBA, ITEM.FOGO]);
+  assert.deepEqual(MAPAS[0].itens, [ITEM.BOMBA, ITEM.FOGO, ITEM.ATALHO]);
+  assert.deepEqual(MAPAS[0].novos, [ITEM.ATALHO]);
   assert.deepEqual(MAPAS[1].novos, [ITEM.TENIS, ITEM.CHUTE]);
   assert.deepEqual(MAPAS[2].novos, [ITEM.ESCUDO, ITEM.DETONADOR]);
   assert.deepEqual(MAPAS[3].novos, [ITEM.PERFURANTE, ITEM.IMA]);
@@ -336,4 +337,95 @@ test('members predict an ice shot up to the last free cell', () => {
   assert.deepEqual(preverGelo([2, 1, DIRECAO.DIREITA], 0.1, parede), [3.2, 1, DIRECAO.DIREITA]);
   assert.deepEqual(preverGelo([2, 1, DIRECAO.DIREITA], 1, parede), [5, 1, DIRECAO.DIREITA]);
   assert.deepEqual(preverGelo([2, 9, DIRECAO.CIMA], 0.25, () => false), [2, 6, DIRECAO.CIMA]);
+});
+
+// Player a at (1, 1) facing crates at (2, 1) onward; the row is otherwise empty.
+function comCaixas(caixas, { atalhos = 1 } = {}) {
+  const grade = gradeVazia();
+  for (const x of caixas) grade[indice(x, 1)] = CAIXA;
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: semItens });
+  const [a] = partida.jogadores;
+  a.atalhos = atalhos;
+  return { partida, a };
+}
+
+test('pushing against a crate with a shortcut charge lands on the other side', () => {
+  const { partida, a } = comCaixas([2]);
+  partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(partida, AJUSTES.empurrarAtalhoS / 2);
+  assert.equal(a.x, 1, 'a bump is not enough');
+  rodar(partida, AJUSTES.empurrarAtalhoS);
+  assert.ok(a.x >= 3);
+  assert.equal(a.atalhos, 0);
+  assert.equal(partida.grade[indice(2, 1)], CAIXA, 'the crate is still there');
+  assert.ok(partida.tirarEventos().some(ev => ev.e === 'atalho' && ev.x2 === 3));
+});
+
+test('crates side by side take one charge each', () => {
+  const pouco = comCaixas([2, 3]);
+  pouco.partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(pouco.partida, 1);
+  assert.equal(pouco.a.x, 1);
+  assert.equal(pouco.a.atalhos, 1);
+  const bastante = comCaixas([2, 3, 6], { atalhos: 3 });
+  bastante.partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(bastante.partida, 0.3);
+  assert.ok(bastante.a.x >= 4);
+  assert.equal(bastante.a.atalhos, 1);
+  rodar(bastante.partida, 1.2);
+  assert.ok(bastante.a.x >= 7, 'walks on and crosses the next crate');
+  assert.equal(bastante.a.atalhos, 0);
+});
+
+test('a shortcut needs a free cell past the crates', () => {
+  const contraBomba = comCaixas([2]);
+  const [a, b] = contraBomba.partida.jogadores;
+  b.x = 3;
+  b.y = 1;
+  contraBomba.partida.pedirBomba('b');
+  contraBomba.partida.passo(DT);
+  b.x = 19;
+  b.y = 13;
+  contraBomba.partida.bombas[0].restante = 99;
+  contraBomba.partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(contraBomba.partida, 0.5);
+  assert.equal(a.x, 1);
+  const contraParede = comCaixas([19]);
+  contraParede.a.x = 18;
+  contraParede.partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(contraParede.partida, 0.5);
+  assert.equal(contraParede.a.x, 18, 'the border is past the crate');
+  assert.equal(contraParede.a.atalhos, 1);
+});
+
+test('remote players cross crates on request, with some slack', () => {
+  const grade = gradeVazia();
+  grade[indice(2, 1)] = CAIXA;
+  const partida = new Partida([{ id: 'a', slot: 0, remoto: true }, { id: 'b', slot: 1 }], { grade, sorteio: semItens });
+  const [a] = partida.jogadores;
+  assert.equal(partida.atravessar('a', DIRECAO.DIREITA), false, 'no charge');
+  a.atalhos = 2;
+  a.x = 0.8;
+  assert.equal(partida.atravessar('a', DIRECAO.DIREITA), true);
+  assert.deepEqual([a.x, a.y, a.atalhos], [3, 1, 1]);
+  assert.equal(partida.vista().j[0].at, 1);
+});
+
+test('shortcut items stack up to the limit', () => {
+  const grade = gradeVazia();
+  for (let x = 2; x <= 8; x++) grade[indice(x, 1)] = ITEM.ATALHO;
+  const partida = new Partida([{ id: 'a', slot: 0 }], { grade });
+  partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(partida, 3);
+  assert.equal(partida.jogadores[0].atalhos, AJUSTES.maxAtalhos);
+});
+
+test('the shortcut landing skips the whole run of crates', () => {
+  const caixas = new Set(['2,1', '3,1']);
+  const ehCaixa = (x, y) => caixas.has(`${x},${y}`);
+  const livre = () => true;
+  assert.deepEqual(destinoAtalho({ x: 1, y: 1 }, DIRECAO.DIREITA, 2, ehCaixa, livre), { x: 4, y: 1, caixas: 2 });
+  assert.equal(destinoAtalho({ x: 1, y: 1 }, DIRECAO.DIREITA, 1, ehCaixa, livre), null);
+  assert.equal(destinoAtalho({ x: 1, y: 1 }, DIRECAO.DIREITA, 2, ehCaixa, () => false), null);
+  assert.equal(destinoAtalho({ x: 1, y: 1 }, DIRECAO.CIMA, 2, ehCaixa, livre), null);
 });

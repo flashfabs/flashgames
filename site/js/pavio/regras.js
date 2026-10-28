@@ -8,7 +8,7 @@ export const MAX_JOGADORES = 8;
 export const PAREDE = '#';
 export const CAIXA = '+';
 export const CHAO = '.';
-export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm', GELO: 'i' });
+export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm', GELO: 'i', ATALHO: 'a' });
 const ITENS = new Set(Object.values(ITEM));
 
 export const DIRECAO = Object.freeze({ NENHUMA: 0, CIMA: 1, BAIXO: 2, ESQUERDA: 3, DIREITA: 4 });
@@ -54,17 +54,20 @@ export const AJUSTES = Object.freeze({
   velocidadeGelo: 12,
   // A frozen bomb's fuse stops for this long (fire from another bomb still sets it off).
   congelarS: 3,
+  // Shortcut charges: each one crosses one crate after pushing against it this long (a bump is not enough).
+  maxAtalhos: 5,
+  empurrarAtalhoS: 0.2,
 });
 const PESOS_ITENS = {
   [ITEM.BOMBA]: 30, [ITEM.FOGO]: 30, [ITEM.TENIS]: 16, [ITEM.ESCUDO]: 10, [ITEM.PERFURANTE]: 8, [ITEM.FANTASMA]: 8,
-  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8, [ITEM.GELO]: 9,
+  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8, [ITEM.GELO]: 9, [ITEM.ATALHO]: 10,
 };
 const PASSO_MAX = 0.1;
 const EPS = 1e-4;
 const FOLGA_VELOCIDADE = 1.35;
 const FOLGA_DISTANCIA = 0.35;
-// How far from the edge of its cell a remote player may report itself and still kick.
-const FOLGA_CHUTE = 0.3;
+// How far from the edge of its cell a remote player may report itself and still kick or cross a crate.
+const FOLGA_EMPURRAO = 0.3;
 
 // Spawn order keeps the first two players in opposite corners.
 export const SPAWNS = [[1, 1], [19, 13], [19, 1], [1, 13], [10, 1], [10, 13], [1, 7], [19, 7]];
@@ -75,7 +78,7 @@ const MUROS_LABIRINTO = [...MUROS_MURALHAS, [7, 2], [13, 2], [7, 12], [13, 12], 
 const MUROS_FORNALHA = [...MUROS_LABIRINTO, [9, 4], [11, 4], [9, 10], [11, 10], [6, 5], [14, 5], [6, 9], [14, 9]];
 // Powers unlocked by each match; a match drops everything unlocked so far.
 const NOVOS = [
-  [ITEM.BOMBA, ITEM.FOGO],
+  [ITEM.BOMBA, ITEM.FOGO, ITEM.ATALHO],
   [ITEM.TENIS, ITEM.CHUTE],
   [ITEM.ESCUDO, ITEM.DETONADOR],
   [ITEM.PERFURANTE, ITEM.IMA],
@@ -83,7 +86,7 @@ const NOVOS = [
 ];
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
 export const MAPAS = Object.freeze([
-  { nome: 'Pátio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [] },
+  { nome: 'Pátio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
   { nome: 'Depósito', descricao: 'Caixas por todo lado.', densidade: 0.74, muros: [], itens: ITENS_ATE[1], novos: NOVOS[1] },
   { nome: 'Muralhas', descricao: 'Muros fecham alguns caminhos.', densidade: 0.68, muros: MUROS_MURALHAS, itens: ITENS_ATE[2], novos: NOVOS[2] },
   { nome: 'Labirinto', descricao: 'Corredores apertados.', densidade: 0.66, muros: MUROS_LABIRINTO, itens: ITENS_ATE[3], novos: NOVOS[3] },
@@ -107,8 +110,8 @@ export function sobrepoe(jogador, x, y) {
 }
 
 // The cell a player is pushing against: aligned on its lane, at the center of its cell (where walking
-// into a bomb stops it), facing the next cell. Returns [x, y] when temBomba says there is a bomb there.
-export function bombaAFrente(jogador, direcao, temBomba, folga = EPS) {
+// into a bomb or crate stops it), facing the next cell. Returns [x, y] when procurada(x, y) is true there.
+export function celulaAFrente(jogador, direcao, procurada, folga = EPS) {
   const [dx, dy] = VETOR[valida(direcao)];
   if (!dx && !dy) return null;
   const x = Math.round(jogador.x);
@@ -116,7 +119,24 @@ export function bombaAFrente(jogador, direcao, temBomba, folga = EPS) {
   const desvio = dx ? Math.abs(jogador.y - y) : Math.abs(jogador.x - x);
   const avanco = dx ? (jogador.x - x) * dx : (jogador.y - y) * dy;
   if (desvio > folga || avanco < -folga) return null;
-  return temBomba(x + dx, y + dy) ? [x + dx, y + dy] : null;
+  return procurada(x + dx, y + dy) ? [x + dx, y + dy] : null;
+}
+
+// Where a shortcut takes a player pushing against crates: the first cell past the run of crates ahead.
+// It costs one charge per crate and needs that cell free; returns { x, y, caixas } or null.
+export function destinoAtalho(jogador, direcao, cargas, ehCaixa, livre, folga = EPS) {
+  const primeira = celulaAFrente(jogador, direcao, ehCaixa, folga);
+  if (!primeira) return null;
+  const [dx, dy] = VETOR[valida(direcao)];
+  let [x, y] = primeira;
+  let caixas = 0;
+  while (ehCaixa(x, y)) {
+    caixas++;
+    if (caixas > cargas) return null;
+    x += dx;
+    y += dy;
+  }
+  return livre(x, y) ? { x, y, caixas } : null;
 }
 
 // Moves a point toward a target by up to distancia; chegou is true once it is there.
@@ -350,6 +370,8 @@ function novoJogador({ id, slot, remoto = false }, n) {
     ima: 0,
     gelo: 0,
     pedidosGelo: 0,
+    atalhos: 0,
+    empurrao: 0, // seconds spent pushing against crates that a shortcut can cross
     fantasma: 0,
     fantasmaFolga: 0,
     invulneravel: 0,
@@ -414,6 +436,16 @@ export class Partida {
     if (jogador?.vivo) jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
   }
 
+  // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
+  atravessar(id, direcao) {
+    const jogador = this.#jogador(id);
+    if (!jogador?.vivo || jogador.atalhos <= 0) return false;
+    const destino = this.#destinoAtalho(jogador, direcao, jogador.remoto ? FOLGA_EMPURRAO : EPS);
+    if (!destino) return false;
+    this.#saltar(jogador, destino);
+    return true;
+  }
+
   // Throws an ice shot where the player is facing, if it has any left.
   jogarGelo(id) {
     const jogador = this.#jogador(id);
@@ -426,7 +458,7 @@ export class Partida {
     const jogador = this.#jogador(id);
     if (!jogador?.vivo || !jogador.chute) return false;
     const d = valida(direcao);
-    const alvo = bombaAFrente(jogador, d, (x, y) => Boolean(this.#bombaEm(x, y)), jogador.remoto ? FOLGA_CHUTE : EPS);
+    const alvo = celulaAFrente(jogador, d, (x, y) => Boolean(this.#bombaEm(x, y)), jogador.remoto ? FOLGA_EMPURRAO : EPS);
     if (!alvo) return false;
     const bomba = this.#bombaEm(...alvo);
     const [dx, dy] = VETOR[d];
@@ -458,6 +490,7 @@ export class Partida {
       if (!jogador.vivo || jogador.remoto) continue;
       moverComColisao(jogador, jogador.entrada, dt, (x, y) => this.#bloqueia(x, y, jogador));
       if (jogador.chute && jogador.entrada.d) this.chutar(jogador.id, jogador.entrada.d);
+      if (jogador.atalhos > 0) this.#empurrarCaixa(jogador, dt);
     }
     for (const jogador of this.jogadores) {
       if (!jogador.vivo) continue;
@@ -493,6 +526,7 @@ export class Partida {
         r: j.detonador ? 1 : 0,
         m: j.ima > 0 ? 1 : 0,
         gl: j.gelo,
+        at: j.atalhos,
         b: j.bombasMax,
         f: j.alcance,
         t: j.tenis,
@@ -641,6 +675,33 @@ export class Partida {
         if (!jogador?.vivo || !sobrepoe(jogador, bomba.x, bomba.y)) bomba.passantes.delete(id);
       }
     }
+  }
+
+  #destinoAtalho(jogador, direcao, folga) {
+    if (jogador.fantasma > 0) return null;
+    const ehCaixa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && this.grade[indice(x, y)] === CAIXA;
+    const livre = (x, y) => {
+      const celula = this.grade[indice(x, y)];
+      return celula !== PAREDE && celula !== CAIXA && !this.#bombaEm(x, y);
+    };
+    return destinoAtalho(jogador, valida(direcao), jogador.atalhos, ehCaixa, livre, folga);
+  }
+
+  // Pushing against crates for a moment with enough charges takes a local player straight past them.
+  #empurrarCaixa(jogador, dt) {
+    const destino = jogador.entrada.d ? this.#destinoAtalho(jogador, jogador.entrada.d, EPS) : null;
+    jogador.empurrao = destino ? jogador.empurrao + dt : 0;
+    if (destino && jogador.empurrao >= AJUSTES.empurrarAtalhoS) this.#saltar(jogador, destino);
+  }
+
+  #saltar(jogador, destino) {
+    const x = Math.round(jogador.x);
+    const y = Math.round(jogador.y);
+    jogador.x = destino.x;
+    jogador.y = destino.y;
+    jogador.atalhos -= destino.caixas;
+    jogador.empurrao = 0;
+    this.eventos.push({ e: 'atalho', j: jogador.n, x, y, x2: destino.x, y2: destino.y });
   }
 
   #lancarGelo(jogador) {
@@ -809,6 +870,7 @@ export class Partida {
     else if (item === ITEM.DETONADOR) jogador.detonador = true;
     else if (item === ITEM.IMA) jogador.ima = AJUSTES.imaS;
     else if (item === ITEM.GELO) jogador.gelo = Math.min(jogador.gelo + AJUSTES.cargasGelo, AJUSTES.maxGelo);
+    else if (item === ITEM.ATALHO) jogador.atalhos = Math.min(jogador.atalhos + 1, AJUSTES.maxAtalhos);
     this.eventos.push({ e: 'item', j: jogador.n, x: Math.round(jogador.x), y: Math.round(jogador.y), item });
   }
 

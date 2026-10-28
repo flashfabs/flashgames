@@ -30,6 +30,7 @@ export const VISUAL_ITEM = {
   [ITEM.DETONADOR]: { fundo: '#c92a2a', emoji: '🎯', nome: 'Detonador', rotulo: 'detonador' },
   [ITEM.IMA]: { fundo: '#1971c2', emoji: '🧲', nome: 'Ímã', rotulo: 'ímã' },
   [ITEM.GELO]: { fundo: '#0c8599', emoji: '❄️', nome: 'Gelo', rotulo: '+3 gelo' },
+  [ITEM.ATALHO]: { fundo: '#862e9c', emoji: '🌀', nome: 'Atalho', rotulo: '+1 atalho' },
 };
 
 export const DESCRICAO_ITEM = {
@@ -43,6 +44,7 @@ export const DESCRICAO_ITEM = {
   [ITEM.DETONADOR]: 'sem bomba sobrando, apertar de novo explode a mais antiga',
   [ITEM.IMA]: 'por 8 segundos, itens a até 3 casas voam até você',
   [ITEM.GELO]: 'jogue gelo (E, ou o botão ❄️) e a primeira bomba à frente congela por 3 segundos',
+  [ITEM.ATALHO]: 'empurre uma caixa e apareça do outro lado; cada caixa gasta um atalho',
 };
 
 const PALETA = {

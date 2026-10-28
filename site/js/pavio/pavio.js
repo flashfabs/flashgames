@@ -3,8 +3,8 @@
 // delay), reports the position, and renders everyone else slightly in the past, blended between snapshots.
 
 import {
-  Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM,
-  indice, gradeVazia, moverComColisao, sobrepoe, bombaAFrente, preverBomba, preverItemVoando, preverGelo,
+  Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
+  indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
 } from './regras.js';
 import { criarPintor, efeitoAtivo, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
@@ -23,6 +23,7 @@ const DIVERGENCIA_TILES = 0.75;
 const DIVERGENCIA_MS = 350;
 const PREVISAO_MAX_MS = 120; // how far ahead of the newest snapshot kicked bombs and flying items are drawn
 const INTERVALO_CHUTE_MS = 200;
+const ATALHO_ESPERA_MS = 400; // after a shortcut, the host's count of charges takes a moment to come back
 const QUADRO_MIN_MS = 15; // caps drawing near 60 fps on 120 Hz screens
 const CONTAGEM_S = 3;
 const RESULTADO_S = 7;
@@ -68,12 +69,12 @@ export function pontosDe(placar = ZERO) {
 function compactarJogador(j) {
   let marcas = 0;
   for (const [chave, bit] of Object.entries(BITS)) if (j[chave]) marcas |= bit;
-  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el, j.gl];
+  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el, j.gl, j.at];
 }
 
 function expandirJogador(dados) {
-  const [x, y, marcas, o, b, f, t, cx, el, gl] = Array.isArray(dados) ? dados : [];
-  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0, gl: Number(gl) || 0 };
+  const [x, y, marcas, o, b, f, t, cx, el, gl, at] = Array.isArray(dados) ? dados : [];
+  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0, gl: Number(gl) || 0, at: Number(at) || 0 };
   for (const [chave, bit] of Object.entries(BITS)) jogador[chave] = marcas & bit ? 1 : 0;
   return jogador;
 }
@@ -158,7 +159,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let menorAtraso = 0;
   let atrasoInterpolacao = 100;
   const eventosVistos = new Set();
-  const local = { ativo: false, x: 0, y: 0, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: false, fantasma: false, chute: false };
+  const local = {
+    ativo: false, x: 0, y: 0, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: false, fantasma: false, chute: false, atalhos: 0, empurrao: 0,
+  };
+  let atalhoLiberadoEm = 0;
   let bombasVisiveis = []; // newest snapshot's bombs, kicked ones moved ahead to now
   let ultimoChute = { chave: '', em: 0 };
   let historico = [];
@@ -340,6 +344,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
         if (partida && estado.fase === 'jogo') {
           partida.aplicarPosicao(de, mensagem);
           partida.jogarGelo(de);
+        }
+        break;
+      case 'atalho':
+        if (partida && estado.fase === 'jogo') {
+          partida.aplicarPosicao(de, mensagem);
+          partida.atravessar(de, Number(mensagem.d));
         }
         break;
       case 'pedirEstado':
@@ -555,7 +565,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     local.ativo = Boolean(eu) && estado.fase !== 'lobby';
     if (!eu) return;
     const [x, y] = SPAWNS[eu.slot] ?? SPAWNS[0];
-    Object.assign(local, { x, y, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: true, fantasma: false, chute: false });
+    Object.assign(local, { x, y, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: true, fantasma: false, chute: false, atalhos: 0, empurrao: 0 });
   }
 
   function receberRetrato(mensagem) {
@@ -607,6 +617,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     local.tenis = servidor.t ?? 0;
     local.fantasma = Boolean(servidor.g);
     local.chute = Boolean(servidor.k);
+    local.atalhos = servidor.at ?? 0;
     local.vivo = Boolean(servidor.v);
     if (estado.fase !== 'jogo') {
       local.x = servidor.x;
@@ -654,12 +665,27 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // Pushing against a still bomb asks the host for a kick; the bomb starts sliding in the next snapshots.
   function pedirChute(agora) {
     const parada = (x, y) => bombasVisiveis.some(([bx, by, , deslize]) => !deslize && bx === x && by === y);
-    const alvo = bombaAFrente(local, entrada.d, parada);
+    const alvo = celulaAFrente(local, entrada.d, parada);
     if (!alvo) return;
     const chave = `${alvo}|${entrada.d}`;
     if (chave === ultimoChute.chave && agora - ultimoChute.em < INTERVALO_CHUTE_MS) return;
     ultimoChute = { chave, em: agora };
     sala.enviarAoAnfitriao({ t: 'chute', d: entrada.d, ...posicaoLocal() });
+  }
+
+  // Pushing against crates with shortcut charges: jump past them right away and tell the host, which checks it.
+  function empurrarCaixaLocal(dt, agora) {
+    const caixa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && gradeAtual.g[indice(x, y)] === CAIXA;
+    const livre = (x, y) => !bloqueiaLocal(x, y);
+    const pode = entrada.d && !local.fantasma && agora >= atalhoLiberadoEm;
+    const destino = pode ? destinoAtalho(local, entrada.d, local.atalhos, caixa, livre) : null;
+    local.empurrao = destino ? local.empurrao + dt : 0;
+    if (!destino || local.empurrao < AJUSTES.empurrarAtalhoS) return;
+    sala.enviarAoAnfitriao({ t: 'atalho', d: entrada.d, ...posicaoLocal() });
+    local.x = destino.x;
+    local.y = destino.y;
+    local.empurrao = 0;
+    atalhoLiberadoEm = agora + ATALHO_ESPERA_MS;
   }
 
   function passoLocal(dt, agora) {
@@ -669,6 +695,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     }
     moverComColisao(local, entrada, dt, bloqueiaLocal);
     if (local.chute && entrada.d) pedirChute(agora);
+    if (local.atalhos > 0) empurrarCaixaLocal(dt, agora);
     historico.push({ t: agora, x: local.x, y: local.y });
     while (historico.length && agora - historico[0].t > HISTORICO_MS) historico.shift();
   }
@@ -761,6 +788,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           break;
         case 'gelo':
           som.tocar('bomba');
+          break;
+        case 'atalho':
+          som.tocar('pronto');
+          efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
+          efeitos.push({ tipo: 'escudo', x: evento.x2, y: evento.y2, inicio: agora });
           break;
         case 'morte':
           som.tocar('morte');
@@ -981,7 +1013,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       pontos = `⭐ ${total}`;
     }
     const itens = eu
-      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.gl && `❄️ ${eu.gl}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
+      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.gl && `❄️ ${eu.gl}`, eu.at && `🌀 ${eu.at}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
       : '';
     const temGelo = Boolean(eu?.v && eu.gl > 0);
     const chave = `${itens}|${pontos}|${tempo}|${temGelo}`;
