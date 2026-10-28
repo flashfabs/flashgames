@@ -20,7 +20,7 @@ A preencher no fim da noite.
 ## O que foi testado e como
 
 - `npm test`: testes de regras, rede e poderes, em Node, a cada integração.
-- `npm run e2e`: cenários Playwright com Chromium sem janela, cada jogador num navegador próprio, contra a `main` servida em `127.0.0.1:8805`: entrada pelo link e prontos com 5 jogadores, andar e bomba vistos pelo anfitrião, saída no meio da rodada, eliminação com o placar certo, iPad com toque (camada, joystick, bomba, sem rolagem nem zoom) e desempenho com 8 jogadores.
+- `npm run e2e`: cenários Playwright com Chromium sem janela, cada jogador num navegador próprio, contra a `main` servida numa porta livre de `127.0.0.1`: entrada pelo link e prontos com 5 jogadores, andar e bomba vistos pelo anfitrião, saída no meio da rodada, eliminação com o placar certo, iPad com toque (camada, joystick, bomba, sem rolagem nem zoom) e desempenho com 8 jogadores, normal e com a CPU 4x mais lenta.
 - `npm run fumaca`: contra a produção, depois de cada publicação: `versao.json` com o commit da `main`, `/api/ice` respondendo e dois jogadores começando uma rodada pelo servidor de sinalização real.
 
 ## Problemas conhecidos
