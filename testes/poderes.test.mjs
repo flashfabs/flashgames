@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, gradeVazia, indice, bombaAFrente, preverBomba, preverItemVoando,
+  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, gradeVazia, indice, bombaAFrente, preverBomba, preverItemVoando, preverGelo,
 } from '../site/js/pavio/regras.js';
 
 const DT = 1 / 60;
@@ -92,7 +92,7 @@ test('remote bombs wait for the detonator', () => {
   a.detonador = true;
   partida.pedirBomba('a');
   partida.passo(DT);
-  assert.deepEqual(partida.vista().b[0].slice(3), [DIRECAO.NENHUMA, 1]);
+  assert.deepEqual(partida.vista().b[0].slice(3, 5), [DIRECAO.NENHUMA, 1]);
   a.y = 5;
   rodar(partida, AJUSTES.pavioS + 0.5);
   assert.equal(partida.bombas.length, 1, 'no normal fuse');
@@ -172,6 +172,7 @@ test('each match of the round unlocks new powers on top of the previous ones', (
   assert.deepEqual(MAPAS[1].novos, [ITEM.TENIS, ITEM.CHUTE]);
   assert.deepEqual(MAPAS[2].novos, [ITEM.ESCUDO, ITEM.DETONADOR]);
   assert.deepEqual(MAPAS[3].novos, [ITEM.PERFURANTE, ITEM.IMA]);
+  assert.deepEqual(MAPAS[4].novos, [ITEM.FANTASMA, ITEM.GELO]);
   for (let n = 1; n < MAPAS.length; n++) {
     assert.ok(MAPAS[n].novos.length > 0, `${MAPAS[n].nome} brings something new`);
     assert.deepEqual(MAPAS[n].itens, [...MAPAS[n - 1].itens, ...MAPAS[n].novos]);
@@ -238,4 +239,101 @@ test('members predict a flying item toward where its player is drawn', () => {
   assert.deepEqual(preverItemVoando([4, 1, ITEM.FOGO, 0], { x: 1, y: 1 }, 2), [1, 1, ITEM.FOGO, 0]);
   const sem = [4, 1, ITEM.FOGO, 5];
   assert.equal(preverItemVoando(sem, undefined, 1), sem);
+});
+
+// Player b drops a bomb at (5, 1) and walks away; player a stands at (1, 1) facing right with ice.
+function comGelo({ grade = gradeVazia(), distancia = 4 } = {}) {
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: semItens });
+  const [a, b] = partida.jogadores;
+  b.x = 1 + distancia;
+  b.y = 1;
+  partida.pedirBomba('b');
+  partida.passo(DT);
+  b.x = 19;
+  b.y = 13;
+  a.olhar = DIRECAO.DIREITA;
+  a.gelo = 1;
+  return { partida, a, b, bomba: partida.bombas[0] };
+}
+
+test('ice freezes the first bomb ahead and its fuse waits', () => {
+  const { partida, a, bomba } = comGelo();
+  partida.jogarGelo('a');
+  partida.passo(DT);
+  assert.equal(a.gelo, 0);
+  assert.equal(partida.vista().gl.length, 1);
+  rodar(partida, 0.4);
+  assert.equal(partida.gelos.length, 0);
+  assert.equal(bomba.congelada > 0, true);
+  assert.equal(partida.vista().b[0][5], 1);
+  const restante = bomba.restante;
+  rodar(partida, AJUSTES.congelarS - 0.5);
+  assert.equal(bomba.restante, restante, 'the fuse did not move while frozen');
+  rodar(partida, restante + 0.6);
+  assert.equal(partida.bombas.length, 0, 'it blows once thawed');
+});
+
+test('ice without charges does nothing, and the item gives a few charges', () => {
+  const { partida, a, bomba } = comGelo();
+  a.gelo = 0;
+  partida.jogarGelo('a');
+  rodar(partida, 0.5);
+  assert.equal(bomba.congelada, 0);
+  const grade = gradeVazia();
+  grade[indice(2, 1)] = ITEM.GELO;
+  grade[indice(3, 1)] = ITEM.GELO;
+  grade[indice(4, 1)] = ITEM.GELO;
+  const outra = new Partida([{ id: 'a', slot: 0 }], { grade });
+  outra.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(outra, 1.2);
+  assert.equal(outra.jogadores[0].gelo, AJUSTES.maxGelo);
+  assert.equal(outra.vista().j[0].gl, AJUSTES.maxGelo);
+});
+
+test('crates stop the ice, and so does the range', () => {
+  const grade = gradeVazia();
+  grade[indice(3, 1)] = CAIXA;
+  const atras = comGelo({ grade });
+  atras.partida.jogarGelo('a');
+  rodar(atras.partida, 0.5);
+  assert.equal(atras.bomba.congelada, 0);
+  const longe = comGelo({ distancia: AJUSTES.alcanceGelo + 1 });
+  longe.partida.jogarGelo('a');
+  rodar(longe.partida, 1);
+  assert.equal(longe.bomba.congelada, 0);
+  assert.equal(longe.partida.gelos.length, 0);
+});
+
+test('fire from another bomb still sets off a frozen one', () => {
+  const { partida, a, bomba } = comGelo();
+  bomba.congelada = AJUSTES.congelarS;
+  bomba.restante = 0.05;
+  a.x = 3;
+  partida.pedirBomba('a');
+  partida.passo(DT);
+  a.y = 5;
+  a.x = 1;
+  rodar(partida, AJUSTES.pavioS);
+  assert.equal(partida.bombas.length, 0);
+});
+
+test('the detonator skips frozen bombs', () => {
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade: gradeVazia(), sorteio: semItens });
+  const [a] = partida.jogadores;
+  a.detonador = true;
+  partida.pedirBomba('a');
+  partida.passo(DT);
+  a.y = 5;
+  rodar(partida, 0.5);
+  partida.bombas[0].congelada = AJUSTES.congelarS;
+  partida.pedirBomba('a');
+  partida.passo(DT);
+  assert.equal(partida.bombas.length, 1);
+});
+
+test('members predict an ice shot up to the last free cell', () => {
+  const parede = x => x === 6;
+  assert.deepEqual(preverGelo([2, 1, DIRECAO.DIREITA], 0.1, parede), [3.2, 1, DIRECAO.DIREITA]);
+  assert.deepEqual(preverGelo([2, 1, DIRECAO.DIREITA], 1, parede), [5, 1, DIRECAO.DIREITA]);
+  assert.deepEqual(preverGelo([2, 9, DIRECAO.CIMA], 0.25, () => false), [2, 6, DIRECAO.CIMA]);
 });

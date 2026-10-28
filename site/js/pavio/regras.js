@@ -8,7 +8,7 @@ export const MAX_JOGADORES = 8;
 export const PAREDE = '#';
 export const CAIXA = '+';
 export const CHAO = '.';
-export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm' });
+export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm', GELO: 'i' });
 const ITENS = new Set(Object.values(ITEM));
 
 export const DIRECAO = Object.freeze({ NENHUMA: 0, CIMA: 1, BAIXO: 2, ESQUERDA: 3, DIREITA: 4 });
@@ -47,10 +47,17 @@ export const AJUSTES = Object.freeze({
   raioIma: 3,
   // Tiles per second of an item flying to a magnet.
   velocidadeIma: 8,
+  // Each ice pickup gives this many shots, up to maxGelo; a shot flies alcanceGelo tiles.
+  cargasGelo: 3,
+  maxGelo: 6,
+  alcanceGelo: 6,
+  velocidadeGelo: 12,
+  // A frozen bomb's fuse stops for this long (fire from another bomb still sets it off).
+  congelarS: 3,
 });
 const PESOS_ITENS = {
   [ITEM.BOMBA]: 30, [ITEM.FOGO]: 30, [ITEM.TENIS]: 16, [ITEM.ESCUDO]: 10, [ITEM.PERFURANTE]: 8, [ITEM.FANTASMA]: 8,
-  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8,
+  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8, [ITEM.GELO]: 9,
 };
 const PASSO_MAX = 0.1;
 const EPS = 1e-4;
@@ -72,7 +79,7 @@ const NOVOS = [
   [ITEM.TENIS, ITEM.CHUTE],
   [ITEM.ESCUDO, ITEM.DETONADOR],
   [ITEM.PERFURANTE, ITEM.IMA],
-  [ITEM.FANTASMA],
+  [ITEM.FANTASMA, ITEM.GELO],
 ];
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
 export const MAPAS = Object.freeze([
@@ -130,17 +137,14 @@ export function preverItemVoando(voo, alvo, segundos) {
   return [arredondar(nx), arredondar(ny), item, n];
 }
 
-// Where a sliding bomb from a snapshot ([x, y, restante, direcao, ...]) is after some seconds, stopping at
-// the center of the last cell before anything bloqueia(x, y) reports. Members use it to draw kicked bombs
-// between snapshots; the host stays the authority.
-export function preverBomba(bomba, segundos, bloqueia) {
-  const [x, y, , direcao] = bomba;
-  const [dx, dy] = VETOR[valida(direcao)];
-  if (!dx && !dy) return bomba;
+// Moves a point along one direction by distancia, stopping at the center of the last cell before anything
+// bloqueia(x, y) reports. Returns the new [x, y].
+function deslizar(x, y, direcao, distancia, bloqueia) {
+  const [dx, dy] = VETOR[direcao];
   const sentido = dx || dy;
   const celula = ao => (dx ? [ao, y] : [x, ao]);
   let pos = dx ? x : y;
-  let resta = AJUSTES.velocidadeChute * Math.max(0, segundos);
+  let resta = distancia;
   while (resta > EPS) {
     const proximo = sentido > 0 ? Math.floor(pos + EPS) + 1 : Math.ceil(pos - EPS) - 1;
     if (bloqueia(...celula(proximo))) {
@@ -152,9 +156,26 @@ export function preverBomba(bomba, segundos, bloqueia) {
     pos += sentido * anda;
     resta -= anda;
   }
+  return dx ? [arredondar(pos), y] : [x, arredondar(pos)];
+}
+
+// Where a sliding bomb from a snapshot ([x, y, restante, direcao, ...]) is after some seconds. Members use it
+// to draw kicked bombs between snapshots; the host stays the authority.
+export function preverBomba(bomba, segundos, bloqueia) {
+  const [x, y, , direcao] = bomba;
+  const d = valida(direcao);
+  if (!d) return bomba;
   const previsto = bomba.slice();
-  previsto[dx ? 0 : 1] = arredondar(pos);
+  [previsto[0], previsto[1]] = deslizar(x, y, d, AJUSTES.velocidadeChute * Math.max(0, segundos), bloqueia);
   return previsto;
+}
+
+// Same for an ice shot in flight ([x, y, direcao]); the host decides what it hits.
+export function preverGelo(tiro, segundos, bloqueia) {
+  const [x, y, direcao] = tiro;
+  const d = valida(direcao);
+  if (!d) return tiro;
+  return [...deslizar(x, y, d, AJUSTES.velocidadeGelo * Math.max(0, segundos), bloqueia), d];
 }
 
 function celulasSeguras() {
@@ -327,6 +348,8 @@ function novoJogador({ id, slot, remoto = false }, n) {
     chute: false,
     detonador: false,
     ima: 0,
+    gelo: 0,
+    pedidosGelo: 0,
     fantasma: 0,
     fantasmaFolga: 0,
     invulneravel: 0,
@@ -352,6 +375,7 @@ export class Partida {
     this.bombas = [];
     this.chamas = new Map(); // cell index -> { restante, idade, forma, item }
     this.voando = []; // items flying to a magnet: { x, y, item, alvo }
+    this.gelos = []; // ice shots in flight: { x, y, d, andou, dono }, x and y being where it was thrown from
     this.eventos = [];
     this.tempo = 0;
     this.espiral = gerarEspiral();
@@ -388,6 +412,12 @@ export class Partida {
   pedirBomba(id) {
     const jogador = this.#jogador(id);
     if (jogador?.vivo) jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
+  }
+
+  // Throws an ice shot where the player is facing, if it has any left.
+  jogarGelo(id) {
+    const jogador = this.#jogador(id);
+    if (jogador?.vivo) jogador.pedidosGelo = Math.min(jogador.pedidosGelo + 1, 2);
   }
 
   // A player with the kick power pushing against a still bomb sends it sliding until it hits something.
@@ -429,9 +459,14 @@ export class Partida {
       moverComColisao(jogador, jogador.entrada, dt, (x, y) => this.#bloqueia(x, y, jogador));
       if (jogador.chute && jogador.entrada.d) this.chutar(jogador.id, jogador.entrada.d);
     }
-    for (const jogador of this.jogadores) if (jogador.vivo) this.#soltarBombas(jogador);
+    for (const jogador of this.jogadores) {
+      if (!jogador.vivo) continue;
+      this.#soltarBombas(jogador);
+      this.#lancarGelo(jogador);
+    }
     this.#atualizarPassantes();
     this.#deslizarBombas(dt);
+    this.#moverGelos(dt);
     this.#atualizarBombas(dt);
     this.#atualizarChamas(dt);
     this.#aplicarChamasEItens();
@@ -457,16 +492,22 @@ export class Partida {
         k: j.chute ? 1 : 0,
         r: j.detonador ? 1 : 0,
         m: j.ima > 0 ? 1 : 0,
+        gl: j.gelo,
         b: j.bombasMax,
         f: j.alcance,
         t: j.tenis,
         cx: j.caixas,
         el: j.eliminacoes,
       })),
-      // [x, y, seconds left, sliding direction, remote]; a sliding bomb is drawn between cells.
+      // [x, y, seconds left, sliding direction, remote, frozen]; a sliding bomb is drawn between cells.
       b: this.bombas.map(b => {
         const [dx, dy] = VETOR[b.deslize];
-        return [arredondar(b.x + dx * b.avanco), arredondar(b.y + dy * b.avanco), arredondar(b.restante), b.deslize, b.remota ? 1 : 0];
+        const pos = [arredondar(b.x + dx * b.avanco), arredondar(b.y + dy * b.avanco)];
+        return [...pos, arredondar(b.restante), b.deslize, b.remota ? 1 : 0, b.congelada > 0 ? 1 : 0];
+      }),
+      gl: this.gelos.map(t => {
+        const [dx, dy] = VETOR[t.d];
+        return [arredondar(t.x + dx * t.andou), arredondar(t.y + dy * t.andou), t.d];
       }),
       c: [...this.chamas].map(([i, chama]) => [i, chama.forma]),
       iv: this.voando.map(v => [arredondar(v.x), arredondar(v.y), v.item, v.alvo.n]),
@@ -550,14 +591,17 @@ export class Partida {
       bomba.x += dx;
       bomba.y += dy;
       bomba.avanco -= 1;
-      // Sliding into fire sets it off.
-      if (this.chamas.has(indice(bomba.x, bomba.y))) bomba.restante = 0;
+      // Sliding into fire sets it off, frozen or not.
+      if (this.chamas.has(indice(bomba.x, bomba.y))) {
+        bomba.restante = 0;
+        bomba.congelada = 0;
+      }
     }
   }
 
   // With the detonator, a press that cannot drop a bomb sets off the oldest armed remote one instead.
   #detonar(jogador) {
-    const bomba = this.bombas.find(b => b.dono === jogador.id && b.remota && AJUSTES.detonadorS - b.restante >= AJUSTES.armarDetonadorS);
+    const bomba = this.bombas.find(b => b.dono === jogador.id && b.remota && !b.congelada && AJUSTES.detonadorS - b.restante >= AJUSTES.armarDetonadorS);
     if (bomba) bomba.restante = 0;
   }
 
@@ -580,6 +624,7 @@ export class Partida {
         restante: jogador.detonador ? AJUSTES.detonadorS : AJUSTES.pavioS,
         deslize: DIRECAO.NENHUMA,
         avanco: 0,
+        congelada: 0,
         passantes: new Set(),
       };
       // Everyone standing on the cell may walk off the new bomb.
@@ -598,9 +643,50 @@ export class Partida {
     }
   }
 
+  #lancarGelo(jogador) {
+    while (jogador.pedidosGelo > 0) {
+      jogador.pedidosGelo--;
+      if (jogador.gelo <= 0) continue;
+      jogador.gelo--;
+      const x = Math.round(jogador.x);
+      const y = Math.round(jogador.y);
+      this.gelos.push({ x, y, d: jogador.olhar || DIRECAO.BAIXO, andou: 0, dono: jogador.id });
+      this.eventos.push({ e: 'gelo', j: jogador.n, x, y });
+    }
+  }
+
+  // An ice shot freezes the first bomb it reaches; walls, crates and other players stop it.
+  #moverGelos(dt) {
+    this.gelos = this.gelos.filter(tiro => {
+      const [dx, dy] = VETOR[tiro.d];
+      const antes = tiro.andou;
+      tiro.andou = Math.min(antes + AJUSTES.velocidadeGelo * dt, AJUSTES.alcanceGelo + 0.5);
+      // The shot reaches cell k (counted from where it was thrown) once it has flown k - 0.5 tiles.
+      for (let k = Math.floor(antes + 0.5) + 1; k <= Math.floor(tiro.andou + 0.5); k++) {
+        if (k > AJUSTES.alcanceGelo) return false;
+        const x = tiro.x + dx * k;
+        const y = tiro.y + dy * k;
+        const bomba = this.#bombaEm(x, y);
+        if (bomba) {
+          bomba.congelada = AJUSTES.congelarS;
+          this.eventos.push({ e: 'congela', x, y });
+          return false;
+        }
+        const celula = this.grade[indice(x, y)];
+        if (celula === PAREDE || celula === CAIXA) return false;
+        if (this.jogadores.some(j => j.vivo && j.id !== tiro.dono && sobrepoe(j, x, y))) return false;
+      }
+      return true;
+    });
+  }
+
   #atualizarBombas(dt) {
-    for (const bomba of this.bombas) bomba.restante -= dt;
-    const fila = this.bombas.filter(b => b.restante <= 0);
+    // A frozen bomb's fuse waits; only another bomb's fire (the chain below) sets it off meanwhile.
+    for (const bomba of this.bombas) {
+      if (bomba.congelada > 0) bomba.congelada = Math.max(0, bomba.congelada - dt);
+      else bomba.restante -= dt;
+    }
+    const fila = this.bombas.filter(b => b.restante <= 0 && !b.congelada);
     while (fila.length) {
       const bomba = fila.shift();
       if (this.bombas.includes(bomba)) this.#explodir(bomba, fila);
@@ -722,6 +808,7 @@ export class Partida {
     else if (item === ITEM.CHUTE) jogador.chute = true;
     else if (item === ITEM.DETONADOR) jogador.detonador = true;
     else if (item === ITEM.IMA) jogador.ima = AJUSTES.imaS;
+    else if (item === ITEM.GELO) jogador.gelo = Math.min(jogador.gelo + AJUSTES.cargasGelo, AJUSTES.maxGelo);
     this.eventos.push({ e: 'item', j: jogador.n, x: Math.round(jogador.x), y: Math.round(jogador.y), item });
   }
 

@@ -4,7 +4,7 @@
 
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM,
-  indice, gradeVazia, moverComColisao, sobrepoe, bombaAFrente, preverBomba, preverItemVoando,
+  indice, gradeVazia, moverComColisao, sobrepoe, bombaAFrente, preverBomba, preverItemVoando, preverGelo,
 } from './regras.js';
 import { criarPintor, efeitoAtivo, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
@@ -34,6 +34,7 @@ const MUROS = MAPAS.map(mapa => new Set(mapa.muros.map(([x, y]) => indice(x, y))
 const GRADE_LOBBY = gradeVazia().join('');
 const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
+const PARA_GELO = new Set([PAREDE, CAIXA]);
 const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
 
 function h(tag, atributos = {}, ...filhos) {
@@ -67,12 +68,12 @@ export function pontosDe(placar = ZERO) {
 function compactarJogador(j) {
   let marcas = 0;
   for (const [chave, bit] of Object.entries(BITS)) if (j[chave]) marcas |= bit;
-  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el];
+  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el, j.gl];
 }
 
 function expandirJogador(dados) {
-  const [x, y, marcas, o, b, f, t, cx, el] = Array.isArray(dados) ? dados : [];
-  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0 };
+  const [x, y, marcas, o, b, f, t, cx, el, gl] = Array.isArray(dados) ? dados : [];
+  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0, gl: Number(gl) || 0 };
   for (const [chave, bit] of Object.entries(BITS)) jogador[chave] = marcas & bit ? 1 : 0;
   return jogador;
 }
@@ -90,9 +91,10 @@ function montarPalco(palco) {
     base: h('div', { class: 'pavio-base' }),
     manete: h('div', { class: 'pavio-manete' }),
     dicaBomba: h('div', { class: 'pavio-dica-bomba' }, '💣'),
+    dicaGelo: h('div', { class: 'pavio-dica-gelo', hidden: true }, '❄️'),
   };
   el.arena = h('div', { class: 'pavio-arena' }, el.canvas, el.faixa, el.aviso);
-  el.toque = h('div', { class: 'pavio-toque', hidden: true, 'aria-hidden': 'true' }, el.base, el.manete, el.dicaBomba);
+  el.toque = h('div', { class: 'pavio-toque', hidden: true, 'aria-hidden': 'true' }, el.base, el.manete, el.dicaBomba, el.dicaGelo);
   el.hud.append(el.hudItens, el.hudPontos, el.hudTempo);
   palco.replaceChildren(h('div', { class: 'pavio' }, el.hud, el.arena, el.toque));
   return el;
@@ -101,12 +103,12 @@ function montarPalco(palco) {
 function legendaControles(toque) {
   if (toque) {
     return h('div', { class: 'pavio-legenda' },
-      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba.'),
+      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba. Com gelo, aparece o botão ❄️.'),
       h('p', {}, 'Teclado e controle de videogame também funcionam.'),
     );
   }
   return h('div', { class: 'pavio-legenda' },
-    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · controle de videogame também funciona'),
+    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · ', h('kbd', {}, 'E'), ' joga gelo · controle de videogame também funciona'),
     h('p', {}, 'Segurando duas direções, você segue numa e vira na outra assim que der.'),
   );
 }
@@ -183,6 +185,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     base: el.base,
     manete: el.manete,
     dicaBomba: el.dicaBomba,
+    dicaGelo: el.dicaGelo,
     aoEntrada: nova => {
       entrada = nova;
       som.destravar();
@@ -191,6 +194,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     aoBomba: () => {
       som.destravar();
       soltarBomba();
+    },
+    aoGelo: () => {
+      som.destravar();
+      jogarGelo();
     },
   });
 
@@ -240,6 +247,27 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     if (!local.ativo || !local.vivo) return;
     // The bomb travels on the reliable channel together with the position it was dropped at.
     sala.enviarAoAnfitriao({ t: 'bomba', ...posicaoLocal() });
+  }
+
+  function meuGelo() {
+    if (sala.souAnfitriao) return partida?.jogadores.find(j => j.id === sala.meuId)?.gelo ?? 0;
+    return ultimoRetrato?.j[meuIndice()]?.gl ?? 0;
+  }
+
+  // The ice button drops a bomb when there is no ice left, so the gamepad's B and Y keep their old use.
+  function jogarGelo() {
+    if (estado.fase !== 'jogo') return;
+    if (meuGelo() <= 0) {
+      soltarBomba();
+      return;
+    }
+    if (sala.souAnfitriao) {
+      partida?.jogarGelo(sala.meuId);
+      return;
+    }
+    if (!local.ativo || !local.vivo) return;
+    // The shot leaves from (and toward) where this player is on its own screen.
+    sala.enviarAoAnfitriao({ t: 'gelo', ...posicaoLocal() });
   }
 
   function posicaoLocal() {
@@ -306,6 +334,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
         if (partida && estado.fase === 'jogo') {
           partida.aplicarPosicao(de, mensagem);
           partida.chutar(de, Number(mensagem.d));
+        }
+        break;
+      case 'gelo':
+        if (partida && estado.fase === 'jogo') {
+          partida.aplicarPosicao(de, mensagem);
+          partida.jogarGelo(de);
         }
         break;
       case 'pedirEstado':
@@ -456,6 +490,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       b: vista.b,
       c: vista.c,
       iv: vista.iv,
+      gl: vista.gl,
       tm: vista.tm,
       ms: vista.ms,
       ev: eventosPendentes.map(({ id, ev }) => [id, ev]),
@@ -547,6 +582,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       b: mensagem.b,
       c: mensagem.c,
       iv: Array.isArray(mensagem.iv) ? mensagem.iv : [],
+      gl: Array.isArray(mensagem.gl) ? mensagem.gl : [],
       tm: Number(mensagem.tm) || 0,
       ms: Number(mensagem.ms) || 120,
     };
@@ -608,8 +644,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function preverBombas(agora) {
     if (!ultimoRetrato) return [];
     const segundos = Math.min(agora - ultimoRetrato.chegada, PREVISAO_MAX_MS) / 1000;
-    const para = (x, y) => x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS || PARA_BOMBA.has(gradeAtual.g[indice(x, y)]);
-    return ultimoRetrato.b.map(bomba => preverBomba(bomba, segundos, para));
+    return ultimoRetrato.b.map(bomba => preverBomba(bomba, segundos, paraNaGrade(PARA_BOMBA)));
+  }
+
+  function paraNaGrade(solidos) {
+    return (x, y) => x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS || solidos.has(gradeAtual.g[indice(x, y)]);
   }
 
   // Pushing against a still bomb asks the host for a kick; the bomb starts sliding in the next snapshots.
@@ -668,8 +707,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     // Items flying to a magnet head to where their player is drawn now.
     const segundos = Math.min(performance.now() - ultimoRetrato.chegada, PREVISAO_MAX_MS) / 1000;
     const iv = ultimoRetrato.iv.map(voo => preverItemVoando(voo, jogadores[voo[3]], segundos));
+    const gl = ultimoRetrato.gl.map(tiro => preverGelo(tiro, segundos, paraNaGrade(PARA_GELO)));
     // Grid, bombs and flames come from the newest snapshot: they matter more than smoothness.
-    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, iv, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
+    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, iv, gl, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
   }
 
   // ---- Shared ----
@@ -715,8 +755,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           efeitos.push({ tipo: 'item', x: evento.x, y: evento.y, item: evento.item, inicio: agora });
           break;
         case 'escudo':
+        case 'congela':
           som.tocar('escudo');
           efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
+          break;
+        case 'gelo':
+          som.tocar('bomba');
           break;
         case 'morte':
           som.tocar('morte');
@@ -937,11 +981,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       pontos = `⭐ ${total}`;
     }
     const itens = eu
-      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
+      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.gl && `❄️ ${eu.gl}`, eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
       : '';
-    const chave = `${itens}|${pontos}|${tempo}`;
+    const temGelo = Boolean(eu?.v && eu.gl > 0);
+    const chave = `${itens}|${pontos}|${tempo}|${temGelo}`;
     if (chave === ultimoHud) return;
     ultimoHud = chave;
+    el.dicaGelo.hidden = !temGelo;
     el.hudItens.textContent = itens;
     el.hudPontos.textContent = pontos;
     el.hudTempo.textContent = tempo;
@@ -995,6 +1041,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       b: vista?.b ?? [],
       c: vista?.c ?? [],
       iv: vista?.iv ?? [],
+      gl: vista?.gl ?? [],
       agora,
       efeitos,
       tremor: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : tremor,
