@@ -3,6 +3,8 @@
 
 const CHAVE_MUDO = 'salinha:mudo';
 const CHAVE_MUSICA = 'salinha:musica';
+const CHAVE_VOLUME_EFEITOS = 'salinha:volume-efeitos';
+const CHAVE_VOLUME_MUSICA = 'salinha:volume-musica';
 const VOLUME_EFEITOS = 0.9;
 const VOLUME_MUSICA = 0.32;
 const INTERVALO_MESMO_SOM_S = 0.035; // the same sound twice inside this window plays once
@@ -15,6 +17,10 @@ let barramentoMusica = null;
 let ruido = null;
 let mudo = lerPreferencia(CHAVE_MUDO, false);
 let musicaLigada = lerPreferencia(CHAVE_MUSICA, true);
+// The player's own levels (0 to 1), on top of the mix.
+let volumeEfeitos = lerNivel(CHAVE_VOLUME_EFEITOS);
+let volumeMusica = lerNivel(CHAVE_VOLUME_MUSICA);
+const nivelMusica = () => VOLUME_MUSICA * volumeMusica;
 const ultimoTocado = new Map();
 
 function lerPreferencia(chave, padrao) {
@@ -23,6 +29,23 @@ function lerPreferencia(chave, padrao) {
     return valor === null ? padrao : valor === '1';
   } catch {
     return padrao;
+  }
+}
+
+function lerNivel(chave) {
+  try {
+    const valor = Number.parseFloat(localStorage.getItem(chave));
+    return Number.isFinite(valor) ? Math.min(1, Math.max(0, valor)) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function salvarNivel(chave, valor) {
+  try {
+    localStorage.setItem(chave, String(valor));
+  } catch {
+    // Storage may be blocked (private mode); the level still applies for this visit.
   }
 }
 
@@ -43,7 +66,7 @@ function montarMixagem(ctx) {
   limitador.release.value = 0.2;
   limitador.connect(ctx.destination);
   saida = ctx.createGain();
-  saida.gain.value = VOLUME_EFEITOS;
+  saida.gain.value = VOLUME_EFEITOS * volumeEfeitos;
   saida.connect(limitador);
   barramentoMusica = ctx.createGain();
   barramentoMusica.gain.value = 0;
@@ -351,17 +374,19 @@ function trocarMusica(modo, tema, { reiniciar, pausa }) {
   const agora = contexto.currentTime;
   barramentoMusica.gain.cancelScheduledValues(agora);
   barramentoMusica.gain.setTargetAtTime(0, agora, 0.06);
-  barramentoMusica.gain.setTargetAtTime(VOLUME_MUSICA, agora + pausa, 0.25);
+  barramentoMusica.gain.setTargetAtTime(nivelMusica(), agora + pausa, 0.25);
   musica.pausaAte = agora + pausa;
 }
+
+const musicaTocando = () => Boolean(musica.timer);
 
 // Explosions push the music down for a moment, so the blast is what you hear.
 function abaixarMusica() {
   if (!musica.timer) return;
   const agora = contexto.currentTime;
   barramentoMusica.gain.cancelScheduledValues(agora);
-  barramentoMusica.gain.setTargetAtTime(VOLUME_MUSICA * 0.5, agora, 0.02);
-  barramentoMusica.gain.setTargetAtTime(VOLUME_MUSICA, agora + 0.18, 0.3);
+  barramentoMusica.gain.setTargetAtTime(nivelMusica() * 0.5, agora, 0.02);
+  barramentoMusica.gain.setTargetAtTime(nivelMusica(), agora + 0.18, 0.3);
 }
 
 // Music plays only when wanted, unmuted, unlocked and visible; this reconciles all of that.
@@ -370,7 +395,7 @@ function atualizarMusica() {
   if (tocar && !musica.timer) {
     musica.tempo = Math.max(contexto.currentTime + 0.08, musica.pausaAte);
     barramentoMusica.gain.cancelScheduledValues(contexto.currentTime);
-    barramentoMusica.gain.setTargetAtTime(VOLUME_MUSICA, contexto.currentTime, 0.3);
+    barramentoMusica.gain.setTargetAtTime(nivelMusica(), contexto.currentTime, 0.3);
     musica.timer = setInterval(agendarMusica, 40);
     agendarMusica();
   } else if (!tocar && musica.timer) {
@@ -406,6 +431,22 @@ export const som = {
   },
   get musicaLigada() {
     return musicaLigada;
+  },
+  // Volumes from 0 to 1 for a settings screen, remembered on this device.
+  get volumes() {
+    return { efeitos: volumeEfeitos, musica: volumeMusica };
+  },
+  definirVolumes({ efeitos, musica } = {}) {
+    if (Number.isFinite(efeitos)) {
+      volumeEfeitos = Math.min(1, Math.max(0, efeitos));
+      salvarNivel(CHAVE_VOLUME_EFEITOS, volumeEfeitos);
+      if (saida) saida.gain.setTargetAtTime(VOLUME_EFEITOS * volumeEfeitos, contexto.currentTime, 0.05);
+    }
+    if (Number.isFinite(musica)) {
+      volumeMusica = Math.min(1, Math.max(0, musica));
+      salvarNivel(CHAVE_VOLUME_MUSICA, volumeMusica);
+      if (barramentoMusica && musicaTocando()) barramentoMusica.gain.setTargetAtTime(nivelMusica(), contexto.currentTime, 0.05);
+    }
   },
   alternarMusica() {
     musicaLigada = !musicaLigada;

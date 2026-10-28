@@ -21,6 +21,26 @@ const PODERES = [
 // Always shown, even at zero, so the basics never jump around.
 const SEMPRE = new Set(['b', 'f', 't']);
 const ALERTA_SUBITA_S = 10;
+// Optional frames-per-second readout (for a settings screen), remembered on this device.
+const CHAVE_DESEMPENHO = 'salinha:mostrar-desempenho';
+let mostrarDesempenho = lerMostrarDesempenho();
+
+export function lerMostrarDesempenho() {
+  try {
+    return localStorage.getItem(CHAVE_DESEMPENHO) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function definirMostrarDesempenho(mostrar) {
+  mostrarDesempenho = Boolean(mostrar);
+  try {
+    localStorage.setItem(CHAVE_DESEMPENHO, mostrarDesempenho ? '1' : '0');
+  } catch {
+    // Storage may be blocked (private mode); it still applies for this visit.
+  }
+}
 
 function formatarTempo(segundos) {
   const total = Math.max(0, Math.ceil(segundos));
@@ -40,6 +60,8 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
   let ultimoTotal = null;
   let ultimoTempo = '';
   let visivel = null;
+  let desempenho = null;
+  let desempenhoEm = 0;
 
   const chip = (campo, icone, nome, tipo) => {
     if (!chips.has(campo)) {
@@ -92,8 +114,26 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
     }
   };
 
+  // Frames per second and the canvas scale, refreshed twice a second while the readout is on.
+  const atualizarDesempenho = qualidade => {
+    if (!mostrarDesempenho || !qualidade) {
+      desempenho?.remove();
+      desempenho = null;
+      return;
+    }
+    if (!desempenho) {
+      desempenho = document.createElement('div');
+      desempenho.className = 'pavio-hud-desempenho';
+      raiz.append(desempenho);
+    }
+    const agora = performance.now();
+    if (agora - desempenhoEm < 500) return;
+    desempenhoEm = agora;
+    desempenho.textContent = `${Math.round(1000 / qualidade.quadroMs)} qps · ${qualidade.escala}x`;
+  };
+
   // estado: null hides the HUD; otherwise { jogador (your view, or undefined while watching), pontos
-  // (your total, or null), paraSubita (seconds until sudden death), fase }.
+  // (your total, or null), paraSubita (seconds until sudden death), fase, qualidade (from the painter) }.
   const atualizar = estado => {
     const mostrar = Boolean(estado);
     if (mostrar !== visivel) {
@@ -101,8 +141,9 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
       raiz.style.visibility = mostrar ? 'visible' : 'hidden';
     }
     if (!mostrar) return;
-    const { jogador, pontos: total, paraSubita, fase } = estado;
+    const { jogador, pontos: total, paraSubita, fase, qualidade } = estado;
     atualizarPoderes(jogador);
+    atualizarDesempenho(qualidade);
     const textoPontos = total === null ? '' : `⭐ ${total}`;
     if (pontos.textContent !== textoPontos) pontos.textContent = textoPontos;
     if (total !== null && ultimoTotal !== null && total > ultimoTotal && fase === 'jogo') reiniciarAnimacao(pontos, 'pavio-hud-pontos--sobe');

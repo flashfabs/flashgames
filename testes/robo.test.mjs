@@ -219,8 +219,8 @@ test('a robot with the detonator and a single bomb sets its bombs off from a saf
   }
 });
 
-// Ice and kicks are used on purpose (their own tests below); shortcuts never.
-test('robots holding kick, shortcut and ice never cross crates by accident, nor get stuck', () => {
+// Ice, kicks and shortcuts are used on purpose (their own tests below), and never leave a robot stuck.
+test('robots holding kick, shortcut and ice never get stuck', () => {
   const niveis = ['facil', 'medio', 'dificil', 'dificil'];
   for (const mapa of [MAPAS[1], MAPAS[3]]) {
     const sorteio = sorteador(11);
@@ -231,7 +231,7 @@ test('robots holding kick, shortcut and ice never cross crates by accident, nor 
     const paradoDesde = new Map();
     let maiorParada = 0;
     jogarComRobos(partida, robos, 60, p => {
-      for (const ev of p.tirarEventos()) if (ev.e === 'atalho') usados.push(ev.e);
+      for (const ev of p.tirarEventos()) if (ev.e === 'atalho') usados.push(ev);
       for (const j of p.jogadores.filter(vivo => vivo.vivo)) {
         const onde = `${j.x},${j.y}`;
         const visto = paradoDesde.get(j.id);
@@ -239,7 +239,8 @@ test('robots holding kick, shortcut and ice never cross crates by accident, nor 
         else maiorParada = Math.max(maiorParada, p.tempo - visto.desde);
       }
     });
-    assert.deepEqual(usados, [], `${mapa.nome}: no shortcut`);
+    // A shortcut is only taken to run from fire: never twice in a row from the same place.
+    assert.ok(usados.every((ev, k) => k === 0 || ev.x !== usados[k - 1].x || ev.y !== usados[k - 1].y), `${mapa.nome}: shortcuts back and forth`);
     assert.ok(maiorParada < 20, `${mapa.nome}: a robot stood still for ${maiorParada.toFixed(1)} s`);
   }
 });
@@ -297,6 +298,36 @@ test('a robot with ice and no way out freezes the bomb and runs', () => {
   assert.ok(congelou, 'the bomb was frozen');
   assert.equal(comGelo.r.vivo, true);
   assert.equal(comGelo.r.gelo, 1, 'one shot was enough');
+});
+
+test('a robot with a shortcut and no way out crosses the crates next to it', () => {
+  // The ice scenario: column 1 below the bomb is a dead end, crates along column 2.
+  const montar = atalhos => {
+    const grade = gradeVazia();
+    for (let y = 2; y <= 9; y++) grade[indice(2, y)] = CAIXA;
+    const partida = new Partida([{ id: 'r', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: () => 0.99 });
+    const [r, b] = partida.jogadores;
+    b.x = 1;
+    b.y = 3;
+    b.alcance = 6;
+    partida.pedirBomba('b');
+    partida.passo(DT);
+    b.x = 19;
+    b.y = 13;
+    partida.bombas[0].restante = 0.9;
+    r.x = 1;
+    r.y = 5;
+    r.atalhos = atalhos;
+    return { partida, r };
+  };
+  const sem = montar(0);
+  jogarComRobos(sem.partida, [criarRobo({ id: 'r', nivel: 'medio', sorteio: () => 0.5 })], 1.5);
+  assert.equal(sem.r.vivo, false);
+  const com = montar(1);
+  jogarComRobos(com.partida, [criarRobo({ id: 'r', nivel: 'medio', sorteio: () => 0.5 })], 3);
+  assert.equal(com.r.vivo, true);
+  assert.equal(com.r.atalhos, 0);
+  assert.ok(com.r.x >= 3, 'landed past the crates');
 });
 
 test('a hunting robot kicks a bomb next to it at an enemy down the line', () => {

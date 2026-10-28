@@ -622,6 +622,13 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
 function desenharJogador(ctx, jogador, agora, reduzido, anim) {
   const cx = (jogador.x + 0.5) * TAM;
   const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
+  if (jogador.eu) {
+    // A soft yellow ring on the floor under your own character, to find yourself in a crowd.
+    ctx.strokeStyle = `rgba(255, 224, 102, ${reduzido ? 0.55 : (0.45 + Math.sin(agora * 4) * 0.12).toFixed(3)})`;
+    ctx.lineWidth = 2.5;
+    elipse(ctx, cx, chao, TAM * 0.36, TAM * 0.13);
+    ctx.stroke();
+  }
   ctx.save();
   if (jogador.g) ctx.globalAlpha = 0.55 + (reduzido ? 0 : Math.sin(agora * 8) * 0.15);
   if (jogador.i && (reduzido || Math.floor(agora * 12) % 2)) ctx.globalAlpha = reduzido ? 0.6 : 0.4;
@@ -641,11 +648,14 @@ function desenharJogador(ctx, jogador, agora, reduzido, anim) {
 
 // Name tag over the head: a badge with the player's color and shape, then the name. On small screens
 // the tag grows so the shape stays readable, and the name is left out (the side list has it).
-function desenharRotulo(ctx, cx, topo, chao, jogador, larguraNome, escala, comNome, voce, agora, reduzido) {
+function larguraDoRotulo(larguraNome, comNome) {
+  return comNome ? 27 + larguraNome : 18;
+}
+
+function desenharRotulo(ctx, cx, y, chao, jogador, larguraNome, escala, comNome, voce, agora, reduzido) {
   const raio = 7;
-  const largura = comNome ? raio * 2 + 13 + larguraNome : raio * 2 + 4;
+  const largura = larguraDoRotulo(larguraNome, comNome);
   const esquerda = -largura / 2;
-  const y = topo - 18 - 9 * escala;
   ctx.save();
   ctx.translate(cx, y);
   ctx.scale(escala, escala);
@@ -1210,6 +1220,7 @@ export function criarPintor(canvas) {
   let agoraAnterior = 0;
   let brilhoLuz = null;
   let temaDoBrilho = null;
+  let temaDaAura = null;
   // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when
   // most recent frames miss their slot and climbs back slowly (never straight back to a level that failed).
   const qualidade = { escala: 0, teto: ESCALA_MAX, mediaMs: 1000 / 60, ultimoMs: 0, mudouEm: performance.now(), falhouEm: 0, escalaQueFalhou: Infinity };
@@ -1519,6 +1530,11 @@ export function criarPintor(canvas) {
     const reduzido = movimentoReduzido.matches;
     const fixa = cenario.atualizar(cena, escala, maisContraste.matches);
     const tema = cenario.tema;
+    if (tema !== temaDaAura) {
+      // The arena frame glows faintly in the map's colour (CSS reads it from the canvas container).
+      canvas.parentElement?.style.setProperty('--aura-tema', tema.aura);
+      temaDaAura = tema;
+    }
     acompanharTransicoes(cena, cena.agora);
     // The finale slows the visual clock down; the game itself keeps its pace.
     const noFinal = cena.agora - transicao.finalEm;
@@ -1572,11 +1588,26 @@ export function criarPintor(canvas) {
     const escalaTela = (canvas.clientWidth || LARGURA) / LARGURA;
     const escalaRotulo = limitar(0.6 / escalaTela, 1, 2);
     const comNome = escalaTela >= 0.45;
-    vivos.forEach(({ jogador }, n) => {
-      const cx = (jogador.x + 0.5) * TAM;
+    // Tags that would overlap (players bunched together) are stacked upwards, lowest character first.
+    const rotulos = vivos.map(({ jogador }, n) => ({
+      jogador,
+      cx: (jogador.x + 0.5) * TAM,
+      y: topos[n] - 18 - 9 * escalaRotulo,
+      largura: larguraDoRotulo(larguraNome(jogador.nome), comNome) * escalaRotulo,
+    }));
+    const alturaRotulo = 18 * escalaRotulo + 2;
+    const colocados = [];
+    for (const rotulo of [...rotulos].sort((a, b) => b.y - a.y)) {
+      let ajustes = 0;
+      while (ajustes++ < 8 && colocados.some(outro => Math.abs(outro.cx - rotulo.cx) < (outro.largura + rotulo.largura) / 2 && Math.abs(outro.y - rotulo.y) < alturaRotulo)) {
+        rotulo.y -= alturaRotulo;
+      }
+      colocados.push(rotulo);
+    }
+    for (const { jogador, cx, y } of rotulos) {
       const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
-      desenharRotulo(ctx, cx, topos[n], chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
-    });
+      desenharRotulo(ctx, cx, y, chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
+    }
     for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);
     if (abrindo) desenharCortina(agora, tema);
