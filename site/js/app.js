@@ -1,6 +1,6 @@
 // Site shell: home screen, room screen and member list. Games plug in through the room (Sala).
 
-import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS } from './sala.js';
+import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS, nivelConexao } from './sala.js';
 import { criarPavio } from './pavio/pavio.js';
 import { marcaJogador } from './pavio/desenho.js';
 import { som } from './som.js';
@@ -223,11 +223,10 @@ function desenharMembros() {
 function etiquetaDeConexao(membro) {
   if (membro.ping === null || membro.ping === undefined) return etiqueta('…', 'etiqueta--ping', 'Medindo a conexão');
   const ping = Math.round(membro.ping);
-  const nivel = ping < 80 ? 'boa' : ping < 160 ? 'media' : 'ruim';
-  const titulo = membro.relay
-    ? `${ping} ms até o anfitrião, via retransmissor (a conexão direta não funcionou)`
-    : `${ping} ms até o anfitrião`;
-  return etiqueta(`${membro.relay ? '🐢 ' : ''}${ping} ms`, `etiqueta--ping etiqueta--${nivel}`, titulo);
+  const perda = membro.perda ? Math.round(membro.perda * 100) : 0;
+  const nivel = nivelConexao(membro);
+  const titulo = `${ping} ms até o anfitrião${perda ? `, ${perda}% dos pacotes perdidos` : ''}${membro.relay ? ', via retransmissor (a conexão direta não funcionou)' : ''}`;
+  return etiqueta(`${membro.relay ? '🐢 ' : ''}${ping} ms${perda >= 2 ? ` · ${perda}%` : ''}`, `etiqueta--ping etiqueta--${nivel}`, titulo);
 }
 
 function avisar(texto) {
