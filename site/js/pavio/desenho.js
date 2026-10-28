@@ -287,6 +287,17 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
     ctx.fill();
   } else if (!congelada) {
     faisca(ctx, pontaX, pontaY, agora, restante < 0.7 ? 4.5 : 3.5);
+    if (!reduzido) {
+      // Tiny sparks jumping off the burning fuse.
+      ctx.fillStyle = '#ffd43b';
+      for (let k = 0; k < 3; k++) {
+        const t = (agora * 2.6 + k / 3 + x * 0.37 + y * 0.61) % 1;
+        const angulo = -Math.PI / 2 + Math.sin(k * 2.1 + x + y) * 1.1;
+        ctx.globalAlpha = 1 - t;
+        ctx.fillRect(pontaX + Math.cos(angulo) * t * 12 - 1, pontaY + Math.sin(angulo) * t * 12 + t * t * 10 - 1, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+    }
   }
   if (congelada) desenharBlocoGelo(ctx, x, y);
 }
@@ -505,7 +516,10 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
     ctx.fillStyle = PALETA.tinta;
     elipse(ctx, 0, olhoY + 8, 2.4, 3);
     ctx.fill();
-  } else if (b.o !== DIRECAO.CIMA) {
+  } else if (b.o === DIRECAO.CIMA) {
+    // Seen from behind: the player's shape on the back.
+    desenharSimbolo(ctx, b.cor, 0, topo + altura * 0.55, 13, cor.escura);
+  } else {
     let olhar = OLHAR[b.o] ?? OLHAR[DIRECAO.BAIXO];
     // Standing still and facing the camera, the character glances around now and then.
     if (!andando && pose === 'jogo' && !reduzido && (b.o === DIRECAO.BAIXO || b.o === undefined)) {
