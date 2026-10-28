@@ -82,8 +82,8 @@ const EFEITOS_DO_CHAO = new Set(['explosao', 'caixa', 'bloco']);
 const OLHAR = { [DIRECAO.ESQUERDA]: [-3.5, 0], [DIRECAO.DIREITA]: [3.5, 0], [DIRECAO.BAIXO]: [0, 2] };
 const RETRATO = 72; // logical size of the small character portraits on the HTML screens
 const ESCALA_MAX = 3;
-const QUADRO_LENTO_MS = 21; // average frame interval above this lowers the resolution
-const QUADRO_FOLGADO_MS = 17.8; // and below this, for a while, lets it climb back
+const QUADRO_ATRASADO_MS = 19.5; // a frame interval above this missed its 60 Hz slot
+const JANELA_QUADROS = 90; // the decision looks at the last 1.5 s of frames, so a single hiccup never counts
 const PIXELS_LUZ = 8; // light map resolution, per tile
 const ABERTURA_S = 1.1; // the map sweeps in and the players drop onto their spots when the countdown starts
 const FINAL_S = 1.3; // slow motion and zoom on the winner after the last elimination
@@ -1058,9 +1058,13 @@ export function criarPintor(canvas) {
   let agoraAnterior = 0;
   let brilhoLuz = null;
   let temaDoBrilho = null;
-  // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when the
-  // average frame interval runs late and climbs back slowly (never straight back to a level that failed).
+  // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when
+  // most recent frames miss their slot and climbs back slowly (never straight back to a level that failed).
   const qualidade = { escala: 0, teto: ESCALA_MAX, mediaMs: 1000 / 60, ultimoMs: 0, mudouEm: performance.now(), falhouEm: 0, escalaQueFalhou: Infinity };
+  const atrasos = new Uint8Array(JANELA_QUADROS);
+  let posicaoAtraso = 0;
+  let atrasados = 0;
+  let medidos = 0;
 
   const medirQuadro = () => {
     const agoraMs = performance.now();
@@ -1069,14 +1073,22 @@ export function criarPintor(canvas) {
     // The first frame, a hidden tab or a paused screen say nothing about the device.
     if (intervalo <= 0 || intervalo > 120) return;
     qualidade.mediaMs += (intervalo - qualidade.mediaMs) * 0.05;
+    const atrasado = intervalo > QUADRO_ATRASADO_MS ? 1 : 0;
+    atrasados += atrasado - atrasos[posicaoAtraso];
+    atrasos[posicaoAtraso] = atrasado;
+    posicaoAtraso = (posicaoAtraso + 1) % JANELA_QUADROS;
+    medidos = Math.min(medidos + 1, JANELA_QUADROS);
     const desde = agoraMs - qualidade.mudouEm;
-    if (qualidade.mediaMs > QUADRO_LENTO_MS && desde > 2500 && qualidade.escala > 1) {
+    if (medidos < JANELA_QUADROS) return;
+    if (atrasados > JANELA_QUADROS * 0.5 && desde > 2500 && qualidade.escala > 1) {
       qualidade.escalaQueFalhou = qualidade.escala;
       qualidade.falhouEm = agoraMs;
       qualidade.teto = Math.max(1, qualidade.escala - 0.5);
       qualidade.mudouEm = agoraMs;
-      qualidade.mediaMs = 1000 / 60;
-    } else if (qualidade.mediaMs < QUADRO_FOLGADO_MS && desde > 12000 && qualidade.teto < ESCALA_MAX) {
+      atrasos.fill(0);
+      atrasados = 0;
+      medidos = 0;
+    } else if (atrasados < JANELA_QUADROS * 0.05 && desde > 12000 && qualidade.teto < ESCALA_MAX) {
       const proximo = qualidade.teto + 0.25;
       if (proximo < qualidade.escalaQueFalhou || agoraMs - qualidade.falhouEm > 90000) {
         qualidade.teto = proximo;
@@ -1136,7 +1148,7 @@ export function criarPintor(canvas) {
   };
 
   // Flames and fresh explosions light up the floor and walls around them. The light is painted at 8 px
-  // per tile and blended once over the arena, which keeps it cheap with many flames on screen.
+  // per tile and blended over the arena only inside the rectangle that has light, which keeps it cheap.
   const desenharLuz = (cena, tema, agora) => {
     const explosoes = cena.efeitos.filter(efeito => efeito.tipo === 'explosao' && agora - efeito.inicio < 0.6);
     if (!cena.c.length && !explosoes.length) return;
@@ -1145,19 +1157,35 @@ export function criarPintor(canvas) {
     ctxLuz.globalAlpha = 1;
     ctxLuz.clearRect(0, 0, luz.width, luz.height);
     ctxLuz.globalCompositeOperation = 'lighter';
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
     const lancar = (x, y, raioTiles, alfa) => {
       const raio = raioTiles * PIXELS_LUZ;
+      const cx = (x + 0.5) * PIXELS_LUZ;
+      const cy = (y + 0.5) * PIXELS_LUZ;
       ctxLuz.globalAlpha = alfa;
-      ctxLuz.drawImage(fonte, (x + 0.5) * PIXELS_LUZ - raio, (y + 0.5) * PIXELS_LUZ - raio, raio * 2, raio * 2);
+      ctxLuz.drawImage(fonte, cx - raio, cy - raio, raio * 2, raio * 2);
+      x0 = Math.min(x0, cx - raio);
+      y0 = Math.min(y0, cy - raio);
+      x1 = Math.max(x1, cx + raio);
+      y1 = Math.max(y1, cy + raio);
     };
     for (const [i] of cena.c) lancar(i % COLUNAS, Math.floor(i / COLUNAS), 1.7, 0.42 + Math.sin(agora * 31 + i) * 0.08);
     for (const efeito of explosoes) {
       const idade = agora - efeito.inicio;
       lancar(efeito.x, efeito.y, 2.6 + idade * 2.5, 1 - idade / 0.6);
     }
+    x0 = Math.max(0, Math.floor(x0));
+    y0 = Math.max(0, Math.floor(y0));
+    x1 = Math.min(luz.width, Math.ceil(x1));
+    y1 = Math.min(luz.height, Math.ceil(y1));
+    if (x1 <= x0 || y1 <= y0) return;
+    const k = TAM / PIXELS_LUZ;
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.65;
-    ctx.drawImage(luz, 0, 0, LARGURA, ALTURA);
+    ctx.drawImage(luz, x0, y0, x1 - x0, y1 - y0, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k);
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
   };
