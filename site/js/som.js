@@ -177,6 +177,33 @@ const JINGLES_ITEM = {
     tom(ctx, { tipo: 'sine', de: 420, ate: 880, duracao: 0.28, volume: 0.13 });
     tom(ctx, { tipo: 'sine', de: 880, ate: 520, duracao: 0.3, volume: 0.1, atraso: 0.24 });
   },
+  // Kick: a thump and a quick rising whoosh.
+  k: ctx => {
+    tom(ctx, { tipo: 'triangle', de: 180, ate: 90, duracao: 0.1, volume: 0.18 });
+    ruidoFiltrado(ctx, { tipo: 'bandpass', freq: 600, ate: 2400, q: 1.2, duracao: 0.18, volume: 0.08, atraso: 0.05 });
+    tom(ctx, { tipo: 'triangle', de: 784, duracao: 0.12, volume: 0.1, atraso: 0.12 });
+  },
+  // Detonator: two electronic beeps and a click.
+  r: ctx => {
+    arpejo(ctx, [1175, 1568], { tipo: 'square', passo: 0.08, duracao: 0.07, volume: 0.05 });
+    ruidoFiltrado(ctx, { tipo: 'highpass', freq: 3500, duracao: 0.03, volume: 0.12, atraso: 0.2 });
+  },
+  // Magnet: a wobbling hum that rises.
+  m: ctx => {
+    tom(ctx, { tipo: 'sine', de: 220, ate: 440, duracao: 0.35, volume: 0.12 });
+    tom(ctx, { tipo: 'sine', de: 233, ate: 466, duracao: 0.35, volume: 0.08 });
+    tom(ctx, { tipo: 'triangle', de: 880, duracao: 0.14, volume: 0.08, atraso: 0.3 });
+  },
+  // Ice: a high crystal sparkle.
+  i: ctx => {
+    arpejo(ctx, [2093, 2637, 3136, 2637], { tipo: 'sine', passo: 0.05, duracao: 0.16, volume: 0.06 });
+    ruidoFiltrado(ctx, { tipo: 'highpass', freq: 7000, duracao: 0.1, volume: 0.04 });
+  },
+  // Shortcut: a warp sweep that lands on a chime.
+  a: ctx => {
+    tom(ctx, { de: 400, ate: 1400, duracao: 0.16, volume: 0.08 });
+    acorde(ctx, [1047, 1568], { tipo: 'triangle', duracao: 0.25, volume: 0.07, atraso: 0.14 });
+  },
 };
 
 const SONS = {
