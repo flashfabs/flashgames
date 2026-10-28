@@ -134,3 +134,9 @@ Decisão da noite de 28/10/2026 (sem login com senha, e-mail ou Google, que fica
 - Login e microtransações (o passo seguinte que o Victor citou), por exemplo com Supabase Auth.
 - Sinalização própria, para não depender do servidor gratuito do PeerJS (o TURN já é da Cloudflare). Comparativo de 27/10/2026: servidor PeerJS no Fly.io em São Paulo (~US$ 2 a 3 por mês, conta nova) ou WebRTC próprio com Supabase Realtime (grátis, mas projeto grátis pausa depois de uma semana sem uso).
 - Troca de anfitrião também quando ele some sem se despedir (aba fechada de repente) e mantendo o placar da rodada; continuar a partida do ponto exato custa mais uns 2 dias. Mais jogos sobre a mesma sala.
+
+## Como colaborar
+
+O repositório é público e as contribuições entram por pull request: faça um fork, crie uma branch a partir da `main`, rode `npm test` e `npm run e2e` (instruções em "Rodar e testar") e abra o pull request contra a `main`. As regras de código e de commits estão no [AGENTS.md](AGENTS.md): textos da interface em português do Brasil, identificadores em português, comentários e commits em inglês, no padrão Conventional Commits.
+
+O projeto ainda não tem licença de uso, por decisão do Victor em 28/10/2026: dá para ler o código, fazer fork no GitHub e mandar pull request, mas não para reaproveitá-lo em outro lugar.
