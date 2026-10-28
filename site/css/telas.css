@@ -318,7 +318,7 @@
 .pavio-destaques,
 .pavio-conquistas {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 6px;
   width: min(560px, 100%);
   margin: 2px 0;
@@ -664,4 +664,13 @@
 .perfil-lista-vazia {
   color: var(--texto-suave);
   font-size: 13px;
+}
+
+/* Room list: a name keeps room for a few letters, and the labels go to a second line when they do not fit. */
+.lista-membros li {
+  flex-wrap: wrap;
+}
+
+.membro-nome {
+  min-width: 4.5em;
 }

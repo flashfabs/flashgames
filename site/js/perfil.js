@@ -81,6 +81,7 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
   let perfil = null;
   let corEscolhida = lerCorEscolhida();
   let nomeMostrado = '';
+  let corPendente = null; // a color chosen and not saved yet
 
   const corMostrada = () => (corEscolhida && perfil ? desenho.indiceCor(perfil.cor) : 0);
 
@@ -135,7 +136,8 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
   }
 
   function mostrar(novo) {
-    perfil = novo;
+    // A color picked while the profile was still loading or saving wins over the older copy.
+    perfil = corPendente === null ? novo : { ...novo, cor: corPendente };
     // Never overwrite what someone already typed: only an empty field or the name shown last gets updated.
     if (campoNome.value === '' || campoNome.value === nomeMostrado) campoNome.value = perfil.nome;
     if (campoNome.value === perfil.nome) nomeMostrado = perfil.nome;
@@ -152,12 +154,15 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
   async function escolherCor(n) {
     corEscolhida = true;
     gravarCorEscolhida();
+    corPendente = n;
     perfil = { ...perfil, cor: n };
     desenharBoneco();
     desenharCores();
     avisarMudanca();
     try {
-      mostrar(await salvarPerfil({ cor: n }));
+      const salvo = await salvarPerfil({ cor: n });
+      if (corPendente === n) corPendente = null;
+      mostrar(salvo);
     } catch (erro) {
       console.warn('Could not save the color', erro);
     }
