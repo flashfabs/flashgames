@@ -148,9 +148,9 @@ const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
 // tema is a stable key the painter uses for each map's art: patio, deposito, muralhas, labirinto, fornalha.
 export const MAPAS = Object.freeze([
   { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto, com uma praça ou duas avenidas sem caixas.', densidade: 0.5, itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
-  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado, cortadas por corredores.', densidade: 0.74, itens: ITENS_ATE[1], novos: NOVOS[1] },
-  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros dividem a arena em quatro pátios com portões.', densidade: 0.66, itens: ITENS_ATE[2], novos: NOVOS[2] },
-  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados e curvas fechadas.', densidade: 0.6, itens: ITENS_ATE[3], novos: NOVOS[3] },
+  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado, cortadas por corredores.', densidade: 0.74, itens: ITENS_ATE[1], novos: NOVOS[1], morteSubitaS: 115 },
+  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros dividem a arena em quatro pátios com portões.', densidade: 0.66, itens: ITENS_ATE[2], novos: NOVOS[2], morteSubitaS: 110 },
+  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados e curvas fechadas.', densidade: 0.6, itens: ITENS_ATE[3], novos: NOVOS[3], morteSubitaS: 100 },
   { nome: 'Fornalha', tema: 'fornalha', descricao: 'Uma fornalha no meio, e a morte súbita chega mais cedo.', densidade: 0.66, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
 ]);
 
