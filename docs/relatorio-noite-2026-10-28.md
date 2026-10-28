@@ -58,6 +58,7 @@ Rascunho de 03:20, revisado no fim da noite.
 - Jornada (`jornada.spec.mjs`): código errado, sala inexistente, quem chega no meio assiste, sala cheia recusa a nona pessoa.
 - Teste longo (02:45 a 02:58, `SALINHA_LONGO=1`): rodada inteira com 7 robôs difíceis; memória de 3,8 para 5,2 MB e DOM estável em ~400 nós, sem vazamento depois de 5 partidas com todos os efeitos novos.
 - Peso da primeira carga em produção (02:50): 188 KB em 27 requisições (139 KB de JavaScript, 36 KB de fontes), 1,5 s até a rede ficar quieta.
+- Registros da Netlify (observabilidade, 02:29 a 03:29): nenhum erro 500; os 503 são todos `/api/ice` (esperado sem a chave do TURN) e os 403 são escritas de perfil vindas dos endereços permanentes de cada publicação (`<id>--salinha-jogos.netlify.app`), que a API recusa de propósito por não serem o domínio do site.
 - Regressão visual (`npm run visual`, fora do `npm run e2e`): tela inicial e lobby no computador, no iPad e no celular comparados com as imagens em `testes/e2e/visual/`; a frente 5 roda depois de cada integração, olha cada diferença e atualiza as imagens quando a mudança foi de propósito.
 
 ## Problemas conhecidos
