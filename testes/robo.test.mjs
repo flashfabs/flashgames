@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, COLUNAS, DIRECAO } from '../site/js/pavio/regras.js';
-import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
+import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, aplicarAcaoDoRobo, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
 
 const DT = 1 / 60;
 const PASSO = 1 / velocidade(0);
@@ -25,11 +25,7 @@ function sorteador(semente) {
 // Runs a match where every player is a robot, the way the host does: brains first, then the rules.
 function jogarComRobos(partida, robos, segundos, aCadaPasso = () => {}) {
   for (let t = 0; t < segundos && !partida.resultado; t += DT) {
-    for (const robo of robos) {
-      const { d, d2, bomba: soltar } = robo.pensar(partida, DT);
-      partida.definirEntrada(robo.id, d, d2);
-      if (soltar) partida.pedirBomba(robo.id);
-    }
+    for (const robo of robos) aplicarAcaoDoRobo(partida, robo.id, robo.pensar(partida, DT));
     partida.passo(DT);
     aCadaPasso(partida);
   }

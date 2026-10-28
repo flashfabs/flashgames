@@ -10,7 +10,7 @@ import {
 import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarPassoFixo } from '../relogio.js';
-import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
+import { criarRobo, aplicarAcaoDoRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -389,11 +389,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function moverRobos(dt) {
-    for (const cerebro of cerebros) {
-      const { d, d2, bomba } = cerebro.pensar(partida, dt);
-      partida.definirEntrada(cerebro.id, d, d2);
-      if (bomba) partida.pedirBomba(cerebro.id);
-    }
+    for (const cerebro of cerebros) aplicarAcaoDoRobo(partida, cerebro.id, cerebro.pensar(partida, dt));
   }
 
   function publicarEstado(para = null) {

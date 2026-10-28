@@ -395,6 +395,13 @@ function perigoDoPasso(partida, id) {
 
 // One robot brain. pensar(partida, dt) runs once per simulation step (before partida.passo) and returns the
 // input for the robot's player: { d, d2, bomba }.
+// Hands one robot decision to the match, as a person's input would arrive. A robot's bomb press never waits
+// for a later cell: its way out was planned from where it decided.
+export function aplicarAcaoDoRobo(partida, id, { d, d2, bomba }) {
+  partida.definirEntrada(id, d, d2);
+  if (bomba) partida.pedirBomba(id, { espera: 0 });
+}
+
 export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
   const ajustes = NIVEIS[nivel] ?? NIVEIS.medio;
   const margem = MARGEM_S;

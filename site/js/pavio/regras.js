@@ -545,11 +545,13 @@ export class Partida {
     return true;
   }
 
-  pedirBomba(id) {
+  // espera: how long a press that cannot be honored right away keeps trying (0 for robots, which plan their
+  // way out from the cell where they decide).
+  pedirBomba(id, { espera = AJUSTES.bufferBombaS } = {}) {
     const jogador = this.#jogador(id);
     if (!jogador?.vivo) return;
     jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
-    jogador.validadeBomba = AJUSTES.bufferBombaS;
+    jogador.validadeBomba = espera;
   }
 
   // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
