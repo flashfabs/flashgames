@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, COLUNAS, DIRECAO } from '../site/js/pavio/regras.js';
+import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, CAIXA_MISTERIO, COLUNAS, LINHAS, DIRECAO } from '../site/js/pavio/regras.js';
 import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, aplicarAcaoDoRobo, chuteContra, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
 
 const DT = 1 / 60;
@@ -48,6 +48,14 @@ test('danger map: a crate stops the flame, a piercing flame goes through', () =>
   assert.equal(normal.ini[indice(5, 1)], Infinity);
   const perfurante = mapaDePerigo(cena({ grade, bombas: [bomba(2, 1, 1, 3, true)] }));
   assert.equal(perfurante.ini[indice(5, 1)], 1);
+});
+
+test('danger map accounts for a mystery crate potentially exploding', () => {
+  const grade = gradeVazia();
+  grade[indice(3, 1)] = CAIXA_MISTERIO;
+  const perigo = mapaDePerigo(cena({ grade, bombas: [bomba(2, 1, 1, 1)] }));
+  assert.equal(perigo.ini[indice(7, 1)], 1);
+  assert.equal(perigo.ini[indice(8, 1)], Infinity);
 });
 
 test('danger map: a chain reaction brings the next bomb forward', () => {
@@ -202,7 +210,7 @@ test('a robot alone never dies by its own bombs and keeps clearing crates', () =
 test('a robot with the detonator and a single bomb sets its bombs off from a safe place', () => {
   for (const nivel of ORDEM_NIVEIS) {
     const sorteio = sorteador(5);
-    const partida = new Partida([{ id: 'r', slot: 0 }], { mapa: MAPAS[1], sorteio });
+    const partida = new Partida([{ id: 'r', slot: 0 }], { mapa: { ...MAPAS[1], itens: [] }, sorteio });
     const [robo] = partida.jogadores;
     robo.detonador = true;
     let detonadas = 0;
@@ -260,7 +268,7 @@ test('a full arena of robots of every level plays each map to the end', () => {
         return acao;
       },
     }));
-    jogarComRobos(partida, robosVigiados, partida.morteSubitaS + 80);
+    jogarComRobos(partida, robosVigiados, partida.morteSubitaS + COLUNAS * LINHAS * AJUSTES.morteSubitaPassoS + 2);
     assert.ok(partida.resultado, `${mapa.nome} ended`);
     assert.ok(entradasValidas, 'robots answer with the same input a person gives');
     assert.ok(partida.jogadores.reduce((soma, j) => soma + j.caixas, 0) > 30, `${mapa.nome}: crates were broken`);

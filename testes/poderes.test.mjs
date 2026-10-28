@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, gradeVazia, indice, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, COLUNAS, LINHAS, gradeVazia, indice, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
 } from '../site/js/pavio/regras.js';
 
 const DT = 1 / 60;
@@ -30,11 +30,11 @@ test('walking into a bomb with the kick power sends it sliding to the wall', () 
   rodar(partida, 0.1);
   assert.ok(partida.tirarEventos().some(ev => ev.e === 'chute'));
   assert.ok(partida.vista().b[0][0] > 3, 'the snapshot shows the bomb between cells');
-  rodar(partida, 6);
-  assert.equal(bomba.x, 19);
+  rodar(partida, 13);
+  assert.equal(bomba.x, COLUNAS - 2);
   assert.equal(bomba.y, 1);
   assert.equal(bomba.deslize, DIRECAO.NENHUMA);
-  assert.equal(a.x, 18, 'the kicker follows and stops behind the bomb');
+  assert.equal(a.x, COLUNAS - 3, 'the kicker follows and stops behind the bomb');
 });
 
 test('without the kick power a bomb is just an obstacle', () => {
@@ -168,17 +168,17 @@ test('members predict a sliding bomb up to the last free cell', () => {
 });
 
 test('each match of the round unlocks new powers on top of the previous ones', () => {
-  assert.deepEqual(MAPAS[0].itens, [ITEM.BOMBA, ITEM.FOGO, ITEM.ATALHO]);
+  assert.deepEqual(MAPAS[0].itens, [ITEM.BOMBA, ITEM.BOMBA2, ITEM.FOGO, ITEM.FOGO2, ITEM.FOGO3, ITEM.FOGO5, ITEM.ATALHO, ITEM.BANANA, ITEM.MOLOTOV]);
   assert.deepEqual(MAPAS[0].novos, [ITEM.ATALHO]);
   assert.deepEqual(MAPAS[1].novos, [ITEM.TENIS, ITEM.CHUTE]);
-  assert.deepEqual(MAPAS[2].novos, [ITEM.ESCUDO, ITEM.DETONADOR]);
+  assert.deepEqual(MAPAS[2].novos, [ITEM.DETONADOR]);
   assert.deepEqual(MAPAS[3].novos, [ITEM.PERFURANTE, ITEM.IMA]);
   assert.deepEqual(MAPAS[4].novos, [ITEM.FANTASMA, ITEM.GELO]);
   for (let n = 1; n < MAPAS.length; n++) {
     assert.ok(MAPAS[n].novos.length > 0, `${MAPAS[n].nome} brings something new`);
     assert.deepEqual(MAPAS[n].itens, [...MAPAS[n - 1].itens, ...MAPAS[n].novos]);
   }
-  assert.deepEqual(new Set(MAPAS.at(-1).itens), new Set(Object.values(ITEM)));
+  assert.deepEqual(new Set(MAPAS.at(-1).itens), new Set(Object.values(ITEM).filter(item => item !== ITEM.ESCUDO && item !== ITEM.ESCUDO2)));
 });
 
 test('a magnet pulls nearby items to its player, over walls', () => {
@@ -307,6 +307,7 @@ test('crates stop the ice, and so does the range', () => {
 
 test('fire from another bomb still sets off a frozen one', () => {
   const { partida, a, bomba } = comGelo();
+  a.alcance = 2;
   bomba.congelada = AJUSTES.congelarS;
   bomba.restante = 0.05;
   a.x = 3;
@@ -349,52 +350,52 @@ function comCaixas(caixas, { atalhos = 1 } = {}) {
   return { partida, a };
 }
 
-test('pushing against a crate with a shortcut charge lands on the other side', () => {
+test('a portal is used explicitly, not by walking against a crate', () => {
   const { partida, a } = comCaixas([2]);
   partida.definirEntrada('a', DIRECAO.DIREITA);
-  rodar(partida, AJUSTES.empurrarAtalhoS / 2);
-  assert.equal(a.x, 1, 'a bump is not enough');
-  rodar(partida, AJUSTES.empurrarAtalhoS);
-  assert.ok(a.x >= 3);
+  rodar(partida, 0.5);
+  assert.equal(a.x, 1);
+  assert.equal(a.atalhos, 1);
+  assert.equal(partida.atravessar('a', DIRECAO.DIREITA), true);
+  assert.equal(a.x, 3);
   assert.equal(a.atalhos, 0);
-  assert.equal(partida.grade[indice(2, 1)], CAIXA, 'the crate is still there');
+  assert.equal(partida.grade[indice(2, 1)], CAIXA);
   assert.ok(partida.tirarEventos().some(ev => ev.e === 'atalho' && ev.x2 === 3));
 });
 
-test('crates side by side take one charge each', () => {
+test('each crate costs a charge and an invalid direction spends nothing', () => {
   const pouco = comCaixas([2, 3]);
-  pouco.partida.definirEntrada('a', DIRECAO.DIREITA);
-  rodar(pouco.partida, 1);
-  assert.equal(pouco.a.x, 1);
+  assert.equal(pouco.partida.atravessar('a', DIRECAO.DIREITA), false);
+  assert.equal(pouco.partida.atravessar('a', DIRECAO.BAIXO), false);
   assert.equal(pouco.a.atalhos, 1);
   const bastante = comCaixas([2, 3, 6], { atalhos: 3 });
-  bastante.partida.definirEntrada('a', DIRECAO.DIREITA);
-  rodar(bastante.partida, 0.3);
-  assert.ok(bastante.a.x >= 4);
+  assert.equal(bastante.partida.atravessar('a', DIRECAO.CIMA), true, 'a portal can cross the border');
+  assert.equal(bastante.a.atalhos, 2);
+  bastante.a.x = 1; bastante.a.y = 1; bastante.a.atalhos = 3;
+  assert.equal(bastante.partida.atravessar('a', DIRECAO.DIREITA), true);
+  assert.equal(bastante.a.x, 4);
   assert.equal(bastante.a.atalhos, 1);
-  rodar(bastante.partida, 1.2);
-  assert.ok(bastante.a.x >= 7, 'walks on and crosses the next crate');
+  bastante.a.x = 5;
+  assert.equal(bastante.partida.atravessar('a', DIRECAO.DIREITA), true);
+  assert.equal(bastante.a.x, 7);
   assert.equal(bastante.a.atalhos, 0);
 });
 
-test('a shortcut needs a free cell past the crates', () => {
+test('a portal finds a nearby free cell if a bomb blocks its destination', () => {
   const contraBomba = comCaixas([2]);
   const [a, b] = contraBomba.partida.jogadores;
-  b.x = 3;
-  b.y = 1;
+  b.x = 3; b.y = 1;
   contraBomba.partida.pedirBomba('b');
   contraBomba.partida.passo(DT);
-  b.x = 19;
-  b.y = 13;
+  b.x = COLUNAS - 2; b.y = LINHAS - 2;
   contraBomba.partida.bombas[0].restante = 99;
-  contraBomba.partida.definirEntrada('a', DIRECAO.DIREITA);
-  rodar(contraBomba.partida, 0.5);
-  assert.equal(a.x, 1);
-  const contraParede = comCaixas([19]);
-  contraParede.a.x = 18;
-  contraParede.partida.definirEntrada('a', DIRECAO.DIREITA);
-  rodar(contraParede.partida, 0.5);
-  assert.equal(contraParede.a.x, 18, 'the border is past the crate');
+  assert.equal(contraBomba.partida.atravessar('a', DIRECAO.DIREITA), true);
+  assert.equal(a.atalhos, 0);
+  assert.notDeepEqual([Math.round(a.x), Math.round(a.y)], [1, 1]);
+  assert.notDeepEqual([Math.round(a.x), Math.round(a.y)], [3, 1]);
+  const contraParede = comCaixas([COLUNAS - 2]);
+  contraParede.a.x = COLUNAS - 3;
+  assert.equal(contraParede.partida.atravessar('a', DIRECAO.DIREITA), false);
   assert.equal(contraParede.a.atalhos, 1);
 });
 
@@ -455,4 +456,43 @@ test('whoever kicks a bomb is credited with what it breaks and hits', () => {
   assert.equal(a.eliminacoes, 1);
   assert.equal(b.eliminacoes, 0);
   assert.equal(partida.estatisticas()[2].morte.por, 'a');
+});
+
+test('shortcuts cross interior walls and wrap across all four edges', () => {
+  for (const [x, y, direcao, destino] of [[1, 1, DIRECAO.ESQUERDA, [COLUNAS - 2, 1]], [COLUNAS - 2, 1, DIRECAO.DIREITA, [1, 1]], [1, 1, DIRECAO.CIMA, [1, LINHAS - 2]], [1, LINHAS - 2, DIRECAO.BAIXO, [1, 1]], [1, 2, DIRECAO.DIREITA, [3, 2]]]) {
+    const grade = gradeVazia();
+    if (y === 2) grade[indice(2, 2)] = '#';
+    const partida = new Partida([{ id: 'a', slot: 0 }], { grade });
+    const [a] = partida.jogadores;
+    Object.assign(a, { x, y, atalhos: 1 });
+    assert.equal(partida.atravessar('a', direcao), true);
+    assert.deepEqual([Math.round(a.x), Math.round(a.y)], destino);
+    assert.equal(a.atalhos, 0);
+  }
+});
+
+test('edge shortcuts select a nearest free cell other than the starting cell', () => {
+  const grade = gradeVazia();
+  const partida = new Partida([{ id: 'a', slot: 0, remoto: true }], { grade });
+  const [a] = partida.jogadores;
+  assert.equal(partida.atravessar('a', DIRECAO.ESQUERDA), false);
+  a.atalhos = 1;
+  partida.grade[indice(COLUNAS - 2, 1)] = CAIXA;
+  assert.equal(partida.atravessar('a', DIRECAO.ESQUERDA), true);
+  assert.equal(Math.abs(a.x - (COLUNAS - 2)) + Math.abs(a.y - 1), 1);
+  assert.notDeepEqual([a.x, a.y], [1, 1]);
+  assert.equal(a.atalhos, 0);
+});
+
+test('a remote portal request with no destination keeps the charge for the next request', () => {
+  const grade = gradeVazia();
+  grade[indice(2, 1)] = CAIXA;
+  const partida = new Partida([{ id: 'a', slot: 0, remoto: true }], { grade });
+  const [a] = partida.jogadores;
+  a.atalhos = 1;
+  assert.equal(partida.atravessar('a', DIRECAO.BAIXO, { x: 1, y: 1, c: 1000 }), false);
+  assert.equal(a.atalhos, 1);
+  assert.equal(partida.atravessar('a', DIRECAO.DIREITA, { x: 1, y: 1, c: 1100 }), true);
+  assert.equal(a.atalhos, 0);
+  assert.deepEqual([a.x, a.y], [3, 1]);
 });

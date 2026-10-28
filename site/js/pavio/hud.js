@@ -8,13 +8,14 @@ import { AJUSTES } from './regras.js';
 const PODERES = [
   ['b', '💣', 'Bombas', 'contador'],
   ['f', '🔥', 'Alcance', 'contador'],
-  ['t', '👟', 'Tênis', 'contador'],
-  ['e', '🛡️', 'Escudo', 'liga'],
+  ['t', '⚡', 'Velocidade', 'contador'],
+  ['es', '🛡️', 'Escudos', 'contador'],
   ['p', '💥', 'Fogo perfurante', 'liga'],
   ['k', '🦶', 'Chute', 'liga'],
   ['r', '🎯', 'Detonador', 'liga'],
   ['gl', '❄️', 'Gelo', 'contador'],
-  ['at', '🌀', 'Atalhos', 'contador'],
+  ['mo', '🍾', 'Molotov', 'contador'],
+  ['at', '🚪', 'Portais', 'contador'],
   ['g', '👻', 'Fantasma', 'tempo', AJUSTES.fantasmaS],
   ['m', '🧲', 'Ímã', 'tempo', AJUSTES.imaS],
 ];
@@ -54,7 +55,7 @@ function reiniciarAnimacao(elemento, classe) {
 }
 
 // raiz: the HUD row; itens, pontos and tempo: its three parts (already in the page).
-export function criarHud({ raiz, itens, pontos, tempo }) {
+export function criarHud({ raiz, itens, detalhes, pontos, tempo }) {
   const chips = new Map(); // field -> { elemento, valor, ligadoEm }
   let presentes = '';
   let ultimoTotal = null;
@@ -64,6 +65,28 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
   let desempenhoEm = 0;
   let medirAperto = false;
   let larguraDosTextos = '';
+  let ultimosDetalhes = '';
+
+  const atualizarDetalhes = jogador => {
+    const valores = [
+      ...(jogador?.bt ?? []).map(([valor, segundos]) => `💣 +${valor} · ${segundos}s`),
+      ...(jogador?.ft ?? []).map(([valor, segundos]) => `🔥 +${valor} · ${segundos}s`),
+      ...(jogador?.pt ?? []).map(segundos => `💥 ${segundos}s`),
+      ...(jogador?.gt > 0 ? [`👻 ${jogador.gt}s`] : []),
+      ...(jogador?.mt > 0 ? [`🧲 ${jogador.mt}s`] : []),
+      ...(jogador?.kt > 0 ? [`🦶 ${jogador.kt}s`] : []),
+    ];
+    const chave = valores.join('|');
+    if (chave === ultimosDetalhes) return;
+    ultimosDetalhes = chave;
+    detalhes.hidden = valores.length === 0;
+    detalhes.replaceChildren(...valores.map(texto => {
+      const elemento = document.createElement('span');
+      elemento.className = 'pavio-hud-detalhe';
+      elemento.textContent = texto;
+      return elemento;
+    }));
+  };
 
   const chip = (campo, icone, nome, tipo) => {
     if (!chips.has(campo)) {
@@ -143,9 +166,10 @@ export function criarHud({ raiz, itens, pontos, tempo }) {
       visivel = mostrar;
       raiz.style.visibility = mostrar ? 'visible' : 'hidden';
     }
-    if (!mostrar) return;
+    if (!mostrar) { detalhes.hidden = true; ultimosDetalhes = ''; return; }
     const { jogador, pontos: total, paraSubita, fase, qualidade } = estado;
     atualizarPoderes(jogador);
+    atualizarDetalhes(jogador);
     atualizarDesempenho(qualidade);
     const textoPontos = total === null ? '' : `⭐ ${total}`;
     if (pontos.textContent !== textoPontos) pontos.textContent = textoPontos;

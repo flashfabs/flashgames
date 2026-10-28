@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pavio · Prévia dos boosters</title>
+<style>
+body{margin:0;background:#1d1728;color:#fff3db;font:16px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:24px}h1{margin:0 0 8px}p{color:#f5dbb2;line-height:1.5}.arena{width:100%;display:block;border:3px solid #e9aa54;border-radius:12px;background:#6e5a3a}.itens{display:flex;flex-wrap:wrap;gap:10px}.item{background:#392a3e;border:1px solid #765151;border-radius:12px;padding:8px 12px;display:flex;align-items:center;gap:8px}.item canvas{width:48px;height:48px}.item span{font-size:14px;font-weight:700}a{color:#ffe18a}
+</style>
+</head>
+<body><main><h1>Prévia dos boosters</h1><p>Os itens abaixo usam os mesmos desenhos do jogo. Na arena, veja como ficam no tamanho de uma partida; abaixo estão ampliados e identificados para comparação.</p><canvas class="arena" id="arena" width="1920" height="480" aria-label="Boosters sobre o chão da arena"></canvas><h2>Identificação</h2><div class="itens" id="itens"></div><p><a href="/">Voltar ao jogo</a></p></main>
+<script type="module">
+import { VISUAL_ITEM, desenharSpriteItem } from './js/pavio/desenho.js';
+import { criarCenario, TAM } from './js/pavio/cenario.js';
+import { COLUNAS, LINHAS, CHAO } from './js/pavio/regras.js';
+const canvas = document.querySelector('#arena');
+const ctx = canvas.getContext('2d');
+const cenario = criarCenario();
+const chao = cenario.atualizar({ g: Array(COLUNAS * LINHAS).fill(CHAO), tema: 'patio' }, 1);
+ctx.drawImage(chao, 0, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+Object.entries(VISUAL_ITEM).forEach(([item, visual], n) => {
+  const x = 2 + (n % 9) * 4, y = 2 + Math.floor(n / 9) * 4;
+  ctx.save(); ctx.translate(x * TAM, y * TAM); desenharSpriteItem(ctx, item); ctx.restore();
+  const card = document.createElement('div'); card.className = 'item';
+  const icon = document.createElement('canvas'); icon.width = icon.height = TAM;
+  desenharSpriteItem(icon.getContext('2d'), item);
+  const label = document.createElement('span'); label.textContent = visual.rotulo;
+  card.append(icon, label); document.querySelector('#itens').append(card);
+});
+</script></body></html>

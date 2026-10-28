@@ -8,6 +8,7 @@ import { MAPAS } from './pavio/regras.js';
 
 const CHAVE_COR_ESCOLHIDA = 'salinha:cor-escolhida';
 const CORES_DA_SALA = desenho.CORES.length;
+const NOMES_CORES = ['vermelho', 'azul', 'verde', 'amarelo', 'roxo', 'laranja', 'turquesa', 'rosa'];
 
 function lerCorEscolhida() {
   try {
@@ -41,10 +42,14 @@ function plural(n, um, varios) {
 }
 
 function numeros(estatisticas) {
-  if (!estatisticas?.partidas) return 'Seu perfil fica neste aparelho. Jogue uma partida para começar suas estatísticas.';
-  const partes = [plural(estatisticas.partidas, 'partida', 'partidas'), plural(estatisticas.vitorias, 'vitória', 'vitórias'), plural(estatisticas.pontos, 'ponto', 'pontos')];
-  const recorde = estatisticas.recordes?.pontos;
-  return `${partes.join(' · ')}${recorde ? ` · recorde de ${plural(recorde, 'ponto', 'pontos')} numa partida` : ''}`;
+  const dados = estatisticas ?? {};
+  return [
+    ['🎮', dados.partidas ?? 0, 'Partidas'],
+    ['🏆', dados.vitorias ?? 0, 'Vitórias'],
+    ['⭐', dados.pontos ?? 0, 'Pontos'],
+    ['🔥', dados.recordes?.pontos ?? 0, 'Recorde de pontos'],
+  ].map(([icone, valor, nome]) => elemento('span', { class: 'perfil-numero', title: nome, 'aria-label': `${nome}: ${valor}` },
+    elemento('span', { 'aria-hidden': 'true' }, icone), ` ${valor}`));
 }
 
 const ULTIMAS_PARTIDAS = 5;
@@ -64,8 +69,8 @@ function linhaDoHistorico(partida) {
   const mapa = MAPAS.find(item => item.tema === partida.mapa)?.nome ?? 'Partida';
   const com = partida.robos >= partida.jogadores - 1 ? `contra ${plural(partida.robos, 'robô', 'robôs')}` : `com ${plural(partida.jogadores - 1, 'pessoa', 'pessoas')}`;
   return elemento('li', { class: partida.venceu ? 'venceu' : '' },
-    elemento('span', { class: 'perfil-lista-principal' }, `${partida.venceu ? '🏆 ' : ''}${mapa} · ${plural(partida.pontos, 'ponto', 'pontos')}`),
-    elemento('span', { class: 'perfil-lista-detalhe' }, `${com} · ${quandoFoi(partida.em)}`));
+    elemento('span', { class: 'perfil-lista-principal' }, `${partida.venceu ? '🏆' : '🎮'} ${mapa} · ⭐ ${plural(partida.pontos, 'ponto', 'pontos')}`),
+    elemento('span', { class: 'perfil-lista-detalhe' }, `👥 ${com} · 🕒 ${quandoFoi(partida.em)}`));
 }
 
 // raiz: the profile section of the home screen; campoNome: the nickname input (inside the home form).
@@ -93,9 +98,7 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
     const cor = corMostrada();
     if (typeof desenho.retratoSolto === 'function') {
       const quadro = elemento('canvas', { class: 'perfil-retrato', 'aria-hidden': 'true' });
-      const marca = desenho.marcaJogador(cor);
-      marca.classList.add('perfil-marca-canto');
-      boneco.replaceChildren(desenho.retratoSolto(quadro, { cor, pose: 'jogo' }), marca);
+      boneco.replaceChildren(desenho.retratoSolto(quadro, { cor, pose: 'jogo' }));
     } else {
       const marca = desenho.marcaJogador(cor);
       marca.classList.add('perfil-marca');
@@ -106,17 +109,19 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
   function desenharCores() {
     const atual = corEscolhida ? desenho.indiceCor(perfil.cor) : null;
     cores.replaceChildren(
-      elemento('span', { class: 'perfil-cores-rotulo', id: 'perfil-cores-rotulo' }, 'Sua cor'),
+      elemento('span', { class: 'perfil-cores-rotulo', id: 'perfil-cores-rotulo' }, 'ESCOLHA SEU EXÉRCITO'),
       ...Array.from({ length: CORES_DA_SALA }, (_, n) => {
         const marca = desenho.marcaJogador(n);
+        marca.querySelector('svg')?.remove();
+        marca.title = NOMES_CORES[n];
         // One tab stop for the group (the chosen color, or the first): the arrow keys move between colors.
         return elemento('button', {
           type: 'button',
           class: 'perfil-cor',
           role: 'radio',
           'aria-checked': String(atual === n),
-          'aria-label': `${desenho.SIMBOLOS[n].nome}`,
-          title: `Jogar com o ${desenho.SIMBOLOS[n].nome}`,
+          'aria-label': NOMES_CORES[n],
+          title: `Jogar com a cor ${NOMES_CORES[n]}`,
           tabindex: n === (atual ?? 0) ? '0' : '-1',
           onclick: () => escolherCor(n),
           onkeydown: evento => moverPelasSetas(evento, n),
@@ -141,7 +146,7 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
     // Never overwrite what someone already typed: only an empty field or the name shown last gets updated.
     if (campoNome.value === '' || campoNome.value === nomeMostrado) campoNome.value = perfil.nome;
     if (campoNome.value === perfil.nome) nomeMostrado = perfil.nome;
-    textoNumeros.textContent = numeros(perfil.estatisticas);
+    textoNumeros.replaceChildren(...numeros(perfil.estatisticas));
     const ultimas = (perfil.historico ?? []).slice(0, ULTIMAS_PARTIDAS);
     historicoLista.replaceChildren(...(ultimas.length
       ? ultimas.map(linhaDoHistorico)

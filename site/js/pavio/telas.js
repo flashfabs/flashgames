@@ -47,12 +47,12 @@ export function campeoes(estado) {
 export function legendaControles(toque) {
   if (toque) {
     return h('div', { class: 'pavio-legenda' },
-      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba. Com gelo, aparece o botão ❄️.'),
+      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba. Com gelo, molotov ou portal, aparecem os botões ❄️, 🍾 e 🚪. Toque no portal e escolha a direção no controle.'),
       h('p', {}, 'Teclado e controle de videogame também funcionam.'),
     );
   }
   return h('div', { class: 'pavio-legenda' },
-    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · ', h('kbd', {}, 'E'), ' joga gelo · controle de videogame também funciona'),
+    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · ', h('kbd', {}, 'F'), ' joga gelo · ', h('kbd', {}, 'Q'), ' usa molotov · ', h('kbd', {}, 'E'), ' e direção usam portal · controle de videogame também funciona'),
     h('p', {}, 'Segurando duas direções, você segue numa e vira na outra assim que der.'),
   );
 }

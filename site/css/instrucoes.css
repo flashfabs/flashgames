@@ -1,0 +1,17 @@
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 10% 0, #a74735, transparent 42%), linear-gradient(140deg, #552b50, #251a31 70%); color: #fff3e0; font: 16px/1.5 system-ui, sans-serif; }
+.guia { max-width: 1100px; margin: 0 auto; padding: 28px 22px 48px; }
+.voltar { display: inline-block; margin-bottom: 16px; color: #ffe29b; font-weight: 800; text-decoration: none; }
+.voltar:hover { text-decoration: underline; }
+.guia-banner { min-height: 180px; padding: 28px; display: flex; flex-direction: column; justify-content: end; border: 1px solid #efaa76; border-radius: 20px; background: linear-gradient(90deg, rgba(55,22,48,.96), rgba(65,25,43,.42)), url('../img/banner-salinha.webp') center / cover; }
+.chamada { color: #ffd582; letter-spacing: .12em; font-weight: 900; font-size: 12px; }
+h1 { font-size: clamp(34px, 5vw, 52px); line-height: 1; margin: 0; } .guia-banner p { margin: 8px 0 0; }
+section { margin-top: 18px; padding: 20px 24px; background: rgba(39, 27, 46, .9); border: 1px solid rgba(255, 207, 160, .22); border-radius: 18px; }
+h2 { margin: 0 0 8px; font-size: 22px; color: #ffe2a4; } section > p { margin: 8px 0; color: #f1dfd4; }
+.pontos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.ponto { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; background: #4b3046; border-radius: 12px; } .ponto strong { color: #ffcd6b; }
+.boosters { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin-top: 16px; }
+.booster { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 11px; background: #493046; border: 1px solid #78505b; border-radius: 12px; }
+.booster canvas { width: 48px; height: 48px; flex: none; } .booster h3 { margin: 0 0 3px; font-size: 15px; color: #ffdda1; text-transform: capitalize; } .booster p { margin: 0; color: #f5e5dc; font-size: 13px; line-height: 1.35; }
+.voltar--fim { margin: 22px 0 0; }
+@media (max-width: 600px) { .guia { padding: 16px 12px 32px; } .guia-banner { min-height: 150px; padding: 20px; } section { padding: 18px; } .pontos { grid-template-columns: 1fr; } .ponto { flex-direction: row; justify-content: space-between; } }

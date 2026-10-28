@@ -5,7 +5,9 @@ import { criarPavio } from './pavio/pavio.js';
 import { criarPerfil } from './perfil.js';
 import { registrarPartida } from './conta.js';
 import { criarConfiguracoes } from './configuracoes.js';
-import { marcaJogador } from './pavio/desenho.js';
+import { marcaJogador, VISUAL_ITEM, desenharSpriteItem } from './pavio/desenho.js';
+import { ITEM } from './pavio/regras.js';
+import { TAM } from './pavio/cenario.js';
 import { som } from './som.js';
 
 const MAX_MEMBROS = 8;
@@ -17,6 +19,69 @@ const telas = { inicio: $('#inicio'), sala: $('#sala') };
 const campoNome = $('#campo-nome');
 const campoCodigo = $('#campo-codigo');
 const mensagemInicio = $('#mensagem-inicio');
+
+// The game description opens on hover or keyboard focus; a click pins it until the next click.
+const botaoDetalhes = $('#pavio-detalhes-botao');
+const detalhesPavio = $('#pavio-detalhes');
+let detalhesFixados = false;
+let hoverSuprimido = false;
+function exibirDetalhes(exibir) {
+  detalhesPavio.hidden = !exibir;
+  botaoDetalhes.setAttribute('aria-expanded', String(exibir));
+}
+botaoDetalhes.addEventListener('mouseenter', () => { if (!hoverSuprimido) exibirDetalhes(true); });
+botaoDetalhes.addEventListener('mouseleave', () => { hoverSuprimido = false; if (!detalhesFixados) exibirDetalhes(false); });
+botaoDetalhes.addEventListener('focus', () => { if (!hoverSuprimido) exibirDetalhes(true); });
+botaoDetalhes.addEventListener('blur', () => { if (!detalhesFixados) exibirDetalhes(false); });
+botaoDetalhes.addEventListener('click', () => {
+  detalhesFixados = !detalhesFixados;
+  hoverSuprimido = !detalhesFixados;
+  exibirDetalhes(detalhesFixados);
+});
+
+// The instructions stay open while hovered, or until a second click when pinned.
+const areaInstrucoes = $('#instrucoes-area');
+const botaoInstrucoes = $('#instrucoes-botao');
+const resumoInstrucoes = $('#instrucoes-resumo');
+let instrucoesFixadas = false;
+let instrucoesSuprimidas = false;
+function exibirInstrucoes(exibir) {
+  resumoInstrucoes.hidden = !exibir;
+  botaoInstrucoes.setAttribute('aria-expanded', String(exibir));
+}
+areaInstrucoes.addEventListener('mouseenter', () => { if (!instrucoesSuprimidas) exibirInstrucoes(true); });
+areaInstrucoes.addEventListener('mouseleave', () => { instrucoesSuprimidas = false; if (!instrucoesFixadas) exibirInstrucoes(false); });
+areaInstrucoes.addEventListener('focusin', () => { if (!instrucoesSuprimidas) exibirInstrucoes(true); });
+areaInstrucoes.addEventListener('focusout', evento => { if (!areaInstrucoes.contains(evento.relatedTarget) && !instrucoesFixadas) exibirInstrucoes(false); });
+botaoInstrucoes.addEventListener('click', () => {
+  instrucoesFixadas = !instrucoesFixadas;
+  instrucoesSuprimidas = !instrucoesFixadas;
+  exibirInstrucoes(instrucoesFixadas);
+});
+const descricoesCurtas = {
+  [ITEM.BOMBA]: '+1 bomba por 35 s.', [ITEM.BOMBA2]: '+2 bombas por 35 s.',
+  [ITEM.FOGO]: '+1 alcance por 35 s.', [ITEM.FOGO2]: '+2 alcance por 35 s.', [ITEM.FOGO3]: '+3 alcance por 35 s.', [ITEM.FOGO5]: '+5 alcance por 35 s.',
+  [ITEM.TENIS]: 'Aumenta a velocidade.', [ITEM.ESCUDO]: 'Protege de 1 explosão.', [ITEM.ESCUDO2]: 'Protege de 2 explosões.',
+  [ITEM.PERFURANTE]: 'Fogo atravessa caixas por 35 s.', [ITEM.FANTASMA]: 'Atravessa caixas e bombas por 8 s.',
+  [ITEM.CHUTE]: 'Chuta bombas e bananas por 50 s; renova ao pegar outro.',
+  [ITEM.DETONADOR]: 'Aciona sua bomba; ela explode sozinha após 10 s.',
+  [ITEM.IMA]: 'Atrai itens próximos por 8 s.', [ITEM.GELO]: 'F congela uma bomba por 3 s.',
+  [ITEM.ATALHO]: 'E + direção atravessa obstáculos ou a borda.',
+  [ITEM.BANANA]: 'Atordoa quem pisa por 2,4 s.', [ITEM.MOLOTOV]: 'Q deixa fogo em uma área por 3 s.',
+};
+for (const item of Object.values(ITEM)) {
+  const visual = VISUAL_ITEM[item];
+  const linha = document.createElement('div'); linha.className = 'instrucoes-item';
+  const icone = document.createElement('canvas'); icone.width = icone.height = TAM; icone.setAttribute('aria-hidden', 'true');
+  desenharSpriteItem(icone.getContext('2d'), item);
+  const texto = document.createElement('span');
+  const nome = document.createElement('strong'); nome.textContent = item === ITEM.BANANA ? 'Banana' : visual.rotulo;
+  texto.append(nome, `: ${descricoesCurtas[item]}`); linha.append(icone, texto);
+  $('#instrucoes-lista').append(linha);
+}
+botaoDetalhes.addEventListener('keydown', evento => {
+  if (evento.key === 'Escape') { detalhesFixados = false; hoverSuprimido = true; exibirDetalhes(false); }
+});
 
 let salaAtual = null;
 let jogoAtual = null;
