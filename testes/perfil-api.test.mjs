@@ -176,6 +176,9 @@ test('conta.js works offline, then moves everything to the server, and the code 
     await assert.rejects(conta.recuperar('123'), /Código inválido/);
 
     armazem.dados.clear(); // the server lost its store
+    const aindaFresco = await conta.obterPerfil();
+    assert.equal(aindaFresco.local, false, 'a recent read is reused, without calling the server');
+    relogio.tick(21_000);
     const semServidor = await conta.obterPerfil();
     assert.equal(semServidor.local, true, 'an unknown credential is dropped');
     const refeito = await conta.obterPerfil();
