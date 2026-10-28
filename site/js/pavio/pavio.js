@@ -4,11 +4,13 @@
 
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
-  indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  indice, gradeVazia, moverComColisao, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  somarEstatisticasRodada, bloqueiaPrevisto,
 } from './regras.js';
 import { criarPintor, efeitoAtivo, marcaJogador, chaveDoTema, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarPassoFixo } from '../relogio.js';
+import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -161,10 +163,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     idPartida: 0,
     numero: 0, // match number inside the round, 1-based
     mapa: 0,
-    escalacao: [], // [{ id, nome, slot, cor }] of the current round
+    escalacao: [], // [{ id, nome, slot, cor, robo? }] of the current round; robo is the robot's level
     cores: {},
     prontos: [],
+    robos: [], // [{ id, nome, nivel }]: computer players added by the host, always ready
     placar: {}, // id -> { vitorias, caixas, eliminacoes } of the current round
+    estatisticas: null, // Partida.estatisticas() of the last match that ended
+    estatisticasRodada: {}, // id -> round totals, see somarEstatisticasRodada
     resultado: null,
     motivo: null,
     fimFaseEm: 0,
@@ -182,6 +187,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let gradeRestante = 0;
   let ultimaVersaoGrade = -1;
   const suavizados = new Map();
+  let cerebros = []; // robot brains of the current match
+  let contadorRobos = 0;
+  let nivelNovoRobo = 'medio';
 
   // Members only.
   let retratos = [];
@@ -248,6 +256,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
         informar();
         return;
       }
+      if (estado.fase === 'lobby') ajustarRobos();
       atribuirCores();
       estado.prontos = estado.prontos.filter(id => sala.membros.has(id));
       publicarEstado();
@@ -326,15 +335,60 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // ---- Host side ----
 
   function atribuirCores() {
-    const presentes = new Set(sala.membros.keys());
+    const jogadores = [...sala.membrosOrdenados(), ...estado.robos];
+    const presentes = new Set(jogadores.map(({ id }) => id));
     for (const id of Object.keys(estado.cores)) if (!presentes.has(id)) delete estado.cores[id];
     const usadas = new Set(Object.values(estado.cores));
-    for (const membro of sala.membrosOrdenados()) {
-      if (estado.cores[membro.id] !== undefined) continue;
+    for (const { id } of jogadores) {
+      if (estado.cores[id] !== undefined) continue;
       let cor = 0;
       while (usadas.has(cor)) cor++;
-      estado.cores[membro.id] = cor;
+      estado.cores[id] = cor;
       usadas.add(cor);
+    }
+  }
+
+  // ---- Robots (host only): computer players that fill the arena. They are not room members, so they never
+  // leave and never hold the round back. ----
+
+  function vagasParaRobos() {
+    return Math.max(0, MAX_JOGADORES - sala.membros.size);
+  }
+
+  // People have priority: robots that no longer fit make room for whoever joined.
+  function ajustarRobos() {
+    estado.robos = estado.robos.slice(0, vagasParaRobos());
+  }
+
+  function adicionarRobo() {
+    if (estado.fase !== 'lobby' || estado.robos.length >= vagasParaRobos()) return;
+    const usados = new Set(estado.robos.map(robo => robo.nome));
+    const nome = NOMES_ROBOS.map(apelido => `🤖 ${apelido}`).find(candidato => !usados.has(candidato)) ?? `🤖 Robô ${contadorRobos + 1}`;
+    contadorRobos += 1;
+    estado.robos = [...estado.robos, { id: `robo-${contadorRobos}`, nome, nivel: nivelNovoRobo }];
+    atribuirCores();
+    publicarEstado();
+  }
+
+  function removerRobo(id) {
+    if (estado.fase !== 'lobby') return;
+    estado.robos = estado.robos.filter(robo => robo.id !== id);
+    atribuirCores();
+    publicarEstado();
+  }
+
+  function trocarNivelRobo(id) {
+    if (estado.fase !== 'lobby') return;
+    const proximo = nivel => ORDEM_NIVEIS[(ORDEM_NIVEIS.indexOf(nivel) + 1) % ORDEM_NIVEIS.length];
+    estado.robos = estado.robos.map(robo => (robo.id === id ? { ...robo, nivel: proximo(robo.nivel) } : robo));
+    publicarEstado();
+  }
+
+  function moverRobos(dt) {
+    for (const cerebro of cerebros) {
+      const { d, d2, bomba } = cerebro.pensar(partida, dt);
+      partida.definirEntrada(cerebro.id, d, d2);
+      if (bomba) partida.pedirBomba(cerebro.id);
     }
   }
 
@@ -348,7 +402,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       escalacao: estado.escalacao,
       cores: estado.cores,
       prontos: estado.prontos,
+      robos: estado.robos,
       placar: estado.placar,
+      estatisticas: estado.estatisticas,
+      estatisticasRodada: estado.estatisticasRodada,
       resultado: estado.resultado,
       motivo: estado.motivo,
       restante: Math.max(0, restanteFase),
@@ -418,8 +475,14 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function comecarRodada() {
     atribuirCores();
     const membros = sala.membrosOrdenados().slice(0, MAX_JOGADORES);
-    estado.escalacao = membros.map(membro => ({ id: membro.id, nome: membro.nome, slot: 0, cor: estado.cores[membro.id] }));
-    estado.placar = Object.fromEntries(membros.map(membro => [membro.id, { ...ZERO }]));
+    const robos = estado.robos.slice(0, MAX_JOGADORES - membros.length);
+    estado.escalacao = [
+      ...membros.map(membro => ({ id: membro.id, nome: membro.nome, slot: 0, cor: estado.cores[membro.id] })),
+      ...robos.map(robo => ({ id: robo.id, nome: robo.nome, slot: 0, cor: estado.cores[robo.id], robo: robo.nivel })),
+    ];
+    estado.placar = Object.fromEntries(estado.escalacao.map(item => [item.id, { ...ZERO }]));
+    estado.estatisticas = null;
+    estado.estatisticasRodada = {};
     estado.numero = 0;
     estado.motivo = null;
     comecarPartida();
@@ -432,10 +495,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const slots = embaralhar([...estado.escalacao.keys()]);
     estado.escalacao = estado.escalacao.map((item, n) => ({ ...item, slot: slots[n] }));
     estado.resultado = null;
+    // Robots are local players of the host's simulation: their brains give the input on every step.
     partida = new Partida(
-      estado.escalacao.map(({ id, slot }) => ({ id, slot, remoto: id !== sala.meuId })),
+      estado.escalacao.map(({ id, slot, robo }) => ({ id, slot, remoto: id !== sala.meuId && !robo })),
       { mapa: MAPAS[estado.mapa] },
     );
+    cerebros = estado.escalacao.filter(item => item.robo).map(item => criarRobo({ id: item.id, nivel: item.robo }));
     partida.definirEntrada(sala.meuId, entrada.d, entrada.d2);
     eventosPendentes = [];
     ultimaVersaoGrade = -1;
@@ -445,7 +510,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function somarEstatisticas(vencedor) {
-    for (const { id, caixas, eliminacoes } of partida.estatisticas()) {
+    estado.estatisticas = partida.estatisticas();
+    estado.estatisticasRodada = somarEstatisticasRodada(estado.estatisticasRodada, estado.estatisticas);
+    for (const { id, caixas, eliminacoes } of estado.estatisticas) {
       const placar = estado.placar[id];
       if (!placar) continue;
       placar.caixas += caixas;
@@ -475,6 +542,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
 
   function voltarAoLobby() {
     partida = null;
+    cerebros = [];
+    ajustarRobos();
     estado.escalacao = [];
     estado.prontos = [];
     estado.placar = {};
@@ -499,6 +568,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       restanteFase -= dt;
       if (restanteFase <= 0) mudarFase('jogo');
     } else if (estado.fase === 'jogo') {
+      moverRobos(dt);
       partida.passo(dt);
       if (partida.resultado) encerrarPartida(partida.resultado);
     } else {
@@ -553,7 +623,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const vista = partida.vista();
     const k = 1 - Math.exp(-dt * 18);
     vista.j = vista.j.map((jogador, n) => {
-      if (estado.escalacao[n]?.id === sala.meuId) return jogador;
+      // The host's own player and the robots move inside this simulation: nothing to smooth.
+      if (estado.escalacao[n]?.id === sala.meuId || estado.escalacao[n]?.robo) return jogador;
       const suave = suavizados.get(n);
       if (!suave || Math.abs(suave.x - jogador.x) + Math.abs(suave.y - jogador.y) > 2) {
         suavizados.set(n, { x: jogador.x, y: jogador.y });
@@ -583,7 +654,16 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     estado.escalacao = Array.isArray(mensagem.escalacao) ? mensagem.escalacao.slice(0, MAX_JOGADORES) : [];
     estado.cores = mensagem.cores && typeof mensagem.cores === 'object' ? mensagem.cores : {};
     estado.prontos = Array.isArray(mensagem.prontos) ? mensagem.prontos.map(String) : [];
+    estado.robos = Array.isArray(mensagem.robos)
+      ? mensagem.robos.slice(0, MAX_JOGADORES).map(robo => ({
+        id: String(robo?.id ?? ''),
+        nome: String(robo?.nome ?? '🤖'),
+        nivel: NIVEIS_ROBO[robo?.nivel] ? robo.nivel : 'medio',
+      }))
+      : [];
     estado.placar = mensagem.placar && typeof mensagem.placar === 'object' ? mensagem.placar : {};
+    estado.estatisticas = Array.isArray(mensagem.estatisticas) ? mensagem.estatisticas : null;
+    estado.estatisticasRodada = mensagem.estatisticasRodada && typeof mensagem.estatisticasRodada === 'object' ? mensagem.estatisticasRodada : {};
     estado.resultado = mensagem.resultado ?? null;
     estado.motivo = typeof mensagem.motivo === 'string' ? mensagem.motivo : null;
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
@@ -681,13 +761,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function bloqueiaLocal(x, y) {
-    if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return true;
-    const celula = gradeAtual.g[indice(x, y)];
-    if (celula === PAREDE) return true;
-    if (local.fantasma) return false;
-    if (celula === CAIXA) return true;
-    // A sliding bomb sits between two cells and blocks both.
-    return bombasVisiveis.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(local, bx, by));
+    return bloqueiaPrevisto(gradeAtual.g, bombasVisiveis, local, x, y);
   }
 
   // Kicked bombs slide between snapshots: draw them (and collide with them) where they should be by now.
@@ -941,6 +1015,54 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     return barra;
   }
 
+  // Robots are always ready; the host sees buttons to change their level and to take them out.
+  function linhaRobo(robo, n) {
+    const nivel = NIVEIS_ROBO[robo.nivel]?.nome ?? robo.nivel;
+    const cor = estado.cores[robo.id] ?? n;
+    return h('li', { class: 'pronto pavio-prontos-robo' },
+      h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, 'pronto'), marcaJogador(cor)),
+      h('span', { class: 'pavio-prontos-texto' },
+        h('span', { class: 'pavio-prontos-nome' }, robo.nome),
+        sala.souAnfitriao
+          ? h('button', {
+            class: 'pavio-robo-nivel',
+            type: 'button',
+            title: 'Trocar a dificuldade',
+            'aria-label': `${robo.nome}: ${nivel}. Trocar a dificuldade`,
+            onclick: () => trocarNivelRobo(robo.id),
+          }, nivel)
+          : h('span', { class: 'pavio-prontos-estado' }, `robô ${nivel.toLowerCase()}`)),
+      sala.souAnfitriao && h('button', {
+        class: 'pavio-robo-tirar',
+        type: 'button',
+        title: 'Tirar o robô',
+        'aria-label': `Tirar ${robo.nome}`,
+        onclick: () => removerRobo(robo.id),
+      }, '✕'));
+  }
+
+  // Host only: pick the level of the next robot and add it.
+  function controlesRobos() {
+    if (!sala.souAnfitriao) return null;
+    return h('div', { class: 'pavio-robos' },
+      h('span', {}, 'Robôs:'),
+      ORDEM_NIVEIS.map(nivel => h('button', {
+        class: 'pavio-robo-nivel',
+        type: 'button',
+        'aria-pressed': String(nivel === nivelNovoRobo),
+        onclick: () => {
+          nivelNovoRobo = nivel;
+          chaveAviso = '';
+        },
+      }, NIVEIS_ROBO[nivel].nome)),
+      h('button', {
+        class: 'botao botao--secundario botao--pequeno',
+        type: 'button',
+        disabled: estado.robos.length >= vagasParaRobos(),
+        onclick: () => adicionarRobo(),
+      }, '+ Robô'));
+  }
+
   function cartaoLobby() {
     const membros = sala.membrosOrdenados();
     const prontos = new Set(estado.prontos);
@@ -956,13 +1078,18 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           h('span', { class: 'pavio-prontos-nome' }, membro.nome, eu && h('span', { class: 'pavio-prontos-voce' }, ' (você)')),
           h('span', { class: 'pavio-prontos-estado' }, pronto ? '✅ pronto' : '⏳ esperando')),
       );
-    }));
+    }), estado.robos.map((robo, n) => linhaRobo(robo, membros.length + n)));
     let situacao = 'Todo mundo pronto!';
     if (faltam) situacao = faltam === 1 && !estouPronto ? 'Só falta você.' : `Esperando ${faltam} ${faltam === 1 ? 'pessoa ficar pronta' : 'pessoas ficarem prontas'}.`;
+    const robos = estado.robos.length;
+    let dica = situacao;
+    if (membros.length === 1 && robos) dica = `Você contra ${robos} ${robos === 1 ? 'robô' : 'robôs'}. Fique pronto para começar.`;
+    else if (membros.length === 1) dica = 'Mande o link lá de cima pra galera ou chame robôs. Sozinho vira treino.';
     return [
       h('h2', { class: 'pavio-titulo' }, 'Pavio'),
       h('p', { class: 'pavio-subtitulo' }, `Rodada de ${TOTAL_PARTIDAS} partidas: cada uma num mapa mais fechado e com poderes novos.`),
       lista,
+      controlesRobos(),
       h('button', {
         class: estouPronto ? 'botao botao--secundario' : 'botao botao--grande',
         type: 'button',
@@ -971,7 +1098,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
           sala.enviarAoAnfitriao({ t: 'pronto', v: !estouPronto });
         },
       }, estouPronto ? 'Cancelar pronto' : 'Estou pronto'),
-      h('p', { class: 'pavio-dica' }, membros.length > 1 ? situacao : 'Mande o link lá de cima pra galera. Sozinho vira treino.'),
+      h('p', { class: 'pavio-dica' }, dica),
       legendaControles(toqueDisponivel),
     ];
   }
@@ -1133,16 +1260,16 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function jogadoresDoLobby() {
-    return sala.membrosOrdenados().slice(0, MAX_JOGADORES).map((membro, n) => ({
+    return [...sala.membrosOrdenados(), ...estado.robos].slice(0, MAX_JOGADORES).map((jogador, n) => ({
       x: SPAWNS[n][0],
       y: SPAWNS[n][1],
       v: 1,
       o: DIRECAO.BAIXO,
       a: 0,
-      cor: estado.cores[membro.id] ?? n,
-      nome: membro.nome,
-      eu: membro.id === sala.meuId,
-      pronto: estado.prontos.includes(membro.id),
+      cor: estado.cores[jogador.id] ?? n,
+      nome: jogador.nome,
+      eu: jogador.id === sala.meuId,
+      pronto: jogador.nivel !== undefined || estado.prontos.includes(jogador.id),
     }));
   }
 

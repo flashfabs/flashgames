@@ -10,7 +10,7 @@
 import { criarTique } from './relogio.js';
 import { configuracaoIce, modoDaRede } from './rede.js';
 
-const VERSAO_PROTOCOLO = 5;
+const VERSAO_PROTOCOLO = 7;
 const PREFIXO_ID = `salinha-v${VERSAO_PROTOCOLO}-`;
 const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const TAMANHO_CODIGO = 5;

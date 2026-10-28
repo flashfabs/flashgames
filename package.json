@@ -5,6 +5,8 @@
   "scripts": {
     "test": "node --test testes/*.test.mjs",
     "e2e": "playwright test",
+    "fumaca": "playwright test --config playwright.fumaca.config.mjs",
+    "publicar": "scripts/preparar-publicacao.sh",
     "serve": "python3 -m http.server 8805 --directory site"
   },
   "devDependencies": {
@@ -12,5 +14,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.7"
   }
 }
