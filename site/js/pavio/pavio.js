@@ -10,6 +10,7 @@ import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_I
 import { criarControles, temToque } from './controles.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
+import { criarRegistro } from './registro.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -168,6 +169,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     motivo: null,
     fimFaseEm: 0,
   };
+  const registro = criarRegistro({ meuId: () => sala.meuId });
   // Scores when the current match started, for the "+N this match" column on the results.
   let placarInicio = { idPartida: -1, placar: {} };
 
@@ -848,6 +850,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // ---- Shared ----
 
   function aoEntrarNaFase(fase) {
+    registro.aoMudarFase(estado);
     chaveAviso = '';
     controles.definirModo({ jogando: (fase === 'contagem' || fase === 'jogo') && meuIndice() >= 0, toqueVisivel: toqueDisponivel });
     som.musica(MUSICA_DA_FASE[fase] ?? null);
