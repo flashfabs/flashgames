@@ -47,6 +47,10 @@ Rascunho de 03:20, revisado no fim da noite.
 | 03:11 | 1 (jornada) | `b29f064` | Últimas partidas e ranking das partidas com amigos na página inicial. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas. |
 | 03:22 | 1 (jornada) | `b7b7104` | Polimento no celular a partir de um passeio em produção; cor escolhida cedo fica guardada. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, fumaça 4 de 4; imagem do lobby no celular atualizada. |
 
+## Capturas da noite
+
+Tiradas às 04:10 na `main` `38abbff` (o mesmo site de produção `b7b7104`), com o canvas desenhado pela GPU, num iPad deitado e num celular em pé, com dois robôs: [pasta](capturas-2026-10-28/). Página inicial ([iPad](capturas-2026-10-28/01-inicio-ipad.jpg)), convite pelo link ([celular](capturas-2026-10-28/02-convite-celular.jpg)), lobby com QR ([iPad](capturas-2026-10-28/03-lobby-com-qr-ipad.jpg), [celular](capturas-2026-10-28/04-lobby-celular.jpg)), contagem ([iPad](capturas-2026-10-28/05-contagem-ipad.jpg)), partida ([iPad](capturas-2026-10-28/06-partida-ipad.jpg), [celular](capturas-2026-10-28/07-partida-celular.jpg), [Muralhas no iPad](capturas-2026-10-28/10-partida-muralhas-ipad.jpg)), resumo da partida ([iPad](capturas-2026-10-28/08-resumo-ipad.jpg), [celular](capturas-2026-10-28/09-resumo-celular.jpg)) e pódio da rodada ([iPad](capturas-2026-10-28/11-podio-ipad.jpg), [celular](capturas-2026-10-28/12-podio-celular.jpg)). Para gerar de novo: `SALINHA_GALERIA=<pasta> npx playwright test galeria` (cerca de 9 min).
+
 ## Situação das frentes
 
 - Frente 1 (jornada, telas, perfil): P0, P1 e P2 entregues (perfil, lobby novo com convite e QR, entrada e saída, resumos, dicas, configurações, teclado e leitor de tela, polimento no celular); segue em polimento.
@@ -88,6 +92,7 @@ A sessão principal revisou o commit `13747d9` (robôs com a `main` dentro) com 
 
 ## Problemas conhecidos
 
+- 04:15, aberto (avisado à frente 1): no celular em pé, durante a partida, a arena ocupa só o alto da tela, sobra um vão grande no meio e o joystick e o botão de bomba ficam por cima do painel "Na sala" no rodapé. No iPad e no celular deitado está certo. Captura: [07-partida-celular.jpg](capturas-2026-10-28/07-partida-celular.jpg).
 - Instabilidade de rede nos testes: com a suíte inteira em 2 processos, dois cenários falharam uma vez e passaram na nova tentativa às 02:30 (acessibilidade do lobby e página desatualizada da frente 1, que depende do servidor de sinalização responder "sala inexistente" a tempo). Isolados, passaram 24 de 24. O de acessibilidade ganhou uma espera pelas animações de entrada (o axe pegava um cartão ainda transparente).
 - 01:30, corrigido às 01:38: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
 

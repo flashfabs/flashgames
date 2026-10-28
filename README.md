@@ -96,6 +96,8 @@ Um segundo teste de desempenho põe o anfitrião sozinho com 7 robôs difíceis,
 
 Medido em 28/10/2026 às 01:55, `main` com o visual novo, GPU ligada e densidade 2x: sala com 8 pessoas a 57 fps no normal e 60 fps com a CPU 4x mais lenta (quadro p95 16,8 ms, trabalho por quadro p95 0,9 ms e 2,8 ms, nenhuma tarefa longa); anfitrião com 7 robôs difíceis a 60 fps nos dois casos (trabalho por quadro p95 0,7 ms e 2,6 ms, tique p95 0,6 ms e 3 ms).
 
+Galeria de capturas, fora da suíte normal: `SALINHA_GALERIA=<pasta> npx playwright test galeria` joga uma rodada inteira num iPad e num celular com dois robôs e salva capturas (JPEG) da página inicial, do convite, do lobby com QR, da contagem, da partida, do resumo e do pódio, com o canvas desenhado pela GPU (cerca de 9 min).
+
 Teste longo, fora da suíte normal: `SALINHA_LONGO=1 npx playwright test longo` joga uma rodada inteira com o anfitrião e 7 robôs difíceis (cerca de 13 min) e mede, depois de cada partida, a memória JavaScript (depois de coletar o lixo), o número de nós do DOM e os quadros por segundo; reprova se a memória ou o DOM dobrarem. Em 28/10/2026 às 02:58: memória de 3,8 MB no começo para 5,2 MB no fim (cerca de 0,1 MB por partida depois da primeira), DOM estável em ~400 nós, sem vazamento.
 
 O que os testes de ponta a ponta ainda não cobrem: Safari e Firefox (só Chromium), rede ruim ou retransmissor TURN (as páginas estão na mesma máquina), fechar a aba em vez de clicar em "Sair" (a queda só é percebida pelo silêncio de 12 s), o anfitrião saindo, a morte súbita, os poderes de cada mapa, pontos por caixa na tela de resultado, a rodada completa de 5 partidas e o controle de videogame.

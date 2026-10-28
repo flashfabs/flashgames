@@ -41,8 +41,8 @@ export default defineConfig({
   workers: Number(process.env.SALINHA_PROCESSOS ?? 1),
   fullyParallel: false,
   projects: [
-    { name: 'funcionais', testIgnore: /(desempenho|longo)\.spec\.mjs$/ },
-    { name: 'desempenho', testMatch: /(desempenho|longo)\.spec\.mjs$/, use: { launchOptions: { args: [...ARGUMENTOS, ...COM_GPU] } } },
+    { name: 'funcionais', testIgnore: /(desempenho|longo|galeria)\.spec\.mjs$/ },
+    { name: 'desempenho', testMatch: /(desempenho|longo|galeria)\.spec\.mjs$/, use: { launchOptions: { args: [...ARGUMENTOS, ...COM_GPU] } } },
   ],
   // The free signaling server sometimes takes long to answer; a retry tells a flaky network from a broken game.
   retries: 1,
