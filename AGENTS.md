@@ -23,7 +23,7 @@ Site público de jogos com a galera, sem cadastro: alguém cria uma sala, manda 
 ## Convenções
 
 - Textos da interface em português do Brasil; comentários e commits em inglês.
-- Os identificadores do código estão em português. Isso contraria a regra global do Victor (nomes em inglês); a troca está pendente de decisão dele. Não renomear por conta própria: daria conflito com todas as outras sessões.
+- Os identificadores do código ficam em português neste projeto, por decisão do Victor em 27/10/2026 (exceção à regra global de nomes em inglês). Código novo segue o mesmo padrão.
 - Nunca usar hard wrap em texto (uma frase por linha), inclusive em Markdown e commits.
 - Rodar `node --test testes/*.test.mjs` antes de cada commit; teste novo para regra nova.
 - Nada de conta nova, serviço pago ou credencial sem o Victor aprovar antes.
