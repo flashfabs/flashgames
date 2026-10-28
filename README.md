@@ -32,11 +32,46 @@ O site é estático, sem build. Para abrir localmente (abrir duas abas, criar a 
 python3 -m http.server 8792 --directory site
 ```
 
-Testes das regras do jogo (Node 22, sem dependências):
+Os testes automáticos estão na seção [Testes](#testes).
+
+## Testes
+
+Duas suítes, as duas rodando na raiz do repositório:
+
+- `npm test`: testes das regras do jogo (`testes/*.test.mjs`, Node 22, sem dependências, menos de 1 s).
+- `npm run e2e`: testes de ponta a ponta (`testes/e2e/*.spec.mjs`) com Playwright e Chromium sem janela; cada jogador é um navegador de verdade na sua própria página. A suíte toda leva cerca de 1 min 30 s.
+
+Na primeira vez numa máquina nova, instalar as dependências e o Chromium do Playwright:
 
 ```bash
-node --test testes/*.test.mjs
+npm install
 ```
+
+```bash
+npx playwright install chromium
+```
+
+Como funcionam os de ponta a ponta:
+
+- O Playwright sobe o site em `http://127.0.0.1:8805` (`python3 -m http.server`) e o derruba no fim; a porta precisa estar livre.
+- A sinalização é a do PeerJS na internet (`0.peerjs.com`), igual à produção, então os testes precisam de internet; a fonte e o PeerJS também vêm de CDN. Por isso há 1 nova tentativa automática por teste: um teste que só passa na segunda aparece como `flaky` no relatório, o que aponta rede instável e não defeito do jogo.
+- Cada jogador tem o seu próprio contexto de navegador (página e armazenamento próprios), porque página em segundo plano não roda `requestAnimationFrame`. Os testes rodam um de cada vez.
+- O estado do jogo é lido pelo gancho `window.__salinha`, que `site/js/app.js` só instala quando o endereço tem `?teste=1` (os testes abrem `/?teste=1` e o link do convite com `?teste=1`). Ele só lê: `__salinha.sala()` devolve código, link, id e membros, e `__salinha.jogo()` devolve uma cópia do estado da rodada e da partida, vinda de `espiar()` no objeto que `criarPavio` devolve em `site/js/pavio/pavio.js`. Quem mexer no formato do estado do Pavio deve manter `espiar()` funcionando.
+- Para planejar os movimentos, a página do anfitrião de alguns testes recebe um `Math.random` puxado para `[0,9, 1)` (função `semCaixas` em `testes/e2e/mesa.mjs`): a arena sai sem caixas e sem itens e cada jogador nasce no canto da sua ordem de entrada (anfitrião em (1, 1), o segundo em (19, 13) e assim por diante). O teste de desempenho usa o mapa normal, com caixas e itens.
+- Os jogadores andam pelas setas do teclado (ou por toque, no iPad), seguindo um caminho calculado sobre a grade lida do jogo (`andarAte` em `testes/e2e/mesa.mjs`).
+- Qualquer erro de JavaScript numa página reprova o teste. Quando um teste falha, o console de todas as páginas e o rastro do Playwright ficam em `test-results/` (`npx playwright show-trace <arquivo>`).
+
+O que cada cenário cobre:
+
+- `sala.spec.mjs`, entrada e largada: o anfitrião cria a sala e 4 convidados entram pelo link do convite; todos veem os 5 nomes e a coroa do anfitrião; com 4 prontos o anfitrião vê "Só falta você." e a rodada não começa; quando ele marca pronto, todos veem "Partida 1 de 5 · Pátio" e a partida começa. Um convidado anda 2 casas e o anfitrião vê a posição nova; ele solta uma bomba, que aparece para o anfitrião e para outro convidado, foge da explosão e continua vivo depois que ela estoura.
+- `sala.spec.mjs`, saída no meio: anfitrião e 2 convidados em partida; um convidado clica em "Sair" e volta ao início; para os outros dois a rodada acaba com "Rodada interrompida" e o motivo "<nome> saiu da sala, então a rodada acabou.", o placar final lista os 3 e "Voltar ao lobby agora" leva todos de volta ao lobby.
+- `pontos.spec.mjs`, eliminação e placar: anfitrião e convidada andam até se encontrar na linha de cima; a bomba da convidada elimina o anfitrião; a tela de resultado mostra "Íris venceu a partida! 🏆" (e "Você venceu a partida! 🏆" para ela), o placar com 1 vitória, 0 caixas, 1 eliminação e 20 pontos (5 + 15) para ela e tudo zero para ele, a legenda dos pontos e ⭐ 20 na lista da sala; depois do resultado, a partida 2 (Depósito) começa sozinha.
+- `toque.spec.mjs`, iPad: um iPad (7ª geração, deitado, toque ativo) entra na sala de um computador. Antes, numa página comum, o teste confirma que os gestos de pinça e de rolar do navegador de teste funcionam, para a checagem valer. No lobby o iPad mostra as instruções de toque e ainda não tem camada de toque, e a sala não rola nem aumenta com pinça; com a partida começando, a camada de toque e a dica 💣 aparecem (no computador, não); arrastar o dedo no lado esquerdo anda e o anfitrião vê; tocar no lado direito solta bomba; rolar e fazer pinça durante o jogo não mexem na página.
+- `desempenho.spec.mjs`, desempenho com 8 jogadores: sala cheia (os 7 convidados entram ao mesmo tempo), mapa normal, convidados andando a esmo e 3 deles soltando bombas; por 8 s mede o intervalo entre quadros e o tempo gasto em cada quadro no anfitrião e num convidado, e o tempo de cada tique da simulação no anfitrião. Os números saem no console a cada execução e anexados ao relatório; os limites que reprovam são folgados (quadro p95 abaixo de 40 ms, trabalho por quadro e tique p95 abaixo de 8 ms), feitos para pegar uma piora grande e não variação de máquina. O anfitrião e o convidado medidos rodam cada um no seu próprio Chromium: com as 8 páginas num navegador só, o processo de GPU em software que elas dividem segura tudo em ~20 fps, mesmo com o jogo gastando 0,3 ms por quadro (com 2 páginas são 60 fps).
+
+Números medidos em 27/10/2026, MacBook Pro M5 Pro, Chromium 153 sem janela, 8 jogadores: anfitrião e convidado a 60 fps (quadro p50 e p95 de 16,7 ms, pior quadro 50 ms), trabalho por quadro de 0,3 ms (p50) e 0,6 ms (p95), tique da simulação do anfitrião de 0,1 a 0,2 ms (p95), nenhuma tarefa longa.
+
+O que os testes de ponta a ponta ainda não cobrem: Safari e Firefox (só Chromium), rede ruim ou retransmissor TURN (as páginas estão na mesma máquina), fechar a aba em vez de clicar em "Sair" (a queda só é percebida pelo silêncio de 12 s), o anfitrião saindo, a morte súbita, os poderes de cada mapa, pontos por caixa na tela de resultado, a rodada completa de 5 partidas e o controle de videogame.
 
 ## Publicação
 
