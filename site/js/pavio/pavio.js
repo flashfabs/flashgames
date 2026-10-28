@@ -157,6 +157,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let tremor = 0;
   let chaveAviso = '';
   let refContagem = null;
+  let faseDoAviso = null;
   let ultimaContagem = null;
   let ultimoHud = '';
   let ultimoTotal = 0;
@@ -279,12 +280,14 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   function atribuirCores() {
     const jogadores = [...sala.membrosOrdenados(), ...estado.robos];
     const presentes = new Set(jogadores.map(({ id }) => id));
-    for (const id of Object.keys(estado.cores)) if (!presentes.has(id)) delete estado.cores[id];
+    for (const id of Object.keys(estado.cores)) if (!presentes.has(id) || estado.cores[id] >= MAX_JOGADORES) delete estado.cores[id];
     const usadas = new Set(Object.values(estado.cores));
     for (const { id } of jogadores) {
       if (estado.cores[id] !== undefined) continue;
       let cor = 0;
       while (usadas.has(cor)) cor++;
+      // A ninth player (a person joining while robots fill the arena) only watches: no color until one frees up.
+      if (cor >= MAX_JOGADORES) continue;
       estado.cores[id] = cor;
       usadas.add(cor);
     }
@@ -480,6 +483,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     partida = null;
     cerebros = [];
     ajustarRobos();
+    // A robot that made room frees its color for whoever joined meanwhile.
+    atribuirCores();
     estado.escalacao = [];
     estado.prontos = [];
     estado.placar = {};
@@ -926,6 +931,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function montarAviso({ jogando, morto }) {
+    // Rebuilding the card in the same phase (someone got ready, a robot was added) keeps where it was scrolled.
+    const rolagem = faseDoAviso === estado.fase ? el.aviso.scrollTop : 0;
+    faseDoAviso = estado.fase;
     refContagem = null;
     let conteudo = [];
     let estilo = 'cartao';
@@ -955,7 +963,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     el.aviso.className = `pavio-aviso pavio-aviso--${estilo}`;
     el.aviso.hidden = conteudo.length === 0;
     el.aviso.replaceChildren(...(estilo === 'cartao' ? [h('div', { class: 'pavio-cartao' }, conteudo)] : conteudo));
-    el.aviso.scrollTop = 0;
+    el.aviso.scrollTop = rolagem;
   }
 
   function atualizarAviso(vista, agoraMs) {

@@ -63,7 +63,8 @@ export function linhasPoder(itens = []) {
     const visual = VISUAL_ITEM[item];
     const icone = h('span', { class: 'pavio-poder-icone', 'aria-hidden': 'true' }, visual.emoji);
     icone.style.setProperty('--fundo', visual.fundo);
-    return h('p', { class: 'pavio-poder' }, icone, h('span', {}, 'Poder novo: ', h('strong', {}, visual.nome), ` · ${DESCRICAO_ITEM[item]}`));
+    return h('p', { class: 'pavio-poder' }, icone, h('span', {},
+      'Poder novo: ', h('strong', {}, visual.nome), h('span', { class: 'pavio-poder-descricao' }, ` · ${DESCRICAO_ITEM[item]}`)));
   });
 }
 
@@ -179,19 +180,24 @@ export function criarTelas({ pintor }) {
     const prontos = new Set(estado.prontos);
     const estouPronto = prontos.has(meuId);
     const faltam = membros.filter(membro => !prontos.has(membro.id)).length;
+    // Someone whose link dropped holds the start back until they are back (or the room lets them go).
+    const caidos = membros.filter(membro => membro.fora);
     const lista = h('ul', { class: 'pavio-prontos' }, membros.map((membro, n) => {
-      const pronto = prontos.has(membro.id);
+      const pronto = prontos.has(membro.id) && !membro.fora;
       const eu = membro.id === meuId;
       const cor = estado.cores[membro.id] ?? n;
-      return h('li', { class: [pronto && 'pronto', eu && 'eu'].filter(Boolean).join(' ') },
+      let situacaoMembro = pronto ? '✅ pronto' : '⏳ esperando';
+      if (membro.fora) situacaoMembro = '📶 reconectando';
+      return h('li', { class: [pronto && 'pronto', eu && 'eu', membro.fora && 'fora'].filter(Boolean).join(' ') },
         h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, pronto ? 'pronto' : 'jogo'), marcaJogador(cor)),
         h('span', { class: 'pavio-prontos-texto' },
           h('span', { class: 'pavio-prontos-nome' }, membro.nome, eu && h('span', { class: 'pavio-prontos-voce' }, ' (você)')),
-          h('span', { class: 'pavio-prontos-estado' }, pronto ? '✅ pronto' : '⏳ esperando')),
+          h('span', { class: 'pavio-prontos-estado' }, situacaoMembro)),
       );
     }), estado.robos.map((robo, n) => linhaRobo(tela, robo, membros.length + n)));
     let situacao = 'Todo mundo pronto!';
     if (faltam) situacao = faltam === 1 && !estouPronto ? 'Só falta você.' : `Esperando ${faltam} ${faltam === 1 ? 'pessoa ficar pronta' : 'pessoas ficarem prontas'}.`;
+    else if (caidos.length) situacao = caidos.length === 1 ? `Esperando ${caidos[0].nome} reconectar.` : `Esperando ${caidos.length} pessoas reconectarem.`;
     const robos = estado.robos.length;
     let dica = situacao;
     if (membros.length === 1 && robos) dica = `Você contra ${robos} ${robos === 1 ? 'robô' : 'robôs'}. Fique pronto para começar.`;
