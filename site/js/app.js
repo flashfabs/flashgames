@@ -1,0 +1,317 @@
+// Site shell: home screen, room screen and member list. Games plug in through the room (Sala).
+
+import { Sala, normalizarCodigo, limparNome } from './sala.js';
+import { criarPavio } from './pavio/pavio.js';
+import { CORES } from './pavio/desenho.js';
+import { som } from './som.js';
+
+const CHAVE_NOME = 'salinha:nome';
+const APELIDOS = ['Faísca', 'Pólvora', 'Estopim', 'Fagulha', 'Chispa', 'Brasa', 'Rojão', 'Traque', 'Fumaça', 'Pavio'];
+const MAX_MEMBROS = 8;
+const DURACAO_AVISO_MS = 3200;
+
+const $ = seletor => document.querySelector(seletor);
+const telas = { inicio: $('#inicio'), sala: $('#sala') };
+const campoNome = $('#campo-nome');
+const campoCodigo = $('#campo-codigo');
+const mensagemInicio = $('#mensagem-inicio');
+
+let salaAtual = null;
+let jogoAtual = null;
+const INFO_VAZIA = Object.freeze({ fase: 'lobby', cores: {}, prontos: [], pontos: {}, escalacao: [] });
+let infoJogo = INFO_VAZIA;
+let codigoConvite = null;
+let ocupado = false;
+
+function lerNomeSalvo() {
+  try {
+    return localStorage.getItem(CHAVE_NOME);
+  } catch {
+    return null;
+  }
+}
+
+function salvarNome(nome) {
+  try {
+    localStorage.setItem(CHAVE_NOME, nome);
+  } catch {
+    // Storage may be blocked (private mode); the name just won't be remembered.
+  }
+}
+
+function nomeSorteado() {
+  const apelido = APELIDOS[Math.floor(Math.random() * APELIDOS.length)];
+  return `${apelido} ${10 + Math.floor(Math.random() * 90)}`;
+}
+
+function codigoDoEndereco() {
+  return normalizarCodigo(location.hash.slice(1)) ?? normalizarCodigo(new URLSearchParams(location.search).get('sala'));
+}
+
+function mostrarTela(nome) {
+  for (const [chave, tela] of Object.entries(telas)) tela.hidden = chave !== nome;
+  // The room screen is locked to the viewport: no page scroll, bounce or text selection while playing.
+  document.documentElement.classList.toggle('em-sala', nome === 'sala');
+  window.scrollTo(0, 0);
+}
+
+function mostrarMensagem(texto, tipo = 'erro') {
+  mensagemInicio.textContent = texto ?? '';
+  mensagemInicio.className = tipo === 'info' ? 'mensagem mensagem--info' : 'mensagem';
+  mensagemInicio.hidden = !texto;
+}
+
+function definirOcupado(valor, texto = null) {
+  ocupado = valor;
+  for (const botao of document.querySelectorAll('#form-inicio button')) botao.disabled = valor;
+  if (texto) mostrarMensagem(texto, 'info');
+}
+
+function lerNome() {
+  const nome = limparNome(campoNome.value);
+  campoNome.value = nome;
+  salvarNome(nome);
+  return nome;
+}
+
+function prepararInicio() {
+  codigoConvite = codigoDoEndereco();
+  campoNome.value = lerNomeSalvo() || nomeSorteado();
+  $('#convite').hidden = !codigoConvite;
+  $('#sem-convite').hidden = Boolean(codigoConvite);
+  $('#convite-codigo').textContent = codigoConvite ?? '';
+  mostrarMensagem(null);
+}
+
+async function criarSala() {
+  if (ocupado) return;
+  const nome = lerNome();
+  definirOcupado(true, 'Abrindo a sala…');
+  try {
+    const sala = await Sala.criar({ nome, maxMembros: MAX_MEMBROS });
+    mostrarMensagem(null);
+    abrirSala(sala);
+  } catch (erro) {
+    console.error('Failed to create room', erro);
+    mostrarMensagem(erro.message || 'Não consegui criar a sala.');
+  } finally {
+    definirOcupado(false);
+  }
+}
+
+async function entrarNaSala(codigo) {
+  if (ocupado) return;
+  const nome = lerNome();
+  definirOcupado(true, `Entrando na sala ${codigo}…`);
+  try {
+    const sala = await Sala.entrar(codigo, { nome });
+    mostrarMensagem(null);
+    abrirSala(sala);
+  } catch (erro) {
+    console.error('Failed to join room', erro);
+    mostrarMensagem(erro.message || 'Não consegui entrar na sala.');
+  } finally {
+    definirOcupado(false);
+  }
+}
+
+function abrirSala(sala) {
+  salaAtual = sala;
+  infoJogo = INFO_VAZIA;
+  history.replaceState(null, '', `${location.pathname}#${sala.codigo}`);
+  $('#sala-codigo').textContent = sala.codigo;
+  $('#queda').hidden = true;
+  mostrarTela('sala');
+  sala.on('membros', desenharMembros);
+  sala.on('qualidade', desenharMembros);
+  sala.on('entrou', membro => avisar(`${membro.nome} entrou na sala`));
+  sala.on('saiu', membro => avisar(`${membro.nome} saiu da sala`));
+  sala.on('caiu', motivo => mostrarQueda(motivo));
+  jogoAtual = criarPavio({
+    sala,
+    palco: $('#palco'),
+    som,
+    aoMudarInfo: info => {
+      infoJogo = info;
+      desenharMembros();
+    },
+  });
+  desenharMembros();
+}
+
+function fecharSala() {
+  jogoAtual?.destruir();
+  jogoAtual = null;
+  salaAtual?.sair();
+  salaAtual = null;
+}
+
+function voltarAoInicio({ manterEndereco = false } = {}) {
+  fecharSala();
+  if (!manterEndereco) history.replaceState(null, '', location.pathname);
+  prepararInicio();
+  mostrarTela('inicio');
+}
+
+function mostrarQueda(motivo) {
+  $('#queda-motivo').textContent = motivo;
+  $('#queda').hidden = false;
+}
+
+function etiqueta(texto, classe = '', titulo = null) {
+  const elemento = document.createElement('span');
+  elemento.className = `etiqueta ${classe}`.trim();
+  elemento.textContent = texto;
+  if (titulo) elemento.title = titulo;
+  return elemento;
+}
+
+function desenharMembros() {
+  const sala = salaAtual;
+  if (!sala) return;
+  const membros = sala.membrosOrdenados();
+  const naRodada = new Set(infoJogo.escalacao.map(item => item.id));
+  const prontos = new Set(infoJogo.prontos);
+  $('#contagem-membros').textContent = `${membros.length}/${MAX_MEMBROS}`;
+  $('#lista-membros').replaceChildren(...membros.map((membro, n) => {
+    const item = document.createElement('li');
+    const cor = document.createElement('span');
+    cor.className = 'membro-cor';
+    cor.style.setProperty('--cor', (CORES[infoJogo.cores[membro.id] ?? n] ?? CORES[0]).base);
+    const nome = document.createElement('span');
+    nome.className = 'membro-nome';
+    nome.textContent = membro.nome;
+    item.append(cor, nome);
+    if (membro.id === sala.idAnfitriao) item.append(etiqueta('👑', 'etiqueta--icone', 'Anfitrião da sala'));
+    if (membro.id === sala.meuId) item.append(etiqueta('você', 'etiqueta--eu'));
+    if (infoJogo.fase === 'lobby') {
+      item.append(etiqueta(prontos.has(membro.id) ? '✅' : '⏳', 'etiqueta--icone', prontos.has(membro.id) ? 'Pronto' : 'Ainda não está pronto'));
+    } else if (!naRodada.has(membro.id)) {
+      item.append(etiqueta('assistindo'));
+    } else {
+      item.append(etiqueta(`⭐ ${infoJogo.pontos[membro.id] ?? 0}`, 'etiqueta--pontos', 'Pontos na rodada'));
+    }
+    if (membro.id !== sala.idAnfitriao) item.append(etiquetaDeConexao(membro));
+    return item;
+  }));
+}
+
+// Round trip to the host. "via retransmissor" means the direct link failed and traffic goes through TURN.
+function etiquetaDeConexao(membro) {
+  if (membro.ping === null || membro.ping === undefined) return etiqueta('…', 'etiqueta--ping', 'Medindo a conexão');
+  const ping = Math.round(membro.ping);
+  const nivel = ping < 80 ? 'boa' : ping < 160 ? 'media' : 'ruim';
+  const titulo = membro.relay
+    ? `${ping} ms até o anfitrião, via retransmissor (a conexão direta não funcionou)`
+    : `${ping} ms até o anfitrião`;
+  return etiqueta(`${membro.relay ? '🐢 ' : ''}${ping} ms`, `etiqueta--ping etiqueta--${nivel}`, titulo);
+}
+
+function avisar(texto) {
+  const lista = $('#avisos');
+  const aviso = document.createElement('div');
+  aviso.className = 'aviso-toast';
+  aviso.textContent = texto;
+  lista.append(aviso);
+  while (lista.children.length > 4) lista.firstElementChild.remove();
+  setTimeout(() => aviso.remove(), DURACAO_AVISO_MS);
+}
+
+async function compartilharLink() {
+  if (!salaAtual) return;
+  const link = salaAtual.link;
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ title: 'Bora jogar Pavio?', text: 'Entra na minha sala:', url: link });
+      return;
+    }
+    await navigator.clipboard.writeText(link);
+    avisar('Link copiado! Manda pra galera.');
+  } catch (erro) {
+    if (erro?.name === 'AbortError') return;
+    console.warn('Copying the link failed, showing it instead', erro);
+    window.prompt('Copie o link da sala:', link);
+  }
+}
+
+function atualizarBotaoSom() {
+  const botao = $('#botao-som');
+  botao.textContent = som.mudo ? '🔇' : '🔊';
+  botao.setAttribute('aria-label', som.mudo ? 'Ligar o som' : 'Desligar o som');
+}
+
+$('#form-inicio').addEventListener('submit', evento => {
+  evento.preventDefault();
+  if (codigoConvite) entrarNaSala(codigoConvite);
+  else criarSala();
+});
+
+$('#botao-ignorar-convite').addEventListener('click', () => {
+  history.replaceState(null, '', location.pathname);
+  prepararInicio();
+});
+
+function entrarPeloCampo() {
+  const codigo = normalizarCodigo(campoCodigo.value);
+  if (!codigo) {
+    mostrarMensagem('Código inválido: são 5 letras e números, como K7Q2M.');
+    campoCodigo.focus();
+    return;
+  }
+  entrarNaSala(codigo);
+}
+
+$('#botao-entrar-codigo').addEventListener('click', entrarPeloCampo);
+campoCodigo.addEventListener('keydown', evento => {
+  if (evento.key !== 'Enter') return;
+  evento.preventDefault();
+  entrarPeloCampo();
+});
+
+$('#botao-copiar').addEventListener('click', compartilharLink);
+$('#botao-sair').addEventListener('click', () => voltarAoInicio());
+$('#botao-som').addEventListener('click', () => {
+  som.alternar();
+  atualizarBotaoSom();
+});
+$('#botao-reconectar').addEventListener('click', () => {
+  const codigo = salaAtual?.codigo ?? codigoConvite;
+  voltarAoInicio({ manterEndereco: true });
+  if (codigo) entrarNaSala(codigo);
+});
+$('#botao-nova-sala').addEventListener('click', () => {
+  voltarAoInicio();
+  criarSala();
+});
+
+window.addEventListener('hashchange', () => {
+  if (!salaAtual) prepararInicio();
+});
+window.addEventListener('beforeunload', evento => {
+  // Warn the host: closing the tab closes the room for everyone.
+  if (salaAtual?.souAnfitriao && salaAtual.membros.size > 1) {
+    evento.preventDefault();
+    evento.returnValue = '';
+  }
+});
+window.addEventListener('pagehide', () => salaAtual?.sair());
+
+// Safari on iPad ignores user-scalable=no, so pinch and double-tap zoom are blocked here.
+for (const tipo of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(tipo, evento => evento.preventDefault(), { passive: false });
+}
+document.addEventListener('touchmove', evento => {
+  if (evento.touches.length > 1) evento.preventDefault();
+}, { passive: false });
+let ultimoToque = 0;
+document.addEventListener('touchend', evento => {
+  const agora = performance.now();
+  const interativo = evento.target instanceof Element && evento.target.closest('input, textarea, select, button, a');
+  if (!interativo && agora - ultimoToque < 320) evento.preventDefault();
+  ultimoToque = agora;
+}, { passive: false });
+
+som.instalar();
+atualizarBotaoSom();
+prepararInicio();
+mostrarTela('inicio');

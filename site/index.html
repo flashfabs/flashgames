@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Salinha · Pavio</title>
+  <meta name="description" content="Jogos rápidos com a galera, direto no navegador. Crie uma sala, mande o link e jogue Pavio, uma arena de bombas para até 8 pessoas.">
+  <meta name="theme-color" content="#0e141c">
+  <meta property="og:title" content="Salinha · Pavio">
+  <meta property="og:description" content="Crie uma sala, mande o link e jogue com até 8 pessoas. Sem cadastro.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='28' cy='36' r='22' fill='%231d2127'/%3E%3Cpath d='M42 18q6-8 12-6' stroke='%23c9a26b' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='55' cy='11' r='7' fill='%23ff922b'/%3E%3Ccircle cx='55' cy='11' r='3.5' fill='%23fff3bf'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="css/estilo.css">
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <main id="inicio" class="inicio">
+    <div class="inicio-cartao">
+      <div class="marca"><span class="marca-icone" aria-hidden="true"></span>Salinha</div>
+      <p class="inicio-lema">Jogos rápidos com a galera, direto no navegador. Sem cadastro: crie uma sala e mande o link.</p>
+
+      <section class="jogo-destaque" aria-labelledby="titulo-jogo">
+        <h1 id="titulo-jogo">Pavio</h1>
+        <p>Arena de bombas para 2 a 8 pessoas. Rodadas de 5 partidas, cada uma num mapa mais fechado e com um poder novo. Caixa destruída, eliminação e vitória valem pontos.</p>
+      </section>
+
+      <form id="form-inicio" class="formulario" autocomplete="off" novalidate>
+        <label for="campo-nome">Seu nome</label>
+        <input id="campo-nome" name="nome" maxlength="16" enterkeyhint="go">
+
+        <div id="convite" class="convite" hidden>
+          <p>Você foi chamado para a sala <strong id="convite-codigo"></strong>.</p>
+          <button type="submit" class="botao botao--grande">Entrar na sala</button>
+          <button type="button" class="botao-link" id="botao-ignorar-convite">Criar outra sala</button>
+        </div>
+
+        <div id="sem-convite">
+          <button type="submit" class="botao botao--grande">Criar sala</button>
+          <div class="divisor"><span>ou entre com um código</span></div>
+          <div class="linha-codigo">
+            <input id="campo-codigo" placeholder="K7Q2M" maxlength="7" autocapitalize="characters" spellcheck="false" aria-label="Código da sala">
+            <button type="button" class="botao botao--secundario" id="botao-entrar-codigo">Entrar</button>
+          </div>
+        </div>
+
+        <p id="mensagem-inicio" class="mensagem" role="status" hidden></p>
+      </form>
+
+      <p class="rodape">WASD ou setas para andar · Espaço solta bomba · controle de videogame funciona<br>No celular e no iPad: arraste no lado esquerdo e toque no lado direito</p>
+    </div>
+  </main>
+
+  <div id="sala" class="sala" hidden>
+    <header class="sala-topo">
+      <div class="marca marca--pequena"><span class="marca-icone" aria-hidden="true"></span>Salinha</div>
+      <div class="sala-codigo">
+        <span class="rotulo">Sala</span>
+        <strong id="sala-codigo"></strong>
+        <button id="botao-copiar" class="botao botao--pequeno" type="button">Copiar link</button>
+      </div>
+      <div class="sala-acoes">
+        <button id="botao-som" class="botao-icone" type="button" aria-label="Som">🔊</button>
+        <button id="botao-sair" class="botao botao--pequeno botao--secundario" type="button">Sair</button>
+      </div>
+    </header>
+
+    <div class="sala-corpo">
+      <section id="palco" class="palco" aria-label="Jogo"></section>
+      <aside class="painel">
+        <h2>Na sala <span id="contagem-membros"></span></h2>
+        <ul id="lista-membros" class="lista-membros"></ul>
+        <p class="painel-dica">Quem abrir o link entra direto. Quem chega no meio da rodada assiste e entra na próxima. O número é o ping até o anfitrião; 🐢 indica conexão por retransmissor, mais lenta.</p>
+      </aside>
+    </div>
+
+    <div id="queda" class="queda" hidden>
+      <div class="queda-cartao" role="alertdialog" aria-labelledby="queda-titulo">
+        <h2 id="queda-titulo">Conexão perdida</h2>
+        <p id="queda-motivo"></p>
+        <div class="queda-acoes">
+          <button id="botao-reconectar" class="botao" type="button">Tentar de novo</button>
+          <button id="botao-nova-sala" class="botao botao--secundario" type="button">Criar nova sala</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+</body>
+</html>
