@@ -265,6 +265,39 @@ test('a full arena of robots of every level plays each map to the end', () => {
   }
 });
 
+test('a robot with ice and no way out freezes the bomb and runs', () => {
+  // Column 1 below the bomb is a dead end too long to leave before the fuse; to the right, crates.
+  const montar = gelo => {
+    const grade = gradeVazia();
+    for (let y = 2; y <= 9; y++) grade[indice(2, y)] = CAIXA;
+    const partida = new Partida([{ id: 'r', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: () => 0.99 });
+    const [r, b] = partida.jogadores;
+    b.x = 1;
+    b.y = 3;
+    b.alcance = 6;
+    partida.pedirBomba('b');
+    partida.passo(DT);
+    b.x = 19;
+    b.y = 13;
+    partida.bombas[0].restante = 0.9;
+    r.x = 1;
+    r.y = 5;
+    r.gelo = gelo;
+    return { partida, r };
+  };
+  const semGelo = montar(0);
+  jogarComRobos(semGelo.partida, [criarRobo({ id: 'r', nivel: 'dificil', sorteio: () => 0.5 })], 1.5);
+  assert.equal(semGelo.r.vivo, false, 'without ice there is no way out');
+  const comGelo = montar(2);
+  let congelou = false;
+  jogarComRobos(comGelo.partida, [criarRobo({ id: 'r', nivel: 'dificil', sorteio: () => 0.5 })], 5, partida => {
+    congelou ||= partida.bombas.some(bomba => bomba.congelada > 0);
+  });
+  assert.ok(congelou, 'the bomb was frozen');
+  assert.equal(comGelo.r.vivo, true);
+  assert.equal(comGelo.r.gelo, 1, 'one shot was enough');
+});
+
 test('robot levels and helpers are consistent', () => {
   assert.deepEqual(ORDEM_NIVEIS, ['facil', 'medio', 'dificil']);
   for (const nivel of ORDEM_NIVEIS) assert.ok(NIVEIS[nivel].nome);

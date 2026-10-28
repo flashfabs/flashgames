@@ -398,9 +398,39 @@ function perigoDoPasso(partida, id) {
 // input for the robot's player: { d, d2, bomba }.
 // Hands one robot decision to the match, as a person's input would arrive. A robot's bomb press never waits
 // for a later cell: its way out was planned from where it decided.
-export function aplicarAcaoDoRobo(partida, id, { d, d2, bomba }) {
+export function aplicarAcaoDoRobo(partida, id, { d, d2, bomba, gelo }) {
   partida.definirEntrada(id, d, d2);
   if (bomba) partida.pedirBomba(id, { espera: 0 });
+  if (gelo) partida.jogarGelo(id);
+}
+
+// With ice and no safe way out: the direction of a bomb in line that, frozen, leaves a way out (or none).
+// The shot must get there before the fuse runs out; a bomb right next to us is skipped when we can kick,
+// because facing it would kick it instead.
+export function geloQueSalva(partida, eu, origem, passo, margem = MARGEM_S) {
+  // One shot at a time: the one in flight has not frozen anything yet.
+  if (!(eu.gelo > 0) || partida.gelos?.some(tiro => tiro.dono === eu.id)) return null;
+  for (const [dx, dy, direcao] of BRACOS.map(([dx, dy], k) => [dx, dy, [DIRECAO.CIMA, DIRECAO.BAIXO, DIRECAO.ESQUERDA, DIRECAO.DIREITA][k]])) {
+    for (let k = 1; k <= AJUSTES.alcanceGelo; k++) {
+      const x = xDe(origem) + dx * k;
+      const y = yDe(origem) + dy * k;
+      const i = indice(x, y);
+      const celula = partida.grade[i];
+      if (celula === PAREDE || celula === CAIXA || celula === undefined) break;
+      const bomba = partida.bombas.find(b => b.x === x && b.y === y);
+      if (!bomba) {
+        if (partida.jogadores.some(j => j.vivo && j !== eu && Math.abs(j.x - x) < 0.99 && Math.abs(j.y - y) < 0.99)) break;
+        continue;
+      }
+      const chega = (k - 0.5) / AJUSTES.velocidadeGelo + margem;
+      if (bomba.congelada > 0 || bomba.restante <= chega || (k === 1 && eu.chute)) break;
+      const simulada = { ...partida, bombas: partida.bombas.map(b => (b === bomba ? { ...b, congelada: AJUSTES.congelarS } : b)) };
+      const perigo = mapaDePerigo(simulada, [], { eu: eu.id });
+      if (livre(perigo, origem, 0, SEGURO_S, margem) || rotaDeFuga(simulada, perigo, origem, { passo, margem })) return direcao;
+      break;
+    }
+  }
+  return null;
 }
 
 export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
@@ -411,6 +441,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
   let arriscando = false; // the plan is the best of no safe way out: only fire already burning stops it
   let objetivo = -1;
   let relogio = sorteio() * ajustes.reacao; // robots do not all think on the same step
+  let gelo = DIRECAO.NENHUMA; // facing this way for one step throws ice
   let pausa = 0;
 
   const adotar = (rota, agora) => rota.map(({ celula, saida }) => ({ celula, apos: agora + saida }));
@@ -433,6 +464,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
         ?? rotaDeFuga(partida, perigo, origem, { passo, margem });
       arriscando = !rota;
       plano = adotar(rota ?? rotaMenosRuim(partida, perigo, origem, passo), partida.tempo);
+      if (!rota) gelo = geloQueSalva(partida, eu, origem, passo, margem) ?? DIRECAO.NENHUMA;
       return false;
     }
     arriscando = false;
@@ -636,6 +668,11 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
       if (relogio <= 0) {
         relogio = ajustes.reacao * (0.75 + sorteio() * 0.5);
         if (decidir(partida, eu, perigo, passo)) return { ...PARADO, bomba: true };
+      }
+      if (gelo) {
+        const direcao = gelo;
+        gelo = DIRECAO.NENHUMA;
+        return { d: direcao, d2: DIRECAO.NENHUMA, bomba: false, gelo: true };
       }
       return seguir(partida, eu, perigo, passo);
     },
