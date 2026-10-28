@@ -561,5 +561,15 @@ export function criarCenario() {
     return camada;
   };
 
-  return { atualizar, get tema() { return tema; } };
+  // For animations on the main canvas (ctx already scaled): the bare floor of a cell, and the block of a cell.
+  const piso = (ctx, x, y) => {
+    const lado = Math.round(TAM * escala);
+    ctx.drawImage(base, Math.round(x * TAM * escala), Math.round(y * TAM * escala), lado, lado, x * TAM, y * TAM, TAM, TAM);
+  };
+  const bloco = (ctx, x, y, py = y * TAM) => {
+    const semente = sementeCelula(y * COLUNAS + x, 0xb10c);
+    desenharBloco(ctx, x, y, x * TAM, py, k => aleatorio(semente, k));
+  };
+
+  return { atualizar, piso, bloco, get tema() { return tema; } };
 }

@@ -1318,6 +1318,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       gl: vista?.gl ?? [],
       agora,
       efeitos,
+      fase: estado.fase,
       contagem: estado.fase === 'contagem',
       subita: estado.fase === 'jogo' && Boolean(vista) && (Number(vista.tm) || 0) >= (vista.ms ?? 120),
     });

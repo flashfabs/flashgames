@@ -76,7 +76,7 @@ const PALETA = {
 const FONTE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 const FONTE_TEXTO = 'Rubik, system-ui, sans-serif';
 const FONTE_NOME = `700 12px ${FONTE_TEXTO}`;
-const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.5, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9 };
+const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.75, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9 };
 // Ground effects are drawn under bombs and players; the rest on top of everything.
 const EFEITOS_DO_CHAO = new Set(['explosao', 'caixa', 'bloco']);
 const OLHAR = { [DIRECAO.ESQUERDA]: [-3.5, 0], [DIRECAO.DIREITA]: [3.5, 0], [DIRECAO.BAIXO]: [0, 2] };
@@ -85,6 +85,9 @@ const ESCALA_MAX = 3;
 const QUADRO_LENTO_MS = 21; // average frame interval above this lowers the resolution
 const QUADRO_FOLGADO_MS = 17.8; // and below this, for a while, lets it climb back
 const PIXELS_LUZ = 8; // light map resolution, per tile
+const ABERTURA_S = 1.1; // the map sweeps in and the players drop onto their spots when the countdown starts
+const FINAL_S = 1.3; // slow motion and zoom on the winner after the last elimination
+const QUEDA_BLOCO_S = 0.22; // a sudden death block falls this long before it lands
 const caminhosSimbolos = [];
 
 const limitar = (valor, min, max) => Math.min(max, Math.max(min, valor));
@@ -773,7 +776,10 @@ function efeitoCaixa(ctx, cx, cy, idade, semente, reduzido, tema) {
 }
 
 function efeitoBloco(ctx, cx, cy, idade, semente, reduzido) {
-  const p = idade / DURACAO_EFEITO.bloco;
+  // The dust rises when the block lands (the fall itself is drawn by the painter).
+  const queda = reduzido ? 0 : QUEDA_BLOCO_S;
+  if (idade < queda) return;
+  const p = (idade - queda) / (DURACAO_EFEITO.bloco - queda);
   ctx.globalAlpha = 0.4 * (1 - p);
   ctx.fillStyle = PALETA.poeira;
   for (let k = 0; k < (reduzido ? 1 : 4); k++) {
@@ -1043,9 +1049,12 @@ export function criarPintor(canvas) {
   const retratos = new Map(); // canvas -> { ctx, cor, pose }
   const movimentoReduzido = matchMedia('(prefers-reduced-motion: reduce)');
   let gradientesSubita = null;
+  // Opening of a match and its finale: when they started and where the camera focuses.
+  const transicao = { contagem: false, abertaEm: -9, vivos: 0, finalEm: -9, foco: null };
   // Per player (by color): step phase, speed and the moments it turned, picked an item or dropped a bomb.
   const animacoes = new Map();
   let bombasVistas = new Set();
+  let efeitosDaCena = [];
   let agoraAnterior = 0;
   let brilhoLuz = null;
   let temaDoBrilho = null;
@@ -1189,6 +1198,74 @@ export function criarPintor(canvas) {
     bombasVistas = bombas;
   };
 
+  const acompanharTransicoes = (cena, agora) => {
+    if (cena.contagem && !transicao.contagem) transicao.abertaEm = agora;
+    transicao.contagem = Boolean(cena.contagem);
+    const vivos = cena.j.filter(jogador => jogador.v);
+    if (cena.fase !== 'jogo') {
+      if (cena.fase === 'contagem') transicao.finalEm = -9;
+    } else if (vivos.length < transicao.vivos && vivos.length <= 1) {
+      // The last elimination: focus on whoever is left, or on where the last one fell.
+      const morte = cena.efeitos.filter(efeito => efeito.tipo === 'morte').at(-1);
+      const alvo = vivos[0] ?? morte;
+      if (alvo) {
+        transicao.finalEm = agora;
+        transicao.foco = { x: (alvo.x + 0.5) * TAM, y: (alvo.y + 0.5) * TAM };
+      }
+    }
+    transicao.vivos = vivos.length;
+  };
+
+  // Where each player is in the opening drop: hidden before its turn, then falling with a bounce.
+  const quedaDeAbertura = (n, agora) => {
+    const t = agora - transicao.abertaEm - 0.25 - n * 0.07;
+    if (t >= 0.4) return 0;
+    if (t < 0) return null;
+    const k = t / 0.4;
+    return TAM * 2.2 * (1 - voltaPorCima(k));
+  };
+
+  // A dark curtain that sweeps off the arena to the right while the countdown starts.
+  const desenharCortina = (agora, tema) => {
+    const k = (agora - transicao.abertaEm) / (ABERTURA_S * 0.7);
+    if (k >= 1) return;
+    const borda = TAM * 2.5;
+    const x = -borda + (LARGURA + borda * 2) * suavizarSaida(Math.max(0, k));
+    const gradiente = ctx.createLinearGradient(x - borda, 0, x, 0);
+    gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradiente.addColorStop(1, tema.borda[2]);
+    ctx.fillStyle = gradiente;
+    ctx.fillRect(x - borda, 0, borda, ALTURA);
+    ctx.fillStyle = tema.borda[2];
+    ctx.fillRect(x, 0, LARGURA - x + TAM, ALTURA);
+  };
+
+  // A sudden death block falling onto its cell, with its shadow growing below, until it lands.
+  const desenharQuedasDeBloco = agora => {
+    for (const efeito of efeitosDaCena) {
+      if (efeito.tipo !== 'bloco') continue;
+      const idade = agora - efeito.inicio;
+      if (idade < 0 || idade >= QUEDA_BLOCO_S) continue;
+      const k = idade / QUEDA_BLOCO_S;
+      cenario.piso(ctx, efeito.x, efeito.y);
+      ctx.fillStyle = `rgba(0, 0, 0, ${(0.15 + k * 0.35).toFixed(3)})`;
+      elipse(ctx, (efeito.x + 0.5) * TAM, (efeito.y + 0.8) * TAM, TAM * (0.25 + k * 0.2), TAM * (0.08 + k * 0.06));
+      ctx.fill();
+      cenario.bloco(ctx, efeito.x, efeito.y, efeito.y * TAM - TAM * 1.8 * (1 - k * k));
+    }
+  };
+
+  // Darkens everything but the focus of the finale.
+  const desenharVinhetaFinal = noFinal => {
+    const { x, y } = transicao.foco;
+    const forca = Math.min(1, noFinal / 0.4) * (noFinal > FINAL_S - 0.3 ? (FINAL_S - noFinal) / 0.3 : 1);
+    const gradiente = ctx.createRadialGradient(x, y, TAM * 1.2, x, y, TAM * 7);
+    gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradiente.addColorStop(1, `rgba(0, 0, 0, ${(0.55 * forca).toFixed(3)})`);
+    ctx.fillStyle = gradiente;
+    ctx.fillRect(-LARGURA, -ALTURA, LARGURA * 3, ALTURA * 3);
+  };
+
   // Explosions shake the screen more the closer they are to you, and gently while you watch.
   const tremorDosado = (cena, agora) => {
     const eu = cena.j.find(jogador => jogador.eu && jogador.v);
@@ -1254,9 +1331,14 @@ export function criarPintor(canvas) {
     ajustarResolucao();
     const escala = qualidade.escala;
     const reduzido = movimentoReduzido.matches;
-    const agora = cena.agora;
     const fixa = cenario.atualizar(cena, escala);
     const tema = cenario.tema;
+    acompanharTransicoes(cena, cena.agora);
+    // The finale slows the visual clock down; the game itself keeps its pace.
+    const noFinal = cena.agora - transicao.finalEm;
+    const lento = !reduzido && noFinal >= 0 && noFinal < FINAL_S;
+    const agora = lento ? transicao.finalEm + noFinal * 0.35 : cena.agora;
+    efeitosDaCena = cena.efeitos;
     atualizarAnimacoes(cena, agora);
     const tremor = reduzido ? 0 : tremorDosado(cena, agora);
     const tx = tremor > 0.2 ? Math.sin(agora * 57) * tremor * 0.5 : 0;
@@ -1264,8 +1346,14 @@ export function criarPintor(canvas) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = tema.borda[2];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.setTransform(escala, 0, 0, escala, tx * escala, ty * escala);
+    let zoom = 1;
+    if (lento && transicao.foco) zoom = 1 + 0.28 * suavizarSaida(Math.min(1, noFinal / 0.5));
+    // Zooming around the focus point never shows anything outside the arena.
+    const foco = transicao.foco ?? { x: 0, y: 0 };
+    const k = escala * zoom;
+    ctx.setTransform(k, 0, 0, k, (tx + foco.x * (1 - zoom)) * escala, (ty + foco.y * (1 - zoom)) * escala);
     ctx.drawImage(fixa, 0, 0, LARGURA, ALTURA);
+    if (!reduzido) desenharQuedasDeBloco(agora);
     for (const efeito of cena.efeitos) if (efeito.tipo === 'explosao') desenharMancha(ctx, efeito, agora);
     desenharLuz(cena, tema, agora);
     for (let i = 0; i < cena.g.length; i++) {
@@ -1280,21 +1368,32 @@ export function criarPintor(canvas) {
       if (!VISUAL_ITEM[item]) continue;
       ctx.drawImage(sprite(item), (x + 0.15) * TAM, (y + 0.15) * TAM, TAM * 0.7, TAM * 0.7);
     }
-    const vivos = cena.j.filter(j => j.v).sort((a, b) => a.y - b.y);
-    const topos = vivos.map(jogador => desenharJogador(ctx, jogador, agora, reduzido, animacoes.get(indiceCor(jogador.cor))));
+    const abrindo = !reduzido && cena.contagem && agora - transicao.abertaEm < ABERTURA_S;
+    const vivos = cena.j
+      .map((jogador, n) => ({ jogador, queda: abrindo ? quedaDeAbertura(n, agora) : 0 }))
+      .filter(({ jogador, queda }) => jogador.v && queda !== null)
+      .sort((a, b) => a.jogador.y - b.jogador.y);
+    const topos = vivos.map(({ jogador, queda }) => {
+      if (queda) ctx.translate(0, -queda);
+      const topo = desenharJogador(ctx, jogador, agora, reduzido, animacoes.get(indiceCor(jogador.cor)));
+      if (queda) ctx.translate(0, queda);
+      return topo - queda;
+    });
     if (!reduzido && tema.ambiente) desenharAmbiente(ctx, tema.ambiente, agora);
     // Tags go after every body, so a character walking below never covers someone's name.
     const escalaTela = (canvas.clientWidth || LARGURA) / LARGURA;
     const escalaRotulo = limitar(0.6 / escalaTela, 1, 2);
     const comNome = escalaTela >= 0.45;
-    vivos.forEach((jogador, n) => {
+    vivos.forEach(({ jogador }, n) => {
       const cx = (jogador.x + 0.5) * TAM;
       const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
       desenharRotulo(ctx, cx, topos[n], chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
     });
     for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);
-    desenharRetratos(agora, reduzido);
+    if (abrindo) desenharCortina(agora, tema);
+    if (noFinal >= 0 && noFinal < FINAL_S && transicao.foco) desenharVinhetaFinal(noFinal);
+    desenharRetratos(cena.agora, reduzido);
   };
 
   // Small animated character drawn on an HTML screen (lobby, results, podium); it stops being drawn
