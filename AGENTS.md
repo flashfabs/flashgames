@@ -9,7 +9,8 @@ Site público de jogos com a galera, sem cadastro: alguém cria uma sala, manda 
 ## Estrutura
 
 - `site/` é o que vai para o ar (estático, sem build). `site/js/sala.js` é a camada de sala comum a todos os jogos; `site/js/pavio/` é o jogo (`regras.js` simulação pura, `pavio.js` fluxo de rodada, rede e quadro, `desenho.js` canvas, `controles.js` teclado, toque e controle).
-- `testes/` tem os testes das regras: `node --test testes/*.test.mjs` (Node 22, sem dependências).
+- `site/js/rede.js` escolhe os servidores STUN/TURN e `netlify/functions/ice.mjs` gera as credenciais do TURN da Cloudflare (`/api/ice`).
+- `testes/` tem os testes das regras e da rede: `node --test testes/*.test.mjs` (Node 22, sem dependências).
 
 ## Trabalho em paralelo (várias sessões ao mesmo tempo)
 

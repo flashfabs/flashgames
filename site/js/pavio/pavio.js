@@ -208,6 +208,13 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       partida?.removerJogador(membro.id);
       finalizarRodada(`${membro.nome} saiu da sala, então a rodada acabou.`);
     }),
+    // A member whose link dropped stands still (and can still be hit) until it comes back or the room drops it.
+    sala.on('fora', membro => {
+      if (!sala.souAnfitriao) return;
+      const jogador = partida?.jogadores.find(item => item.id === membro.id);
+      if (jogador) jogador.andando = false;
+    }),
+    sala.on('reconectou', () => sala.enviarAoAnfitriao({ t: 'pedirEstado' })),
   ];
 
   function ajustarArena() {
@@ -229,7 +236,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       partida?.pedirBomba(sala.meuId);
       return;
     }
-    if (!local.ativo || !local.vivo) return;
+    if (!local.ativo || !local.vivo || !sala.conectada) return;
     // The bomb travels on the reliable channel together with the position it was dropped at.
     sala.enviarAoAnfitriao({ t: 'bomba', ...posicaoLocal() });
   }
@@ -315,7 +322,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // The round starts by itself once everyone in the room is ready.
   function verificarLargada() {
     if (estado.fase !== 'lobby' || !sala.membros.size) return;
-    if (sala.membrosOrdenados().every(membro => estado.prontos.includes(membro.id))) comecarRodada();
+    if (sala.membrosOrdenados().every(membro => estado.prontos.includes(membro.id) && !membro.fora)) comecarRodada();
   }
 
   function comecarRodada() {
@@ -585,7 +592,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function passoLocal(dt, agora) {
-    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo) {
+    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo || !sala.conectada) {
       local.andando = false;
       return;
     }
@@ -595,7 +602,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function enviarPosicao(agora) {
-    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo) return;
+    if (sala.souAnfitriao || estado.fase !== 'jogo' || !local.ativo || !local.vivo || !sala.conectada) return;
     const chave = `${local.x.toFixed(2)},${local.y.toFixed(2)},${local.olhar},${local.andando}`;
     const mudou = chave !== ultimaPosicaoEnviada;
     if (!(mudou && agora - ultimoEnvioPosicao >= INTERVALO_POSICAO_MS) && agora - ultimoEnvioPosicao < POSICAO_PARADA_MS) return;
