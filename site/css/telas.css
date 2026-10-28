@@ -674,3 +674,15 @@
 .membro-nome {
   min-width: 4.5em;
 }
+
+/* Portrait touch play: the player list would sit under the stick and the bomb button (the touch layer covers it anyway), so it steps aside during the countdown and the match, and the arena is centered above a strip kept for the thumbs. */
+@media (orientation: portrait) and (max-width: 900px) {
+  .sala:has(.pavio-toque:not([hidden])) .painel {
+    display: none;
+  }
+
+  .sala:has(.pavio-toque:not([hidden])) .pavio {
+    justify-content: center;
+    padding-bottom: calc(180px + env(safe-area-inset-bottom));
+  }
+}

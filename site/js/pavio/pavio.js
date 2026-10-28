@@ -242,8 +242,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   ];
 
   function ajustarArena() {
+    // The stage may keep a strip free for the touch controls (telas.css): the arena fits above it.
+    const estilo = getComputedStyle(el.raiz);
+    const reserva = (parseFloat(estilo.paddingTop) || 0) + (parseFloat(estilo.paddingBottom) || 0);
     const largura = palco.clientWidth;
-    const altura = palco.clientHeight - el.hud.offsetHeight - 8;
+    const altura = palco.clientHeight - reserva - el.hud.offsetHeight - 8;
     if (largura <= 0 || altura <= 0) return;
     const tamanho = Math.floor(Math.max(160, Math.min(largura, altura * (COLUNAS / LINHAS))));
     el.arena.style.width = `${tamanho}px`;
@@ -849,6 +852,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   function aoEntrarNaFase(fase) {
     chaveAviso = '';
     controles.definirModo({ jogando: (fase === 'contagem' || fase === 'jogo') && meuIndice() >= 0, toqueVisivel: toqueDisponivel });
+    ajustarArena();
     som.musica(MUSICA_DA_FASE[fase] ?? null, { tema: chaveDoTema(MAPAS[estado.mapa]?.tema, estado.mapa) });
     if (fase === 'contagem') {
       efeitos.length = 0;
