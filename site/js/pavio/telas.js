@@ -7,6 +7,7 @@ import { CORES, VISUAL_ITEM, DESCRICAO_ITEM, marcaJogador } from './desenho.js';
 import { NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS } from './robo.js';
 import * as salas from '../sala.js';
 import { desenharQr } from '../qr.js';
+import { destaquesDaPartida, linhaDoTempo, textoDaMorte, conquistasDaRodada, formatarDuracao } from './resumo.js';
 
 export const TOTAL_PARTIDAS = MAPAS.length;
 export const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
@@ -127,6 +128,21 @@ async function compartilharLink(link, botao) {
   }
 }
 
+// Points counting up from what the round had before this match (instantly when motion is reduced).
+function contarAte(elemento, de, ate) {
+  if (de >= ate || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const inicio = performance.now();
+  const duracao = 700;
+  elemento.textContent = String(de);
+  const passo = agora => {
+    if (!elemento.isConnected) return;
+    const k = Math.min(1, (agora - inicio) / duracao);
+    elemento.textContent = String(Math.round(de + (ate - de) * (1 - (1 - k) ** 3)));
+    if (k < 1) requestAnimationFrame(passo);
+  };
+  requestAnimationFrame(passo);
+}
+
 // Remaining time of the current screen as a shrinking bar (hidden when motion is reduced).
 function barraTempo(estado) {
   const restante = Math.max(0, (estado.fimFaseEm - performance.now()) / 1000);
@@ -204,13 +220,15 @@ export function criarTelas({ pintor }) {
       )),
       h('tbody', {}, linhas.map((linha, posicao) => {
         const ganho = inicio?.[linha.id] ? linha.pontos - pontosDe(inicio[linha.id]) : 0;
+        const numero = h('span', { class: 'pavio-placar-numero' }, String(linha.pontos));
+        if (ganho > 0) contarAte(numero, linha.pontos - ganho, linha.pontos);
         return h('tr', { class: linha.id === meuId ? 'pavio-placar-eu' : '' },
           h('td', { class: 'pavio-placar-posicao' }, String(posicao + 1)),
           h('td', { class: 'pavio-placar-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
           h('td', {}, String(linha.vitorias)),
           h('td', {}, String(linha.caixas)),
           h('td', {}, String(linha.eliminacoes)),
-          h('td', { class: 'pavio-placar-pontos' }, String(linha.pontos),
+          h('td', { class: 'pavio-placar-pontos' }, numero,
             ganho > 0 && h('span', { class: 'pavio-placar-ganho', title: 'Pontos nesta partida' }, `+${ganho}`)),
         );
       })),
@@ -348,13 +366,76 @@ export function criarTelas({ pintor }) {
         h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS} · ${MAPAS[estado.mapa].nome}`),
         campeao && retratoDe(campeao.cor, 'festa', 'pavio-retrato--vencedor'),
         h('h2', {}, titulo),
+        destaques(estado),
         tabelaPlacar(tela, { comGanho: true }),
+        comoFoi(estado),
         legendaPontos(),
         h('p', { class: 'pavio-proximo' }, `Próxima: ${proximo.nome}`, poderes, ' · começa em ', contagem, ' s'),
+        botaoPular(tela),
         barraTempo(estado),
       ],
       contagem,
     };
+  }
+
+  // Someone of the lineup as a small badge and name, for the summaries.
+  function quem(estado, ids) {
+    return ids.flatMap((id, n) => {
+      const item = estado.escalacao.find(pessoa => pessoa.id === id);
+      return item ? [n ? ', ' : '', marcaJogador(item.cor), ' ', h('span', {}, item.nome)] : [];
+    });
+  }
+
+  // Up to four highlights of the match that just ended.
+  function destaques(estado) {
+    const lista = destaquesDaPartida(estado.estatisticas).slice(0, 4);
+    if (!lista.length) return null;
+    return h('ul', { class: 'pavio-destaques', 'aria-label': 'Destaques da partida' }, lista.map(destaque => h('li', { class: 'pavio-destaque' },
+      h('span', { class: 'pavio-destaque-icone', 'aria-hidden': 'true' }, destaque.icone),
+      h('span', { class: 'pavio-destaque-texto' },
+        h('span', { class: 'pavio-destaque-titulo' }, destaque.titulo, ` · ${destaque.texto}`),
+        h('span', { class: 'pavio-destaque-quem' }, quem(estado, destaque.ids))),
+    )));
+  }
+
+  // The eliminations in order, folded so the result fits on a phone.
+  function comoFoi(estado) {
+    const mortes = linhaDoTempo(estado.estatisticas);
+    if (!mortes.length) return null;
+    const nomeDe = id => estado.escalacao.find(item => item.id === id)?.nome ?? 'alguém';
+    return h('details', { class: 'pavio-linha-tempo' },
+      h('summary', {}, `Como a partida foi (${mortes.length} ${mortes.length === 1 ? 'eliminação' : 'eliminações'})`),
+      h('ol', {}, mortes.map(morte => h('li', {},
+        h('span', { class: 'pavio-linha-tempo-hora' }, formatarDuracao(morte.tempo)),
+        h('span', {}, quem(estado, [morte.id]), ` ${textoDaMorte(morte, nomeDe)}`),
+      ))));
+  }
+
+  // Everyone in the match can vote to skip the wait; when all the people did, the next match starts.
+  function botaoPular({ estado, meuId, acoes }) {
+    const pessoas = estado.escalacao.filter(item => !item.robo);
+    if (!pessoas.some(item => item.id === meuId) || pessoas.length < 1) return null;
+    const votos = (estado.pulos ?? []).filter(id => pessoas.some(item => item.id === id)).length;
+    const votei = (estado.pulos ?? []).includes(meuId);
+    const contagem = pessoas.length > 1 ? ` (${votos}/${pessoas.length})` : '';
+    return h('button', {
+      class: 'botao botao--secundario botao--pequeno pavio-pular',
+      type: 'button',
+      disabled: votei,
+      onclick: () => acoes.pular(),
+    }, votei ? `Esperando os outros${contagem}` : `Pular para a próxima${contagem}`);
+  }
+
+  // Round achievements, shown at the end of a round played to the last match.
+  function conquistas(estado) {
+    const lista = conquistasDaRodada(estado.estatisticasRodada);
+    if (!lista.length) return null;
+    return h('ul', { class: 'pavio-conquistas', 'aria-label': 'Conquistas da rodada' }, lista.map(conquista => h('li', { class: 'pavio-conquista' },
+      h('span', { class: 'pavio-destaque-icone', 'aria-hidden': 'true' }, conquista.icone),
+      h('span', { class: 'pavio-destaque-texto' },
+        h('span', { class: 'pavio-destaque-titulo' }, conquista.titulo, ` · ${conquista.texto}`),
+        h('span', { class: 'pavio-destaque-quem' }, quem(estado, conquista.ids))),
+    )));
   }
 
   // Top three on steps: the DOM keeps the ranking order (1st, 2nd, 3rd) and CSS puts 1st in the middle.
@@ -388,10 +469,18 @@ export function criarTelas({ pintor }) {
         estado.motivo && h('p', { class: 'pavio-motivo' }, estado.motivo),
         h('h2', {}, titulo),
         varios && podio(estado),
+        !estado.motivo && conquistas(estado),
         tabelaPlacar(tela),
         legendaPontos(),
         h('p', {}, 'Voltando ao lobby em ', contagem, ' s'),
-        souAnfitriao && h('button', { class: 'botao botao--secundario', type: 'button', onclick: () => acoes.voltarAoLobby() }, 'Voltar ao lobby agora'),
+        h('div', { class: 'pavio-final-acoes' },
+          h('button', {
+            class: 'botao',
+            type: 'button',
+            disabled: tela.queroJogarDeNovo,
+            onclick: () => acoes.jogarDeNovo(),
+          }, tela.queroJogarDeNovo ? 'Combinado: você volta pronto' : 'Jogar de novo'),
+          souAnfitriao && h('button', { class: 'botao botao--secundario', type: 'button', onclick: () => acoes.voltarAoLobby() }, 'Voltar ao lobby agora')),
       ],
       contagem,
     };

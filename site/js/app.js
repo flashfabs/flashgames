@@ -71,7 +71,7 @@ async function criarSala() {
   const nome = lerNome();
   definirOcupado(true, 'Abrindo a sala…');
   try {
-    const sala = await Sala.criar({ nome, maxMembros: MAX_MEMBROS });
+    const sala = await Sala.criar({ nome, cor: perfilAtual?.corPreferida ?? null, maxMembros: MAX_MEMBROS });
     mostrarMensagem(null);
     abrirSala(sala);
   } catch (erro) {
@@ -87,12 +87,13 @@ async function entrarNaSala(codigo) {
   const nome = lerNome();
   definirOcupado(true, `Entrando na sala ${codigo}…`);
   try {
-    const sala = await Sala.entrar(codigo, { nome });
+    const sala = await Sala.entrar(codigo, { nome, cor: perfilAtual?.corPreferida ?? null });
     mostrarMensagem(null);
     abrirSala(sala);
   } catch (erro) {
     console.error('Failed to join room', erro);
-    if (erro?.tipo === 'inexistente' && await paginaDesatualizada()) {
+    // Whatever the failure looked like (not found, no answer), an outdated page is the likely reason.
+    if (await paginaDesatualizada()) {
       mostrarMensagem('Esta página está desatualizada: o site mudou depois que você a abriu. Recarregue e entre de novo pelo link.');
       return;
     }
@@ -146,7 +147,6 @@ function montarJogo(sala) {
     sala,
     palco: $('#palco'),
     som,
-    corPreferida: perfilAtual?.corPreferida ?? null,
     aoMudarInfo: info => {
       infoJogo = info;
       desenharMembros();
