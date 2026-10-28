@@ -30,8 +30,17 @@
       </section>
 
       <form id="form-inicio" class="formulario" autocomplete="off" novalidate>
-        <label for="campo-nome">Seu nome</label>
-        <input id="campo-nome" name="nome" maxlength="16" enterkeyhint="go">
+        <section id="perfil" class="perfil" aria-label="Seu perfil">
+          <div class="perfil-topo">
+            <div id="perfil-boneco" class="perfil-boneco" aria-hidden="true"></div>
+            <div class="perfil-identidade">
+              <label for="campo-nome">Seu nome</label>
+              <input id="campo-nome" name="nome" maxlength="16" enterkeyhint="go" autocomplete="nickname">
+            </div>
+          </div>
+          <div id="perfil-cores" class="perfil-cores" role="radiogroup" aria-labelledby="perfil-cores-rotulo"></div>
+          <p id="perfil-numeros" class="perfil-numeros"></p>
+        </section>
 
         <div id="convite" class="convite" hidden>
           <p>Você foi chamado para a sala <strong id="convite-codigo"></strong>.</p>
@@ -49,6 +58,11 @@
         </div>
 
         <p id="mensagem-inicio" class="mensagem" role="status" hidden></p>
+
+        <details class="perfil-outro">
+          <summary>Levar meu perfil para outro aparelho</summary>
+          <div id="perfil-outro-aparelho" class="perfil-outro-corpo"></div>
+        </details>
       </form>
 
       <p class="rodape">WASD ou setas para andar · Espaço solta bomba · controle de videogame funciona<br>No celular e no iPad: arraste no lado esquerdo e toque no lado direito</p>

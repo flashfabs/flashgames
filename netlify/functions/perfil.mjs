@@ -199,8 +199,8 @@ export function criarApi({ armazem, agora = () => Date.now() }) {
 }
 
 // Site-wide stores are shared by every deploy: drafts and local runs write to a separate one, so tests never
-// touch the real profiles and ranking. The store is opened on every request: a warm function instance keeps
-// running for a long time, and the Blobs token captured by an older handle expires ("Token expired").
+// touch the real profiles and ranking. The store is opened on every request: it carries a short-lived Blobs token
+// from the invocation, and a store kept by a warm instance failed with "Token expired" (500s on 28/10/2026).
 export default async function perfil(requisicao, contexto) {
   const nome = contexto?.deploy?.context === 'production' ? 'perfis' : 'perfis-teste';
   return criarApi({ armazem: getStore({ name: nome, consistency: 'strong' }) })(requisicao);
