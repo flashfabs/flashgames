@@ -966,6 +966,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   quadro();
 
   return {
+    // Read-only copy of the game state for the end-to-end tests; app.js exposes it only with ?teste=1.
+    espiar() {
+      const vista = estado.fase === 'lobby' ? null : sala.souAnfitriao ? partida?.vista() ?? null : vistaDoMembro();
+      return JSON.parse(JSON.stringify({ ...estado, vista, local: sala.souAnfitriao ? null : local }));
+    },
     destruir() {
       destruido = true;
       cancelAnimationFrame(quadroId);

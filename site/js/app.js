@@ -311,6 +311,20 @@ document.addEventListener('touchend', evento => {
   ultimoToque = agora;
 }, { passive: false });
 
+// Read-only hook for the end-to-end tests (testes/e2e), only when the address has ?teste=1.
+if (new URLSearchParams(location.search).has('teste')) {
+  window.__salinha = Object.freeze({
+    sala: () => salaAtual && {
+      codigo: salaAtual.codigo,
+      link: salaAtual.link,
+      meuId: salaAtual.meuId,
+      souAnfitriao: salaAtual.souAnfitriao,
+      membros: salaAtual.membrosOrdenados().map(({ id, nome }) => ({ id, nome })),
+    },
+    jogo: () => jogoAtual?.espiar() ?? null,
+  });
+}
+
 som.instalar();
 atualizarBotaoSom();
 prepararInicio();
