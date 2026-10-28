@@ -6,10 +6,11 @@ import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
   indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
 } from './regras.js';
-import { criarPintor, efeitoAtivo, marcaJogador, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
+import { criarPintor, efeitoAtivo } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
+import { criarTelas, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -31,26 +32,12 @@ const RESULTADO_S = 7;
 const FINAL_S = 15;
 const MAX_EFEITOS = 90;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
-const TOTAL_PARTIDAS = MAPAS.length;
 const MUROS = MAPAS.map(mapa => new Set(mapa.muros.map(([x, y]) => indice(x, y))));
 const GRADE_LOBBY = gradeVazia().join('');
 const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
 const PARA_GELO = new Set([PAREDE, CAIXA]);
-const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
 const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo' };
-const CONFETES = 26;
-
-function h(tag, atributos = {}, ...filhos) {
-  const elemento = document.createElement(tag);
-  for (const [chave, valor] of Object.entries(atributos)) {
-    if (chave === 'class') elemento.className = valor;
-    else if (chave.startsWith('on')) elemento.addEventListener(chave.slice(2), valor);
-    else if (valor !== false && valor != null) elemento.setAttribute(chave, valor === true ? '' : valor);
-  }
-  elemento.append(...filhos.flat().filter(filho => filho != null && filho !== false));
-  return elemento;
-}
 
 function embaralhar(lista) {
   for (let i = lista.length - 1; i > 0; i--) {
@@ -70,10 +57,6 @@ function reiniciarAnimacao(elemento, classe) {
 function formatarTempo(segundos) {
   const total = Math.max(0, Math.ceil(segundos));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
-
-export function pontosDe(placar = ZERO) {
-  return placar.caixas * PONTOS.caixa + placar.eliminacoes * PONTOS.eliminacao + placar.vitorias * PONTOS.vitoria;
 }
 
 function compactarJogador(j) {
@@ -113,46 +96,10 @@ function montarPalco(palco) {
   return el;
 }
 
-function legendaControles(toque) {
-  if (toque) {
-    return h('div', { class: 'pavio-legenda' },
-      h('p', {}, 'Arraste o dedo no lado esquerdo da tela para andar e toque no lado direito para soltar bomba. Com gelo, aparece o botão ❄️.'),
-      h('p', {}, 'Teclado e controle de videogame também funcionam.'),
-    );
-  }
-  return h('div', { class: 'pavio-legenda' },
-    h('p', {}, h('kbd', {}, 'WASD'), ' ou ', h('kbd', {}, 'setas'), ' andam · ', h('kbd', {}, 'Espaço'), ' solta bomba · ', h('kbd', {}, 'E'), ' joga gelo · controle de videogame também funciona'),
-    h('p', {}, 'Segurando duas direções, você segue numa e vira na outra assim que der.'),
-  );
-}
-
-function nomeItem(item) {
-  return `${VISUAL_ITEM[item].emoji} ${VISUAL_ITEM[item].nome}`;
-}
-
-function linhasPoder(itens = []) {
-  return itens.map(item => {
-    const visual = VISUAL_ITEM[item];
-    const icone = h('span', { class: 'pavio-poder-icone', 'aria-hidden': 'true' }, visual.emoji);
-    icone.style.setProperty('--fundo', visual.fundo);
-    return h('p', { class: 'pavio-poder' }, icone, h('span', {}, 'Poder novo: ', h('strong', {}, visual.nome), ` · ${DESCRICAO_ITEM[item]}`));
-  });
-}
-
-function confetes() {
-  return h('div', { class: 'pavio-confete', 'aria-hidden': 'true' }, Array.from({ length: CONFETES }, (_, n) => {
-    const peca = h('span');
-    peca.style.setProperty('--x', `${(n * 37) % 100}%`);
-    peca.style.setProperty('--atraso', `${((n * 0.13) % 1.2).toFixed(2)}s`);
-    peca.style.setProperty('--giro', `${(n % 2 ? 1 : -1) * (240 + ((n * 53) % 360))}deg`);
-    peca.style.setProperty('--cor', CORES[n % CORES.length].base);
-    return peca;
-  }));
-}
-
 export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
+  const telas = criarTelas({ pintor });
   const toqueDisponivel = temToque();
   const estado = {
     fase: 'lobby',
@@ -865,7 +812,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     } else if (fase === 'resultado') {
       som.tocar(estado.resultado?.vencedor === sala.meuId ? 'vitoria' : 'fim');
     } else if (fase === 'final') {
-      som.tocar(campeoes().some(linha => linha.id === sala.meuId) ? 'campeao' : 'fim');
+      som.tocar(campeoes(estado).some(linha => linha.id === sala.meuId) ? 'campeao' : 'fim');
     } else {
       efeitos.length = 0;
       local.ativo = false;
@@ -945,247 +892,62 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     }, 3500);
   }
 
-  function linhasDoPlacar() {
-    return estado.escalacao
-      .map(item => {
-        const placar = { ...ZERO, ...estado.placar[item.id] };
-        return { ...item, ...placar, pontos: pontosDe(placar) };
-      })
-      .sort((a, b) => b.pontos - a.pontos || b.vitorias - a.vitorias);
-  }
-
-  function campeoes() {
-    const linhas = linhasDoPlacar();
-    if (!linhas.length) return [];
-    return linhas.filter(linha => linha.pontos === linhas[0].pontos && linha.vitorias === linhas[0].vitorias);
-  }
-
   function informar() {
     const pontos = Object.fromEntries(Object.entries(estado.placar).map(([id, placar]) => [id, pontosDe({ ...ZERO, ...placar })]));
     aoMudarInfo?.({ fase: estado.fase, cores: estado.cores, prontos: estado.prontos, pontos, escalacao: estado.escalacao });
   }
 
-  function retratoDe(cor, pose, classe = '') {
-    return pintor.retrato(h('canvas', { class: `pavio-retrato ${classe}`.trim(), 'aria-hidden': 'true' }), { cor, pose });
-  }
-
-  function tabelaPlacar({ comGanho = false } = {}) {
-    const linhas = linhasDoPlacar();
-    const inicio = comGanho && placarInicio.idPartida === estado.idPartida ? placarInicio.placar : null;
-    const coluna = (icone, rotulo, titulo) => h('th', { scope: 'col', title: titulo },
-      h('span', { 'aria-hidden': 'true' }, icone), h('span', { class: 'pavio-placar-rotulo' }, rotulo));
-    return h('table', { class: 'pavio-placar' },
-      h('thead', {}, h('tr', {},
-        h('th', { scope: 'col' }, '#'), h('th', { scope: 'col', class: 'pavio-placar-nome' }, 'Jogador'),
-        coluna('🏆', 'Vitórias', `Partidas vencidas, ${PONTOS.vitoria} pontos cada`),
-        coluna('📦', 'Caixas', `Caixas destruídas, ${PONTOS.caixa} ponto cada`),
-        coluna('💀', 'Eliminações', `Eliminações, ${PONTOS.eliminacao} pontos cada`),
-        coluna('⭐', 'Pontos', 'Pontos na rodada'),
-      )),
-      h('tbody', {}, linhas.map((linha, posicao) => {
-        const ganho = inicio?.[linha.id] ? linha.pontos - pontosDe(inicio[linha.id]) : 0;
-        return h('tr', { class: linha.id === sala.meuId ? 'pavio-placar-eu' : '' },
-          h('td', { class: 'pavio-placar-posicao' }, String(posicao + 1)),
-          h('td', { class: 'pavio-placar-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
-          h('td', {}, String(linha.vitorias)),
-          h('td', {}, String(linha.caixas)),
-          h('td', {}, String(linha.eliminacoes)),
-          h('td', { class: 'pavio-placar-pontos' }, String(linha.pontos),
-            ganho > 0 && h('span', { class: 'pavio-placar-ganho', title: 'Pontos nesta partida' }, `+${ganho}`)),
-        );
-      })),
-    );
-  }
-
-  function legendaPontos() {
-    return h('p', { class: 'pavio-regra-pontos' },
-      `📦 caixa destruída = ${PONTOS.caixa} ponto · 💀 eliminação = ${PONTOS.eliminacao} · 🏆 partida vencida = ${PONTOS.vitoria}`);
-  }
-
-  // Remaining time of the current screen as a shrinking bar (hidden when motion is reduced).
-  function barraTempo() {
-    const restante = Math.max(0, (estado.fimFaseEm - performance.now()) / 1000);
-    const barra = h('div', { class: 'pavio-tempo', 'aria-hidden': 'true' }, h('span'));
-    barra.style.setProperty('--duracao', `${restante.toFixed(2)}s`);
-    return barra;
-  }
-
-  // Robots are always ready; the host sees buttons to change their level and to take them out.
-  function linhaRobo(robo, n) {
-    const nivel = NIVEIS_ROBO[robo.nivel]?.nome ?? robo.nivel;
-    const cor = estado.cores[robo.id] ?? n;
-    return h('li', { class: 'pronto pavio-prontos-robo' },
-      h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, 'pronto'), marcaJogador(cor)),
-      h('span', { class: 'pavio-prontos-texto' },
-        h('span', { class: 'pavio-prontos-nome' }, robo.nome),
-        sala.souAnfitriao
-          ? h('button', {
-            class: 'pavio-robo-nivel',
-            type: 'button',
-            title: 'Trocar a dificuldade',
-            'aria-label': `${robo.nome}: ${nivel}. Trocar a dificuldade`,
-            onclick: () => trocarNivelRobo(robo.id),
-          }, nivel)
-          : h('span', { class: 'pavio-prontos-estado' }, `robô ${nivel.toLowerCase()}`)),
-      sala.souAnfitriao && h('button', {
-        class: 'pavio-robo-tirar',
-        type: 'button',
-        title: 'Tirar o robô',
-        'aria-label': `Tirar ${robo.nome}`,
-        onclick: () => removerRobo(robo.id),
-      }, '✕'));
-  }
-
-  // Host only: pick the level of the next robot and add it.
-  function controlesRobos() {
-    if (!sala.souAnfitriao) return null;
-    return h('div', { class: 'pavio-robos' },
-      h('span', {}, 'Robôs:'),
-      ORDEM_NIVEIS.map(nivel => h('button', {
-        class: 'pavio-robo-nivel',
-        type: 'button',
-        'aria-pressed': String(nivel === nivelNovoRobo),
-        onclick: () => {
+  // What the screens in telas.js get: the state, who is looking, and what their buttons do.
+  function contextoDaTela() {
+    return {
+      estado,
+      meuId: sala.meuId,
+      souAnfitriao: sala.souAnfitriao,
+      membros: sala.membrosOrdenados(),
+      toque: toqueDisponivel,
+      placarInicio,
+      nivelNovoRobo,
+      vagasRobos: sala.souAnfitriao ? vagasParaRobos() : 0,
+      acoes: {
+        pronto: valor => {
+          som.tocar(valor ? 'pronto' : 'cancelar');
+          sala.enviarAoAnfitriao({ t: 'pronto', v: valor });
+        },
+        voltarAoLobby,
+        adicionarRobo,
+        removerRobo,
+        trocarNivelRobo,
+        escolherNivelRobo: nivel => {
           nivelNovoRobo = nivel;
           chaveAviso = '';
         },
-      }, NIVEIS_ROBO[nivel].nome)),
-      h('button', {
-        class: 'botao botao--secundario botao--pequeno',
-        type: 'button',
-        disabled: estado.robos.length >= vagasParaRobos(),
-        onclick: () => adicionarRobo(),
-      }, '+ Robô'));
-  }
-
-  function cartaoLobby() {
-    const membros = sala.membrosOrdenados();
-    const prontos = new Set(estado.prontos);
-    const estouPronto = prontos.has(sala.meuId);
-    const faltam = membros.filter(membro => !prontos.has(membro.id)).length;
-    const lista = h('ul', { class: 'pavio-prontos' }, membros.map((membro, n) => {
-      const pronto = prontos.has(membro.id);
-      const eu = membro.id === sala.meuId;
-      const cor = estado.cores[membro.id] ?? n;
-      return h('li', { class: [pronto && 'pronto', eu && 'eu'].filter(Boolean).join(' ') },
-        h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, pronto ? 'pronto' : 'jogo'), marcaJogador(cor)),
-        h('span', { class: 'pavio-prontos-texto' },
-          h('span', { class: 'pavio-prontos-nome' }, membro.nome, eu && h('span', { class: 'pavio-prontos-voce' }, ' (você)')),
-          h('span', { class: 'pavio-prontos-estado' }, pronto ? '✅ pronto' : '⏳ esperando')),
-      );
-    }), estado.robos.map((robo, n) => linhaRobo(robo, membros.length + n)));
-    let situacao = 'Todo mundo pronto!';
-    if (faltam) situacao = faltam === 1 && !estouPronto ? 'Só falta você.' : `Esperando ${faltam} ${faltam === 1 ? 'pessoa ficar pronta' : 'pessoas ficarem prontas'}.`;
-    const robos = estado.robos.length;
-    let dica = situacao;
-    if (membros.length === 1 && robos) dica = `Você contra ${robos} ${robos === 1 ? 'robô' : 'robôs'}. Fique pronto para começar.`;
-    else if (membros.length === 1) dica = 'Mande o link lá de cima pra galera ou chame robôs. Sozinho vira treino.';
-    return [
-      h('h2', { class: 'pavio-titulo' }, 'Pavio'),
-      h('p', { class: 'pavio-subtitulo' }, `Rodada de ${TOTAL_PARTIDAS} partidas: cada uma num mapa mais fechado e com poderes novos.`),
-      lista,
-      controlesRobos(),
-      h('button', {
-        class: estouPronto ? 'botao botao--secundario' : 'botao botao--grande',
-        type: 'button',
-        onclick: () => {
-          som.tocar(estouPronto ? 'cancelar' : 'pronto');
-          sala.enviarAoAnfitriao({ t: 'pronto', v: !estouPronto });
-        },
-      }, estouPronto ? 'Cancelar pronto' : 'Estou pronto'),
-      h('p', { class: 'pavio-dica' }, dica),
-      legendaControles(toqueDisponivel),
-    ];
-  }
-
-  function cartaoContagem(jogando) {
-    const mapa = MAPAS[estado.mapa];
-    refContagem = h('div', { class: 'pavio-numero pavio-numero--pop', 'data-n': String(CONTAGEM_S) }, String(CONTAGEM_S));
-    return [
-      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS}`),
-      h('h2', { class: 'pavio-mapa' }, mapa.nome),
-      h('p', {}, mapa.descricao),
-      ...linhasPoder(mapa.novos),
-      refContagem,
-      !jogando && h('p', { class: 'pavio-pilula' }, 'Você entra na próxima rodada.'),
-    ];
-  }
-
-  function cartaoResultado() {
-    const vencedor = estado.resultado?.vencedor ?? null;
-    const campeao = estado.escalacao.find(item => item.id === vencedor);
-    let titulo = estado.escalacao.length > 1 ? 'Empate! Ninguém sobrou.' : 'Fim da partida';
-    if (vencedor === sala.meuId) titulo = 'Você venceu a partida! 🏆';
-    else if (vencedor) titulo = `${campeao?.nome ?? 'Alguém'} venceu a partida! 🏆`;
-    const proximo = MAPAS[Math.min(estado.numero, TOTAL_PARTIDAS - 1)];
-    const poderes = proximo.novos.length
-      ? ` · ${proximo.novos.length > 1 ? 'poderes novos' : 'poder novo'} ${proximo.novos.map(nomeItem).join(' e ')}`
-      : '';
-    refContagem = h('strong', {}, String(RESULTADO_S));
-    return [
-      h('p', { class: 'pavio-sobretitulo' }, `Partida ${estado.numero} de ${TOTAL_PARTIDAS} · ${MAPAS[estado.mapa].nome}`),
-      campeao && retratoDe(campeao.cor, 'festa', 'pavio-retrato--vencedor'),
-      h('h2', {}, titulo),
-      tabelaPlacar({ comGanho: true }),
-      legendaPontos(),
-      h('p', { class: 'pavio-proximo' }, `Próxima: ${proximo.nome}`, poderes, ' · começa em ', refContagem, ' s'),
-      barraTempo(),
-    ];
-  }
-
-  // Top three on steps: the DOM keeps the ranking order (1st, 2nd, 3rd) and CSS puts 1st in the middle.
-  function podio() {
-    const linhas = linhasDoPlacar().slice(0, 3);
-    if (!linhas.length) return null;
-    const topo = new Set(campeoes().map(linha => linha.id));
-    return h('ol', { class: 'pavio-podio', 'aria-label': 'Pódio' }, linhas.map((linha, n) => h('li', { class: `pavio-podio-lugar pavio-podio-lugar--${n + 1}` },
-      retratoDe(linha.cor, topo.has(linha.id) ? 'festa' : 'jogo', 'pavio-retrato--podio'),
-      h('span', { class: 'pavio-podio-nome' }, marcaJogador(linha.cor), h('span', {}, linha.nome)),
-      h('span', { class: 'pavio-podio-pontos' }, `${linha.pontos} ${linha.pontos === 1 ? 'ponto' : 'pontos'}`),
-      h('span', { class: 'pavio-podio-degrau' }, `${n + 1}º`),
-    )));
-  }
-
-  function cartaoFinal() {
-    const topo = campeoes();
-    const varios = estado.escalacao.length > 1;
-    let titulo = 'Fim do treino';
-    if (varios && topo.length === 1) {
-      titulo = topo[0].id === sala.meuId ? 'Você é o campeão da rodada! 🏆' : `${topo[0].nome} é o campeão da rodada! 🏆`;
-    } else if (varios) {
-      titulo = `Empate entre ${topo.map(linha => linha.nome).join(' e ')}`;
-    }
-    refContagem = h('strong', {}, String(FINAL_S));
-    return [
-      varios && !estado.motivo && confetes(),
-      h('p', { class: 'pavio-sobretitulo' }, estado.motivo ? 'Rodada interrompida' : 'Fim da rodada'),
-      estado.motivo && h('p', { class: 'pavio-motivo' }, estado.motivo),
-      h('h2', {}, titulo),
-      varios && podio(),
-      tabelaPlacar(),
-      legendaPontos(),
-      h('p', {}, 'Voltando ao lobby em ', refContagem, ' s'),
-      sala.souAnfitriao && h('button', { class: 'botao botao--secundario', type: 'button', onclick: () => voltarAoLobby() }, 'Voltar ao lobby agora'),
-    ];
+      },
+    };
   }
 
   function montarAviso({ jogando, morto }) {
     refContagem = null;
     let conteudo = [];
     let estilo = 'cartao';
+    const tela = contextoDaTela();
+    let cartao = null;
     if (estado.fase === 'lobby') {
-      conteudo = cartaoLobby();
+      cartao = telas.cartaoLobby(tela);
     } else if (estado.fase === 'contagem') {
       estilo = 'contagem';
-      conteudo = cartaoContagem(jogando);
+      cartao = telas.cartaoContagem(tela, { jogando, segundos: CONTAGEM_S });
     } else if (estado.fase === 'jogo') {
       estilo = 'pilula';
       if (!jogando) conteudo = [h('p', {}, 'Assistindo · você entra na próxima rodada')];
       else if (morto) conteudo = [h('p', {}, 'Você explodiu! Agora é torcer.')];
     } else if (estado.fase === 'resultado') {
-      conteudo = cartaoResultado();
+      cartao = telas.cartaoResultado(tela, { segundos: RESULTADO_S });
     } else {
-      conteudo = cartaoFinal();
+      cartao = telas.cartaoFinal(tela, { segundos: FINAL_S });
+    }
+    if (cartao) {
+      conteudo = cartao.conteudo;
+      refContagem = cartao.contagem;
     }
     conteudo = conteudo.filter(Boolean);
     const destino = estilo === 'cartao' ? el.raiz : el.arena;
@@ -1271,7 +1033,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // Who celebrates on the arena behind the results: the match winner, then the round champions.
   function festejando() {
     if (estado.fase === 'resultado') return new Set([estado.resultado?.vencedor]);
-    if (estado.fase === 'final' && estado.escalacao.length > 1) return new Set(campeoes().map(linha => linha.id));
+    if (estado.fase === 'final' && estado.escalacao.length > 1) return new Set(campeoes(estado).map(linha => linha.id));
     return null;
   }
 
