@@ -20,7 +20,7 @@ test('the lobby invites with the code, a link button and a QR code, and shows ea
 test('the host is asked before leaving with guests in the room; a guest in the lobby just leaves', async ({ mesa }) => {
   const { host, convidados: [gil] } = await mesa.montar(['Ana', 'Gil']);
   await host.pagina.locator('#botao-sair').click();
-  await expect(host.pagina.locator('#confirmar-texto')).toHaveText('Você é o anfitrião: se sair, a sala fecha para a outra pessoa.');
+  await expect(host.pagina.locator('#confirmar-texto')).toHaveText('Você é o anfitrião: se sair, a sala passa para Gil.');
   await host.pagina.getByRole('button', { name: 'Ficar' }).click();
   await expect(host.pagina.locator('#confirmar-saida')).toBeHidden();
   await expect(host.pagina.locator('#sala')).toBeVisible();
