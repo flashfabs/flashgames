@@ -198,14 +198,12 @@ export function criarApi({ armazem, agora = () => Date.now() }) {
   };
 }
 
-let api = null;
-
 // Site-wide stores are shared by every deploy: drafts and local runs write to a separate one, so tests never
-// touch the real profiles and ranking.
+// touch the real profiles and ranking. The store is opened on every request: a warm function instance keeps
+// running for a long time, and the Blobs token captured by an older handle expires ("Token expired").
 export default async function perfil(requisicao, contexto) {
   const nome = contexto?.deploy?.context === 'production' ? 'perfis' : 'perfis-teste';
-  api ??= criarApi({ armazem: getStore({ name: nome, consistency: 'strong' }) });
-  return api(requisicao);
+  return criarApi({ armazem: getStore({ name: nome, consistency: 'strong' }) })(requisicao);
 }
 
 export const config = {
