@@ -617,7 +617,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       // The host's own player and the robots move inside this simulation: nothing to smooth.
       if (estado.escalacao[n]?.id === sala.meuId || estado.escalacao[n]?.robo) return jogador;
       const suave = suavizados.get(n);
-      if (!suave || Math.abs(suave.x - jogador.x) + Math.abs(suave.y - jogador.y) > 2) {
+      // A jump (shortcut over a crate, respawn) is drawn at once, with the same rule as the guests' view.
+      if (!suave || Math.abs(suave.x - jogador.x) > 1.5 || Math.abs(suave.y - jogador.y) > 1.5) {
         suavizados.set(n, { x: jogador.x, y: jogador.y });
         return jogador;
       }
