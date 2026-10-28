@@ -49,7 +49,7 @@ Três comandos, todos rodando na raiz do repositório:
 
 - `npm test`: testes das regras do jogo (`testes/*.test.mjs`, Node 22, sem dependências, menos de 1 s).
 - `npm run e2e`: testes de ponta a ponta (`testes/e2e/*.spec.mjs`) com Playwright e Chromium sem janela; cada jogador é um navegador de verdade na sua própria página. Roda os cenários funcionais dois de cada vez (`SALINHA_PROCESSOS` muda isso) e depois o de desempenho sozinho, para os números não sofrerem com as outras páginas; tudo leva cerca de 3 min.
-- `npm run fumaca`: teste de fumaça contra a produção (`testes/e2e/producao.fumaca.mjs`, cerca de 15 s): espera `/versao.json` mostrar o commit da `main` (ou `COMMIT=<commit>`), confere que `/api/ice` responde (503 enquanto a chave do TURN não existir) e joga o começo de uma rodada com dois jogadores no site publicado. `SALINHA_URL=<endereço>` aponta para outro lugar, como uma prévia da Netlify.
+- `npm run fumaca`: teste de fumaça contra a produção (`testes/e2e/producao.fumaca.mjs`, cerca de 15 s): espera `/versao.json` mostrar o commit da `main` (ou `COMMIT=<commit>`), confere que `/api/ice` responde (503 enquanto a chave do TURN não existir), que `/api/ranking` responde, que `/api/perfil` recusa leitura sem credencial (401) e escrita de outro site (403), sem nunca gravar perfil, e joga o começo de uma rodada com dois jogadores no site publicado. `SALINHA_URL=<endereço>` aponta para outro lugar, como uma prévia da Netlify.
 
 Para publicar, `scripts/preparar-publicacao.sh <pasta>` monta uma pasta nova a partir da `main` (só `netlify.toml`, `site/` e `netlify/`, com `site/versao.json` contendo commit e hora, e as `dependencies` das funções instaladas quando houver) e imprime o caminho dela; o passo a passo está no `AGENTS.md`.
 
