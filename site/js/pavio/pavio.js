@@ -1184,6 +1184,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       g: vista?.g ?? GRADE_LOBBY,
       muros: MUROS[mapa],
       chaveMuros: mapa,
+      tema: vista ? MAPAS[mapa].tema : 'padrao',
       j: jogadores,
       b: vista?.b ?? [],
       c: vista?.c ?? [],

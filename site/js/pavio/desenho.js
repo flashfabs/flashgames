@@ -1,13 +1,12 @@
 // Canvas painter for Pavio: draws one frame from a scene (grid, players, bombs, flames, effects).
-// The static part of the arena (floor, walls, crates) is cached in an offscreen canvas and redrawn
-// only when the grid changes, which keeps tablets and phones smooth. Particles are stateless: each
-// effect derives its pieces from a seed and its age, so nothing is simulated between frames.
+// The static part of the arena (themed floor, walls, crates) comes cached from cenario.js. Particles are
+// stateless: each effect derives its pieces from a seed and its age, so nothing is simulated between
+// frames. The resolution adapts to the device: up to 3x while frames keep their pace, lower when not.
 
-import { COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, DIRECAO, AJUSTES, ehBlocoFixo } from './regras.js';
+import { COLUNAS, ITEM, DIRECAO, AJUSTES } from './regras.js';
+import { TAM, LARGURA, ALTURA, retangulo, circulo, elipse, aleatorio, criarCenario } from './cenario.js';
 
-export const TAM = 48;
-export const LARGURA = COLUNAS * TAM;
-export const ALTURA = LINHAS * TAM;
+export { TAM, LARGURA, ALTURA };
 
 export const CORES = [
   { base: '#ff6b6b', escura: '#a51d1d' },
@@ -61,16 +60,6 @@ export const DESCRICAO_ITEM = {
 };
 
 const PALETA = {
-  chaoA: '#263544',
-  chaoB: '#2a3a4a',
-  sombraBloco: 'rgba(0, 0, 0, 0.22)',
-  borda: ['#323e4b', '#222b35', '#161c23'],
-  pilar: ['#8a99a8', '#62717e', '#434f5a'],
-  muro: ['#7c8a6e', '#56634b', '#3a4433'],
-  subita: ['#e8590c', '#a63c06', '#6b2604'],
-  caixa: '#b9783b',
-  caixaClara: '#d9995a',
-  caixaEscura: '#7a4a1f',
   caixaQueimada: '#4a3426',
   bomba: '#1d2127',
   bombaAlerta: '#8f1d1d',
@@ -92,6 +81,10 @@ const DURACAO_EFEITO = { explosao: 0.95, caixa: 0.75, bloco: 0.5, morte: 1.4, it
 const EFEITOS_DO_CHAO = new Set(['explosao', 'caixa', 'bloco']);
 const OLHAR = { [DIRECAO.ESQUERDA]: [-3.5, 0], [DIRECAO.DIREITA]: [3.5, 0], [DIRECAO.BAIXO]: [0, 2] };
 const RETRATO = 72; // logical size of the small character portraits on the HTML screens
+const ESCALA_MAX = 3;
+const QUADRO_LENTO_MS = 21; // average frame interval above this lowers the resolution
+const QUADRO_FOLGADO_MS = 17.8; // and below this, for a while, lets it climb back
+const PIXELS_LUZ = 8; // light map resolution, per tile
 const caminhosSimbolos = [];
 
 const limitar = (valor, min, max) => Math.min(max, Math.max(min, valor));
@@ -118,22 +111,6 @@ export function marcaJogador(cor) {
   svg.append(caminho);
   marca.append(svg);
   return marca;
-}
-
-function retangulo(ctx, x, y, largura, altura, raio) {
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y, largura, altura, raio);
-  else ctx.rect(x, y, largura, altura);
-}
-
-function circulo(ctx, x, y, raio) {
-  ctx.beginPath();
-  ctx.arc(x, y, Math.max(0, raio), 0, Math.PI * 2);
-}
-
-function elipse(ctx, x, y, rx, ry) {
-  ctx.beginPath();
-  ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), 0, 0, Math.PI * 2);
 }
 
 // A rotated rectangle without save/restore, used for wood shards and confetti.
@@ -178,14 +155,6 @@ function desenharSimbolo(ctx, cor, x, y, tamanho, preenchimento) {
   ctx.restore();
 }
 
-// Deterministic 0..1 noise: the same effect gets the same particles on every frame.
-function aleatorio(semente, k) {
-  let t = (semente + Math.imul(k + 1, 0x6d2b79f5)) | 0;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-
 function sementeDe(efeito) {
   const x = Math.round((Number(efeito.x) || 0) * 97);
   const y = Math.round((Number(efeito.y) || 0) * 89);
@@ -200,69 +169,6 @@ function faisca(ctx, x, y, agora, tamanho = 3.5) {
   ctx.fillStyle = '#fff3bf';
   circulo(ctx, x, y, tremula * 0.55);
   ctx.fill();
-}
-
-function desenharBloco(ctx, x, y, muros) {
-  const px = x * TAM;
-  const py = y * TAM;
-  const borda = x === 0 || y === 0 || x === COLUNAS - 1 || y === LINHAS - 1;
-  let cores = PALETA.subita;
-  if (borda) cores = PALETA.borda;
-  else if (ehBlocoFixo(x, y)) cores = PALETA.pilar;
-  else if (muros.has(y * COLUNAS + x)) cores = PALETA.muro;
-  const [topo, corpo, sombra] = cores;
-  ctx.fillStyle = sombra;
-  ctx.fillRect(px, py, TAM, TAM);
-  if (borda) return;
-  ctx.fillStyle = corpo;
-  retangulo(ctx, px + 2, py + 2, TAM - 4, TAM - 7, 7);
-  ctx.fill();
-  ctx.fillStyle = topo;
-  retangulo(ctx, px + 6, py + 5, TAM - 12, TAM - 19, 6);
-  ctx.fill();
-}
-
-function desenharCaixa(ctx, px, py, queimando = false) {
-  const m = 4;
-  ctx.fillStyle = queimando ? PALETA.caixaQueimada : PALETA.caixaEscura;
-  retangulo(ctx, px + m, py + m, TAM - m * 2, TAM - m * 2, 6);
-  ctx.fill();
-  if (queimando) return;
-  ctx.fillStyle = PALETA.caixa;
-  retangulo(ctx, px + m + 3, py + m + 3, TAM - m * 2 - 6, TAM - m * 2 - 9, 4);
-  ctx.fill();
-  ctx.strokeStyle = PALETA.caixaEscura;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(px + m + 6, py + TAM - m - 10);
-  ctx.lineTo(px + TAM - m - 6, py + m + 6);
-  ctx.stroke();
-  ctx.fillStyle = PALETA.caixaClara;
-  ctx.fillRect(px + m + 5, py + m + 4, TAM - m * 2 - 10, 3);
-}
-
-function desenharArenaFixa(ctx, grade, muros) {
-  ctx.fillStyle = PALETA.borda[2];
-  ctx.fillRect(0, 0, LARGURA, ALTURA);
-  for (let y = 0; y < LINHAS; y++) {
-    for (let x = 0; x < COLUNAS; x++) {
-      const celula = grade[y * COLUNAS + x];
-      if (celula === PAREDE) {
-        desenharBloco(ctx, x, y, muros);
-        continue;
-      }
-      const px = x * TAM;
-      const py = y * TAM;
-      ctx.fillStyle = (x + y) % 2 ? PALETA.chaoA : PALETA.chaoB;
-      ctx.fillRect(px, py, TAM, TAM);
-      const acima = grade[(y - 1) * COLUNAS + x];
-      if (acima === PAREDE || acima === CAIXA) {
-        ctx.fillStyle = PALETA.sombraBloco;
-        ctx.fillRect(px, py, TAM, 7);
-      }
-      if (celula === CAIXA) desenharCaixa(ctx, px, py);
-    }
-  }
 }
 
 function desenharSpriteItem(ctx, item) {
@@ -385,7 +291,12 @@ function desenharChama(ctx, [i, forma], agora) {
   const py = y * TAM;
   const cx = px + TAM / 2;
   const cy = py + TAM / 2;
-  if (forma === 'x') desenharCaixa(ctx, px, py, true);
+  if (forma === 'x') {
+    // The crate is already gone from the grid: a charred husk burns where it stood.
+    ctx.fillStyle = PALETA.caixaQueimada;
+    retangulo(ctx, px + 4, py + 4, TAM - 8, TAM - 8, 6);
+    ctx.fill();
+  }
   const pulso = 0.9 + Math.sin(agora * 38 + i) * 0.08;
   PALETA.chama.forEach((cor, camada) => {
     const largura = TAM * [0.82, 0.56, 0.28][camada] * pulso;
@@ -670,7 +581,7 @@ function efeitoExplosao(ctx, cx, cy, idade, semente, reduzido) {
   }
 }
 
-function efeitoCaixa(ctx, cx, cy, idade, semente, reduzido) {
+function efeitoCaixa(ctx, cx, cy, idade, semente, reduzido, tema) {
   const poeira = idade / 0.45;
   if (poeira < 1) {
     ctx.globalAlpha = 0.32 * (1 - poeira);
@@ -679,7 +590,7 @@ function efeitoCaixa(ctx, cx, cy, idade, semente, reduzido) {
     ctx.fill();
   }
   if (reduzido) return;
-  const cores = [PALETA.caixaClara, PALETA.caixa, PALETA.caixaEscura];
+  const cores = tema.caixa;
   for (let k = 0; k < 7; k++) {
     const vida = 0.45 + aleatorio(semente, k) * 0.28;
     if (idade > vida) continue;
@@ -832,7 +743,7 @@ function efeitoLargada(ctx, idade, reduzido) {
   ctx.fillText('JÁ!', 0, 0);
 }
 
-function desenharEfeito(ctx, efeito, agora, reduzido) {
+function desenharEfeito(ctx, efeito, agora, reduzido, tema) {
   const idade = agora - efeito.inicio;
   if (idade < 0 || idade >= (DURACAO_EFEITO[efeito.tipo] ?? 0)) return;
   const cx = (efeito.x + 0.5) * TAM;
@@ -844,7 +755,7 @@ function desenharEfeito(ctx, efeito, agora, reduzido) {
       efeitoExplosao(ctx, cx, cy, idade, semente, reduzido);
       break;
     case 'caixa':
-      efeitoCaixa(ctx, cx, cy, idade, semente, reduzido);
+      efeitoCaixa(ctx, cx, cy, idade, semente, reduzido, tema);
       break;
     case 'bloco':
       efeitoBloco(ctx, cx, cy, idade, semente, reduzido);
@@ -884,32 +795,111 @@ export function efeitoAtivo(efeito, agora) {
   return agora - efeito.inicio < (DURACAO_EFEITO[efeito.tipo] ?? 0);
 }
 
+// Cheap ambient life per map theme, computed from the clock (nothing is stored between frames).
+function desenharAmbiente(ctx, tipo, agora) {
+  if (tipo === 'brasas') {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = '#ffb057';
+    for (let k = 0; k < 16; k++) {
+      const velocidade = 18 + aleatorio(31, k) * 30;
+      const x = aleatorio(37, k) * LARGURA + Math.sin(agora * 1.3 + k) * 14;
+      const y = ALTURA + 20 - ((agora * velocidade + aleatorio(41, k) * (ALTURA + 40)) % (ALTURA + 40));
+      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(agora * 7 + k * 1.7);
+      circulo(ctx, x, y, 1.4 + aleatorio(43, k) * 1.6);
+      ctx.fill();
+    }
+  } else if (tipo === 'vagalumes') {
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 10; k++) {
+      const x = (aleatorio(47, k) + 0.08 * Math.sin(agora * 0.4 * (1 + aleatorio(53, k)) + k)) * LARGURA;
+      const y = (aleatorio(59, k) + 0.08 * Math.cos(agora * 0.5 * (1 + aleatorio(61, k)) + k * 2)) * ALTURA;
+      const pulso = Math.max(0, Math.sin(agora * 2 * (0.6 + aleatorio(67, k)) + k * 3));
+      ctx.globalAlpha = pulso * 0.25;
+      ctx.fillStyle = '#c3fa6b';
+      circulo(ctx, x, y, 6);
+      ctx.fill();
+      ctx.globalAlpha = pulso * 0.9;
+      ctx.fillStyle = '#f4ffcf';
+      circulo(ctx, x, y, 1.6);
+      ctx.fill();
+    }
+  } else if (tipo === 'folhas') {
+    for (let k = 0; k < 6; k++) {
+      const x = ((aleatorio(71, k) * LARGURA + agora * (12 + aleatorio(73, k) * 10)) % (LARGURA + 40)) - 20;
+      const y = ((aleatorio(79, k) * ALTURA + agora * (8 + aleatorio(83, k) * 8)) % (ALTURA + 40)) - 20;
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = k % 2 ? '#8fbf5a' : '#c9a24a';
+      lasca(ctx, x, y, 7, 3.5, agora * (1 + aleatorio(89, k)) + k);
+    }
+  } else if (tipo === 'poeira') {
+    ctx.fillStyle = '#ffffff';
+    for (let k = 0; k < 14; k++) {
+      const x = ((aleatorio(97, k) * LARGURA + agora * (4 + aleatorio(101, k) * 6)) % LARGURA);
+      const y = aleatorio(103, k) * ALTURA + Math.sin(agora * 0.6 + k) * 10;
+      ctx.globalAlpha = 0.08 + 0.1 * Math.sin(agora * 0.9 + k * 2) ** 2;
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+
 export function criarPintor(canvas) {
   const ctx = canvas.getContext('2d');
-  const arena = document.createElement('canvas');
-  const ctxArena = arena.getContext('2d');
+  const cenario = criarCenario();
+  const luz = document.createElement('canvas');
+  luz.width = COLUNAS * PIXELS_LUZ;
+  luz.height = Math.round((ALTURA / TAM) * PIXELS_LUZ);
+  const ctxLuz = luz.getContext('2d');
   const sprites = new Map();
   const larguras = new Map();
   const retratos = new Map(); // canvas -> { ctx, cor, pose }
   const movimentoReduzido = matchMedia('(prefers-reduced-motion: reduce)');
   let gradientesSubita = null;
-  let escala = 0;
-  let arenaDesenhada = null;
+  let brilhoLuz = null;
+  let temaDoBrilho = null;
+  // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when the
+  // average frame interval runs late and climbs back slowly (never straight back to a level that failed).
+  const qualidade = { escala: 0, teto: ESCALA_MAX, mediaMs: 1000 / 60, ultimoMs: 0, mudouEm: performance.now(), falhouEm: 0, escalaQueFalhou: Infinity };
 
-  // Backing store sized to what is actually on screen (capped at 2x), not to the device maximum.
+  const medirQuadro = () => {
+    const agoraMs = performance.now();
+    const intervalo = agoraMs - qualidade.ultimoMs;
+    qualidade.ultimoMs = agoraMs;
+    // The first frame, a hidden tab or a paused screen say nothing about the device.
+    if (intervalo <= 0 || intervalo > 120) return;
+    qualidade.mediaMs += (intervalo - qualidade.mediaMs) * 0.05;
+    const desde = agoraMs - qualidade.mudouEm;
+    if (qualidade.mediaMs > QUADRO_LENTO_MS && desde > 2500 && qualidade.escala > 1) {
+      qualidade.escalaQueFalhou = qualidade.escala;
+      qualidade.falhouEm = agoraMs;
+      qualidade.teto = Math.max(1, qualidade.escala - 0.5);
+      qualidade.mudouEm = agoraMs;
+      qualidade.mediaMs = 1000 / 60;
+    } else if (qualidade.mediaMs < QUADRO_FOLGADO_MS && desde > 12000 && qualidade.teto < ESCALA_MAX) {
+      const proximo = qualidade.teto + 0.25;
+      if (proximo < qualidade.escalaQueFalhou || agoraMs - qualidade.falhouEm > 90000) {
+        qualidade.teto = proximo;
+        qualidade.mudouEm = agoraMs;
+      }
+    }
+  };
+
+  // Backing store sized to what is actually on screen, in steps of 0.25 so every tile has whole pixels.
   const ajustarResolucao = () => {
     const pixels = (canvas.clientWidth || LARGURA) * (window.devicePixelRatio || 1);
-    const nova = Math.min(2, Math.max(0.5, Math.ceil((pixels / LARGURA) * 4) / 4));
-    if (nova === escala) return;
-    escala = nova;
-    canvas.width = arena.width = Math.round(LARGURA * escala);
-    canvas.height = arena.height = Math.round(ALTURA * escala);
-    arenaDesenhada = null;
+    const necessaria = Math.ceil((pixels / LARGURA) * 4) / 4;
+    const nova = limitar(Math.min(necessaria, qualidade.teto), 0.5, ESCALA_MAX);
+    if (nova === qualidade.escala) return;
+    qualidade.escala = nova;
+    canvas.width = Math.round(LARGURA * nova);
+    canvas.height = Math.round(ALTURA * nova);
     sprites.clear();
   };
 
   const sprite = item => {
     if (!sprites.has(item)) {
+      const escala = qualidade.escala;
       const quadro = document.createElement('canvas');
       quadro.width = quadro.height = Math.round(TAM * escala);
       const ctxQuadro = quadro.getContext('2d');
@@ -926,6 +916,50 @@ export function criarPintor(canvas) {
       larguras.set(nome, ctx.measureText(nome).width);
     }
     return larguras.get(nome);
+  };
+
+  // A soft round glow tinted with the theme's light, drawn into the low resolution light map.
+  const brilho = tema => {
+    if (temaDoBrilho === tema) return brilhoLuz;
+    brilhoLuz = document.createElement('canvas');
+    brilhoLuz.width = brilhoLuz.height = 64;
+    const ctxBrilho = brilhoLuz.getContext('2d');
+    const [r, g, b] = tema.luz;
+    const gradiente = ctxBrilho.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradiente.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`);
+    gradiente.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, 0.4)`);
+    gradiente.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    ctxBrilho.fillStyle = gradiente;
+    ctxBrilho.fillRect(0, 0, 64, 64);
+    temaDoBrilho = tema;
+    return brilhoLuz;
+  };
+
+  // Flames and fresh explosions light up the floor and walls around them. The light is painted at 8 px
+  // per tile and blended once over the arena, which keeps it cheap with many flames on screen.
+  const desenharLuz = (cena, tema, agora) => {
+    const explosoes = cena.efeitos.filter(efeito => efeito.tipo === 'explosao' && agora - efeito.inicio < 0.6);
+    if (!cena.c.length && !explosoes.length) return;
+    const fonte = brilho(tema);
+    ctxLuz.globalCompositeOperation = 'source-over';
+    ctxLuz.globalAlpha = 1;
+    ctxLuz.clearRect(0, 0, luz.width, luz.height);
+    ctxLuz.globalCompositeOperation = 'lighter';
+    const lancar = (x, y, raioTiles, alfa) => {
+      const raio = raioTiles * PIXELS_LUZ;
+      ctxLuz.globalAlpha = alfa;
+      ctxLuz.drawImage(fonte, (x + 0.5) * PIXELS_LUZ - raio, (y + 0.5) * PIXELS_LUZ - raio, raio * 2, raio * 2);
+    };
+    for (const [i] of cena.c) lancar(i % COLUNAS, Math.floor(i / COLUNAS), 1.7, 0.42 + Math.sin(agora * 31 + i) * 0.08);
+    for (const efeito of explosoes) {
+      const idade = agora - efeito.inicio;
+      lancar(efeito.x, efeito.y, 2.6 + idade * 2.5, 1 - idade / 0.6);
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.65;
+    ctx.drawImage(luz, 0, 0, LARGURA, ALTURA);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
   };
 
   // Red glow on the edges while the arena closes in. Gradients are made once and reused.
@@ -961,7 +995,7 @@ export function criarPintor(canvas) {
       }
       const lado = quadro.clientWidth;
       if (!lado) continue;
-      const pixels = Math.round(lado * Math.min(2, window.devicePixelRatio || 1));
+      const pixels = Math.round(lado * Math.min(ESCALA_MAX, window.devicePixelRatio || 1));
       if (quadro.width !== pixels) quadro.width = quadro.height = pixels;
       const k = pixels / RETRATO;
       retrato.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -972,18 +1006,16 @@ export function criarPintor(canvas) {
     }
   };
 
-  // cena: { g, muros: Set, chaveMuros, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu, festa, pronto }],
+  // cena: { g, muros: Set, chaveMuros, tema, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu, festa, pronto }],
   //         b, c, iv, gl, agora, efeitos, tremor, contagem, subita }
   const desenhar = cena => {
+    medirQuadro();
     ajustarResolucao();
+    const escala = qualidade.escala;
     const reduzido = movimentoReduzido.matches;
     const agora = cena.agora;
-    const chave = `${cena.g}|${cena.chaveMuros}`;
-    if (arenaDesenhada !== chave) {
-      ctxArena.setTransform(escala, 0, 0, escala, 0, 0);
-      desenharArenaFixa(ctxArena, cena.g, cena.muros);
-      arenaDesenhada = chave;
-    }
+    const fixa = cenario.atualizar(cena, escala);
+    const tema = cenario.tema;
     let tx = 0;
     let ty = 0;
     if (!reduzido && cena.tremor > 0.2) {
@@ -991,15 +1023,16 @@ export function criarPintor(canvas) {
       ty = (Math.random() - 0.5) * cena.tremor;
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = PALETA.borda[2];
+    ctx.fillStyle = tema.borda[2];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(escala, 0, 0, escala, tx * escala, ty * escala);
-    ctx.drawImage(arena, 0, 0, LARGURA, ALTURA);
+    ctx.drawImage(fixa, 0, 0, LARGURA, ALTURA);
+    desenharLuz(cena, tema, agora);
     for (let i = 0; i < cena.g.length; i++) {
       if (VISUAL_ITEM[cena.g[i]]) desenharItem(ctx, sprite(cena.g[i]), i, cena.g[i], agora, reduzido);
     }
     for (const chama of cena.c) desenharChama(ctx, chama, agora);
-    for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido);
+    for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, agora, reduzido);
     for (const tiro of cena.gl ?? []) desenharTiroGelo(ctx, tiro, agora);
     // Items flying to a magnet are drawn a bit smaller, above walls and crates.
@@ -1009,6 +1042,7 @@ export function criarPintor(canvas) {
     }
     const vivos = cena.j.filter(j => j.v).sort((a, b) => a.y - b.y);
     const topos = vivos.map(jogador => desenharJogador(ctx, jogador, agora, reduzido));
+    if (!reduzido && tema.ambiente) desenharAmbiente(ctx, tema.ambiente, agora);
     // Tags go after every body, so a character walking below never covers someone's name.
     const escalaTela = (canvas.clientWidth || LARGURA) / LARGURA;
     const escalaRotulo = limitar(0.6 / escalaTela, 1, 2);
@@ -1018,7 +1052,7 @@ export function criarPintor(canvas) {
       const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
       desenharRotulo(ctx, cx, topos[n], chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
     });
-    for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido);
+    for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);
     desenharRetratos(agora, reduzido);
   };
@@ -1030,5 +1064,12 @@ export function criarPintor(canvas) {
     return quadro;
   };
 
-  return { desenhar, retrato };
+  return {
+    desenhar,
+    retrato,
+    // For a frames-per-second display or a performance test: current scale, its ceiling and frame time.
+    get qualidade() {
+      return { escala: qualidade.escala, teto: qualidade.teto, quadroMs: Math.round(qualidade.mediaMs * 10) / 10 };
+    },
+  };
 }
