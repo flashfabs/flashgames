@@ -24,6 +24,8 @@ let infoJogo = INFO_VAZIA;
 let codigoConvite = null;
 let ocupado = false;
 let perfilAtual = null; // the device profile shown on the home screen (conta.js), with corPreferida
+let versaoCarregada = null; // commit published when this page loaded (/versao.json), to spot an outdated page
+let timerReconexao = 0;
 const perfil = criarPerfil({ raiz: $('#inicio'), campoNome, aoMudar: novo => { perfilAtual = novo; } });
 
 function codigoDoEndereco() {
@@ -90,6 +92,10 @@ async function entrarNaSala(codigo) {
     abrirSala(sala);
   } catch (erro) {
     console.error('Failed to join room', erro);
+    if (erro?.tipo === 'inexistente' && await paginaDesatualizada()) {
+      mostrarMensagem('Esta página está desatualizada: o site mudou depois que você a abriu. Recarregue e entre de novo pelo link.');
+      return;
+    }
     mostrarMensagem(erro.message || 'Não consegui entrar na sala.');
   } finally {
     definirOcupado(false);
@@ -117,6 +123,7 @@ function abrirSala(sala) {
   sala.on('voltou', membro => avisar(`${membro.nome} voltou`));
   sala.on('reconectando', () => mostrarReconexao());
   sala.on('reconectou', () => {
+    pararContagemReconexao();
     $('#queda').hidden = true;
     avisar('Conexão de volta!');
   });
@@ -139,6 +146,8 @@ function abrirSala(sala) {
 }
 
 function fecharSala() {
+  pararContagemReconexao();
+  $('#confirmar-saida').hidden = true;
   jogoAtual?.destruir();
   jogoAtual = null;
   salaAtual?.sair();
@@ -151,21 +160,83 @@ function voltarAoInicio({ manterEndereco = false } = {}) {
   prepararInicio();
   mostrarTela('inicio');
   perfil.atualizar();
+  paginaDesatualizada();
+}
+
+// The commit in production (site/versao.json, written at publication); null locally or offline.
+async function lerVersaoPublicada() {
+  try {
+    const resposta = await fetch('versao.json', { cache: 'no-store' });
+    if (!resposta.ok) return null;
+    return (await resposta.json())?.commit ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// A page opened before the site was updated cannot find rooms made by the new one (the protocol version is part
+// of the room id), so "room not found" may really mean "reload".
+async function paginaDesatualizada() {
+  if (!versaoCarregada) return false;
+  const publicada = await lerVersaoPublicada();
+  const desatualizada = Boolean(publicada && publicada !== versaoCarregada);
+  $('#versao-nova').hidden = !desatualizada;
+  return desatualizada;
+}
+
+function pararContagemReconexao() {
+  clearInterval(timerReconexao);
+  timerReconexao = 0;
 }
 
 function mostrarQueda(motivo) {
+  pararContagemReconexao();
   $('#queda-titulo').textContent = 'Conexão perdida';
   $('#queda-motivo').textContent = motivo;
   $('#queda-acoes').hidden = false;
   $('#queda').hidden = false;
 }
 
-// Same dialog, without buttons: the room is trying to get this member back on its own.
+// Same dialog, without buttons: the room is trying to get this member back on its own, and the seconds left of
+// the guarded place count down.
 function mostrarReconexao() {
+  const fim = performance.now() + TOLERANCIA_MS;
+  const atualizar = () => {
+    const resta = Math.ceil((fim - performance.now()) / 1000);
+    $('#queda-motivo').textContent = resta > 0
+      ? `A conexão caiu. Sua vaga fica guardada por mais ${resta} s enquanto a gente tenta voltar.`
+      : 'A conexão caiu. Ainda tentando voltar…';
+  };
   $('#queda-titulo').textContent = 'Reconectando…';
-  $('#queda-motivo').textContent = `A conexão caiu. Sua vaga fica guardada por ${TOLERANCIA_S} segundos enquanto a gente tenta voltar.`;
   $('#queda-acoes').hidden = true;
   $('#queda').hidden = false;
+  pararContagemReconexao();
+  atualizar();
+  timerReconexao = setInterval(atualizar, 250);
+}
+
+// Leaving needs a confirmation only when it costs the others something: the host closes the room, a player in
+// the middle of a round ends it for everyone.
+function custoDeSair() {
+  const sala = salaAtual;
+  if (!sala || sala.membros.size <= 1) return null;
+  const outros = sala.membros.size - 1;
+  if (sala.souAnfitriao) return `Você é o anfitrião: se sair, a sala fecha para ${outros === 1 ? 'a outra pessoa' : `as outras ${outros} pessoas`}.`;
+  const naRodada = ['contagem', 'jogo', 'resultado'].includes(infoJogo.fase) && infoJogo.escalacao.some(item => item.id === sala.meuId);
+  const outrasPessoas = infoJogo.escalacao.some(item => item.id !== sala.meuId && !item.robo);
+  if (naRodada && outrasPessoas) return 'A rodada está rolando: se você sair agora, ela acaba para todo mundo.';
+  return null;
+}
+
+function pedirSaida() {
+  const custo = custoDeSair();
+  if (!custo) {
+    voltarAoInicio();
+    return;
+  }
+  $('#confirmar-texto').textContent = custo;
+  $('#confirmar-saida').hidden = false;
+  $('#botao-ficar').focus();
 }
 
 function etiqueta(texto, classe = '', titulo = null) {
@@ -281,7 +352,18 @@ campoCodigo.addEventListener('keydown', evento => {
 });
 
 $('#botao-copiar').addEventListener('click', compartilharLink);
-$('#botao-sair').addEventListener('click', () => voltarAoInicio());
+$('#botao-sair').addEventListener('click', pedirSaida);
+$('#botao-confirmar-saida').addEventListener('click', () => voltarAoInicio());
+$('#botao-ficar').addEventListener('click', () => {
+  $('#confirmar-saida').hidden = true;
+});
+$('#botao-recarregar').addEventListener('click', () => location.reload());
+document.addEventListener('keydown', evento => {
+  if (evento.key === 'Escape' && !$('#confirmar-saida').hidden) $('#confirmar-saida').hidden = true;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !salaAtual) paginaDesatualizada();
+});
 $('#botao-som').addEventListener('click', () => {
   som.alternar();
   atualizarBotaoSom();
@@ -345,3 +427,6 @@ som.instalar();
 atualizarBotaoSom();
 prepararInicio();
 mostrarTela('inicio');
+lerVersaoPublicada().then(versao => {
+  versaoCarregada = versao;
+});

@@ -10,9 +10,10 @@ import {
 import { criarPintor, efeitoAtivo, chaveDoTema } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarHud } from './hud.js';
+import { tratarEventos as traduzirEventos } from './efeitos.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, aplicarAcaoDoRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
-import { criarTelas, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
+import { criarTelas, atualizarConexoes, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -32,7 +33,6 @@ const QUADRO_MIN_MS = 15; // caps drawing near 60 fps on 120 Hz screens
 const CONTAGEM_S = 3;
 const RESULTADO_S = 7;
 const FINAL_S = 15;
-const MAX_EFEITOS = 90;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
 // Each match plays a variant of its map, picked by the match number (members know it from the state).
 const murosGuardados = new Map();
@@ -46,9 +46,6 @@ const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
 const PARA_GELO = new Set([PAREDE, CAIXA]);
 const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo', resultado: 'resultado', final: 'resultado' };
-// Stereo position of a sound from its column on the arena (-1 left, 1 right).
-const panDe = x => (Number.isFinite(x) ? (x / (COLUNAS - 1)) * 2 - 1 : undefined);
-const mediaDe = valores => (valores.length ? valores.reduce((soma, valor) => soma + valor, 0) / valores.length : undefined);
 
 function embaralhar(lista) {
   for (let i = lista.length - 1; i > 0; i--) {
@@ -169,6 +166,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
   let chaveAviso = '';
   let refContagem = null;
   const partidasRegistradas = new Set();
+  let primeiroEstadoVisto = false;
   let faseDoAviso = null;
   let ultimaContagem = null;
   let timerFaixa = 0;
@@ -228,6 +226,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       if (jogador) jogador.andando = false;
     }),
     sala.on('reconectou', () => sala.enviarAoAnfitriao({ t: 'pedirEstado' })),
+    // Pings change every second: the lobby badges update in place.
+    sala.on('qualidade', () => {
+      if (estado.fase === 'lobby') atualizarConexoes(el.aviso, sala.membrosOrdenados());
+    }),
   ];
 
   function ajustarArena() {
@@ -636,6 +638,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
     if (estado.idPartida !== partidaAnterior) prepararPartidaLocal();
     if (estado.fase !== anterior) aoEntrarNaFase(estado.fase, anterior);
+    // Arriving with a round under way: say what happens now, once.
+    if (!primeiroEstadoVisto) {
+      primeiroEstadoVisto = true;
+      if (estado.fase !== 'lobby' && estado.fase !== 'final' && meuIndice() < 0) mostrarFaixa('A rodada já começou: você assiste agora e entra na próxima.');
+    }
     chaveAviso = '';
     informar();
   }
@@ -870,66 +877,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
   }
 
   function tratarEventos(eventos) {
-    const agora = performance.now() / 1000;
-    const eu = meuIndice();
-    const explosoes = [];
-    const caixas = [];
-    const blocos = [];
-    for (const evento of eventos) {
-      const pan = panDe(evento?.x);
-      switch (evento?.e) {
-        case 'bum':
-          explosoes.push(evento.x);
-          efeitos.push({ tipo: 'explosao', x: evento.x, y: evento.y, inicio: agora });
-          break;
-        case 'bomba':
-        case 'chute':
-          som.tocar('bomba', { pan });
-          break;
-        case 'caixa':
-          caixas.push(evento.x);
-          efeitos.push({ tipo: 'caixa', x: evento.x, y: evento.y, inicio: agora });
-          if (evento.j === eu) efeitos.push({ tipo: 'ponto', texto: `+${PONTOS.caixa}`, x: evento.x, y: evento.y, inicio: agora });
-          break;
-        case 'item':
-          som.tocar('item', { item: evento.item, pan });
-          efeitos.push({ tipo: 'item', x: evento.x, y: evento.y, item: evento.item, inicio: agora });
-          break;
-        case 'escudo':
-        case 'congela':
-          som.tocar('escudo', { pan });
-          efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
-          break;
-        case 'gelo':
-          som.tocar('bomba');
-          break;
-        case 'atalho':
-          som.tocar('pronto');
-          efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
-          efeitos.push({ tipo: 'escudo', x: evento.x2, y: evento.y2, inicio: agora });
-          break;
-        case 'morte':
-          som.tocar('morte', { eu: evento.j === eu, pan });
-          efeitos.push({ tipo: 'morte', x: evento.x, y: evento.y, cor: estado.escalacao[evento.j]?.cor ?? 0, inicio: agora });
-          break;
-        case 'subita':
-          som.tocar('alarme');
-          som.musica('subita');
-          mostrarFaixa('Morte súbita! A arena está fechando.');
-          break;
-        case 'bloco':
-          blocos.push(evento.x);
-          efeitos.push({ tipo: 'bloco', x: evento.x, y: evento.y, inicio: agora });
-          break;
-        default:
-          break;
-      }
-    }
-    if (explosoes.length) som.tocar('bum', { n: explosoes.length, pan: panDe(mediaDe(explosoes)) });
-    if (caixas.length) som.tocar('caixa', { n: caixas.length, pan: panDe(mediaDe(caixas)) });
-    if (blocos.length) som.tocar('bloco', { pan: panDe(mediaDe(blocos)) });
-    if (efeitos.length > MAX_EFEITOS) efeitos.splice(0, efeitos.length - MAX_EFEITOS);
+    traduzirEventos(eventos, { efeitos, som, eu: meuIndice(), escalacao: estado.escalacao, mostrarFaixa });
   }
+
 
   function mostrarFaixa(texto) {
     el.faixa.textContent = texto;
@@ -951,6 +901,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null,
       estado,
       meuId: sala.meuId,
       souAnfitriao: sala.souAnfitriao,
+      idAnfitriao: sala.idAnfitriao,
+      link: sala.link,
+      codigo: sala.codigo,
       membros: sala.membrosOrdenados(),
       toque: toqueDisponivel,
       placarInicio,

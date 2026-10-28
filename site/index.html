@@ -21,6 +21,10 @@
 <body>
   <main id="inicio" class="inicio">
     <div class="inicio-cartao">
+      <div id="versao-nova" class="versao-nova" role="status" hidden>
+        <span>Saiu uma versão nova do Salinha.</span>
+        <button id="botao-recarregar" class="botao botao--pequeno" type="button">Recarregar</button>
+      </div>
       <div class="marca"><span class="marca-icone" aria-hidden="true"></span>Salinha</div>
       <p class="inicio-lema">Jogos rápidos com a galera, direto no navegador. Sem cadastro: crie uma sala e mande o link.</p>
 
@@ -101,6 +105,17 @@
           <button id="botao-reconectar" class="botao" type="button">Tentar de novo</button>
           <button id="botao-nova-sala" class="botao botao--secundario" type="button">Criar nova sala</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmar-saida" class="queda" hidden>
+    <div class="queda-cartao" role="alertdialog" aria-modal="true" aria-labelledby="confirmar-titulo" aria-describedby="confirmar-texto">
+      <h2 id="confirmar-titulo">Sair da sala?</h2>
+      <p id="confirmar-texto"></p>
+      <div class="queda-acoes">
+        <button id="botao-confirmar-saida" class="botao" type="button">Sair da sala</button>
+        <button id="botao-ficar" class="botao botao--secundario" type="button">Ficar</button>
       </div>
     </div>
   </div>
