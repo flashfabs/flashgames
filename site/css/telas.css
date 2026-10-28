@@ -459,8 +459,9 @@
   border: 1px solid rgba(255, 212, 59, 0.6);
   border-radius: 999px;
   color: #ffe066;
-  font-size: clamp(12px, 4cqh, 15px);
+  font-size: clamp(11px, 3.6cqh, 15px);
   font-weight: 700;
+  line-height: 1.25;
   text-align: center;
   pointer-events: none;
   transform: translateX(-50%);
@@ -547,4 +548,38 @@
 
 .config-linha--dicas span {
   color: var(--texto-suave);
+}
+
+/* The take-out ✕ of a robot sits in its card's corner, so the name keeps the room on a narrow phone. */
+.pavio-prontos-robo {
+  position: relative;
+}
+
+.pavio-prontos-robo .pavio-robo-tirar {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+}
+
+/* Short screens (phone in landscape): highlights and achievements two by two and tighter. */
+@media (max-height: 500px) {
+  .pavio-destaques,
+  .pavio-conquistas {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 4px;
+  }
+
+  .pavio-destaque,
+  .pavio-conquista {
+    gap: 6px;
+    padding: 3px 8px;
+  }
+
+  .pavio-destaque-icone {
+    font-size: 16px;
+  }
+
+  .pavio-destaque-quem {
+    font-size: 13px;
+  }
 }

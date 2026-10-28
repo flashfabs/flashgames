@@ -4,9 +4,9 @@
 const CHAVE = 'salinha:dicas';
 const ORDEM = ['andar', 'bomba'];
 const TEXTOS = {
-  andar: { teclado: 'Ande com WASD ou as setas', toque: 'Arraste o dedo no lado esquerdo para andar' },
-  bomba: { teclado: 'Espaço solta uma bomba: solte perto de caixas e saia de perto', toque: 'Toque no lado direito para soltar uma bomba e saia de perto' },
-  poder: { teclado: 'Você pegou um poder! Os seus aparecem no topo da tela', toque: 'Você pegou um poder! Os seus aparecem no topo da tela' },
+  andar: { teclado: 'Ande com WASD ou as setas', toque: 'Arraste à esquerda para andar' },
+  bomba: { teclado: 'Espaço solta uma bomba: solte perto de caixas e saia de perto', toque: 'Toque à direita para soltar bomba e fuja' },
+  poder: { teclado: 'Você pegou um poder! Os seus aparecem no topo da tela', toque: 'Pegou um poder! Veja no topo da tela' },
 };
 const DURACAO_PODER_MS = 3500;
 
