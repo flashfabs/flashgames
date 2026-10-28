@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Partida, MAPAS, gradeVazia, indice, velocidade, AJUSTES, CAIXA, COLUNAS, DIRECAO } from '../site/js/pavio/regras.js';
-import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
+import { mapaDePerigo, rotaDeFuga, fugaDepoisDaBomba, criarRobo, aplicarAcaoDoRobo, chuteContra, celulaDe, NIVEIS, ORDEM_NIVEIS, MARGEM_S } from '../site/js/pavio/robo.js';
 
 const DT = 1 / 60;
 const PASSO = 1 / velocidade(0);
@@ -25,11 +25,7 @@ function sorteador(semente) {
 // Runs a match where every player is a robot, the way the host does: brains first, then the rules.
 function jogarComRobos(partida, robos, segundos, aCadaPasso = () => {}) {
   for (let t = 0; t < segundos && !partida.resultado; t += DT) {
-    for (const robo of robos) {
-      const { d, d2, bomba: soltar } = robo.pensar(partida, DT);
-      partida.definirEntrada(robo.id, d, d2);
-      if (soltar) partida.pedirBomba(robo.id);
-    }
+    for (const robo of robos) aplicarAcaoDoRobo(partida, robo.id, robo.pensar(partida, DT));
     partida.passo(DT);
     aCadaPasso(partida);
   }
@@ -223,7 +219,8 @@ test('a robot with the detonator and a single bomb sets its bombs off from a saf
   }
 });
 
-test('robots holding kick, shortcut and ice never use them by accident nor get stuck', () => {
+// Ice and kicks are used on purpose (their own tests below); shortcuts never.
+test('robots holding kick, shortcut and ice never cross crates by accident, nor get stuck', () => {
   const niveis = ['facil', 'medio', 'dificil', 'dificil'];
   for (const mapa of [MAPAS[1], MAPAS[3]]) {
     const sorteio = sorteador(11);
@@ -234,7 +231,7 @@ test('robots holding kick, shortcut and ice never use them by accident nor get s
     const paradoDesde = new Map();
     let maiorParada = 0;
     jogarComRobos(partida, robos, 60, p => {
-      for (const ev of p.tirarEventos()) if (['chute', 'atalho', 'gelo'].includes(ev.e)) usados.push(ev.e);
+      for (const ev of p.tirarEventos()) if (ev.e === 'atalho') usados.push(ev.e);
       for (const j of p.jogadores.filter(vivo => vivo.vivo)) {
         const onde = `${j.x},${j.y}`;
         const visto = paradoDesde.get(j.id);
@@ -242,7 +239,7 @@ test('robots holding kick, shortcut and ice never use them by accident nor get s
         else maiorParada = Math.max(maiorParada, p.tempo - visto.desde);
       }
     });
-    assert.deepEqual(usados, [], `${mapa.nome}: no kick, shortcut or ice shot`);
+    assert.deepEqual(usados, [], `${mapa.nome}: no shortcut`);
     assert.ok(maiorParada < 20, `${mapa.nome}: a robot stood still for ${maiorParada.toFixed(1)} s`);
   }
 });
@@ -267,6 +264,60 @@ test('a full arena of robots of every level plays each map to the end', () => {
     assert.ok(entradasValidas, 'robots answer with the same input a person gives');
     assert.ok(partida.jogadores.reduce((soma, j) => soma + j.caixas, 0) > 30, `${mapa.nome}: crates were broken`);
   }
+});
+
+test('a robot with ice and no way out freezes the bomb and runs', () => {
+  // Column 1 below the bomb is a dead end too long to leave before the fuse; to the right, crates.
+  const montar = gelo => {
+    const grade = gradeVazia();
+    for (let y = 2; y <= 9; y++) grade[indice(2, y)] = CAIXA;
+    const partida = new Partida([{ id: 'r', slot: 0 }, { id: 'b', slot: 1 }], { grade, sorteio: () => 0.99 });
+    const [r, b] = partida.jogadores;
+    b.x = 1;
+    b.y = 3;
+    b.alcance = 6;
+    partida.pedirBomba('b');
+    partida.passo(DT);
+    b.x = 19;
+    b.y = 13;
+    partida.bombas[0].restante = 0.9;
+    r.x = 1;
+    r.y = 5;
+    r.gelo = gelo;
+    return { partida, r };
+  };
+  const semGelo = montar(0);
+  jogarComRobos(semGelo.partida, [criarRobo({ id: 'r', nivel: 'dificil', sorteio: () => 0.5 })], 1.5);
+  assert.equal(semGelo.r.vivo, false, 'without ice there is no way out');
+  const comGelo = montar(2);
+  let congelou = false;
+  jogarComRobos(comGelo.partida, [criarRobo({ id: 'r', nivel: 'dificil', sorteio: () => 0.5 })], 5, partida => {
+    congelou ||= partida.bombas.some(bomba => bomba.congelada > 0);
+  });
+  assert.ok(congelou, 'the bomb was frozen');
+  assert.equal(comGelo.r.vivo, true);
+  assert.equal(comGelo.r.gelo, 1, 'one shot was enough');
+});
+
+test('a hunting robot kicks a bomb next to it at an enemy down the line', () => {
+  const partida = new Partida([{ id: 'r', slot: 0 }, { id: 'b', slot: 1 }], { grade: gradeVazia(), sorteio: () => 0.99 });
+  const [r, b] = partida.jogadores;
+  b.x = 2;
+  b.y = 1;
+  partida.pedirBomba('b');
+  partida.passo(DT);
+  partida.bombas[0].restante = 3;
+  b.x = 12;
+  b.y = 1;
+  r.chute = true;
+  const kicks = [];
+  jogarComRobos(partida, [criarRobo({ id: 'r', nivel: 'dificil', sorteio: () => 0.5 })], 1.6, p => {
+    for (const ev of p.tirarEventos()) if (ev.e === 'chute') kicks.push(ev);
+  });
+  assert.equal(kicks.length, 1);
+  assert.equal(partida.bombas[0].x, 11, 'the bomb slid up to the enemy');
+  assert.equal(r.vivo, true);
+  assert.equal(chuteContra(partida, { ...r, chute: false }, indice(1, 1)), null, 'no kick without the power');
 });
 
 test('robot levels and helpers are consistent', () => {

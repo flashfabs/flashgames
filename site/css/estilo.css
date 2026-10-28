@@ -598,13 +598,72 @@ html.em-sala body {
   white-space: nowrap;
 }
 
+/* Powers: one chip each; the timed ones show the time left as a ring */
 .pavio-hud-itens {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
   overflow: hidden;
-  white-space: pre;
-  text-overflow: ellipsis;
 }
 
-.pavio-hud > div:not(:empty) {
+.pavio-chip {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 8px 0 6px;
+  border-radius: 999px;
+  background: rgba(23, 34, 48, 0.88);
+  border: 1px solid var(--borda);
+  font-variant-numeric: tabular-nums;
+}
+
+.pavio-chip b {
+  font-weight: 800;
+}
+
+.pavio-chip--liga,
+.pavio-chip--tempo {
+  padding: 0 6px;
+}
+
+.pavio-chip--tempo {
+  border-color: transparent;
+  background:
+    linear-gradient(rgba(23, 34, 48, 0.95), rgba(23, 34, 48, 0.95)) padding-box,
+    conic-gradient(#ffd43b calc(var(--resta, 1) * 360deg), rgba(255, 255, 255, 0.12) 0) border-box;
+  border-width: 2px;
+}
+
+.pavio-hud-itens--compacto {
+  gap: 2px;
+}
+
+.pavio-hud-itens--compacto .pavio-chip {
+  gap: 1px;
+  padding: 0 4px;
+}
+
+.pavio-hud-itens--compacto .pavio-chip--contador,
+.pavio-hud-itens--compacto .pavio-chip--liga {
+  border-color: transparent;
+}
+
+.pavio-chip--novo {
+  animation: chip-novo 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes chip-novo {
+  0% { transform: scale(0.6); background-color: rgba(255, 212, 59, 0.5); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+.pavio-hud-pontos:not(:empty),
+.pavio-hud-tempo:not(:empty) {
   padding: 2px 10px;
   border-radius: 999px;
   background: rgba(23, 34, 48, 0.85);
@@ -631,6 +690,17 @@ html.em-sala body {
 
 .pavio-hud-tempo--subita {
   color: #ff8787;
+  border-color: rgba(255, 107, 107, 0.6) !important;
+  animation: pulsar-tempo 0.9s ease-in-out infinite;
+}
+
+.pavio-hud-tempo--alerta {
+  color: #ffd43b;
+  animation: pulsar-tempo 1s ease-in-out infinite;
+}
+
+@keyframes pulsar-tempo {
+  50% { transform: scale(1.08); }
 }
 
 .pavio-arena {
@@ -1242,31 +1312,66 @@ html.em-sala body {
   pointer-events: none;
 }
 
+/* The stick: a ring with four direction marks; the one being pushed lights up */
 .pavio-base {
   width: 120px;
   height: 120px;
   margin: -60px 0 0 -60px;
-  background: rgba(255, 255, 255, 0.06);
+  background:
+    radial-gradient(circle closest-side, rgba(255, 255, 255, 0.02) 0 64%, rgba(255, 255, 255, 0.09) 66% 100%);
   border: 2px solid rgba(255, 255, 255, 0.16);
+  opacity: 0.75;
   transform: translate(calc(env(safe-area-inset-left) + 96px), calc(100dvh - env(safe-area-inset-bottom) - 96px));
+  transition: opacity 0.15s, border-color 0.15s;
 }
 
+.pavio-base::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background:
+    conic-gradient(from -8deg, rgba(255, 255, 255, 0.35) 0 16deg, transparent 0 74deg, rgba(255, 255, 255, 0.35) 0 106deg, transparent 0 164deg, rgba(255, 255, 255, 0.35) 0 196deg, transparent 0 254deg, rgba(255, 255, 255, 0.35) 0 286deg, transparent 0);
+  mask: radial-gradient(circle closest-side, transparent 0 74%, #000 77%);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 0 74%, #000 77%);
+}
+
+.pavio-base::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  opacity: 0;
+  background: conic-gradient(from -40deg, rgba(255, 212, 59, 0.9) 0 80deg, transparent 0);
+  mask: radial-gradient(circle closest-side, transparent 0 86%, #000 89%);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 0 86%, #000 89%);
+  transition: opacity 0.1s;
+}
+
+.pavio-base[data-d='1']::after { opacity: 1; transform: rotate(0deg); }
+.pavio-base[data-d='4']::after { opacity: 1; transform: rotate(90deg); }
+.pavio-base[data-d='2']::after { opacity: 1; transform: rotate(180deg); }
+.pavio-base[data-d='3']::after { opacity: 1; transform: rotate(270deg); }
+
 .pavio-manete {
-  width: 52px;
-  height: 52px;
-  margin: -26px 0 0 -26px;
-  background: rgba(255, 255, 255, 0.22);
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.18) 70%);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  opacity: 0.8;
   transform: translate(calc(env(safe-area-inset-left) + 96px), calc(100dvh - env(safe-area-inset-bottom) - 96px));
 }
 
 .pavio-toque--ativo .pavio-base {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
+  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 .pavio-toque--ativo .pavio-manete {
-  background: rgba(255, 255, 255, 0.4);
+  opacity: 1;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.35) 70%);
 }
 
 .pavio-dica-bomba {
@@ -1278,18 +1383,19 @@ html.em-sala body {
   place-items: center;
   width: 92px;
   height: 92px;
-  background: rgba(255, 138, 61, 0.35);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  font-size: 36px;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 170, 110, 0.55), rgba(232, 89, 12, 0.35) 70%);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+  font-size: 38px;
 }
 
 .pavio-dica-bomba--toque {
-  animation: apertar 0.18s ease-out;
+  animation: apertar 0.2s ease-out;
 }
 
 @keyframes apertar {
-  from { transform: scale(0.85); background: rgba(255, 138, 61, 0.8); }
-  to { transform: scale(1); }
+  0% { transform: scale(0.84); background: rgba(255, 138, 61, 0.85); box-shadow: 0 0 0 0 rgba(255, 170, 110, 0.7); }
+  100% { transform: scale(1); box-shadow: 0 0 0 18px rgba(255, 170, 110, 0); }
 }
 
 /* Ice button: above the bomb button, only while the player has ice */
@@ -1370,6 +1476,10 @@ html.em-sala body {
   .pavio-hud {
     font-size: 13px;
   }
+
+  .pavio-chip {
+    height: 22px;
+  }
 }
 
 /* Short stages (phones in landscape, small windows): tighter full screens */
@@ -1405,6 +1515,30 @@ html.em-sala body {
 @media (max-width: 560px) {
   .sala-topo .marca {
     display: none;
+  }
+
+  .pavio-hud {
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .pavio-chip {
+    height: 22px;
+    gap: 2px;
+    padding: 0 5px 0 4px;
+  }
+}
+
+/* Portrait phones: points and clock on top, the powers on a full row of their own below them */
+@media (orientation: portrait) and (max-width: 560px) {
+  .pavio-hud {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .pavio-hud-itens {
+    order: 3;
+    flex: 1 0 100%;
   }
 
   .sala-topo {

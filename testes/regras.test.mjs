@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  Partida, moverComColisao, MAPAS, gerarGrade as gerar, gerarGrade, gradeVazia, indice, SPAWNS, DIRECAO, CAIXA, CHAO, PAREDE, ITEM, AJUSTES, COLUNAS, LINHAS,
+  Partida, moverComColisao, MAPAS, gerarGrade, gradeVazia, gradeDoMapa, layoutDoMapa, indice, SPAWNS, DIRECAO, CAIXA, CHAO, PAREDE, ITEM, AJUSTES, COLUNAS, LINHAS,
 } from '../site/js/pavio/regras.js';
 
 const DT = 1 / 60;
@@ -163,13 +163,43 @@ test('shared movement stops at bombs the player is not standing on', () => {
   assert.equal(jogador.andando, false);
 });
 
-test('every map keeps all open cells reachable and spawns free', () => {
+test('every map variant keeps all its walls, its spawns free and its open cells reachable', () => {
   for (const mapa of MAPAS) {
-    const grade = gerar(Math.random, mapa.densidade, mapa.muros);
-    for (const [x, y] of SPAWNS) assert.equal(grade[indice(x, y)], CHAO, `${mapa.nome} spawn ${x},${y}`);
-    const muros = mapa.muros.filter(([x, y]) => grade[indice(x, y)] === PAREDE).length;
-    if (mapa.muros.length) assert.ok(muros > mapa.muros.length / 2, `${mapa.nome} kept most of its walls`);
+    for (const variante of [0, 1]) {
+      const { muros, semPilares } = layoutDoMapa(mapa, variante);
+      const grade = gradeDoMapa(mapa, variante, () => 0.99);
+      for (const [x, y] of SPAWNS) assert.equal(grade[indice(x, y)], CHAO, `${mapa.nome} ${variante} spawn ${x},${y}`);
+      for (const [x, y] of muros) assert.equal(grade[indice(x, y)], PAREDE, `${mapa.nome} ${variante} wall ${x},${y}`);
+      for (const [x, y] of semPilares) assert.notEqual(grade[indice(x, y)], PAREDE, `${mapa.nome} ${variante} open pillar ${x},${y}`);
+    }
   }
+});
+
+test('map layouts are the same seen from every corner, and variants differ', () => {
+  for (const mapa of MAPAS) {
+    const grades = [0, 1].map(variante => gradeDoMapa(mapa, variante, () => 0));
+    for (const grade of grades) {
+      for (let y = 0; y < LINHAS; y++) {
+        for (let x = 0; x < COLUNAS; x++) {
+          const parede = grade[indice(x, y)] === PAREDE;
+          assert.equal(grade[indice(COLUNAS - 1 - x, y)] === PAREDE, parede, `${mapa.nome} mirrored across`);
+          assert.equal(grade[indice(x, LINHAS - 1 - y)] === PAREDE, parede, `${mapa.nome} mirrored down`);
+        }
+      }
+    }
+    assert.notDeepEqual(grades[0], grades[1], `${mapa.nome} variants differ`);
+  }
+});
+
+test('crate-free cells stay clear and sudden death fills opened pillars too', () => {
+  const patio = MAPAS[0];
+  const { livres } = layoutDoMapa(patio, 0);
+  const grade = gradeDoMapa(patio, 0, () => 0);
+  for (const i of livres) assert.equal(grade[i], CHAO);
+  assert.equal(grade[indice(10, 6)], CHAO, 'the square has no pillar');
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { mapa: patio, variante: 0 });
+  assert.ok(partida.espiral.some(([x, y]) => x === 10 && y === 6), 'sudden death reaches the opened pillar');
+  assert.ok(!partida.espiral.some(([x, y]) => partida.grade[indice(x, y)] === PAREDE), 'and skips walls');
 });
 
 test('crates and eliminations are credited to the bomb owner', () => {

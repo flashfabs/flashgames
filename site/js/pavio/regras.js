@@ -77,9 +77,65 @@ const FOLGA_EMPURRAO = 0.3;
 export const SPAWNS = [[1, 1], [19, 13], [19, 1], [1, 13], [10, 1], [10, 13], [1, 7], [19, 7]];
 
 // A round is a series of matches; each one is a tighter map and unlocks new powers (novos).
-const MUROS_MURALHAS = [[5, 4], [15, 4], [5, 10], [15, 10], [10, 5], [10, 9]];
-const MUROS_LABIRINTO = [...MUROS_MURALHAS, [7, 2], [13, 2], [7, 12], [13, 12], [3, 6], [17, 6], [3, 8], [17, 8], [8, 7], [12, 7]];
-const MUROS_FORNALHA = [...MUROS_LABIRINTO, [9, 4], [11, 4], [9, 10], [11, 10], [6, 5], [14, 5], [6, 9], [14, 9]];
+// Map layouts are drawn as the top-left quarter (columns 0 to 10, rows 0 to 7) and mirrored to the other
+// three, so every spawn has the same surroundings. '#' wall (a pillar where x and y are even), '.' floor
+// that may get crates, '_' floor that never does, '+' a crate always. Each map has a few variants and a
+// match picks one by its number, so a round never repeats a layout.
+const LAYOUTS = {
+  patio: [
+    // A square in the middle, with no pillars and no crates.
+    ['###########', '#..........', '#.#.#.#.#.#', '#..........', '#.#.#.#.#.#', '#......____', '#.#.#.#____', '#......____'],
+    // Two avenues crossing the arena.
+    ['###########', '#........._', '#.#.#.#.#.#', '#........._', '#.#.#.#.#.#', '#........._', '#.#.#.#.#.#', '#__________'],
+  ],
+  deposito: [
+    // Two aisles from top to bottom.
+    ['###########', '#...._.....', '#.#.#_#.#.#', '#...._.....', '#.#.#_#.#.#', '#...._.....', '#.#.#_#.#.#', '#...._.....'],
+    // Two aisles from side to side, and stacks of crates between them.
+    ['###########', '#..........', '#.#.#.#.#.#', '#__________', '#.#.#+#.#+#', '#....+...+.', '#.#.#+#.#+#', '#..........'],
+  ],
+  muralhas: [
+    // A cross of walls makes four yards, with gates.
+    ['###########', '#..........', '#.#.#.#.#.#', '#..........', '#.#.###.#.#', '#.........#', '#.#.#.#.#.#', '#...###.###'],
+    ['###########', '#..........', '#.#.#.#.#.#', '#..........', '#.#.#.###.#', '#.........#', '#.#.#.#.#.#', '#...#.#####'],
+  ],
+  labirinto: [
+    ['###########', '#..........', '#.#.###.#.#', '#.#...#.#..', '#.#.#.#.###', '#...#......', '#.###.#.#.#', '#.....#...#'],
+    ['###########', '#..........', '#.###.#.#.#', '#...#.#....', '###.#.###.#', '#.....#....', '#.#.###.#.#', '#.........#'],
+  ],
+  fornalha: [
+    // A furnace in the middle, with two doors on each side.
+    ['###########', '#..........', '#.#.#.#.#.#', '#.....#....', '#.#.#.#.##_', '#.......#__', '#.###.#.#__', '#.....#..__'],
+    ['###########', '#..........', '#.###.#.#.#', '#.#........', '#.#.#.###._', '#.......#__', '#.#.###.#__', '#.......#__'],
+  ],
+};
+
+// The whole map, mirrored from the quarter: a list of rows of COLUNAS characters.
+function espelharLayout(quarto) {
+  const metade = quarto.map(linha => linha + [...linha.slice(0, COLUNAS - linha.length)].reverse().join(''));
+  return [...metade, ...metade.slice(0, LINHAS - metade.length).reverse()];
+}
+
+// Walls, removed pillars and crate rules of one map variant (any integer picks one).
+export function layoutDoMapa(mapa, variante = 0) {
+  const opcoes = LAYOUTS[mapa?.tema];
+  const muros = [];
+  const semPilares = [];
+  const livres = new Set();
+  const caixas = new Set();
+  if (!opcoes) return { muros, semPilares, livres, caixas };
+  const linhas = espelharLayout(opcoes[((variante % opcoes.length) + opcoes.length) % opcoes.length]);
+  for (let y = 1; y < LINHAS - 1; y++) {
+    for (let x = 1; x < COLUNAS - 1; x++) {
+      const marca = linhas[y][x];
+      if (marca === '#' && !ehBlocoFixo(x, y)) muros.push([x, y]);
+      if (marca !== '#' && ehBlocoFixo(x, y)) semPilares.push([x, y]);
+      if (marca === '_') livres.add(indice(x, y));
+      if (marca === '+') caixas.add(indice(x, y));
+    }
+  }
+  return { muros, semPilares, livres, caixas };
+}
 // Powers unlocked by each match; a match drops everything unlocked so far.
 const NOVOS = [
   [ITEM.BOMBA, ITEM.FOGO, ITEM.ATALHO],
@@ -91,11 +147,11 @@ const NOVOS = [
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
 // tema is a stable key the painter uses for each map's art: patio, deposito, muralhas, labirinto, fornalha.
 export const MAPAS = Object.freeze([
-  { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
-  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado.', densidade: 0.74, muros: [], itens: ITENS_ATE[1], novos: NOVOS[1] },
-  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros fecham alguns caminhos.', densidade: 0.68, muros: MUROS_MURALHAS, itens: ITENS_ATE[2], novos: NOVOS[2] },
-  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados.', densidade: 0.66, muros: MUROS_LABIRINTO, itens: ITENS_ATE[3], novos: NOVOS[3] },
-  { nome: 'Fornalha', tema: 'fornalha', descricao: 'O mais fechado, e a morte súbita chega mais cedo.', densidade: 0.72, muros: MUROS_FORNALHA, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
+  { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto, com uma praça ou duas avenidas sem caixas.', densidade: 0.5, itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
+  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado, cortadas por corredores.', densidade: 0.74, itens: ITENS_ATE[1], novos: NOVOS[1], morteSubitaS: 115 },
+  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros dividem a arena em quatro pátios com portões.', densidade: 0.66, itens: ITENS_ATE[2], novos: NOVOS[2], morteSubitaS: 110 },
+  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados e curvas fechadas.', densidade: 0.6, itens: ITENS_ATE[3], novos: NOVOS[3], morteSubitaS: 100 },
+  { nome: 'Fornalha', tema: 'fornalha', descricao: 'Uma fornalha no meio, e a morte súbita chega mais cedo.', densidade: 0.66, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
 ]);
 
 export const indice = (x, y) => y * COLUNAS + x;
@@ -245,11 +301,15 @@ function conectada(grade) {
   return vistos.size === total;
 }
 
-export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeCaixas, muros = []) {
+// semPilares opens pillar cells, livres never get crates and caixas always do (spawn areas stay clear).
+export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeCaixas, muros = [], { semPilares = [], livres = new Set(), caixas = new Set() } = {}) {
   const seguras = celulasSeguras();
   const grade = [];
   for (let y = 0; y < LINHAS; y++) {
     for (let x = 0; x < COLUNAS; x++) grade.push(ehBlocoFixo(x, y) ? PAREDE : CHAO);
+  }
+  for (const [x, y] of semPilares) {
+    if (x > 0 && y > 0 && x < COLUNAS - 1 && y < LINHAS - 1) grade[indice(x, y)] = CHAO;
   }
   // Extra walls never close a spawn area nor cut the arena in two.
   for (const [x, y] of muros) {
@@ -259,22 +319,29 @@ export function gerarGrade(sorteio = Math.random, densidade = AJUSTES.densidadeC
     if (!conectada(grade)) grade[i] = CHAO;
   }
   for (let i = 0; i < grade.length; i++) {
-    if (grade[i] === CHAO && !seguras.has(i) && sorteio() < densidade) grade[i] = CAIXA;
+    if (grade[i] !== CHAO || seguras.has(i) || livres.has(i)) continue;
+    if (caixas.has(i) || sorteio() < densidade) grade[i] = CAIXA;
   }
   return grade;
+}
+
+// The grid of one match of a map variant.
+export function gradeDoMapa(mapa, variante = 0, sorteio = Math.random) {
+  const { muros, ...regras } = layoutDoMapa(mapa, variante);
+  return gerarGrade(sorteio, mapa.densidade ?? AJUSTES.densidadeCaixas, muros, regras);
 }
 
 export function gradeVazia(muros = []) {
   return gerarGrade(Math.random, 0, muros);
 }
 
-// Sudden death fills the arena ring by ring, from the border inward.
-function gerarEspiral() {
+// Sudden death fills the arena ring by ring, from the border inward, every cell that is not a wall yet.
+function gerarEspiral(grade) {
   const ordem = [];
   const vistos = new Set();
   const incluir = (x, y) => {
     const i = indice(x, y);
-    if (vistos.has(i) || ehBlocoFixo(x, y)) return;
+    if (vistos.has(i) || grade[i] === PAREDE) return;
     vistos.add(i);
     ordem.push([x, y]);
   };
@@ -433,12 +500,12 @@ export function somarEstatisticasRodada(rodada = {}, partida = []) {
 export const PONTOS = Object.freeze({ caixa: 1, eliminacao: 5, vitoria: 15 });
 
 export class Partida {
-  constructor(participantes, { mapa = MAPAS[0], grade = null, sorteio = Math.random } = {}) {
+  constructor(participantes, { mapa = MAPAS[0], variante = 0, grade = null, sorteio = Math.random } = {}) {
     this.sorteio = sorteio;
     this.mapa = mapa;
     this.itens = mapa.itens ?? Object.values(ITEM);
     this.morteSubitaS = mapa.morteSubitaS ?? AJUSTES.morteSubitaS;
-    this.grade = grade ? [...grade] : gerarGrade(sorteio, mapa.densidade ?? AJUSTES.densidadeCaixas, mapa.muros ?? []);
+    this.grade = grade ? [...grade] : gradeDoMapa(mapa, variante, sorteio);
     this.versaoGrade = 0;
     this.jogadores = participantes.map((participante, n) => novoJogador(participante, n));
     this.bombas = [];
@@ -447,7 +514,7 @@ export class Partida {
     this.gelos = []; // ice shots in flight: { x, y, d, andou, dono }, x and y being where it was thrown from
     this.eventos = [];
     this.tempo = 0;
-    this.espiral = gerarEspiral();
+    this.espiral = gerarEspiral(this.grade);
     this.posEspiral = 0;
     this.acumuladoSubita = 0;
     this.folgaFim = null;
@@ -469,7 +536,10 @@ export class Partida {
     const segundos = jogador.relogioRemoto === null ? 1 : Math.min((c - jogador.relogioRemoto) / 1000, 1);
     const permitido = velocidade(jogador.tenis) * segundos * FOLGA_VELOCIDADE + FOLGA_DISTANCIA;
     if (Math.abs(x - jogador.x) + Math.abs(y - jogador.y) > permitido) return false;
-    if (!this.#posicaoLivre(x, y, jogador.fantasma > 0 || jogador.fantasmaFolga > 0)) return false;
+    const fantasma = jogador.fantasma > 0 || jogador.fantasmaFolga > 0;
+    if (!this.#posicaoLivre(x, y, fantasma)) return false;
+    // Nor through a crate on the way: a report after a long silence could otherwise jump one for free.
+    if (!fantasma && this.#cruzaCaixa(jogador.x, jogador.y, x, y)) return false;
     jogador.relogioRemoto = c;
     jogador.x = x;
     jogador.y = y;
@@ -478,17 +548,21 @@ export class Partida {
     return true;
   }
 
-  pedirBomba(id) {
+  // espera: how long a press that cannot be honored right away keeps trying (0 for robots, which plan their
+  // way out from the cell where they decide).
+  pedirBomba(id, { espera = AJUSTES.bufferBombaS } = {}) {
     const jogador = this.#jogador(id);
     if (!jogador?.vivo) return;
     jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
-    jogador.validadeBomba = AJUSTES.bufferBombaS;
+    jogador.validadeBomba = espera;
   }
 
   // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
-  atravessar(id, direcao) {
+  // With posicao (the member's report sent with the request), it hops only from where the member was then.
+  atravessar(id, direcao, posicao = null) {
     const jogador = this.#jogador(id);
     if (!jogador?.vivo || jogador.atalhos <= 0) return false;
+    if (posicao && !this.aplicarPosicao(id, posicao)) return false;
     const destino = this.#destinoAtalho(jogador, direcao, jogador.remoto ? FOLGA_EMPURRAO : EPS);
     if (!destino) return false;
     this.#saltar(jogador, destino);
@@ -513,6 +587,8 @@ export class Partida {
     const [dx, dy] = VETOR[d];
     if (bomba.deslize || this.#bloqueiaBomba(bomba.x + dx, bomba.y + dy, bomba)) return false;
     bomba.deslize = d;
+    // Whoever kicks a bomb answers for what it hits.
+    bomba.autor = jogador.id;
     bomba.avanco = 0;
     this.eventos.push({ e: 'chute', j: jogador.n, x: bomba.x, y: bomba.y });
     return true;
@@ -642,6 +718,17 @@ export class Partida {
     if (celula === CAIXA) return true;
     const bomba = this.#bombaEm(x, y);
     return Boolean(bomba && !bomba.passantes.has(jogador.id));
+  }
+
+  // Whether the straight way between two positions passes over a crate, sampled every quarter tile.
+  #cruzaCaixa(x0, y0, x1, y1) {
+    const passos = Math.ceil((Math.abs(x1 - x0) + Math.abs(y1 - y0)) / 0.25);
+    for (let k = 1; k <= passos; k++) {
+      const px = x0 + ((x1 - x0) * k) / passos;
+      const py = y0 + ((y1 - y0) * k) / passos;
+      if (this.grade[indice(Math.round(px), Math.round(py))] === CAIXA) return true;
+    }
+    return false;
   }
 
   #sobreCaixa(jogador) {
@@ -856,8 +943,10 @@ export class Partida {
   #explodir(bomba, fila) {
     this.bombas = this.bombas.filter(b => b !== bomba);
     this.eventos.push({ e: 'bum', x: bomba.x, y: bomba.y });
-    this.#acenderChama(bomba.x, bomba.y, 'c', bomba.dono);
-    const dono = this.#jogador(bomba.dono);
+    // Credit goes to whoever kicked the bomb last, otherwise to its owner.
+    const autor = bomba.autor ?? bomba.dono;
+    this.#acenderChama(bomba.x, bomba.y, 'c', autor);
+    const dono = this.#jogador(autor);
     for (const [dx, dy, meio, ponta] of BRACOS) {
       for (let passo = 1; passo <= bomba.alcance; passo++) {
         const x = bomba.x + dx * passo;
@@ -872,7 +961,7 @@ export class Partida {
         }
         if (celula === CAIXA) {
           this.#mudarCelula(i, CHAO);
-          this.#acenderChama(x, y, 'x', bomba.dono, sortearItem(this.sorteio, this.itens));
+          this.#acenderChama(x, y, 'x', autor, sortearItem(this.sorteio, this.itens));
           if (dono) dono.caixas++;
           this.eventos.push({ e: 'caixa', j: dono?.n ?? -1, x, y });
           // A piercing blast keeps going through crates.
@@ -884,15 +973,15 @@ export class Partida {
           // Chain reaction: the other bomb blows in this same tick and spreads its own flames.
           outra.restante = 0;
           fila.push(outra);
-          this.#acenderChama(x, y, forma, bomba.dono);
+          this.#acenderChama(x, y, forma, autor);
           break;
         }
         if (ITENS.has(celula)) {
           this.#mudarCelula(i, CHAO);
-          this.#acenderChama(x, y, ponta, bomba.dono);
+          this.#acenderChama(x, y, ponta, autor);
           break;
         }
-        this.#acenderChama(x, y, forma, bomba.dono);
+        this.#acenderChama(x, y, forma, autor);
       }
     }
   }

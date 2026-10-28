@@ -10,6 +10,11 @@ const rodar = (partida, segundos) => {
 };
 const semItens = () => 0.99;
 
+test('sudden death comes a little earlier at every match of the round', () => {
+  const tempos = MAPAS.map(mapa => mapa.morteSubitaS ?? AJUSTES.morteSubitaS);
+  assert.deepEqual(tempos, [120, 115, 110, 100, 90]);
+});
+
 test('every map has a stable art theme', () => {
   assert.deepEqual(MAPAS.map(mapa => mapa.tema), ['patio', 'deposito', 'muralhas', 'labirinto', 'fornalha']);
 });
