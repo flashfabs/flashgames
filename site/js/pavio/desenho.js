@@ -37,8 +37,8 @@ export const DESCRICAO_ITEM = {
   [ITEM.ESCUDO]: 'aguenta uma explosão',
   [ITEM.PERFURANTE]: 'o fogo atravessa caixas e quebra todas no caminho',
   [ITEM.FANTASMA]: 'atravessa caixas e bombas por 8 segundos',
-  [ITEM.CHUTE]: 'ande contra uma bomba para chutar, e ela desliza até bater em algo',
-  [ITEM.DETONADOR]: 'suas bombas esperam: sem bomba para soltar, apertar de novo explode a mais antiga',
+  [ITEM.CHUTE]: 'ande contra uma bomba e ela sai deslizando até bater em algo',
+  [ITEM.DETONADOR]: 'sem bomba sobrando, apertar de novo explode a mais antiga',
 };
 
 const PALETA = {
