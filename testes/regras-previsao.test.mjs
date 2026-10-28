@@ -43,10 +43,14 @@ function passo(mesa, { bomba = false } = {}) {
   // Host: messages that arrived, then one step.
   while (mesa.mensagens.length && mesa.mensagens[0].chegaEm <= mesa.tick) {
     const m = mesa.mensagens.shift();
+    // Same handling as pavio.js: the shortcut request applies its own position.
+    if (m.t === 'atalho') {
+      if (!partida.atravessar('m', m.d, m)) recusar(mesa, 'atalho');
+      continue;
+    }
     if (!partida.aplicarPosicao('m', m) && m.t === 'p') recusar(mesa, 'posição');
     if (m.t === 'bomba') partida.pedirBomba('m');
     if (m.t === 'chute') partida.chutar('m', m.d);
-    if (m.t === 'atalho' && !partida.atravessar('m', m.d)) recusar(mesa, 'atalho');
   }
   partida.passo(DT);
   mesa.vistas.push(partida.vista());
@@ -216,4 +220,37 @@ test('an item under the ghost path is still picked up the same way', () => {
   andar(mesa, DIRECAO.DIREITA, 1.5);
   assentar(mesa);
   assert.equal(mesa.eu.tenis, 1);
+});
+
+test('a reported position is refused through a crate, even after a long silence', () => {
+  const grade = gradeVazia();
+  grade[indice(3, 1)] = CAIXA;
+  const partida = new Partida([{ id: 'a', slot: 0, remoto: true }, { id: 'b', slot: 1 }], { grade });
+  const [a] = partida.jogadores;
+  a.x = 2;
+  assert.equal(partida.aplicarPosicao('a', { x: 2, y: 1, c: 1000 }), true);
+  assert.equal(partida.aplicarPosicao('a', { x: 4, y: 1, c: 2000 }), false, 'across the crate');
+  assert.equal(partida.aplicarPosicao('a', { x: 2, y: 3, c: 2000 }), true, 'a free lane of the same length is fine');
+  a.fantasma = 3;
+  a.x = 1;
+  a.y = 1;
+  assert.equal(partida.aplicarPosicao('a', { x: 4, y: 1, c: 3000 }), true, 'a ghost walks through crates');
+});
+
+test('a shortcut position arriving before its request does not hop, and the request then hops once', () => {
+  const grade = gradeVazia();
+  grade[indice(3, 1)] = CAIXA;
+  grade[indice(5, 1)] = CAIXA;
+  const partida = new Partida([{ id: 'a', slot: 0, remoto: true }, { id: 'b', slot: 1 }], { grade });
+  const [a] = partida.jogadores;
+  a.atalhos = 2;
+  assert.equal(partida.aplicarPosicao('a', { x: 2, y: 1, c: 1000 }), true);
+  // The landing report (fast channel) overtakes the request (reliable channel).
+  assert.equal(partida.aplicarPosicao('a', { x: 4, y: 1, c: 1450 }), false);
+  assert.equal(partida.atravessar('a', DIRECAO.DIREITA, { x: 2, y: 1, c: 1200 }), true);
+  assert.deepEqual([a.x, a.y, a.atalhos], [4, 1, 1]);
+  // A late copy of the request, from a position the member no longer has, never hops again.
+  assert.equal(partida.atravessar('a', DIRECAO.DIREITA, { x: 2, y: 1, c: 1200 }), false);
+  assert.deepEqual([a.x, a.atalhos], [4, 1]);
+  assert.equal(partida.aplicarPosicao('a', { x: 4, y: 1, c: 1500 }), true, 'the landing report is fine afterwards');
 });
