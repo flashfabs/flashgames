@@ -38,6 +38,7 @@ const MAX_DESLIZE = 20;
 const BOMBAS_TESTADAS = 8;
 const BONUS_ARMADILHA = 8;
 const INSISTENCIA = 1.25; // keeps the current goal unless another one is clearly better
+const CACA_NA_SUBITA = 2;
 const PARADO = Object.freeze({ d: DIRECAO.NENHUMA, d2: DIRECAO.NENHUMA, bomba: false });
 
 // How long a cell must stay quiet to count as safe right now.
@@ -451,6 +452,8 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
     for (const inimigo of inimigos) inimigas.set(celulaDe(inimigo), (inimigas.get(celulaDe(inimigo)) ?? 0) + 1);
     const bombas = new Set(partida.bombas.map(bomba => indice(bomba.x, bomba.y)));
     const podeBombar = partida.bombas.filter(bomba => bomba.dono === id).length < eu.bombasMax;
+    // Once the arena starts closing, waiting it out ends in a draw: every level goes after the others.
+    const caca = ajustes.caca + (partida.tempo >= partida.morteSubitaS ? CACA_NA_SUBITA : 0);
     const notar = (valor, celula) => {
       const ruido = 1 + (sorteio() - 0.5) * ajustes.ruido;
       return (valor * ruido * (celula === objetivo ? INSISTENCIA : 1)) / (1 + dist[celula] * 0.3);
@@ -465,7 +468,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
         if (valor > 0) itens.push({ celula, nota: notar(valor, celula) });
       }
       if (bombas.has(celula) || partida.chamas.has(celula)) continue;
-      const { valor, alvos } = valorDaBomba(partida, perigo, eu, celula, bombas, inimigas, ajustes.caca);
+      const { valor, alvos } = valorDaBomba(partida, perigo, eu, celula, bombas, inimigas, caca);
       if (valor > 0) pontosDeBomba.push({ celula, valor, alvos, nota: notar(valor, celula) * (podeBombar ? 1 : 0.5) });
     }
 
@@ -521,7 +524,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
     const fechando = !livre(perigo, origem, -meio, janela, margem);
     const opcoes = fechando && alcancadas.length > 1 ? alcancadas.slice(1) : alcancadas;
     let destino = opcoes[0];
-    if (ajustes.caca && inimigos.length) {
+    if (caca && inimigos.length) {
       const longe = celula => Math.min(...inimigos.map(inimigo => distancia(celula, celulaDe(inimigo)))) * 10 + dist[celula];
       for (const celula of opcoes) if (longe(celula) < longe(destino)) destino = celula;
     } else {
