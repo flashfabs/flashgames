@@ -174,18 +174,28 @@ function faisca(ctx, x, y, agora, tamanho = 3.5) {
   ctx.fill();
 }
 
+// A power-up tile with some depth: a darker base, a glossy top half and a bright rim.
 function desenharSpriteItem(ctx, item) {
   const visual = VISUAL_ITEM[item];
-  ctx.fillStyle = visual.fundo;
-  retangulo(ctx, 7, 7, TAM - 14, TAM - 14, 9);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  retangulo(ctx, 7, 9, TAM - 14, TAM - 14, 9);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.fillStyle = visual.fundo;
+  retangulo(ctx, 7, 6, TAM - 14, TAM - 14, 9);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+  retangulo(ctx, 9, 8, TAM - 18, (TAM - 18) * 0.45, 7);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
   ctx.lineWidth = 2;
+  retangulo(ctx, 7, 6, TAM - 14, TAM - 14, 9);
   ctx.stroke();
+  // Color emoji take the alpha of the fill style, so it must be opaque.
+  ctx.fillStyle = '#ffffff';
   ctx.font = `${Math.round(TAM * 0.42)}px ${FONTE_EMOJI}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(visual.emoji, TAM / 2, TAM / 2 + 1);
+  ctx.fillText(visual.emoji, TAM / 2, TAM / 2);
 }
 
 // A frozen bomb sits inside a block of ice.
@@ -221,6 +231,7 @@ function desenharItem(ctx, quadro, i, item, agora, reduzido) {
   const px = (i % COLUNAS) * TAM;
   const py = Math.floor(i / COLUNAS) * TAM;
   const fase = agora * 4 + i;
+  const altura = reduzido ? 0 : (Math.sin(fase) + 1) * 2.5;
   if (!reduzido) {
     ctx.globalAlpha = 0.2 + Math.sin(fase) * 0.12;
     ctx.fillStyle = VISUAL_ITEM[item].fundo;
@@ -228,7 +239,11 @@ function desenharItem(ctx, quadro, i, item, agora, reduzido) {
     ctx.fill();
     ctx.globalAlpha = 1;
   }
-  ctx.drawImage(quadro, px, py + (reduzido ? 0 : Math.sin(fase) * 2), TAM, TAM);
+  // Its shadow on the floor shrinks as it floats up.
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+  elipse(ctx, px + TAM / 2, py + TAM * 0.86, TAM * (0.3 - altura * 0.012), TAM * 0.07);
+  ctx.fill();
+  ctx.drawImage(quadro, px, py - altura, TAM, TAM);
   const cintilar = (agora * 0.7 + i * 0.37) % 1;
   if (!reduzido && cintilar < 0.2) {
     ctx.fillStyle = '#fffbe6';
