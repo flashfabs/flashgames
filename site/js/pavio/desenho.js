@@ -622,6 +622,13 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
 function desenharJogador(ctx, jogador, agora, reduzido, anim) {
   const cx = (jogador.x + 0.5) * TAM;
   const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
+  if (jogador.eu) {
+    // A soft yellow ring on the floor under your own character, to find yourself in a crowd.
+    ctx.strokeStyle = `rgba(255, 224, 102, ${reduzido ? 0.55 : (0.45 + Math.sin(agora * 4) * 0.12).toFixed(3)})`;
+    ctx.lineWidth = 2.5;
+    elipse(ctx, cx, chao, TAM * 0.36, TAM * 0.13);
+    ctx.stroke();
+  }
   ctx.save();
   if (jogador.g) ctx.globalAlpha = 0.55 + (reduzido ? 0 : Math.sin(agora * 8) * 0.15);
   if (jogador.i && (reduzido || Math.floor(agora * 12) % 2)) ctx.globalAlpha = reduzido ? 0.6 : 0.4;

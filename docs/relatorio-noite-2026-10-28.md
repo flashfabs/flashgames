@@ -4,8 +4,8 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `2f62d6e`, publicado às 01:29; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
-- `main`: igual à produção no que vai ao ar, com `npm test` (112) e `npm run e2e` (18 cenários) passando.
+- Produção (https://salinha-jogos.netlify.app): ver a última linha da tabela de publicações; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- `main`: igual à produção no que vai ao ar, com `npm test` (115) e `npm run e2e` (23 cenários) passando às 02:00.
 
 ## O que testar primeiro de manhã
 
@@ -24,6 +24,10 @@ A preencher no fim da noite.
 | 01:10 | 2 (jogo, mapas, robôs) | `72f2709` | Mapas com layouts e variantes sorteadas por partida (protocolo 8), morte súbita um pouco mais cedo a cada partida, robôs que congelam a bomba que os mataria, se caçam na morte súbita e usam gelo de propósito. | Fumaça em produção depois da publicação. |
 | 01:20 | 3 (visual, som) | `e0fa377` | Segunda publicação do visual: chamas com línguas e brasas, poderes com profundidade e sombra, faíscas no pavio, forma do jogador nas costas, arena de alto contraste quando o aparelho pede, vinheta mais barata. | Frente 5, depois: `npm run e2e` 15 + 2, visual 3 de 3, fumaça 4 de 4 (com uma falha de `/api/ranking` na primeira tentativa, ver problemas). |
 | 01:29 | 1 (jornada, perfil) | `2f62d6e` | Página inicial com o perfil do aparelho (nome, cor, símbolo, "levar meu perfil para outro aparelho") e partidas registradas no perfil. | Frente 5, depois: `npm run e2e` 16 + 2; imagens de referência da página inicial atualizadas. |
+| 01:38 | 5 (testes, conserto) | `a59b658` | Correção do 500 intermitente da API de perfis (loja do Netlify Blobs aberta a cada requisição); fumaça sem escrever perfis em produção; cenários novos de reconexão, jornada, estatísticas, desempenho com robôs; `npm run e2e` em 2 processos. | `npm run e2e` 16 + 2, visual 3 de 3, fumaça 4 de 4, 40 chamadas a `/api/ranking` sem erro. |
+| 01:46 | 4 (rede, contas) | `f4ca66e` | Reconexão do anfitrião em até 10 s; perda de pacotes medida por membro; cada partida registrada uma vez no perfil; cor e símbolo do perfil levados para a sala; leituras de perfil e ranking reaproveitadas; a mesma correção do Blobs feita pela frente (`4159efa`). | Frente 5, depois: `npm test` 115, `npm run e2e` 17 + 2, fumaça 4 de 4. |
+| 01:52 | 3 (visual, som) | `ce31b6a` | Terceira publicação: efeitos e sons próprios para chute, gelo e atalho (`efeitos.js`), câmera fica no vencedor durante o resultado. | Frente 5, depois: suíte inteira na `main`. |
+| 01:56 | 1 (jornada, lobby) | `1e95371` | Lobby com bloco de convite (código, copiar ou compartilhar o link, QR code), ping de cada convidado no cartão; sair pede confirmação quando encerra a rodada dos outros; a queda mostra a contagem dos 10 s; página desatualizada avisa e oferece "Recarregar" (lendo `versao.json`); quem chega no meio é avisado. Cenário novo `entrada.spec.mjs`. | Frente 5, depois: `npm test` 115, `npm run e2e` 21 + 2, imagens do lobby atualizadas. |
 
 ## O que foi testado e como
 
@@ -36,7 +40,7 @@ A preencher no fim da noite.
 
 ## Problemas conhecidos
 
-- 01:30, corrigido às 01:45: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
+- 01:30, corrigido às 01:38: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
 
 ## Decisões tomadas
 
@@ -46,6 +50,7 @@ A preencher no fim da noite.
 - 00:55, frente 5: o cenário dos robôs falhava às vezes porque conferia na hora que o convidado via um robô quebrar caixa, e o convidado desenha os outros um pouco no passado; virou uma espera de até 15 s.
 - 00:50, frente 5: o servidor dos testes passou a usar uma porta livre a cada execução, porque a porta fixa 8805 colidia quando duas frentes rodavam a suíte ao mesmo tempo.
 - 01:06, frente 5: o axe-core só aponta `meta-viewport` (zoom desligado), de impacto moderado; fica assim de propósito, porque o Victor pediu a sala sem zoom nem rolagem no iPad, e o teste só reprova problemas sérios ou críticos.
+- 01:55, frente 5: o teste de desempenho passou a medir com a GPU do Mac (Metal) e com as páginas medidas em densidade 2x, como um iPad. Sem GPU, o Chromium de teste desenha o canvas em software e, em 2x com a CPU 4x mais lenta, o anfitrião com 7 robôs caía para ~40 fps com quadros de até 65 ms; o perfil de CPU mostrou 70% do tempo em trabalho nativo de desenho, não no código do jogo. Com GPU, o mesmo cenário fica em 60 fps sem tarefas longas, então não é regressão do visual novo.
 - 01:40, frente 5: a fumaça bloqueia (com 503) qualquer escrita de perfil em produção, porque a página inicial nova cria um perfil no servidor e cada execução deixaria dois perfis falsos; só leituras chegam à API real.
 - 01:38, frente 5: corrigiu `netlify/functions/perfil.mjs` (arquivo da frente 4) em vez de esperar os 30 minutos do protocolo, porque produção estava com 500 intermitente, a correção era de duas linhas e o sistema bloqueou as mensagens entre sessões (limite de mensagens sem o Victor escrever); reverter a API de perfis quebraria a página inicial nova da frente 1.
 - 01:25, frente 5: o `npm run e2e` passou a rodar os cenários funcionais dois de cada vez e o de desempenho sozinho no fim; a suíte caiu de 4,4 para 2,8 min, o que encurta o tempo de trava de todas as frentes.
