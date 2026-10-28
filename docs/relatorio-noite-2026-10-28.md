@@ -9,7 +9,14 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## O que testar primeiro de manhã
 
-A preencher no fim da noite.
+Rascunho de 03:20, revisado no fim da noite.
+
+1. No iPad, abrir https://salinha-jogos.netlify.app: a página inicial agora tem o perfil do aparelho (nome, cor e símbolo, boneco animado), últimas partidas, ranking e configurações de som e controle. Criar uma sala.
+2. No celular, ler o QR code do bloco de convite do lobby e entrar; conferir os cartões dos jogadores com boneco, pronto/esperando e ping.
+3. No lobby, pôr dois robôs (um fácil e um difícil), todos prontos, e jogar a rodada de 5 partidas: mapas com tema e variantes, poderes novos (atalho, chute, detonador, ímã, gelo), explosões, sons, música e joystick. Ver as dicas da primeira vez.
+4. Depois de cada partida, o resumo (destaques, eliminações, votação para pular); no fim, o pódio e "Jogar de novo".
+5. Com a partida rolando, desligar o Wi-Fi do celular por uns 5 s e religar: a vaga volta e a partida segue. No anfitrião, clicar em "Sair": a sala passa para o convidado mais antigo.
+6. Abrir as configurações (volume de efeitos e música, sensibilidade do toque, contador de quadros por segundo).
 
 ## Publicações
 
