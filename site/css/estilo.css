@@ -825,7 +825,8 @@ html.em-sala body {
 
 .pavio-base,
 .pavio-manete,
-.pavio-dica-bomba {
+.pavio-dica-bomba,
+.pavio-dica-gelo {
   position: fixed;
   left: 0;
   top: 0;
@@ -880,6 +881,34 @@ html.em-sala body {
 
 @keyframes apertar {
   from { transform: scale(0.85); background: rgba(255, 138, 61, 0.8); }
+  to { transform: scale(1); }
+}
+
+/* Ice button: above the bomb button, only while the player has ice */
+.pavio-dica-gelo {
+  left: auto;
+  top: auto;
+  right: calc(env(safe-area-inset-right) + 52px);
+  bottom: calc(env(safe-area-inset-bottom) + 156px);
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  background: rgba(102, 217, 232, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-size: 28px;
+}
+
+.pavio-dica-gelo[hidden] {
+  display: none;
+}
+
+.pavio-dica-gelo--toque {
+  animation: apertar-gelo 0.18s ease-out;
+}
+
+@keyframes apertar-gelo {
+  from { transform: scale(0.85); background: rgba(102, 217, 232, 0.8); }
   to { transform: scale(1); }
 }
 

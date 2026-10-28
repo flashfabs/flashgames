@@ -26,6 +26,11 @@ export const VISUAL_ITEM = {
   [ITEM.ESCUDO]: { fundo: '#0b7285', emoji: '🛡️', nome: 'Escudo', rotulo: 'escudo' },
   [ITEM.PERFURANTE]: { fundo: '#a61e4d', emoji: '💥', nome: 'Fogo perfurante', rotulo: 'perfurante' },
   [ITEM.FANTASMA]: { fundo: '#5f3dc4', emoji: '👻', nome: 'Fantasma', rotulo: 'fantasma' },
+  [ITEM.CHUTE]: { fundo: '#e67700', emoji: '🦶', nome: 'Chute', rotulo: 'chute' },
+  [ITEM.DETONADOR]: { fundo: '#c92a2a', emoji: '🎯', nome: 'Detonador', rotulo: 'detonador' },
+  [ITEM.IMA]: { fundo: '#1971c2', emoji: '🧲', nome: 'Ímã', rotulo: 'ímã' },
+  [ITEM.GELO]: { fundo: '#0c8599', emoji: '❄️', nome: 'Gelo', rotulo: '+3 gelo' },
+  [ITEM.ATALHO]: { fundo: '#862e9c', emoji: '🌀', nome: 'Atalho', rotulo: '+1 atalho' },
 };
 
 export const DESCRICAO_ITEM = {
@@ -35,6 +40,11 @@ export const DESCRICAO_ITEM = {
   [ITEM.ESCUDO]: 'aguenta uma explosão',
   [ITEM.PERFURANTE]: 'o fogo atravessa caixas e quebra todas no caminho',
   [ITEM.FANTASMA]: 'atravessa caixas e bombas por 8 segundos',
+  [ITEM.CHUTE]: 'ande contra uma bomba e ela sai deslizando até bater em algo',
+  [ITEM.DETONADOR]: 'sem bomba sobrando, apertar de novo explode a mais antiga',
+  [ITEM.IMA]: 'por 8 segundos, itens a até 3 casas voam até você',
+  [ITEM.GELO]: 'jogue gelo (E, ou o botão ❄️) e a primeira bomba à frente congela por 3 segundos',
+  [ITEM.ATALHO]: 'empurre uma caixa e apareça do outro lado; cada caixa gasta um atalho',
 };
 
 const PALETA = {
@@ -53,6 +63,8 @@ const PALETA = {
   bombaAlerta: '#8f1d1d',
   pavio: '#c9a26b',
   chama: ['#ff6a1a', '#ffc53d', '#fff6dd'],
+  gelo: 'rgba(165, 216, 255, 0.28)',
+  geloBorda: 'rgba(235, 248, 255, 0.9)',
 };
 const FONTE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 const FONTE_TEXTO = 'Rubik, system-ui, sans-serif';
@@ -161,7 +173,35 @@ function desenharSpriteItem(ctx, item) {
   ctx.fillText(visual.emoji, TAM / 2, TAM / 2 + 1);
 }
 
-function desenharBomba(ctx, [x, y, restante], agora) {
+// A frozen bomb sits inside a block of ice.
+function desenharBlocoGelo(ctx, x, y) {
+  ctx.fillStyle = PALETA.gelo;
+  retangulo(ctx, x * TAM + 5, y * TAM + 4, TAM - 10, TAM - 8, 8);
+  ctx.fill();
+  ctx.strokeStyle = PALETA.geloBorda;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillRect(x * TAM + 11, y * TAM + 9, 10, 3);
+}
+
+function desenharTiroGelo(ctx, [x, y], agora) {
+  const cx = (x + 0.5) * TAM;
+  const cy = (y + 0.5) * TAM;
+  ctx.fillStyle = 'rgba(165, 216, 255, 0.35)';
+  circulo(ctx, cx, cy, TAM * 0.26);
+  ctx.fill();
+  ctx.font = `${Math.round(TAM * 0.4)}px ${FONTE_EMOJI}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(agora * 9);
+  ctx.fillText('❄️', 0, 1);
+  ctx.restore();
+}
+
+function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora) {
   const cx = (x + 0.5) * TAM;
   const cy = (y + 0.5) * TAM + 3;
   const ritmo = restante < 0.7 ? 24 : restante < 1.4 ? 13 : 7;
@@ -185,7 +225,15 @@ function desenharBomba(ctx, [x, y, restante], agora) {
   ctx.moveTo(cx + raio * 0.45, cy - raio * 0.8);
   ctx.quadraticCurveTo(cx + raio * 0.6, cy - raio * 1.35, pontaX, pontaY);
   ctx.stroke();
-  faisca(ctx, pontaX, pontaY, agora);
+  if (remota) {
+    // A remote bomb has no lit fuse: a blinking red light waits for the detonator.
+    ctx.fillStyle = Math.sin(agora * 9) > 0 ? '#ff3b3b' : '#7a1010';
+    circulo(ctx, pontaX, pontaY, 4);
+    ctx.fill();
+  } else if (!congelada) {
+    faisca(ctx, pontaX, pontaY, agora);
+  }
+  if (congelada) desenharBlocoGelo(ctx, x, y);
 }
 
 function desenharChama(ctx, [i, forma], agora) {
@@ -405,7 +453,7 @@ export function criarPintor(canvas) {
     return larguras.get(nome);
   };
 
-  // cena: { g, muros: Set, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu }], b, c, agora, efeitos, tremor }
+  // cena: { g, muros: Set, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu }], b, c, iv, gl, agora, efeitos, tremor }
   const desenhar = cena => {
     ajustarResolucao();
     const chave = `${cena.g}|${cena.chaveMuros}`;
@@ -433,6 +481,12 @@ export function criarPintor(canvas) {
     }
     for (const chama of cena.c) desenharChama(ctx, chama, cena.agora);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, cena.agora);
+    for (const tiro of cena.gl ?? []) desenharTiroGelo(ctx, tiro, cena.agora);
+    // Items flying to a magnet are drawn a bit smaller, above walls and crates.
+    for (const [x, y, item] of cena.iv ?? []) {
+      if (!VISUAL_ITEM[item]) continue;
+      ctx.drawImage(sprite(item), (x + 0.15) * TAM, (y + 0.15) * TAM, TAM * 0.7, TAM * 0.7);
+    }
     const vivos = cena.j.filter(j => j.v).sort((a, b) => a.y - b.y);
     for (const jogador of vivos) desenharJogador(ctx, jogador, cena.agora, larguraNome(jogador.nome));
     for (const efeito of cena.efeitos) desenharEfeito(ctx, efeito, cena.agora);

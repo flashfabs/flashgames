@@ -7,7 +7,7 @@
 
 import { criarTique } from './relogio.js';
 
-const VERSAO_PROTOCOLO = 2;
+const VERSAO_PROTOCOLO = 3;
 const PREFIXO_ID = `salinha-v${VERSAO_PROTOCOLO}-`;
 const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const TAMANHO_CODIGO = 5;
