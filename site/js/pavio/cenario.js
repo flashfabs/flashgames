@@ -375,6 +375,19 @@ const TEMAS = {
     luz: [255, 190, 110],
     ambiente: 'vagalumes',
   },
+  // For devices that ask for more contrast: flat dark floor, light blocks with hard edges, bright crates.
+  contraste: {
+    chao: ['#0b0d10', '#0b0d10'],
+    piso: () => {},
+    borda: ['#d0d7de', '#8c959f', '#000000'],
+    pilar: ['#e6ebf0', '#a8b1ba', '#000000'],
+    muro: ['#b6c9a0', '#7c8f66', '#000000'],
+    subita: ['#ff8a3d', '#c2410c', '#000000'],
+    caixa: ['#ffd8a8', '#f2a65a', '#3b2410'],
+    sombra: 'rgba(0, 0, 0, 0)',
+    vinheta: 'rgba(0, 0, 0, 0)',
+    luz: [255, 200, 120],
+  },
   fornalha: {
     chao: ['#2a2121', '#2e2424'],
     piso: pisoBasalto,
@@ -525,14 +538,14 @@ export function criarCenario() {
   };
 
   // Returns the canvas with the static layer of this grid, redrawing only what changed.
-  const atualizar = ({ g, muros: novosMuros, chaveMuros, tema: chaveTema }, novaEscala) => {
-    const chave = `${novaEscala}|${chaveMuros}|${chaveTema}`;
+  const atualizar = ({ g, muros: novosMuros, chaveMuros, tema: chaveTema }, novaEscala, contraste = false) => {
+    const chave = `${novaEscala}|${chaveMuros}|${chaveTema}|${contraste}`;
     if (chave === chaveCamada && g === ultimaGrade) return camada;
     ultimaGrade = g;
     const novaFixa = Array.from(g, classe).join('');
     if (chave !== chaveCamada) {
       escala = novaEscala;
-      tema = temaDe(chaveTema, chaveMuros);
+      tema = contraste ? TEMAS.contraste : temaDe(chaveTema, chaveMuros);
       muros = novosMuros ?? new Set();
       if (tema !== temaDaBase || escala !== escalaDaBase) {
         desenharBase();

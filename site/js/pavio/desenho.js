@@ -256,6 +256,10 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
   ctx.fillStyle = restante < 0.7 && pulso > 0 ? PALETA.bombaAlerta : PALETA.bomba;
   circulo(ctx, cx, cy, raio);
   ctx.fill();
+  // A thin light rim keeps the bomb visible on dark floors.
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
   ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
   circulo(ctx, cx - raio * 0.35, cy - raio * 0.38, raio * 0.28);
   ctx.fill();
@@ -1048,6 +1052,7 @@ export function criarPintor(canvas) {
   const larguras = new Map();
   const retratos = new Map(); // canvas -> { ctx, cor, pose }
   const movimentoReduzido = matchMedia('(prefers-reduced-motion: reduce)');
+  const maisContraste = matchMedia('(prefers-contrast: more)');
   let gradientesSubita = null;
   // Opening of a match and its finale: when they started and where the camera focuses.
   const transicao = { contagem: false, abertaEm: -9, vivos: 0, finalEm: -9, foco: null };
@@ -1359,7 +1364,7 @@ export function criarPintor(canvas) {
     ajustarResolucao();
     const escala = qualidade.escala;
     const reduzido = movimentoReduzido.matches;
-    const fixa = cenario.atualizar(cena, escala);
+    const fixa = cenario.atualizar(cena, escala, maisContraste.matches);
     const tema = cenario.tema;
     acompanharTransicoes(cena, cena.agora);
     // The finale slows the visual clock down; the game itself keeps its pace.
