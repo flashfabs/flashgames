@@ -4,8 +4,8 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `684f7e3` até a primeira publicação da noite; a versão publicada passa a aparecer em https://salinha-jogos.netlify.app/versao.json.
-- `main`: `bb9e27d` (plano da noite), com `npm test` (54) e `npm run e2e` (5 cenários) passando às 00:35.
+- Produção (https://salinha-jogos.netlify.app): `c749169`, publicado às 00:50; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- `main`: igual à produção no que vai ao ar, com `npm test` (54) e `npm run e2e` (5 cenários) passando.
 
 ## O que testar primeiro de manhã
 
@@ -15,6 +15,7 @@ A preencher no fim da noite.
 
 | Hora | Frente | Commit na `main` | O que foi ao ar | Verificação |
 | --- | --- | --- | --- | --- |
+| 00:50 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
 
 ## O que foi testado e como
 
@@ -29,6 +30,7 @@ Nenhum até agora.
 ## Decisões tomadas
 
 - 00:40, frente 5: a pasta de publicação leva só `netlify.toml`, `site/` e `netlify/`; quando as funções precisarem de pacotes, eles entram em `dependencies` do `package.json` da raiz e o script os instala com `npm ci --omit=dev`, sem levar o Playwright.
+- 00:52, frente 5: integração só de documentação ou de testes (sem mudar `site/`, `netlify/`, `netlify.toml` nem `package.json`) roda `npm test` e não republica; a fumaça aceita produção num commit anterior da `main` quando os arquivos publicados são os mesmos.
 
 ## Pendências do Victor
 
