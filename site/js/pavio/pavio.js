@@ -4,7 +4,7 @@
 
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM,
-  indice, gradeVazia, moverComColisao, sobrepoe, bombaAFrente, preverBomba,
+  indice, gradeVazia, moverComColisao, sobrepoe, bombaAFrente, preverBomba, preverItemVoando,
 } from './regras.js';
 import { criarPintor, efeitoAtivo, CORES, VISUAL_ITEM, DESCRICAO_ITEM } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
@@ -21,7 +21,7 @@ const ATRASO_MAX_MS = 250;
 const HISTORICO_MS = 800;
 const DIVERGENCIA_TILES = 0.75;
 const DIVERGENCIA_MS = 350;
-const PREVISAO_BOMBA_MAX_MS = 120; // how far ahead of the newest snapshot a kicked bomb is drawn
+const PREVISAO_MAX_MS = 120; // how far ahead of the newest snapshot kicked bombs and flying items are drawn
 const INTERVALO_CHUTE_MS = 200;
 const QUADRO_MIN_MS = 15; // caps drawing near 60 fps on 120 Hz screens
 const CONTAGEM_S = 3;
@@ -32,7 +32,7 @@ const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
 const TOTAL_PARTIDAS = MAPAS.length;
 const MUROS = MAPAS.map(mapa => new Set(mapa.muros.map(([x, y]) => indice(x, y))));
 const GRADE_LOBBY = gradeVazia().join('');
-const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128 };
+const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
 const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
 
@@ -455,6 +455,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       j: vista.j.map(compactarJogador),
       b: vista.b,
       c: vista.c,
+      iv: vista.iv,
       tm: vista.tm,
       ms: vista.ms,
       ev: eventosPendentes.map(({ id, ev }) => [id, ev]),
@@ -545,6 +546,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       j: mensagem.j.map(expandirJogador),
       b: mensagem.b,
       c: mensagem.c,
+      iv: Array.isArray(mensagem.iv) ? mensagem.iv : [],
       tm: Number(mensagem.tm) || 0,
       ms: Number(mensagem.ms) || 120,
     };
@@ -605,7 +607,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   // Kicked bombs slide between snapshots: draw them (and collide with them) where they should be by now.
   function preverBombas(agora) {
     if (!ultimoRetrato) return [];
-    const segundos = Math.min(agora - ultimoRetrato.chegada, PREVISAO_BOMBA_MAX_MS) / 1000;
+    const segundos = Math.min(agora - ultimoRetrato.chegada, PREVISAO_MAX_MS) / 1000;
     const para = (x, y) => x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS || PARA_BOMBA.has(gradeAtual.g[indice(x, y)]);
     return ultimoRetrato.b.map(bomba => preverBomba(bomba, segundos, para));
   }
@@ -663,8 +665,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       jogadores = jogadores.slice();
       jogadores[eu] = { ...ultimoRetrato.j[eu], x: local.x, y: local.y, o: local.olhar, a: local.andando ? 1 : 0 };
     }
+    // Items flying to a magnet head to where their player is drawn now.
+    const segundos = Math.min(performance.now() - ultimoRetrato.chegada, PREVISAO_MAX_MS) / 1000;
+    const iv = ultimoRetrato.iv.map(voo => preverItemVoando(voo, jogadores[voo[3]], segundos));
     // Grid, bombs and flames come from the newest snapshot: they matter more than smoothness.
-    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
+    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, iv, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
   }
 
   // ---- Shared ----
@@ -932,7 +937,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       pontos = `⭐ ${total}`;
     }
     const itens = eu
-      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
+      ? [`💣 ${eu.b}`, `🔥 ${eu.f}`, `👟 ${eu.t}`, eu.k && '🦶', eu.r && '🎯', eu.m && '🧲', eu.e && '🛡️', eu.p && '💥', eu.g && '👻'].filter(Boolean).join('   ')
       : '';
     const chave = `${itens}|${pontos}|${tempo}`;
     if (chave === ultimoHud) return;
@@ -989,6 +994,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       j: jogadores,
       b: vista?.b ?? [],
       c: vista?.c ?? [],
+      iv: vista?.iv ?? [],
       agora,
       efeitos,
       tremor: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : tremor,

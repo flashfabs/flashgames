@@ -8,7 +8,7 @@ export const MAX_JOGADORES = 8;
 export const PAREDE = '#';
 export const CAIXA = '+';
 export const CHAO = '.';
-export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r' });
+export const ITEM = Object.freeze({ BOMBA: 'b', FOGO: 'f', TENIS: 't', ESCUDO: 'e', PERFURANTE: 'p', FANTASMA: 'g', CHUTE: 'k', DETONADOR: 'r', IMA: 'm' });
 const ITENS = new Set(Object.values(ITEM));
 
 export const DIRECAO = Object.freeze({ NENHUMA: 0, CIMA: 1, BAIXO: 2, ESQUERDA: 3, DIREITA: 4 });
@@ -42,10 +42,15 @@ export const AJUSTES = Object.freeze({
   detonadorS: 10,
   // A remote bomb cannot be set off right after being dropped, so a double press is not suicide.
   armarDetonadorS: 0.35,
+  imaS: 8,
+  // The magnet pulls items whose cell center is this close (in tiles) to the player's cell.
+  raioIma: 3,
+  // Tiles per second of an item flying to a magnet.
+  velocidadeIma: 8,
 });
 const PESOS_ITENS = {
   [ITEM.BOMBA]: 30, [ITEM.FOGO]: 30, [ITEM.TENIS]: 16, [ITEM.ESCUDO]: 10, [ITEM.PERFURANTE]: 8, [ITEM.FANTASMA]: 8,
-  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7,
+  [ITEM.CHUTE]: 10, [ITEM.DETONADOR]: 7, [ITEM.IMA]: 8,
 };
 const PASSO_MAX = 0.1;
 const EPS = 1e-4;
@@ -66,7 +71,7 @@ const NOVOS = [
   [ITEM.BOMBA, ITEM.FOGO],
   [ITEM.TENIS, ITEM.CHUTE],
   [ITEM.ESCUDO, ITEM.DETONADOR],
-  [ITEM.PERFURANTE],
+  [ITEM.PERFURANTE, ITEM.IMA],
   [ITEM.FANTASMA],
 ];
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
@@ -105,6 +110,24 @@ export function bombaAFrente(jogador, direcao, temBomba, folga = EPS) {
   const avanco = dx ? (jogador.x - x) * dx : (jogador.y - y) * dy;
   if (desvio > folga || avanco < -folga) return null;
   return temBomba(x + dx, y + dy) ? [x + dx, y + dy] : null;
+}
+
+// Moves a point toward a target by up to distancia; chegou is true once it is there.
+function aproximar(de, para, distancia) {
+  const dx = para.x - de.x;
+  const dy = para.y - de.y;
+  const falta = Math.hypot(dx, dy);
+  if (falta <= distancia) return { x: para.x, y: para.y, chegou: true };
+  return { x: de.x + (dx / falta) * distancia, y: de.y + (dy / falta) * distancia, chegou: false };
+}
+
+// Where an item flying to a magnet ([x, y, item, player index]) is after some seconds, given where its
+// target is drawn now. Members use it between snapshots; the host decides when it is picked up.
+export function preverItemVoando(voo, alvo, segundos) {
+  const [x, y, item, n] = voo;
+  if (!alvo) return voo;
+  const { x: nx, y: ny } = aproximar({ x, y }, alvo, AJUSTES.velocidadeIma * Math.max(0, segundos));
+  return [arredondar(nx), arredondar(ny), item, n];
 }
 
 // Where a sliding bomb from a snapshot ([x, y, restante, direcao, ...]) is after some seconds, stopping at
@@ -303,6 +326,7 @@ function novoJogador({ id, slot, remoto = false }, n) {
     perfurante: false,
     chute: false,
     detonador: false,
+    ima: 0,
     fantasma: 0,
     fantasmaFolga: 0,
     invulneravel: 0,
@@ -327,6 +351,7 @@ export class Partida {
     this.jogadores = participantes.map((participante, n) => novoJogador(participante, n));
     this.bombas = [];
     this.chamas = new Map(); // cell index -> { restante, idade, forma, item }
+    this.voando = []; // items flying to a magnet: { x, y, item, alvo }
     this.eventos = [];
     this.tempo = 0;
     this.espiral = gerarEspiral();
@@ -392,6 +417,7 @@ export class Partida {
     this.tempo += dt;
     for (const jogador of this.jogadores) {
       jogador.invulneravel = Math.max(0, jogador.invulneravel - dt);
+      jogador.ima = Math.max(0, jogador.ima - dt);
       if (jogador.fantasma > 0) {
         jogador.fantasma = Math.max(0, jogador.fantasma - dt);
         // A short leftover lets a ghost that ends inside a crate still walk out of it.
@@ -409,6 +435,7 @@ export class Partida {
     this.#atualizarBombas(dt);
     this.#atualizarChamas(dt);
     this.#aplicarChamasEItens();
+    this.#atrairItens(dt);
     this.#morteSubita(dt);
     this.#verificarFim(dt);
   }
@@ -429,6 +456,7 @@ export class Partida {
         p: j.perfurante ? 1 : 0,
         k: j.chute ? 1 : 0,
         r: j.detonador ? 1 : 0,
+        m: j.ima > 0 ? 1 : 0,
         b: j.bombasMax,
         f: j.alcance,
         t: j.tenis,
@@ -441,6 +469,7 @@ export class Partida {
         return [arredondar(b.x + dx * b.avanco), arredondar(b.y + dy * b.avanco), arredondar(b.restante), b.deslize, b.remota ? 1 : 0];
       }),
       c: [...this.chamas].map(([i, chama]) => [i, chama.forma]),
+      iv: this.voando.map(v => [arredondar(v.x), arredondar(v.y), v.item, v.alvo.n]),
       tm: arredondar(this.tempo),
       ms: this.morteSubitaS,
     };
@@ -679,16 +708,52 @@ export class Partida {
       const item = this.grade[i];
       if (!ITENS.has(item)) continue;
       this.#mudarCelula(i, CHAO);
-      if (item === ITEM.BOMBA) jogador.bombasMax = Math.min(jogador.bombasMax + 1, AJUSTES.maxBombas);
-      else if (item === ITEM.FOGO) jogador.alcance = Math.min(jogador.alcance + 1, AJUSTES.maxAlcance);
-      else if (item === ITEM.TENIS) jogador.tenis = Math.min(jogador.tenis + 1, AJUSTES.maxTenis);
-      else if (item === ITEM.ESCUDO) jogador.escudo = true;
-      else if (item === ITEM.PERFURANTE) jogador.perfurante = true;
-      else if (item === ITEM.FANTASMA) jogador.fantasma = AJUSTES.fantasmaS;
-      else if (item === ITEM.CHUTE) jogador.chute = true;
-      else if (item === ITEM.DETONADOR) jogador.detonador = true;
-      this.eventos.push({ e: 'item', j: jogador.n, x, y, item });
+      this.#ganharItem(jogador, item);
     }
+  }
+
+  #ganharItem(jogador, item) {
+    if (item === ITEM.BOMBA) jogador.bombasMax = Math.min(jogador.bombasMax + 1, AJUSTES.maxBombas);
+    else if (item === ITEM.FOGO) jogador.alcance = Math.min(jogador.alcance + 1, AJUSTES.maxAlcance);
+    else if (item === ITEM.TENIS) jogador.tenis = Math.min(jogador.tenis + 1, AJUSTES.maxTenis);
+    else if (item === ITEM.ESCUDO) jogador.escudo = true;
+    else if (item === ITEM.PERFURANTE) jogador.perfurante = true;
+    else if (item === ITEM.FANTASMA) jogador.fantasma = AJUSTES.fantasmaS;
+    else if (item === ITEM.CHUTE) jogador.chute = true;
+    else if (item === ITEM.DETONADOR) jogador.detonador = true;
+    else if (item === ITEM.IMA) jogador.ima = AJUSTES.imaS;
+    this.eventos.push({ e: 'item', j: jogador.n, x: Math.round(jogador.x), y: Math.round(jogador.y), item });
+  }
+
+  // A magnet lifts nearby items off the grid; they fly to their player (over walls) and are picked up on
+  // arrival. If that player is gone, the item drops where it is when the cell is free.
+  #atrairItens(dt) {
+    const raio = AJUSTES.raioIma;
+    for (const jogador of this.jogadores) {
+      if (!jogador.vivo || jogador.ima <= 0) continue;
+      const cx = Math.round(jogador.x);
+      const cy = Math.round(jogador.y);
+      for (let y = Math.max(0, cy - raio); y <= Math.min(LINHAS - 1, cy + raio); y++) {
+        for (let x = Math.max(0, cx - raio); x <= Math.min(COLUNAS - 1, cx + raio); x++) {
+          const i = indice(x, y);
+          if (!ITENS.has(this.grade[i]) || (x - cx) ** 2 + (y - cy) ** 2 > raio * raio) continue;
+          this.voando.push({ x, y, item: this.grade[i], alvo: jogador });
+          this.#mudarCelula(i, CHAO);
+        }
+      }
+    }
+    this.voando = this.voando.filter(voo => {
+      if (!voo.alvo.vivo) {
+        const i = indice(Math.round(voo.x), Math.round(voo.y));
+        if (this.grade[i] === CHAO && !this.chamas.has(i) && !this.#bombaEm(Math.round(voo.x), Math.round(voo.y))) this.#mudarCelula(i, voo.item);
+        return false;
+      }
+      const passo = aproximar(voo, voo.alvo, AJUSTES.velocidadeIma * dt);
+      voo.x = passo.x;
+      voo.y = passo.y;
+      if (passo.chegou) this.#ganharItem(voo.alvo, voo.item);
+      return !passo.chegou;
+    });
   }
 
   #matar(jogador) {

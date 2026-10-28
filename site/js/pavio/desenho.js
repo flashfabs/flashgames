@@ -28,6 +28,7 @@ export const VISUAL_ITEM = {
   [ITEM.FANTASMA]: { fundo: '#5f3dc4', emoji: '👻', nome: 'Fantasma', rotulo: 'fantasma' },
   [ITEM.CHUTE]: { fundo: '#e67700', emoji: '🦶', nome: 'Chute', rotulo: 'chute' },
   [ITEM.DETONADOR]: { fundo: '#c92a2a', emoji: '🎯', nome: 'Detonador', rotulo: 'detonador' },
+  [ITEM.IMA]: { fundo: '#1971c2', emoji: '🧲', nome: 'Ímã', rotulo: 'ímã' },
 };
 
 export const DESCRICAO_ITEM = {
@@ -39,6 +40,7 @@ export const DESCRICAO_ITEM = {
   [ITEM.FANTASMA]: 'atravessa caixas e bombas por 8 segundos',
   [ITEM.CHUTE]: 'ande contra uma bomba e ela sai deslizando até bater em algo',
   [ITEM.DETONADOR]: 'sem bomba sobrando, apertar de novo explode a mais antiga',
+  [ITEM.IMA]: 'por 8 segundos, itens a até 3 casas voam até você',
 };
 
 const PALETA = {
@@ -416,7 +418,7 @@ export function criarPintor(canvas) {
     return larguras.get(nome);
   };
 
-  // cena: { g, muros: Set, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu }], b, c, agora, efeitos, tremor }
+  // cena: { g, muros: Set, j: [{ x, y, v, o, a, e, i, g, p, cor, nome, eu }], b, c, iv, agora, efeitos, tremor }
   const desenhar = cena => {
     ajustarResolucao();
     const chave = `${cena.g}|${cena.chaveMuros}`;
@@ -444,6 +446,11 @@ export function criarPintor(canvas) {
     }
     for (const chama of cena.c) desenharChama(ctx, chama, cena.agora);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, cena.agora);
+    // Items flying to a magnet are drawn a bit smaller, above walls and crates.
+    for (const [x, y, item] of cena.iv ?? []) {
+      if (!VISUAL_ITEM[item]) continue;
+      ctx.drawImage(sprite(item), (x + 0.15) * TAM, (y + 0.15) * TAM, TAM * 0.7, TAM * 0.7);
+    }
     const vivos = cena.j.filter(j => j.v).sort((a, b) => a.y - b.y);
     for (const jogador of vivos) desenharJogador(ctx, jogador, cena.agora, larguraNome(jogador.nome));
     for (const efeito of cena.efeitos) desenharEfeito(ctx, efeito, cena.agora);

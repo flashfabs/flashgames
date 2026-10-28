@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, gradeVazia, indice, bombaAFrente, preverBomba,
+  Partida, MAPAS, ITEM, AJUSTES, DIRECAO, CAIXA, CHAO, gradeVazia, indice, bombaAFrente, preverBomba, preverItemVoando,
 } from '../site/js/pavio/regras.js';
 
 const DT = 1 / 60;
@@ -171,9 +171,71 @@ test('each match of the round unlocks new powers on top of the previous ones', (
   assert.deepEqual(MAPAS[0].itens, [ITEM.BOMBA, ITEM.FOGO]);
   assert.deepEqual(MAPAS[1].novos, [ITEM.TENIS, ITEM.CHUTE]);
   assert.deepEqual(MAPAS[2].novos, [ITEM.ESCUDO, ITEM.DETONADOR]);
+  assert.deepEqual(MAPAS[3].novos, [ITEM.PERFURANTE, ITEM.IMA]);
   for (let n = 1; n < MAPAS.length; n++) {
     assert.ok(MAPAS[n].novos.length > 0, `${MAPAS[n].nome} brings something new`);
     assert.deepEqual(MAPAS[n].itens, [...MAPAS[n - 1].itens, ...MAPAS[n].novos]);
   }
   assert.deepEqual(new Set(MAPAS.at(-1).itens), new Set(Object.values(ITEM)));
+});
+
+test('a magnet pulls nearby items to its player, over walls', () => {
+  const grade = gradeVazia();
+  grade[indice(4, 1)] = ITEM.FOGO;
+  grade[indice(3, 3)] = ITEM.BOMBA;
+  grade[indice(6, 1)] = ITEM.TENIS;
+  const partida = new Partida([{ id: 'a', slot: 0 }], { grade });
+  const [a] = partida.jogadores;
+  rodar(partida, 0.2);
+  assert.equal(partida.grade[indice(4, 1)], ITEM.FOGO, 'nothing moves without the power');
+  a.ima = AJUSTES.imaS;
+  partida.passo(DT);
+  assert.equal(partida.grade[indice(4, 1)], CHAO);
+  assert.equal(partida.grade[indice(3, 3)], CHAO, 'the pillar in between does not stop it');
+  assert.equal(partida.grade[indice(6, 1)], ITEM.TENIS, 'out of reach');
+  assert.equal(partida.vista().iv.length, 2);
+  assert.equal(partida.vista().j[0].m, 1);
+  rodar(partida, 0.5);
+  assert.equal(a.alcance, AJUSTES.alcanceInicial + 1);
+  assert.equal(a.bombasMax, 2);
+  assert.equal(partida.voando.length, 0);
+  assert.ok(partida.tirarEventos().some(ev => ev.e === 'item' && ev.item === ITEM.FOGO));
+});
+
+test('the magnet wears off, and picking one up turns it on', () => {
+  const grade = gradeVazia();
+  grade[indice(2, 1)] = ITEM.IMA;
+  const partida = new Partida([{ id: 'a', slot: 0 }], { grade });
+  const [a] = partida.jogadores;
+  partida.definirEntrada('a', DIRECAO.DIREITA);
+  rodar(partida, 0.3);
+  partida.definirEntrada('a', DIRECAO.NENHUMA);
+  assert.ok(a.ima > 0);
+  const perto = indice(Math.round(a.x) + 2, 1);
+  partida.grade[perto] = ITEM.FOGO;
+  partida.passo(DT);
+  assert.equal(partida.grade[perto], CHAO, 'still on');
+  rodar(partida, AJUSTES.imaS);
+  partida.grade[perto] = ITEM.FOGO;
+  rodar(partida, 0.5);
+  assert.equal(partida.grade[perto], ITEM.FOGO, 'worn off');
+});
+
+test('an item flying to a player who dies drops where it is', () => {
+  const grade = gradeVazia();
+  grade[indice(4, 1)] = ITEM.FOGO;
+  const partida = new Partida([{ id: 'a', slot: 0 }, { id: 'b', slot: 1 }], { grade });
+  partida.jogadores[0].ima = AJUSTES.imaS;
+  partida.passo(DT);
+  partida.removerJogador('a');
+  partida.passo(DT);
+  assert.equal(partida.voando.length, 0);
+  assert.equal(partida.grade[indice(4, 1)], ITEM.FOGO);
+});
+
+test('members predict a flying item toward where its player is drawn', () => {
+  assert.deepEqual(preverItemVoando([4, 1, ITEM.FOGO, 0], { x: 1, y: 1 }, 0.125), [3, 1, ITEM.FOGO, 0]);
+  assert.deepEqual(preverItemVoando([4, 1, ITEM.FOGO, 0], { x: 1, y: 1 }, 2), [1, 1, ITEM.FOGO, 0]);
+  const sem = [4, 1, ITEM.FOGO, 5];
+  assert.equal(preverItemVoando(sem, undefined, 1), sem);
 });
