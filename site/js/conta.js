@@ -28,6 +28,8 @@ const API = '/api/perfil';
 const API_RANKING = '/api/ranking';
 const TEMPO_API_MS = 6000;
 const ESPERA_APOS_FALHA_MS = 60 * 1000;
+const FRESCOR_PERFIL_MS = 20 * 1000; // screens may ask often; the server is read again only after this
+const FRESCOR_RANKING_MS = 15 * 1000;
 const MAX_PENDENTES = 50;
 const CORES_INICIAIS = 8;
 const APELIDOS = ['Faísca', 'Pólvora', 'Estopim', 'Fagulha', 'Chispa', 'Brasa', 'Rojão', 'Traque', 'Fumaça', 'Pavio'];
@@ -41,6 +43,8 @@ class ErroApi extends Error {
 
 let fila = Promise.resolve();
 let apiIndisponivelAte = 0;
+let lidoDoServidorEm = 0;
+let rankingRecente = null; // { linhas, em }
 
 // One operation at a time, so creating the profile and registering a match never race each other.
 function emSerie(tarefa) {
@@ -151,7 +155,7 @@ async function sincronizar(dados, { buscar = true } = {}) {
     } else if (dados.edicao) {
       servidor = (await chamar(API, { metodo: 'PUT', corpo: dados.edicao, credencial: dados.credencial })).perfil;
       dados.edicao = null;
-    } else if (buscar) {
+    } else if (buscar && Date.now() - lidoDoServidorEm > FRESCOR_PERFIL_MS) {
       servidor = (await chamar(API, { credencial: dados.credencial })).perfil;
     }
     while (dados.pendentes.length) {
@@ -170,7 +174,10 @@ async function sincronizar(dados, { buscar = true } = {}) {
     }
   } finally {
     // The screen always shows the server's copy plus whatever the server has not received yet.
-    if (servidor) dados.perfil = aplicarPendentes(servidor, dados.pendentes);
+    if (servidor) {
+      dados.perfil = aplicarPendentes(servidor, dados.pendentes);
+      lidoDoServidorEm = Date.now();
+    }
     gravarArmazenado(CHAVE, dados);
   }
 }
@@ -215,9 +222,14 @@ export async function ranking() {
   const meuId = lerArmazenado(CHAVE)?.perfil?.id;
   let linhas;
   try {
-    linhas = (await chamar(API_RANKING)).linhas;
-    if (!Array.isArray(linhas)) throw new ErroApi('Ranking sem linhas', 0);
-    gravarArmazenado(CHAVE_RANKING, linhas);
+    if (rankingRecente && Date.now() - rankingRecente.em < FRESCOR_RANKING_MS) {
+      linhas = rankingRecente.linhas;
+    } else {
+      linhas = (await chamar(API_RANKING)).linhas;
+      if (!Array.isArray(linhas)) throw new ErroApi('Ranking sem linhas', 0);
+      rankingRecente = { linhas, em: Date.now() };
+      gravarArmazenado(CHAVE_RANKING, linhas);
+    }
   } catch (erro) {
     console.warn('Ranking unavailable, showing the last one seen on this device', erro);
     linhas = lerArmazenado(CHAVE_RANKING) ?? [];

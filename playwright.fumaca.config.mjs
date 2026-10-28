@@ -9,6 +9,7 @@ const { webServer, ...semServidor } = base;
 export default defineConfig({
   ...semServidor,
   testMatch: '*.fumaca.mjs',
+  projects: [{ name: 'fumaca' }],
   timeout: 180_000,
   use: { ...base.use, baseURL: process.env.SALINHA_URL ?? 'https://salinha-jogos.netlify.app' },
 });

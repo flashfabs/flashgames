@@ -34,7 +34,7 @@ test('host creates a room, 4 guests join by link, everyone gets ready and the ro
   await bia.andarAte([17, 13]);
   await expect.poll(async () => {
     const { x, y } = await host.posicaoDe(bia);
-    return Math.abs(x - 17) < 0.3 && y === 13;
+    return Math.round(x) === 17 && y === 13;
   }, { message: 'the host sees Bia two cells to the left' }).toBe(true);
 
   await bia.soltarBomba();
