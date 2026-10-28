@@ -49,7 +49,7 @@ Três comandos, todos rodando na raiz do repositório:
 
 - `npm test`: testes das regras do jogo (`testes/*.test.mjs`, Node 22, sem dependências, menos de 1 s).
 - `npm run e2e`: testes de ponta a ponta (`testes/e2e/*.spec.mjs`) com Playwright e Chromium sem janela; cada jogador é um navegador de verdade na sua própria página. Roda os cenários funcionais dois de cada vez (`SALINHA_PROCESSOS` muda isso) e depois o de desempenho sozinho, para os números não sofrerem com as outras páginas; tudo leva cerca de 3 min.
-- `npm run fumaca`: teste de fumaça contra a produção (`testes/e2e/producao.fumaca.mjs`, cerca de 15 s): espera `/versao.json` mostrar o commit da `main` (ou `COMMIT=<commit>`), confere que `/api/ice` responde (503 enquanto a chave do TURN não existir) e joga o começo de uma rodada com dois jogadores no site publicado. `SALINHA_URL=<endereço>` aponta para outro lugar, como uma prévia da Netlify.
+- `npm run fumaca`: teste de fumaça contra a produção (`testes/e2e/producao.fumaca.mjs`, cerca de 15 s): espera `/versao.json` mostrar o commit da `main` (ou `COMMIT=<commit>`), confere que `/api/ice` responde (503 enquanto a chave do TURN não existir), que `/api/ranking` responde, que `/api/perfil` recusa leitura sem credencial (401) e escrita de outro site (403), sem nunca gravar perfil, e joga o começo de uma rodada com dois jogadores no site publicado. `SALINHA_URL=<endereço>` aponta para outro lugar, como uma prévia da Netlify.
 
 Para publicar, `scripts/preparar-publicacao.sh <pasta>` monta uma pasta nova a partir da `main` (só `netlify.toml`, `site/` e `netlify/`, com `site/versao.json` contendo commit e hora, e as `dependencies` das funções instaladas quando houver) e imprime o caminho dela; o passo a passo está no `AGENTS.md`.
 
@@ -95,6 +95,8 @@ Com a CPU 4x mais lenta, medido em 28/10/2026 na `main` com os poderes e o visua
 Um segundo teste de desempenho põe o anfitrião sozinho com 7 robôs difíceis, que rodam dentro da simulação dele: em 28/10/2026, 60 fps, tique da simulação de 0,6 ms (p95) e 2,1 ms com a CPU 4x mais lenta (pior tique 4,5 ms), trabalho por quadro de 0,6 ms e 1,8 ms (p95).
 
 Medido em 28/10/2026 às 01:55, `main` com o visual novo, GPU ligada e densidade 2x: sala com 8 pessoas a 57 fps no normal e 60 fps com a CPU 4x mais lenta (quadro p95 16,8 ms, trabalho por quadro p95 0,9 ms e 2,8 ms, nenhuma tarefa longa); anfitrião com 7 robôs difíceis a 60 fps nos dois casos (trabalho por quadro p95 0,7 ms e 2,6 ms, tique p95 0,6 ms e 3 ms).
+
+Galeria de capturas, fora da suíte normal: `SALINHA_GALERIA=<pasta> npx playwright test galeria` joga uma rodada inteira num iPad e num celular com dois robôs e salva capturas (JPEG) da página inicial, do convite, do lobby com QR, da contagem, da partida, do resumo e do pódio, com o canvas desenhado pela GPU (cerca de 9 min).
 
 Teste longo, fora da suíte normal: `SALINHA_LONGO=1 npx playwright test longo` joga uma rodada inteira com o anfitrião e 7 robôs difíceis (cerca de 13 min) e mede, depois de cada partida, a memória JavaScript (depois de coletar o lixo), o número de nós do DOM e os quadros por segundo; reprova se a memória ou o DOM dobrarem. Em 28/10/2026 às 02:58: memória de 3,8 MB no começo para 5,2 MB no fim (cerca de 0,1 MB por partida depois da primeira), DOM estável em ~400 nós, sem vazamento.
 

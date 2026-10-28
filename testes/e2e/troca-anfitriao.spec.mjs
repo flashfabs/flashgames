@@ -27,6 +27,10 @@ test('the host leaves on purpose: the oldest guest takes over, the others follow
     await jogador.esperarFase('lobby');
   }
   expect((await caio.sala()).meuId).toBe(idCaio);
+  // Bia wears the crown on both screens.
+  for (const jogador of [bia, caio]) {
+    await expect(jogador.pagina.locator('#lista-membros li', { hasText: 'Bia' })).toContainText('👑');
+  }
   await expect(caio.pagina.locator('#contagem-membros')).toHaveText('2/8');
 
   // A new round under the new host.

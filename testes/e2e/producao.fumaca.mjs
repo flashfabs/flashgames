@@ -50,6 +50,9 @@ test('the profile API answers without touching any profile', async ({ request })
   // Without credentials the profile route must refuse, not crash.
   const semCredencial = await request.get('/api/perfil');
   expect(semCredencial.status(), '/api/perfil without credentials').toBe(401);
+  // A write from another site is refused before anything is stored (the function loaded and checks the origin).
+  const deOutroSite = await request.post('/api/perfil', { headers: { origin: 'https://exemplo.com' }, data: {} });
+  expect(deOutroSite.status(), 'POST /api/perfil from another origin').toBe(403);
 });
 
 // The home screen creates a device profile on the server; the smoke test must not fill production with fake
