@@ -176,6 +176,16 @@ test('8 players: frame times of the host and of a guest, normal and with a 4x sl
       expect(resultados[janela].anfitriao.tiques, `${janela}, host: simulation ticks`).toBeGreaterThan((JANELA_MS / 1000) * 60);
       expect(resultados[janela].anfitriao.tiqueP95Ms, `${janela}, host: p95 time of a simulation tick`).toBeLessThan(limites.tiqueP95Ms);
     }
+
+    // The room is full: a ninth person is turned away with an explanation and stays on the home screen.
+    const nono = await mesa.novoJogador('Ivo');
+    const endereco = new URL(link);
+    endereco.search = '?teste=1';
+    await nono.pagina.goto(endereco.toString());
+    await nono.pagina.getByRole('button', { name: 'Entrar na sala' }).click();
+    await expect(nono.pagina.locator('#mensagem-inicio')).toContainText(/cheia/i, { timeout: 25_000 });
+    await expect(nono.pagina.locator('#sala')).toBeHidden();
+    await expect(host.pagina.locator('#contagem-membros')).toHaveText('8/8');
   } finally {
     // Contexts first (the table closes them too), then the two extra browsers.
     await mesa.fechar();
