@@ -390,10 +390,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
         }
         break;
       case 'atalho':
-        if (partida && estado.fase === 'jogo') {
-          partida.aplicarPosicao(de, mensagem);
-          partida.atravessar(de, Number(mensagem.d));
-        }
+        if (partida && estado.fase === 'jogo') partida.atravessar(de, Number(mensagem.d), mensagem);
         break;
       case 'pedirEstado':
         if (de !== sala.meuId) publicarEstado(de);
