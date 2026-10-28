@@ -34,7 +34,16 @@ function codigoDoEndereco() {
 }
 
 function mostrarTela(nome) {
-  for (const [chave, tela] of Object.entries(telas)) tela.hidden = chave !== nome;
+  for (const [chave, tela] of Object.entries(telas)) {
+    const mostrada = chave === nome;
+    // A screen that comes in (home to room and back) slides in instead of popping.
+    if (mostrada && tela.hidden) {
+      tela.classList.remove('tela-entra');
+      void tela.offsetWidth;
+      tela.classList.add('tela-entra');
+    }
+    tela.hidden = !mostrada;
+  }
   // The room screen is locked to the viewport: no page scroll, bounce or text selection while playing.
   document.documentElement.classList.toggle('em-sala', nome === 'sala');
   window.scrollTo(0, 0);
@@ -380,6 +389,27 @@ for (const botao of [$('#botao-config'), $('#botao-config-inicio')]) {
 $('#botao-confirmar-saida').addEventListener('click', () => voltarAoInicio());
 $('#botao-ficar').addEventListener('click', () => {
   $('#confirmar-saida').hidden = true;
+  $('#botao-sair').focus();
+});
+// While a dialog is open, Tab cycles inside it.
+document.addEventListener('keydown', evento => {
+  if (evento.key !== 'Tab') return;
+  const aberto = [$('#configuracoes'), $('#confirmar-saida')].find(dialogo => !dialogo.hidden);
+  if (!aberto) return;
+  const focaveis = [...aberto.querySelectorAll('button, input, summary')].filter(item => !item.disabled && item.offsetParent !== null);
+  if (!focaveis.length) return;
+  const primeiro = focaveis[0];
+  const ultimo = focaveis.at(-1);
+  if (!aberto.contains(document.activeElement)) {
+    evento.preventDefault();
+    primeiro.focus();
+  } else if (evento.shiftKey && document.activeElement === primeiro) {
+    evento.preventDefault();
+    ultimo.focus();
+  } else if (!evento.shiftKey && document.activeElement === ultimo) {
+    evento.preventDefault();
+    primeiro.focus();
+  }
 });
 $('#botao-recarregar').addEventListener('click', () => location.reload());
 document.addEventListener('keydown', evento => {

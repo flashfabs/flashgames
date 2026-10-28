@@ -107,6 +107,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
   const dicas = criarDicas({ arena: el.arena, toque: temToque() });
+  // Phase changes said out loud for screen readers (the cards themselves are not live regions).
+  const anuncio = h('div', { class: 'so-leitor', 'aria-live': 'polite' });
+  el.raiz.append(anuncio);
   const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
   const telas = criarTelas({ pintor });
   const toqueDisponivel = temToque();
@@ -857,6 +860,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     } else if (fase === 'jogo') {
       som.tocar('vai');
+      if (meuIndice() >= 0) vibrar(35);
       efeitos.push({ tipo: 'largada', x: 0, y: 0, inicio: performance.now() / 1000 });
     } else if (fase === 'resultado') {
       som.tocar(estado.resultado?.vencedor === sala.meuId ? 'vitoria' : 'fim');
@@ -892,7 +896,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   }
 
   function tratarEventos(eventos) {
-    if (eventos.some(evento => evento?.e === 'item' && evento.j === meuIndice())) dicas.pegouPoder();
+    const eu = meuIndice();
+    if (eventos.some(evento => evento?.e === 'item' && evento.j === eu)) dicas.pegouPoder();
+    if (eu >= 0 && eventos.some(evento => evento?.e === 'morte' && evento.j === eu)) vibrar([60, 40, 140]);
     traduzirEventos(eventos, { efeitos, som, eu: meuIndice(), escalacao: estado.escalacao, mostrarFaixa });
   }
 
@@ -956,6 +962,29 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     };
   }
 
+  // A short buzz on phones and tablets at the moments that matter (start, getting blown up).
+  function vibrar(padrao) {
+    if (!toqueDisponivel || typeof navigator.vibrate !== 'function') return;
+    try {
+      navigator.vibrate(padrao);
+    } catch {
+      // Some browsers refuse without a recent touch; nothing to do.
+    }
+  }
+
+  function anunciar({ jogando, morto }) {
+    if (estado.fase === 'resultado' || estado.fase === 'final') {
+      // The card is built right after this call: read its title once it is on the page.
+      queueMicrotask(() => {
+        anuncio.textContent = el.aviso.querySelector('h2')?.textContent ?? '';
+      });
+    } else if (estado.fase === 'contagem') {
+      anuncio.textContent = `Partida ${estado.numero} de ${TOTAL_PARTIDAS}: ${MAPAS[estado.mapa].nome}. Começa em ${CONTAGEM_S} segundos.`;
+    } else if (estado.fase === 'jogo') {
+      anuncio.textContent = !jogando ? 'A partida começou. Você está assistindo.' : morto ? 'Você explodiu.' : 'Valendo!';
+    }
+  }
+
   function montarAviso({ jogando, morto }) {
     // Rebuilding the card in the same phase (someone got ready, a robot was added) keeps where it was scrolled.
     const rolagem = faseDoAviso === estado.fase ? el.aviso.scrollTop : 0;
@@ -985,6 +1014,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       conteudo = cartao.conteudo;
       refContagem = cartao.contagem;
     }
+    anunciar({ jogando, morto });
     conteudo = conteudo.filter(Boolean);
     const destino = estilo === 'cartao' ? el.raiz : el.arena;
     if (el.aviso.parentElement !== destino) destino.append(el.aviso);
