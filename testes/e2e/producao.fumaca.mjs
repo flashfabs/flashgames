@@ -1,5 +1,5 @@
-// Smoke test against the published site: the version is the expected commit, the functions answer, and two
-// players start a round over the real signaling server.
+// Smoke test against the published site: the version is the expected commit, the functions answer (read-only
+// calls only, so no profile is created), and two players start a round over the real signaling server.
 
 import { execFileSync } from 'node:child_process';
 import { test, expect, semCaixas } from './mesa.mjs';
@@ -41,6 +41,15 @@ test('the Netlify Functions answer', async ({ request }) => {
   const corpo = await ice.json();
   if (ice.status() === 200) expect(corpo.iceServers.length).toBeGreaterThan(0);
   else expect(corpo.erro).toBe('TURN não configurado');
+});
+
+test('the profile API answers without touching any profile', async ({ request }) => {
+  const ranking = await request.get('/api/ranking');
+  expect(ranking.status(), '/api/ranking status').toBe(200);
+  expect(Array.isArray((await ranking.json()).linhas)).toBe(true);
+  // Without credentials the profile route must refuse, not crash.
+  const semCredencial = await request.get('/api/perfil');
+  expect(semCredencial.status(), '/api/perfil without credentials').toBe(401);
 });
 
 test('two players start a round in production and see each other move', async ({ mesa }) => {

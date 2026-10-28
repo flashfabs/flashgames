@@ -4,7 +4,7 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `c749169`, publicado às 00:50; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- Produção (https://salinha-jogos.netlify.app): `8648563`, publicado às 00:48; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
 - `main`: igual à produção no que vai ao ar, com `npm test` (54) e `npm run e2e` (5 cenários) passando.
 
 ## O que testar primeiro de manhã
@@ -15,7 +15,9 @@ A preencher no fim da noite.
 
 | Hora | Frente | Commit na `main` | O que foi ao ar | Verificação |
 | --- | --- | --- | --- | --- |
-| 00:50 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
+| 00:40 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
+| 00:45 | 1 (jornada, robôs) | `d26cf8f` | Robôs no lobby: o anfitrião adiciona e tira robôs de nível fácil, médio ou difícil; eles jogam a partida, usam os poderes (detonador, gelo, chute, atalho) e só as pessoas precisam ficar prontas. | Frente 1: `npm test`, `npm run e2e` e fumaça. Frente 5, depois: `npm test` 73, `npm run e2e` 6 de 6 (com o cenário novo dos robôs), fumaça 3 de 3. |
+| 00:48 | 4 (rede, contas) | `8648563` | Perfil do aparelho: `site/js/conta.js` (com alternativa local) e a API `/api/perfil` e `/api/ranking` em Netlify Functions com Netlify Blobs; ainda sem tela que use. Primeira publicação com dependência de função (`@netlify/blobs`), instalada pelo script. | Frente 5, depois: `npm test` 88, `/api/perfil` sem credencial responde 401 e `/api/ranking` 200 em produção. |
 
 ## O que foi testado e como
 
@@ -29,8 +31,8 @@ Nenhum até agora.
 
 ## Decisões tomadas
 
-- 00:40, frente 5: a pasta de publicação leva só `netlify.toml`, `site/` e `netlify/`; quando as funções precisarem de pacotes, eles entram em `dependencies` do `package.json` da raiz e o script os instala com `npm ci --omit=dev`, sem levar o Playwright.
-- 00:52, frente 5: integração só de documentação ou de testes (sem mudar `site/`, `netlify/`, `netlify.toml` nem `package.json`) roda `npm test` e não republica; a fumaça aceita produção num commit anterior da `main` quando os arquivos publicados são os mesmos.
+- 00:38, frente 5: a pasta de publicação leva só `netlify.toml`, `site/` e `netlify/`; quando as funções precisarem de pacotes, eles entram em `dependencies` do `package.json` da raiz e o script os instala com `npm ci --omit=dev`, sem levar o Playwright.
+- 00:42, frente 5: integração só de documentação ou de testes (sem mudar `site/`, `netlify/`, `netlify.toml` nem `package.json`) roda `npm test` e não republica; a fumaça aceita produção num commit anterior da `main` quando os arquivos publicados são os mesmos.
 
 ## Pendências do Victor
 
