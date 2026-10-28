@@ -46,7 +46,7 @@ Rascunho de 03:20, revisado no fim da noite.
 | 03:05 | 1 (jornada) | `37d903c` | Teclado e leitor de tela (cores como grupo de opções, foco preso nos diálogos, região viva anunciando contagem, "Valendo!", eliminação e resultados), transição entre a página inicial e a sala, vibração curta no começo da partida e ao ser eliminado, selo da forma no boneco do perfil. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, visual 3 de 3 com imagens novas. |
 | 03:11 | 1 (jornada) | `b29f064` | Últimas partidas e ranking das partidas com amigos na página inicial. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas. |
 | 03:22 | 1 (jornada) | `b7b7104` | Polimento no celular a partir de um passeio em produção; cor escolhida cedo fica guardada. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, fumaça 4 de 4; imagem do lobby no celular atualizada. |
-| 04:24 | 1 (jornada) | `c367daf` | Celular em pé durante a partida: a lista da sala sai do caminho e os controles de toque ficam no espaço livre (achado das capturas da frente 5). | Frente 5, depois: `npm test` 121, `npm run e2e` 29 + 2, visual 3 de 3, fumaça 4 de 4, captura conferida. |
+| 04:24 | 1 (jornada) | `c367daf` | Celular e tablet em pé durante a contagem e o jogo: o painel "Na sala" some, a arena fica centralizada e o manche e o botão 💣 ficam numa faixa livre embaixo; o painel volta no resultado (achado das capturas da frente 5). Cenário novo `retrato.spec.mjs`. | Frente 5, depois: `npm test` 121, `npm run e2e` 29 + 2, visual 3 de 3, fumaça 4 de 4, captura conferida. |
 
 ## Capturas da noite
 
