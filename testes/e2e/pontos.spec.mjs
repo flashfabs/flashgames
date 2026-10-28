@@ -1,6 +1,7 @@
 // Scoring: an explosion eliminates a player and the result screen shows the right points.
 
 import { test, expect, semCaixas } from './mesa.mjs';
+import { verificarAcessibilidade } from './axe.mjs';
 
 test('a guest bomb eliminates the host and the result screen shows the right score', async ({ mesa }) => {
   const { host, convidados: [iris] } = await mesa.montar(['Hugo', 'Íris'], { anfitriao: { iniciar: [semCaixas] } });
@@ -49,6 +50,8 @@ test('a guest bomb eliminates the host and the result screen shows the right sco
     await expect(jogador.pagina.locator('.pavio-regra-pontos')).toHaveText('📦 caixa destruída = 1 ponto · 💀 eliminação = 5 · 🏆 partida vencida = 15');
     await expect(jogador.pagina.locator('#lista-membros li').nth(1)).toContainText('⭐ 20');
   }
+
+  await verificarAcessibilidade(iris.pagina, 'resultado');
 
   // The next match of the round starts by itself after the result screen.
   for (const jogador of [host, iris]) {

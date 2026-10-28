@@ -36,7 +36,7 @@ A preencher no fim da noite.
 
 ## Problemas conhecidos
 
-- 01:30, corrigido às 01:45: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
+- 01:30, corrigido às 01:38: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
 
 ## Decisões tomadas
 
