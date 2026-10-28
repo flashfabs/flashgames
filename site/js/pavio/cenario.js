@@ -36,6 +36,8 @@ export function aleatorio(semente, k) {
 }
 
 const sementeCelula = (i, sal) => Math.imul(i + 1, 2654435761) ^ sal;
+// The vignette is a smooth gradient, so it lives at a quarter of the arena size and is scaled up per cell.
+const ESCALA_VINHETA = 0.25;
 
 // ---- Floors: one tile at (px, py); r(k) is the tile's own noise ----
 
@@ -315,6 +317,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0.14)',
     vinheta: 'rgba(4, 7, 11, 0.5)',
     luz: [255, 170, 80],
+    aura: '255, 138, 61',
   },
   patio: {
     chao: ['#2f4535', '#334a39'],
@@ -327,6 +330,7 @@ const TEMAS = {
     sombra: 'rgba(8, 20, 8, 0.16)',
     vinheta: 'rgba(6, 14, 8, 0.45)',
     luz: [255, 180, 90],
+    aura: '120, 200, 120',
     ambiente: 'folhas',
   },
   deposito: {
@@ -343,6 +347,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0.16)',
     vinheta: 'rgba(6, 7, 9, 0.5)',
     luz: [255, 175, 85],
+    aura: '170, 180, 200',
     ambiente: 'poeira',
   },
   muralhas: {
@@ -358,6 +363,7 @@ const TEMAS = {
     sombra: 'rgba(10, 4, 14, 0.17)',
     vinheta: 'rgba(10, 6, 14, 0.5)',
     luz: [255, 170, 80],
+    aura: '190, 140, 230',
   },
   labirinto: {
     chao: ['#213d39', '#24423e'],
@@ -373,6 +379,7 @@ const TEMAS = {
     sombra: 'rgba(0, 16, 8, 0.18)',
     vinheta: 'rgba(2, 14, 10, 0.55)',
     luz: [255, 190, 110],
+    aura: '90, 210, 150',
     ambiente: 'vagalumes',
   },
   // For devices that ask for more contrast: flat dark floor, light blocks with hard edges, bright crates.
@@ -387,6 +394,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0)',
     vinheta: 'rgba(0, 0, 0, 0)',
     luz: [255, 200, 120],
+    aura: '255, 255, 255',
   },
   fornalha: {
     chao: ['#2a2121', '#2e2424'],
@@ -402,6 +410,7 @@ const TEMAS = {
     sombra: 'rgba(0, 0, 0, 0.2)',
     vinheta: 'rgba(40, 8, 0, 0.55)',
     luz: [255, 140, 60],
+    aura: '255, 110, 40',
     ambiente: 'brasas',
   },
 };
@@ -439,10 +448,10 @@ export function criarCenario() {
   const solido = (x, y) => x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS || fixa[y * COLUNAS + x] !== '.';
 
   const desenharBase = () => {
-    for (const quadro of [base, vinheta]) {
-      quadro.width = Math.round(LARGURA * escala);
-      quadro.height = Math.round(ALTURA * escala);
-    }
+    base.width = Math.round(LARGURA * escala);
+    base.height = Math.round(ALTURA * escala);
+    vinheta.width = Math.round(LARGURA * ESCALA_VINHETA);
+    vinheta.height = Math.round(ALTURA * ESCALA_VINHETA);
     ctxBase.setTransform(escala, 0, 0, escala, 0, 0);
     for (let y = 0; y < LINHAS; y++) {
       for (let x = 0; x < COLUNAS; x++) {
@@ -456,7 +465,7 @@ export function criarCenario() {
       }
     }
     const ctxVinheta = vinheta.getContext('2d');
-    ctxVinheta.setTransform(escala, 0, 0, escala, 0, 0);
+    ctxVinheta.setTransform(ESCALA_VINHETA, 0, 0, ESCALA_VINHETA, 0, 0);
     const gradiente = ctxVinheta.createRadialGradient(LARGURA / 2, ALTURA / 2, ALTURA * 0.35, LARGURA / 2, ALTURA / 2, LARGURA * 0.62);
     gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
     gradiente.addColorStop(1, tema.vinheta);
@@ -533,7 +542,8 @@ export function criarCenario() {
       if (fixa[i] === CAIXA) desenharCaixa(ctxCamada, px, py, tema, r);
     }
     ctxCamada.setTransform(1, 0, 0, 1, 0, 0);
-    ctxCamada.drawImage(vinheta, dx, dy, lado, lado, dx, dy, lado, lado);
+    const v = TAM * ESCALA_VINHETA;
+    ctxCamada.drawImage(vinheta, x * v, y * v, v, v, dx, dy, lado, lado);
     ctxCamada.restore();
   };
 

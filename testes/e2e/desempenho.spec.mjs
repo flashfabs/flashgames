@@ -1,8 +1,9 @@
 // Performance with a full room: 8 players on a normal map (crates and items), the guests walking around and
 // some of them dropping bombs. Frame times of the host and of one guest are measured and printed.
-// The two measured players each get a browser of their own: pages of one headless Chromium share a single
-// software GPU process, and with 8 pages in it the frame rate drops to ~20 fps for reasons that have nothing
-// to do with the game (with 2 pages it stays at 60). The other 6 players share a third browser.
+// This project runs with the Mac's GPU (see playwright.config.mjs) and the measured pages at an iPad's pixel
+// density: in software rendering, canvas cost grows with the pixel count and says nothing about a tablet.
+// The two measured players each get a browser of their own, so the other pages do not share their GPU process;
+// the other 6 players share a third browser.
 
 import { test, expect } from './mesa.mjs';
 
@@ -16,6 +17,9 @@ const LIMITES = {
 };
 // The second window runs with the CPU this many times slower (Chrome DevTools throttling), roughly a tablet.
 const LENTIDAO_CPU = 4;
+// Measured pages look like an iPad in landscape: twice the pixel density (SALINHA_DENSIDADE changes it), so the
+// canvas costs what it costs there.
+const TELA_MEDIDA = { viewport: { width: 1180, height: 820 }, deviceScaleFactor: Number(process.env.SALINHA_DENSIDADE ?? 2) };
 
 // Init script: times every animation frame and every timer tick (the host simulates on Web Worker ticks),
 // without touching the game code.
@@ -132,11 +136,11 @@ test('8 players: frame times of the host and of a guest, normal and with a 4x sl
   const proprios = await Promise.all([0, 1].map(() => playwright[browserName].launch({ ...launchOptions, headless })));
   try {
     const nomes = ['Anfitrião', 'Bruna', 'Caio', 'Dani', 'Enzo', 'Flora', 'Gui', 'Helô'];
-    const host = await mesa.novoJogador(nomes[0], { iniciar: [medir], navegador: proprios[0] });
+    const host = await mesa.novoJogador(nomes[0], { iniciar: [medir], navegador: proprios[0], contexto: TELA_MEDIDA });
     const { link } = await host.criarSala();
     // Guests join all at once, which also checks that the host copes with simultaneous arrivals.
     const convidados = await Promise.all(nomes.slice(1).map(async (nome, n) => {
-      const jogador = await mesa.novoJogador(nome, n === 0 ? { iniciar: [medir], navegador: proprios[1] } : {});
+      const jogador = await mesa.novoJogador(nome, n === 0 ? { iniciar: [medir], navegador: proprios[1], contexto: TELA_MEDIDA } : {});
       await jogador.entrarPeloLink(link);
       return jogador;
     }));
@@ -176,9 +180,52 @@ test('8 players: frame times of the host and of a guest, normal and with a 4x sl
       expect(resultados[janela].anfitriao.tiques, `${janela}, host: simulation ticks`).toBeGreaterThan((JANELA_MS / 1000) * 60);
       expect(resultados[janela].anfitriao.tiqueP95Ms, `${janela}, host: p95 time of a simulation tick`).toBeLessThan(limites.tiqueP95Ms);
     }
+
+    // The room is full: a ninth person is turned away with an explanation and stays on the home screen.
+    const nono = await mesa.novoJogador('Ivo');
+    const endereco = new URL(link);
+    endereco.search = '?teste=1';
+    await nono.pagina.goto(endereco.toString());
+    await nono.pagina.getByRole('button', { name: 'Entrar na sala' }).click();
+    await expect(nono.pagina.locator('#mensagem-inicio')).toContainText(/cheia/i, { timeout: 25_000 });
+    await expect(nono.pagina.locator('#sala')).toBeHidden();
+    await expect(host.pagina.locator('#contagem-membros')).toHaveText('8/8');
   } finally {
     // Contexts first (the table closes them too), then the two extra browsers.
     await mesa.fechar();
     await Promise.all(proprios.map(navegador => navegador.close()));
+  }
+});
+
+// Robots run inside the host's simulation, so a host alone with 7 hard robots is the heaviest host there is.
+test('host with 7 hard robots: frame and simulation times, normal and with a 4x slower CPU', async ({ mesa }) => {
+  const host = await mesa.novoJogador('Anfitrião', { iniciar: [medir], contexto: TELA_MEDIDA });
+  await host.criarSala();
+  const lobby = host.pagina.locator('.pavio-aviso');
+  await lobby.getByRole('button', { name: 'Difícil', exact: true }).click();
+  for (let n = 0; n < 7; n++) await lobby.getByRole('button', { name: '+ Robô' }).click();
+  await expect(lobby.locator('.pavio-prontos-robo')).toHaveCount(7);
+  await expect(lobby.getByRole('button', { name: '+ Robô' })).toBeDisabled();
+  await host.ficarPronto();
+  await host.esperarFase('jogo');
+  expect((await host.jogo()).escalacao).toHaveLength(8);
+
+  const medidos = { anfitriao: host };
+  await host.pagina.waitForTimeout(1000);
+  const resultados = { normal: await medirJanela(medidos) };
+  const cdp = await host.contexto.newCDPSession(host.pagina);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: LENTIDAO_CPU });
+  resultados.cpu4x = await medirJanela(medidos);
+  const jogo = await host.jogo();
+  resultados.partida = { fase: jogo.fase, numero: jogo.numero, vivos: jogo.vista?.j.filter(jogador => jogador.v).length ?? null };
+  console.log(`Anfitrião com 7 robôs difíceis (${JANELA_MS / 1000} s por janela, normal e com a CPU ${LENTIDAO_CPU}x mais lenta):\n${JSON.stringify(resultados, null, 2)}`);
+  await test.info().attach('desempenho-robos.json', { body: JSON.stringify(resultados, null, 2), contentType: 'application/json' });
+
+  for (const [janela, limites] of Object.entries(LIMITES)) {
+    const medida = resultados[janela].anfitriao;
+    expect(medida.quadros, `${janela}: frames drawn`).toBeGreaterThan((JANELA_MS / 1000) * limites.fpsMin);
+    expect(medida.quadroP95Ms, `${janela}: p95 frame interval`).toBeLessThan(limites.quadroP95Ms);
+    expect(medida.trabalhoP95Ms, `${janela}: p95 time spent in a frame`).toBeLessThan(limites.trabalhoP95Ms);
+    expect(medida.tiqueP95Ms, `${janela}: p95 time of a simulation tick with the robots`).toBeLessThan(limites.tiqueP95Ms);
   }
 });

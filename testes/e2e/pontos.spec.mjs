@@ -1,6 +1,7 @@
 // Scoring: an explosion eliminates a player and the result screen shows the right points.
 
 import { test, expect, semCaixas } from './mesa.mjs';
+import { verificarAcessibilidade } from './axe.mjs';
 
 test('a guest bomb eliminates the host and the result screen shows the right score', async ({ mesa }) => {
   const { host, convidados: [iris] } = await mesa.montar(['Hugo', 'Íris'], { anfitriao: { iniciar: [semCaixas] } });
@@ -25,6 +26,16 @@ test('a guest bomb eliminates the host and the result screen shows the right sco
   expect(jogo.resultado.vencedor).toBe(idIris);
   expect(jogo.placar[idIris]).toEqual({ vitorias: 1, caixas: 0, eliminacoes: 1 });
 
+  // Match statistics (contract in docs/plano-noite-2026-10-28.md, section 5), as the guest received them.
+  const idHugo = (await host.sala()).meuId;
+  const estatisticas = Object.fromEntries((await iris.jogo()).estatisticas.map(linha => [linha.id, linha]));
+  expect(estatisticas[idIris]).toMatchObject({ caixas: 0, eliminacoes: 1, bombas: 1, morte: null, maiorCadeia: expect.any(Number) });
+  expect(estatisticas[idIris].distancia, 'Íris walked 20 cells to the top row and 4 to escape').toBeGreaterThan(22);
+  expect(estatisticas[idHugo]).toMatchObject({ caixas: 0, eliminacoes: 0, bombas: 0, morte: { por: idIris, causa: 'bomba' } });
+  expect(estatisticas[idHugo].distancia).toBeGreaterThan(7);
+  expect(estatisticas[idHugo].tempoVivo).toBe(estatisticas[idHugo].morte.tempo);
+  expect(estatisticas[idIris].tempoVivo).toBeGreaterThan(estatisticas[idHugo].tempoVivo);
+
   await expect(host.pagina.locator('.pavio-aviso h2')).toHaveText('Íris venceu a partida! 🏆');
   await expect(iris.pagina.locator('.pavio-aviso h2')).toHaveText('Você venceu a partida! 🏆');
   // Columns: position, player, wins, crates, eliminations, points. Elimination 5 + win 15 = 20, all of it
@@ -39,6 +50,8 @@ test('a guest bomb eliminates the host and the result screen shows the right sco
     await expect(jogador.pagina.locator('.pavio-regra-pontos')).toHaveText('📦 caixa destruída = 1 ponto · 💀 eliminação = 5 · 🏆 partida vencida = 15');
     await expect(jogador.pagina.locator('#lista-membros li').nth(1)).toContainText('⭐ 20');
   }
+
+  await verificarAcessibilidade(iris.pagina, 'resultado');
 
   // The next match of the round starts by itself after the result screen.
   for (const jogador of [host, iris]) {

@@ -76,7 +76,7 @@ const PALETA = {
 const FONTE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 const FONTE_TEXTO = 'Rubik, system-ui, sans-serif';
 const FONTE_NOME = `700 12px ${FONTE_TEXTO}`;
-const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.75, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9 };
+const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.75, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9, chute: 0.4, congela: 0.7, atalho: 0.6 };
 // Ground effects are drawn under bombs and players; the rest on top of everything.
 const EFEITOS_DO_CHAO = new Set(['explosao', 'caixa', 'bloco']);
 const OLHAR = { [DIRECAO.ESQUERDA]: [-3.5, 0], [DIRECAO.DIREITA]: [3.5, 0], [DIRECAO.BAIXO]: [0, 2] };
@@ -174,18 +174,28 @@ function faisca(ctx, x, y, agora, tamanho = 3.5) {
   ctx.fill();
 }
 
+// A power-up tile with some depth: a darker base, a glossy top half and a bright rim.
 function desenharSpriteItem(ctx, item) {
   const visual = VISUAL_ITEM[item];
-  ctx.fillStyle = visual.fundo;
-  retangulo(ctx, 7, 7, TAM - 14, TAM - 14, 9);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  retangulo(ctx, 7, 9, TAM - 14, TAM - 14, 9);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.fillStyle = visual.fundo;
+  retangulo(ctx, 7, 6, TAM - 14, TAM - 14, 9);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+  retangulo(ctx, 9, 8, TAM - 18, (TAM - 18) * 0.45, 7);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
   ctx.lineWidth = 2;
+  retangulo(ctx, 7, 6, TAM - 14, TAM - 14, 9);
   ctx.stroke();
+  // Color emoji take the alpha of the fill style, so it must be opaque.
+  ctx.fillStyle = '#ffffff';
   ctx.font = `${Math.round(TAM * 0.42)}px ${FONTE_EMOJI}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(visual.emoji, TAM / 2, TAM / 2 + 1);
+  ctx.fillText(visual.emoji, TAM / 2, TAM / 2);
 }
 
 // A frozen bomb sits inside a block of ice.
@@ -221,6 +231,7 @@ function desenharItem(ctx, quadro, i, item, agora, reduzido) {
   const px = (i % COLUNAS) * TAM;
   const py = Math.floor(i / COLUNAS) * TAM;
   const fase = agora * 4 + i;
+  const altura = reduzido ? 0 : (Math.sin(fase) + 1) * 2.5;
   if (!reduzido) {
     ctx.globalAlpha = 0.2 + Math.sin(fase) * 0.12;
     ctx.fillStyle = VISUAL_ITEM[item].fundo;
@@ -228,7 +239,11 @@ function desenharItem(ctx, quadro, i, item, agora, reduzido) {
     ctx.fill();
     ctx.globalAlpha = 1;
   }
-  ctx.drawImage(quadro, px, py + (reduzido ? 0 : Math.sin(fase) * 2), TAM, TAM);
+  // Its shadow on the floor shrinks as it floats up.
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+  elipse(ctx, px + TAM / 2, py + TAM * 0.86, TAM * (0.3 - altura * 0.012), TAM * 0.07);
+  ctx.fill();
+  ctx.drawImage(quadro, px, py - altura, TAM, TAM);
   const cintilar = (agora * 0.7 + i * 0.37) % 1;
   if (!reduzido && cintilar < 0.2) {
     ctx.fillStyle = '#fffbe6';
@@ -302,7 +317,31 @@ function desenharBomba(ctx, [x, y, restante, , remota, congelada], agora, reduzi
   if (congelada) desenharBlocoGelo(ctx, x, y);
 }
 
-function desenharChama(ctx, [i, forma], agora) {
+// Points along the burning part of a flame cell, for the flickering tongues: [x, y, along the x axis].
+function trechosDaChama(forma, px, py, cx, cy) {
+  const horizontal = [[px + TAM * 0.2, cy, true], [cx, cy, true], [px + TAM * 0.8, cy, true]];
+  const vertical = [[cx, py + TAM * 0.2, false], [cx, cy, false], [cx, py + TAM * 0.8, false]];
+  switch (forma) {
+    case 'h':
+      return horizontal;
+    case 'v':
+      return vertical;
+    case 'l':
+      return horizontal.slice(1).concat([[px + TAM * 0.35, cy, true]]);
+    case 'r':
+      return horizontal.slice(0, 2).concat([[px + TAM * 0.65, cy, true]]);
+    case 'u':
+      return vertical.slice(1).concat([[cx, py + TAM * 0.35, false]]);
+    case 'd':
+      return vertical.slice(0, 2).concat([[cx, py + TAM * 0.65, false]]);
+    case 'x':
+      return [[cx, cy, true], [cx, cy, false]];
+    default:
+      return horizontal.concat(vertical);
+  }
+}
+
+function desenharChama(ctx, [i, forma], agora, reduzido) {
   const x = i % COLUNAS;
   const y = Math.floor(i / COLUNAS);
   const px = x * TAM;
@@ -316,6 +355,20 @@ function desenharChama(ctx, [i, forma], agora) {
     ctx.fill();
   }
   const pulso = 0.9 + Math.sin(agora * 38 + i) * 0.08;
+  if (!reduzido) {
+    // Flickering tongues bulge out of the edges, so the fire does not look like a ruler.
+    const trechos = trechosDaChama(forma, px, py, cx, cy);
+    for (const [camada, cor] of [[0, PALETA.chama[0]], [1, PALETA.chama[1]]]) {
+      ctx.fillStyle = cor;
+      trechos.forEach(([tx, ty, aoLongoDeX], k) => {
+        const onda = Math.sin(agora * 27 + i * 3.1 + k * 2.3 + camada);
+        const desvio = onda * TAM * 0.07;
+        const raio = TAM * (camada ? 0.2 : 0.3) * (0.85 + 0.3 * Math.sin(agora * 33 + i + k * 1.7 + camada * 2));
+        circulo(ctx, tx + (aoLongoDeX ? 0 : desvio), ty + (aoLongoDeX ? desvio : 0), raio);
+        ctx.fill();
+      });
+    }
+  }
   PALETA.chama.forEach((cor, camada) => {
     const largura = TAM * [0.82, 0.56, 0.28][camada] * pulso;
     const meia = largura / 2;
@@ -358,6 +411,13 @@ function desenharChama(ctx, [i, forma], agora) {
         ctx.fill();
     }
   });
+  if (!reduzido) {
+    const t = (agora * 1.6 + i * 0.37) % 1;
+    ctx.globalAlpha = 1 - t;
+    ctx.fillStyle = '#fff3bf';
+    ctx.fillRect(cx + Math.sin(i * 7.3 + agora * 3) * TAM * 0.3 - 1, cy - t * TAM * 0.9 - 1, 2.4, 2.4);
+    ctx.globalAlpha = 1;
+  }
 }
 
 // One character with its feet at (cx, chao). Poses: 'jogo' (walks, blinks, looks around), 'festa' (jumps
@@ -562,6 +622,13 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
 function desenharJogador(ctx, jogador, agora, reduzido, anim) {
   const cx = (jogador.x + 0.5) * TAM;
   const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
+  if (jogador.eu) {
+    // A soft yellow ring on the floor under your own character, to find yourself in a crowd.
+    ctx.strokeStyle = `rgba(255, 224, 102, ${reduzido ? 0.55 : (0.45 + Math.sin(agora * 4) * 0.12).toFixed(3)})`;
+    ctx.lineWidth = 2.5;
+    elipse(ctx, cx, chao, TAM * 0.36, TAM * 0.13);
+    ctx.stroke();
+  }
   ctx.save();
   if (jogador.g) ctx.globalAlpha = 0.55 + (reduzido ? 0 : Math.sin(agora * 8) * 0.15);
   if (jogador.i && (reduzido || Math.floor(agora * 12) % 2)) ctx.globalAlpha = reduzido ? 0.6 : 0.4;
@@ -581,11 +648,14 @@ function desenharJogador(ctx, jogador, agora, reduzido, anim) {
 
 // Name tag over the head: a badge with the player's color and shape, then the name. On small screens
 // the tag grows so the shape stays readable, and the name is left out (the side list has it).
-function desenharRotulo(ctx, cx, topo, chao, jogador, larguraNome, escala, comNome, voce, agora, reduzido) {
+function larguraDoRotulo(larguraNome, comNome) {
+  return comNome ? 27 + larguraNome : 18;
+}
+
+function desenharRotulo(ctx, cx, y, chao, jogador, larguraNome, escala, comNome, voce, agora, reduzido) {
   const raio = 7;
-  const largura = comNome ? raio * 2 + 13 + larguraNome : raio * 2 + 4;
+  const largura = larguraDoRotulo(larguraNome, comNome);
   const esquerda = -largura / 2;
-  const y = topo - 18 - 9 * escala;
   ctx.save();
   ctx.translate(cx, y);
   ctx.scale(escala, escala);
@@ -936,6 +1006,70 @@ function efeitoEscudo(ctx, cx, cy, idade, reduzido) {
   ctx.stroke();
 }
 
+// A kicked bomb leaves a puff of dust and a few speed lines behind it.
+function efeitoChute(ctx, cx, cy, idade, semente, reduzido) {
+  const p = idade / DURACAO_EFEITO.chute;
+  ctx.globalAlpha = 0.4 * (1 - p);
+  ctx.fillStyle = PALETA.poeira;
+  for (let k = 0; k < 3; k++) {
+    const angulo = aleatorio(semente, k) * Math.PI * 2;
+    circulo(ctx, cx + Math.cos(angulo) * TAM * 0.2 * (reduzido ? 0 : p + 0.3), cy + TAM * 0.25, TAM * (0.12 + p * 0.12));
+    ctx.fill();
+  }
+  if (reduzido) return;
+  ctx.strokeStyle = '#fff4d6';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = 0.8 * (1 - p);
+  ctx.beginPath();
+  for (let k = -1; k <= 1; k++) {
+    const raio = TAM * (0.35 + p * 0.3);
+    const angulo = k * 0.5 + aleatorio(semente, 9) * Math.PI * 2;
+    ctx.moveTo(cx + Math.cos(angulo) * raio, cy + Math.sin(angulo) * raio);
+    ctx.lineTo(cx + Math.cos(angulo) * (raio + 8), cy + Math.sin(angulo) * (raio + 8));
+  }
+  ctx.stroke();
+}
+
+// A bomb freezing: a frost ring and ice shards flying off.
+function efeitoCongela(ctx, cx, cy, idade, semente, reduzido) {
+  const p = idade / DURACAO_EFEITO.congela;
+  ctx.globalAlpha = 0.8 * (1 - p);
+  ctx.strokeStyle = '#a5d8ff';
+  ctx.lineWidth = 4 * (1 - p) + 1;
+  circulo(ctx, cx, cy, TAM * (0.3 + suavizarSaida(p) * 0.5));
+  ctx.stroke();
+  if (reduzido) return;
+  for (let k = 0; k < 8; k++) {
+    const angulo = (k / 8) * Math.PI * 2 + aleatorio(semente, k) * 0.4;
+    const distancia = TAM * (0.25 + suavizarSaida(p) * 0.55);
+    ctx.fillStyle = k % 2 ? '#e7f5ff' : '#74c0fc';
+    lasca(ctx, cx + Math.cos(angulo) * distancia, cy + Math.sin(angulo) * distancia, 7 * (1 - p) + 2, 2.6, angulo);
+  }
+  ctx.fillStyle = '#ffffff';
+  brilho(ctx, cx + TAM * 0.22, cy - TAM * 0.22, 6 * Math.sin(p * Math.PI));
+}
+
+// A shortcut: a purple swirl where the player leaves, and one opening where it arrives.
+function efeitoAtalho(ctx, efeito, cx, cy, idade, reduzido) {
+  const p = idade / DURACAO_EFEITO.atalho;
+  const fechando = !efeito.chegada;
+  const raio = TAM * 0.5 * (fechando ? 1 - p * 0.7 : 0.3 + p * 0.7);
+  ctx.globalAlpha = 1 - p;
+  ctx.strokeStyle = '#d0bfff';
+  ctx.lineWidth = 3;
+  circulo(ctx, cx, cy, raio);
+  ctx.stroke();
+  if (reduzido) return;
+  ctx.fillStyle = '#b197fc';
+  for (let k = 0; k < 10; k++) {
+    const angulo = (k / 10) * Math.PI * 2 + idade * (fechando ? 9 : -9);
+    const r = raio * (0.5 + 0.5 * ((k % 3) / 2));
+    circulo(ctx, cx + Math.cos(angulo) * r, cy + Math.sin(angulo) * r, 2.2);
+    ctx.fill();
+  }
+}
+
 // "JÁ!" in the middle of the arena when the match starts.
 function efeitoLargada(ctx, idade, reduzido) {
   const k = limitar(idade / 0.2, 0, 1);
@@ -985,6 +1119,15 @@ function desenharEfeito(ctx, efeito, agora, reduzido, tema) {
       break;
     case 'largada':
       efeitoLargada(ctx, idade, reduzido);
+      break;
+    case 'chute':
+      efeitoChute(ctx, cx, cy, idade, semente, reduzido);
+      break;
+    case 'congela':
+      efeitoCongela(ctx, cx, cy, idade, semente, reduzido);
+      break;
+    case 'atalho':
+      efeitoAtalho(ctx, efeito, cx, cy, idade, reduzido);
       break;
     default:
       break;
@@ -1077,6 +1220,7 @@ export function criarPintor(canvas) {
   let agoraAnterior = 0;
   let brilhoLuz = null;
   let temaDoBrilho = null;
+  let temaDaAura = null;
   // Adaptive resolution: the scale follows the screen up to ESCALA_MAX, under a ceiling that drops when
   // most recent frames miss their slot and climbs back slowly (never straight back to a level that failed).
   const qualidade = { escala: 0, teto: ESCALA_MAX, mediaMs: 1000 / 60, ultimoMs: 0, mudouEm: performance.now(), falhouEm: 0, escalaQueFalhou: Infinity };
@@ -1253,7 +1397,10 @@ export function criarPintor(canvas) {
     transicao.contagem = Boolean(cena.contagem);
     const vivos = cena.j.filter(jogador => jogador.v);
     if (cena.fase !== 'jogo') {
-      if (cena.fase === 'contagem') transicao.finalEm = -9;
+      if (cena.fase === 'contagem' || cena.fase === 'lobby') {
+        transicao.finalEm = -9;
+        transicao.foco = null;
+      }
     } else if (vivos.length < transicao.vivos && vivos.length <= 1) {
       // The last elimination: focus on whoever is left, or on where the last one fell.
       const morte = cena.efeitos.filter(efeito => efeito.tipo === 'morte').at(-1);
@@ -1308,7 +1455,7 @@ export function criarPintor(canvas) {
   // Darkens everything but the focus of the finale.
   const desenharVinhetaFinal = noFinal => {
     const { x, y } = transicao.foco;
-    const forca = Math.min(1, noFinal / 0.4) * (noFinal > FINAL_S - 0.3 ? (FINAL_S - noFinal) / 0.3 : 1);
+    const forca = Math.min(1, noFinal / 0.4);
     const gradiente = ctx.createRadialGradient(x, y, TAM * 1.2, x, y, TAM * 7);
     gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
     gradiente.addColorStop(1, `rgba(0, 0, 0, ${(0.55 * forca).toFixed(3)})`);
@@ -1383,10 +1530,17 @@ export function criarPintor(canvas) {
     const reduzido = movimentoReduzido.matches;
     const fixa = cenario.atualizar(cena, escala, maisContraste.matches);
     const tema = cenario.tema;
+    if (tema !== temaDaAura) {
+      // The arena frame glows faintly in the map's colour (CSS reads it from the canvas container).
+      canvas.parentElement?.style.setProperty('--aura-tema', tema.aura);
+      temaDaAura = tema;
+    }
     acompanharTransicoes(cena, cena.agora);
     // The finale slows the visual clock down; the game itself keeps its pace.
     const noFinal = cena.agora - transicao.finalEm;
     const lento = !reduzido && noFinal >= 0 && noFinal < FINAL_S;
+    // After the slow motion the camera stays on the winner through the results, until the next countdown.
+    const focando = transicao.foco && noFinal >= 0 && (noFinal < FINAL_S || cena.fase === 'resultado' || cena.fase === 'final' || cena.fase === 'jogo');
     const agora = lento ? transicao.finalEm + noFinal * 0.35 : cena.agora;
     efeitosDaCena = cena.efeitos;
     atualizarAnimacoes(cena, agora);
@@ -1397,7 +1551,7 @@ export function criarPintor(canvas) {
     ctx.fillStyle = tema.borda[2];
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     let zoom = 1;
-    if (lento && transicao.foco) zoom = 1 + 0.28 * suavizarSaida(Math.min(1, noFinal / 0.5));
+    if (focando && !reduzido) zoom = 1 + 0.28 * suavizarSaida(Math.min(1, noFinal / 0.5));
     // Zooming around the focus point never shows anything outside the arena.
     const foco = transicao.foco ?? { x: 0, y: 0 };
     const k = escala * zoom;
@@ -1409,7 +1563,7 @@ export function criarPintor(canvas) {
     for (let i = 0; i < cena.g.length; i++) {
       if (VISUAL_ITEM[cena.g[i]]) desenharItem(ctx, sprite(cena.g[i]), i, cena.g[i], agora, reduzido);
     }
-    for (const chama of cena.c) desenharChama(ctx, chama, agora);
+    for (const chama of cena.c) desenharChama(ctx, chama, agora, reduzido);
     for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, agora, reduzido);
     for (const tiro of cena.gl ?? []) desenharTiroGelo(ctx, tiro, agora);
@@ -1434,15 +1588,30 @@ export function criarPintor(canvas) {
     const escalaTela = (canvas.clientWidth || LARGURA) / LARGURA;
     const escalaRotulo = limitar(0.6 / escalaTela, 1, 2);
     const comNome = escalaTela >= 0.45;
-    vivos.forEach(({ jogador }, n) => {
-      const cx = (jogador.x + 0.5) * TAM;
+    // Tags that would overlap (players bunched together) are stacked upwards, lowest character first.
+    const rotulos = vivos.map(({ jogador }, n) => ({
+      jogador,
+      cx: (jogador.x + 0.5) * TAM,
+      y: topos[n] - 18 - 9 * escalaRotulo,
+      largura: larguraDoRotulo(larguraNome(jogador.nome), comNome) * escalaRotulo,
+    }));
+    const alturaRotulo = 18 * escalaRotulo + 2;
+    const colocados = [];
+    for (const rotulo of [...rotulos].sort((a, b) => b.y - a.y)) {
+      let ajustes = 0;
+      while (ajustes++ < 8 && colocados.some(outro => Math.abs(outro.cx - rotulo.cx) < (outro.largura + rotulo.largura) / 2 && Math.abs(outro.y - rotulo.y) < alturaRotulo)) {
+        rotulo.y -= alturaRotulo;
+      }
+      colocados.push(rotulo);
+    }
+    for (const { jogador, cx, y } of rotulos) {
       const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
-      desenharRotulo(ctx, cx, topos[n], chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
-    });
+      desenharRotulo(ctx, cx, y, chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
+    }
     for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);
     if (abrindo) desenharCortina(agora, tema);
-    if (noFinal >= 0 && noFinal < FINAL_S && transicao.foco) desenharVinhetaFinal(noFinal);
+    if (focando) desenharVinhetaFinal(noFinal);
     desenharRetratos(cena.agora, reduzido);
   };
 

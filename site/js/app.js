@@ -1,12 +1,12 @@
 // Site shell: home screen, room screen and member list. Games plug in through the room (Sala).
 
-import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS } from './sala.js';
+import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS, nivelConexao } from './sala.js';
 import { criarPavio } from './pavio/pavio.js';
+import { criarPerfil } from './perfil.js';
+import { registrarPartida } from './conta.js';
 import { marcaJogador } from './pavio/desenho.js';
 import { som } from './som.js';
 
-const CHAVE_NOME = 'salinha:nome';
-const APELIDOS = ['Faísca', 'Pólvora', 'Estopim', 'Fagulha', 'Chispa', 'Brasa', 'Rojão', 'Traque', 'Fumaça', 'Pavio'];
 const MAX_MEMBROS = 8;
 const DURACAO_AVISO_MS = 3200;
 const TOLERANCIA_S = TOLERANCIA_MS / 1000;
@@ -23,27 +23,10 @@ const INFO_VAZIA = Object.freeze({ fase: 'lobby', cores: {}, prontos: [], pontos
 let infoJogo = INFO_VAZIA;
 let codigoConvite = null;
 let ocupado = false;
-
-function lerNomeSalvo() {
-  try {
-    return localStorage.getItem(CHAVE_NOME);
-  } catch {
-    return null;
-  }
-}
-
-function salvarNome(nome) {
-  try {
-    localStorage.setItem(CHAVE_NOME, nome);
-  } catch {
-    // Storage may be blocked (private mode); the name just won't be remembered.
-  }
-}
-
-function nomeSorteado() {
-  const apelido = APELIDOS[Math.floor(Math.random() * APELIDOS.length)];
-  return `${apelido} ${10 + Math.floor(Math.random() * 90)}`;
-}
+let perfilAtual = null; // the device profile shown on the home screen (conta.js), with corPreferida
+let versaoCarregada = null; // commit published when this page loaded (/versao.json), to spot an outdated page
+let timerReconexao = 0;
+const perfil = criarPerfil({ raiz: $('#inicio'), campoNome, aoMudar: novo => { perfilAtual = novo; } });
 
 function codigoDoEndereco() {
   return normalizarCodigo(location.hash.slice(1)) ?? normalizarCodigo(new URLSearchParams(location.search).get('sala'));
@@ -71,13 +54,12 @@ function definirOcupado(valor, texto = null) {
 function lerNome() {
   const nome = limparNome(campoNome.value);
   campoNome.value = nome;
-  salvarNome(nome);
+  perfil.confirmar(nome);
   return nome;
 }
 
 function prepararInicio() {
   codigoConvite = codigoDoEndereco();
-  campoNome.value = lerNomeSalvo() || nomeSorteado();
   $('#convite').hidden = !codigoConvite;
   $('#sem-convite').hidden = Boolean(codigoConvite);
   $('#convite-codigo').textContent = codigoConvite ?? '';
@@ -110,6 +92,10 @@ async function entrarNaSala(codigo) {
     abrirSala(sala);
   } catch (erro) {
     console.error('Failed to join room', erro);
+    if (erro?.tipo === 'inexistente' && await paginaDesatualizada()) {
+      mostrarMensagem('Esta página está desatualizada: o site mudou depois que você a abriu. Recarregue e entre de novo pelo link.');
+      return;
+    }
     mostrarMensagem(erro.message || 'Não consegui entrar na sala.');
   } finally {
     definirOcupado(false);
@@ -135,25 +121,46 @@ function abrirSala(sala) {
   });
   sala.on('fora', membro => avisar(`${membro.nome} caiu; a vaga fica guardada por ${TOLERANCIA_S} s`));
   sala.on('voltou', membro => avisar(`${membro.nome} voltou`));
-  sala.on('reconectando', () => mostrarReconexao());
+  sala.on('reconectando', info => mostrarReconexao(info));
+  // The host left and handed the room over: the game starts over in the lobby with the new host.
+  sala.on('trocaDeAnfitriao', ({ anfitriao }) => {
+    pararContagemReconexao();
+    $('#queda').hidden = true;
+    avisar(anfitriao?.id === sala.meuId ? 'Agora você é o anfitrião da sala' : `${anfitriao?.nome ?? 'Outra pessoa'} agora é o anfitrião`);
+    jogoAtual?.destruir();
+    jogoAtual = montarJogo(sala);
+    desenharMembros();
+  });
   sala.on('reconectou', () => {
+    pararContagemReconexao();
     $('#queda').hidden = true;
     avisar('Conexão de volta!');
   });
   sala.on('caiu', motivo => mostrarQueda(motivo));
-  jogoAtual = criarPavio({
+  jogoAtual = montarJogo(sala);
+  desenharMembros();
+}
+
+function montarJogo(sala) {
+  return criarPavio({
     sala,
     palco: $('#palco'),
     som,
+    corPreferida: perfilAtual?.corPreferida ?? null,
     aoMudarInfo: info => {
       infoJogo = info;
       desenharMembros();
     },
+    // Each device records its own matches in its profile.
+    aoTerminarPartida: resumo => {
+      registrarPartida(resumo).catch(erro => console.warn('Could not record the match in the profile', erro));
+    },
   });
-  desenharMembros();
 }
 
 function fecharSala() {
+  pararContagemReconexao();
+  $('#confirmar-saida').hidden = true;
   jogoAtual?.destruir();
   jogoAtual = null;
   salaAtual?.sair();
@@ -165,21 +172,90 @@ function voltarAoInicio({ manterEndereco = false } = {}) {
   if (!manterEndereco) history.replaceState(null, '', location.pathname);
   prepararInicio();
   mostrarTela('inicio');
+  perfil.atualizar();
+  paginaDesatualizada();
+}
+
+// The commit in production (site/versao.json, written at publication); null locally or offline.
+async function lerVersaoPublicada() {
+  try {
+    const resposta = await fetch('versao.json', { cache: 'no-store' });
+    if (!resposta.ok) return null;
+    return (await resposta.json())?.commit ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// A page opened before the site was updated cannot find rooms made by the new one (the protocol version is part
+// of the room id), so "room not found" may really mean "reload".
+async function paginaDesatualizada() {
+  if (!versaoCarregada) return false;
+  const publicada = await lerVersaoPublicada();
+  const desatualizada = Boolean(publicada && publicada !== versaoCarregada);
+  $('#versao-nova').hidden = !desatualizada;
+  return desatualizada;
+}
+
+function pararContagemReconexao() {
+  clearInterval(timerReconexao);
+  timerReconexao = 0;
 }
 
 function mostrarQueda(motivo) {
+  pararContagemReconexao();
   $('#queda-titulo').textContent = 'Conexão perdida';
   $('#queda-motivo').textContent = motivo;
   $('#queda-acoes').hidden = false;
   $('#queda').hidden = false;
 }
 
-// Same dialog, without buttons: the room is trying to get this member back on its own.
-function mostrarReconexao() {
+// Same dialog, without buttons: the room is trying to get this member back on its own, and the seconds left of
+// the guarded place count down.
+function mostrarReconexao({ troca = false } = {}) {
+  const fim = performance.now() + TOLERANCIA_MS;
+  const atualizar = () => {
+    const resta = Math.ceil((fim - performance.now()) / 1000);
+    if (troca) $('#queda-motivo').textContent = 'O anfitrião saiu. Passando a sala para quem chegou primeiro…';
+    else $('#queda-motivo').textContent = resta > 0
+      ? `A conexão caiu. Sua vaga fica guardada por mais ${resta} s enquanto a gente tenta voltar.`
+      : 'A conexão caiu. Ainda tentando voltar…';
+  };
   $('#queda-titulo').textContent = 'Reconectando…';
-  $('#queda-motivo').textContent = `A conexão caiu. Sua vaga fica guardada por ${TOLERANCIA_S} segundos enquanto a gente tenta voltar.`;
   $('#queda-acoes').hidden = true;
   $('#queda').hidden = false;
+  pararContagemReconexao();
+  atualizar();
+  timerReconexao = setInterval(atualizar, 250);
+}
+
+// Leaving needs a confirmation only when it costs the others something: the host closes the room, a player in
+// the middle of a round ends it for everyone.
+function custoDeSair() {
+  const sala = salaAtual;
+  if (!sala || sala.membros.size <= 1) return null;
+  const outros = sala.membros.size - 1;
+  if (sala.souAnfitriao) {
+    const sucessor = sala.membrosOrdenados().find(membro => membro.id !== sala.meuId && !membro.fora);
+    const emRodada = ['contagem', 'jogo', 'resultado'].includes(infoJogo.fase);
+    if (sucessor) return `Você é o anfitrião: se sair, a sala passa para ${sucessor.nome}${emRodada ? ' e a rodada em andamento acaba' : ''}.`;
+    return `Você é o anfitrião: se sair, a sala fecha para ${outros === 1 ? 'a outra pessoa' : `as outras ${outros} pessoas`}.`;
+  }
+  const naRodada = ['contagem', 'jogo', 'resultado'].includes(infoJogo.fase) && infoJogo.escalacao.some(item => item.id === sala.meuId);
+  const outrasPessoas = infoJogo.escalacao.some(item => item.id !== sala.meuId && !item.robo);
+  if (naRodada && outrasPessoas) return 'A rodada está rolando: se você sair agora, ela acaba para todo mundo.';
+  return null;
+}
+
+function pedirSaida() {
+  const custo = custoDeSair();
+  if (!custo) {
+    voltarAoInicio();
+    return;
+  }
+  $('#confirmar-texto').textContent = custo;
+  $('#confirmar-saida').hidden = false;
+  $('#botao-ficar').focus();
 }
 
 function etiqueta(texto, classe = '', titulo = null) {
@@ -223,11 +299,10 @@ function desenharMembros() {
 function etiquetaDeConexao(membro) {
   if (membro.ping === null || membro.ping === undefined) return etiqueta('…', 'etiqueta--ping', 'Medindo a conexão');
   const ping = Math.round(membro.ping);
-  const nivel = ping < 80 ? 'boa' : ping < 160 ? 'media' : 'ruim';
-  const titulo = membro.relay
-    ? `${ping} ms até o anfitrião, via retransmissor (a conexão direta não funcionou)`
-    : `${ping} ms até o anfitrião`;
-  return etiqueta(`${membro.relay ? '🐢 ' : ''}${ping} ms`, `etiqueta--ping etiqueta--${nivel}`, titulo);
+  const perda = membro.perda ? Math.round(membro.perda * 100) : 0;
+  const nivel = nivelConexao(membro);
+  const titulo = `${ping} ms até o anfitrião${perda ? `, ${perda}% dos pacotes perdidos` : ''}${membro.relay ? ', via retransmissor (a conexão direta não funcionou)' : ''}`;
+  return etiqueta(`${membro.relay ? '🐢 ' : ''}${ping} ms${perda >= 2 ? ` · ${perda}%` : ''}`, `etiqueta--ping etiqueta--${nivel}`, titulo);
 }
 
 function avisar(texto) {
@@ -296,7 +371,18 @@ campoCodigo.addEventListener('keydown', evento => {
 });
 
 $('#botao-copiar').addEventListener('click', compartilharLink);
-$('#botao-sair').addEventListener('click', () => voltarAoInicio());
+$('#botao-sair').addEventListener('click', pedirSaida);
+$('#botao-confirmar-saida').addEventListener('click', () => voltarAoInicio());
+$('#botao-ficar').addEventListener('click', () => {
+  $('#confirmar-saida').hidden = true;
+});
+$('#botao-recarregar').addEventListener('click', () => location.reload());
+document.addEventListener('keydown', evento => {
+  if (evento.key === 'Escape' && !$('#confirmar-saida').hidden) $('#confirmar-saida').hidden = true;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !salaAtual) paginaDesatualizada();
+});
 $('#botao-som').addEventListener('click', () => {
   som.alternar();
   atualizarBotaoSom();
@@ -350,7 +436,7 @@ if (new URLSearchParams(location.search).has('teste')) {
       link: salaAtual.link,
       meuId: salaAtual.meuId,
       souAnfitriao: salaAtual.souAnfitriao,
-      membros: salaAtual.membrosOrdenados().map(({ id, nome }) => ({ id, nome })),
+      membros: salaAtual.membrosOrdenados().map(({ id, nome, fora }) => ({ id, nome, fora: Boolean(fora) })),
     },
     jogo: () => jogoAtual?.espiar() ?? null,
   });
@@ -360,3 +446,6 @@ som.instalar();
 atualizarBotaoSom();
 prepararInicio();
 mostrarTela('inicio');
+lerVersaoPublicada().then(versao => {
+  versaoCarregada = versao;
+});

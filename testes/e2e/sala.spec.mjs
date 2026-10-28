@@ -34,7 +34,7 @@ test('host creates a room, 4 guests join by link, everyone gets ready and the ro
   await bia.andarAte([17, 13]);
   await expect.poll(async () => {
     const { x, y } = await host.posicaoDe(bia);
-    return Math.abs(x - 17) < 0.3 && y === 13;
+    return Math.round(x) === 17 && y === 13;
   }, { message: 'the host sees Bia two cells to the left' }).toBe(true);
 
   await bia.soltarBomba();
@@ -56,7 +56,10 @@ test('someone leaving mid-round ends it with the reason, then everyone goes back
   await mesa.todosProntos([host, fe, gabi]);
   for (const jogador of [host, fe, gabi]) await jogador.esperarFase('jogo');
 
+  // Leaving mid-round ends it for the others, so it asks first.
   await gabi.pagina.locator('#botao-sair').click();
+  await expect(gabi.pagina.locator('#confirmar-texto')).toHaveText('A rodada está rolando: se você sair agora, ela acaba para todo mundo.');
+  await gabi.pagina.getByRole('button', { name: 'Sair da sala' }).click();
   await expect(gabi.pagina.locator('#inicio')).toBeVisible();
 
   const motivo = 'Gabi saiu da sala, então a rodada acabou.';

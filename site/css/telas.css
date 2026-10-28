@@ -33,3 +33,283 @@
 .pavio-aviso--cartao > .pavio-cartao {
   flex-shrink: 0;
 }
+
+/* Home screen: the device profile (site/js/perfil.js). */
+.perfil {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  background: #0f1822;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.perfil-topo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.perfil-boneco {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 60%, rgba(255, 138, 61, 0.18), transparent 70%);
+}
+
+.perfil-marca {
+  width: 54px;
+  height: 54px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16), 0 8px 18px rgba(0, 0, 0, 0.35);
+  animation: perfil-respira 2.6s ease-in-out infinite;
+}
+
+.perfil-retrato {
+  display: block;
+  width: 72px;
+  height: 72px;
+}
+
+@keyframes perfil-respira {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.04); }
+}
+
+.perfil-identidade {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Label on top, the eight colors on one row (they shrink on a narrow phone), the hint below. */
+.perfil-cores {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px 4px;
+}
+
+.perfil-cores-rotulo {
+  grid-column: 1 / -1;
+  color: var(--texto-suave);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.perfil-cor {
+  display: grid;
+  justify-self: center;
+  place-items: center;
+  width: min(36px, 100%);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.perfil-cor .marca-jogador {
+  width: 72%;
+  height: 72%;
+}
+
+.perfil-cor:hover {
+  transform: scale(1.08);
+}
+
+.perfil-cor[aria-checked='true'] {
+  border-color: var(--destaque);
+  transform: scale(1.12);
+}
+
+.perfil-cor:focus-visible {
+  outline: 3px solid rgba(255, 138, 61, 0.6);
+  outline-offset: 1px;
+}
+
+.perfil-cores-dica {
+  grid-column: 1 / -1;
+}
+
+.perfil-cores-dica,
+.perfil-numeros {
+  width: 100%;
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.perfil-outro {
+  margin-top: 14px;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.perfil-outro summary {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.perfil-outro-corpo {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.perfil-outro-corpo p {
+  margin: 0;
+}
+
+.perfil-outro-corpo .botao {
+  justify-self: start;
+}
+
+.perfil-codigo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.perfil-codigo code {
+  padding: 6px 10px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto);
+  font-size: 14px;
+  letter-spacing: 1px;
+  word-break: break-all;
+}
+
+/* An invitation stands out: it is what the person came for. */
+.convite {
+  padding: 12px 14px 4px;
+  background: rgba(255, 138, 61, 0.08);
+  border: 2px solid rgba(255, 138, 61, 0.55);
+  border-radius: var(--raio);
+}
+
+.convite p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perfil-marca {
+    animation: none;
+  }
+}
+
+/* Lobby: each person's connection to the host. */
+.pavio-conexao {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(30, 43, 59, 0.9);
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pavio-conexao--boa {
+  color: #8ce99a;
+}
+
+.pavio-conexao--media {
+  color: #ffd43b;
+}
+
+.pavio-conexao--ruim {
+  color: #ff8787;
+}
+
+/* Lobby: the invitation (code, share or copy, QR code). */
+.pavio-convite {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(520px, 100%);
+  padding: 10px 12px;
+  background: rgba(14, 20, 28, 0.6);
+  border: 1px dashed rgba(255, 138, 61, 0.5);
+  border-radius: 14px;
+}
+
+.pavio-convite-titulo {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.pavio-convite-titulo strong {
+  color: var(--destaque);
+  letter-spacing: 3px;
+}
+
+.pavio-convite-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pavio-aviso .pavio-convite .botao {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.pavio-convite-qr {
+  width: 168px;
+  height: 168px;
+  border-radius: 10px;
+  image-rendering: pixelated;
+}
+
+.pavio-convite-erro {
+  margin: 0;
+  color: #ffc9c9;
+  font-size: 13px;
+}
+
+/* The countdown arrives with a short zoom, so the start of a match reads as a moment. */
+.pavio-aviso--contagem {
+  animation: contagem-entra 0.32s ease-out;
+}
+
+@keyframes contagem-entra {
+  0% { opacity: 0; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pavio-aviso--contagem {
+    animation: none;
+  }
+}
+
+/* Home screen: the site was updated after this page was opened. */
+.versao-nova {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: rgba(255, 212, 59, 0.1);
+  border: 1px solid rgba(255, 212, 59, 0.55);
+  border-radius: var(--raio);
+  color: #ffe066;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.versao-nova[hidden] {
+  display: none;
+}

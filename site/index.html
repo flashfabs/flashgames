@@ -21,6 +21,10 @@
 <body>
   <main id="inicio" class="inicio">
     <div class="inicio-cartao">
+      <div id="versao-nova" class="versao-nova" role="status" hidden>
+        <span>Saiu uma versão nova do Salinha.</span>
+        <button id="botao-recarregar" class="botao botao--pequeno" type="button">Recarregar</button>
+      </div>
       <div class="marca"><span class="marca-icone" aria-hidden="true"></span>Salinha</div>
       <p class="inicio-lema">Jogos rápidos com a galera, direto no navegador. Sem cadastro: crie uma sala e mande o link.</p>
 
@@ -30,8 +34,17 @@
       </section>
 
       <form id="form-inicio" class="formulario" autocomplete="off" novalidate>
-        <label for="campo-nome">Seu nome</label>
-        <input id="campo-nome" name="nome" maxlength="16" enterkeyhint="go">
+        <section id="perfil" class="perfil" aria-label="Seu perfil">
+          <div class="perfil-topo">
+            <div id="perfil-boneco" class="perfil-boneco" aria-hidden="true"></div>
+            <div class="perfil-identidade">
+              <label for="campo-nome">Seu nome</label>
+              <input id="campo-nome" name="nome" maxlength="16" enterkeyhint="go" autocomplete="nickname">
+            </div>
+          </div>
+          <div id="perfil-cores" class="perfil-cores" role="radiogroup" aria-labelledby="perfil-cores-rotulo"></div>
+          <p id="perfil-numeros" class="perfil-numeros"></p>
+        </section>
 
         <div id="convite" class="convite" hidden>
           <p>Você foi chamado para a sala <strong id="convite-codigo"></strong>.</p>
@@ -49,6 +62,11 @@
         </div>
 
         <p id="mensagem-inicio" class="mensagem" role="status" hidden></p>
+
+        <details class="perfil-outro">
+          <summary>Levar meu perfil para outro aparelho</summary>
+          <div id="perfil-outro-aparelho" class="perfil-outro-corpo"></div>
+        </details>
       </form>
 
       <p class="rodape">WASD ou setas para andar · Espaço solta bomba · controle de videogame funciona<br>No celular e no iPad: arraste no lado esquerdo e toque no lado direito</p>
@@ -87,6 +105,17 @@
           <button id="botao-reconectar" class="botao" type="button">Tentar de novo</button>
           <button id="botao-nova-sala" class="botao botao--secundario" type="button">Criar nova sala</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmar-saida" class="queda" hidden>
+    <div class="queda-cartao" role="alertdialog" aria-modal="true" aria-labelledby="confirmar-titulo" aria-describedby="confirmar-texto">
+      <h2 id="confirmar-titulo">Sair da sala?</h2>
+      <p id="confirmar-texto"></p>
+      <div class="queda-acoes">
+        <button id="botao-confirmar-saida" class="botao" type="button">Sair da sala</button>
+        <button id="botao-ficar" class="botao botao--secundario" type="button">Ficar</button>
       </div>
     </div>
   </div>

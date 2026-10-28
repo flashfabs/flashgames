@@ -10,9 +10,10 @@ import {
 import { criarPintor, efeitoAtivo, chaveDoTema } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
 import { criarHud } from './hud.js';
+import { tratarEventos as traduzirEventos } from './efeitos.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, aplicarAcaoDoRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
-import { criarTelas, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
+import { criarTelas, atualizarConexoes, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
 
 const HZ_SIMULACAO = 60;
 const PASSOS_POR_RETRATO = 3; // 20 snapshots per second
@@ -32,7 +33,6 @@ const QUADRO_MIN_MS = 15; // caps drawing near 60 fps on 120 Hz screens
 const CONTAGEM_S = 3;
 const RESULTADO_S = 7;
 const FINAL_S = 15;
-const MAX_EFEITOS = 90;
 const FASES = new Set(['lobby', 'contagem', 'jogo', 'resultado', 'final']);
 // Each match plays a variant of its map, picked by the match number (members know it from the state).
 const murosGuardados = new Map();
@@ -46,9 +46,6 @@ const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
 const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
 const PARA_GELO = new Set([PAREDE, CAIXA]);
 const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo', resultado: 'resultado', final: 'resultado' };
-// Stereo position of a sound from its column on the arena (-1 left, 1 right).
-const panDe = x => (Number.isFinite(x) ? (x / (COLUNAS - 1)) * 2 - 1 : undefined);
-const mediaDe = valores => (valores.length ? valores.reduce((soma, valor) => soma + valor, 0) / valores.length : undefined);
 
 function embaralhar(lista) {
   for (let i = lista.length - 1; i > 0; i--) {
@@ -102,7 +99,9 @@ function montarPalco(palco) {
   return el;
 }
 
-export function criarPavio({ sala, palco, som, aoMudarInfo }) {
+// corPreferida: this device's profile color (0-7) or null for "any free one"; aoTerminarPartida(resumo) records each
+// finished match of this device's player in its profile (conta.js registrarPartida).
+export function criarPavio({ sala, palco, som, aoMudarInfo, corPreferida = null, aoTerminarPartida = null }) {
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
   const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
@@ -137,6 +136,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   let gradeRestante = 0;
   let ultimaVersaoGrade = -1;
   const suavizados = new Map();
+  const preferencias = new Map(); // id -> profile color asked by that player
   let cerebros = []; // robot brains of the current match
   let contadorRobos = 0;
   let nivelNovoRobo = 'medio';
@@ -165,6 +165,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   const efeitos = [];
   let chaveAviso = '';
   let refContagem = null;
+  const partidasRegistradas = new Set();
+  let primeiroEstadoVisto = false;
   let faseDoAviso = null;
   let ultimaContagem = null;
   let timerFaixa = 0;
@@ -224,6 +226,10 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       if (jogador) jogador.andando = false;
     }),
     sala.on('reconectou', () => sala.enviarAoAnfitriao({ t: 'pedirEstado' })),
+    // Pings change every second: the lobby badges update in place.
+    sala.on('qualidade', () => {
+      if (estado.fase === 'lobby') atualizarConexoes(el.aviso, sala.membrosOrdenados());
+    }),
   ];
 
   function ajustarArena() {
@@ -287,16 +293,29 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     const jogadores = [...sala.membrosOrdenados(), ...estado.robos];
     const presentes = new Set(jogadores.map(({ id }) => id));
     for (const id of Object.keys(estado.cores)) if (!presentes.has(id) || estado.cores[id] >= MAX_JOGADORES) delete estado.cores[id];
+    for (const id of preferencias.keys()) if (!presentes.has(id)) preferencias.delete(id);
     const usadas = new Set(Object.values(estado.cores));
     for (const { id } of jogadores) {
       if (estado.cores[id] !== undefined) continue;
-      let cor = 0;
+      // Someone's profile color when it is free, otherwise the lowest free one.
+      let cor = preferencias.get(id);
+      if (cor === undefined || usadas.has(cor)) cor = 0;
       while (usadas.has(cor)) cor++;
       // A ninth player (a person joining while robots fill the arena) only watches: no color until one frees up.
       if (cor >= MAX_JOGADORES) continue;
       estado.cores[id] = cor;
       usadas.add(cor);
     }
+  }
+
+  // A member's profile color arrives after it joined (and already got one): in the lobby it moves to it if free.
+  function preferirCor(id, cor) {
+    if (!Number.isInteger(cor) || cor < 0 || cor >= MAX_JOGADORES) return;
+    preferencias.set(id, cor);
+    const ocupada = Object.entries(estado.cores).some(([outro, usada]) => outro !== id && usada === cor);
+    if (estado.fase !== 'lobby' || ocupada || estado.cores[id] === cor) return;
+    estado.cores[id] = cor;
+    publicarEstado();
   }
 
   // ---- Robots (host only): computer players that fill the arena. They are not room members, so they never
@@ -394,6 +413,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
         break;
       case 'pedirEstado':
         if (de !== sala.meuId) publicarEstado(de);
+        break;
+      case 'cor':
+        if (sala.membros.has(de)) preferirCor(de, Number(mensagem.cor));
         break;
       default:
         break;
@@ -572,7 +594,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       // The host's own player and the robots move inside this simulation: nothing to smooth.
       if (estado.escalacao[n]?.id === sala.meuId || estado.escalacao[n]?.robo) return jogador;
       const suave = suavizados.get(n);
-      if (!suave || Math.abs(suave.x - jogador.x) + Math.abs(suave.y - jogador.y) > 2) {
+      // A jump (shortcut over a crate, respawn) is drawn at once, with the same rule as the guests' view.
+      if (!suave || Math.abs(suave.x - jogador.x) > 1.5 || Math.abs(suave.y - jogador.y) > 1.5) {
         suavizados.set(n, { x: jogador.x, y: jogador.y });
         return jogador;
       }
@@ -615,6 +638,11 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
     if (estado.idPartida !== partidaAnterior) prepararPartidaLocal();
     if (estado.fase !== anterior) aoEntrarNaFase(estado.fase, anterior);
+    // Arriving with a round under way: say what happens now, once.
+    if (!primeiroEstadoVisto) {
+      primeiroEstadoVisto = true;
+      if (estado.fase !== 'lobby' && estado.fase !== 'final' && meuIndice() < 0) mostrarFaixa('A rodada já começou: você assiste agora e entra na próxima.');
+    }
     chaveAviso = '';
     informar();
   }
@@ -817,75 +845,41 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       efeitos.push({ tipo: 'largada', x: 0, y: 0, inicio: performance.now() / 1000 });
     } else if (fase === 'resultado') {
       som.tocar(estado.resultado?.vencedor === sala.meuId ? 'vitoria' : 'fim');
+      registrarMinhaPartida();
     } else if (fase === 'final') {
       som.tocar(campeoes(estado).some(linha => linha.id === sala.meuId) ? 'campeao' : 'fim');
+      // The last match ends straight into the round's end; a round cut short leaves its match out.
+      if (!estado.motivo) registrarMinhaPartida({ fimDaRodada: true });
     } else {
       efeitos.length = 0;
       local.ativo = false;
     }
   }
 
-  function tratarEventos(eventos) {
-    const agora = performance.now() / 1000;
-    const eu = meuIndice();
-    const explosoes = [];
-    const caixas = [];
-    const blocos = [];
-    for (const evento of eventos) {
-      const pan = panDe(evento?.x);
-      switch (evento?.e) {
-        case 'bum':
-          explosoes.push(evento.x);
-          efeitos.push({ tipo: 'explosao', x: evento.x, y: evento.y, inicio: agora });
-          break;
-        case 'bomba':
-        case 'chute':
-          som.tocar('bomba', { pan });
-          break;
-        case 'caixa':
-          caixas.push(evento.x);
-          efeitos.push({ tipo: 'caixa', x: evento.x, y: evento.y, inicio: agora });
-          if (evento.j === eu) efeitos.push({ tipo: 'ponto', texto: `+${PONTOS.caixa}`, x: evento.x, y: evento.y, inicio: agora });
-          break;
-        case 'item':
-          som.tocar('item', { item: evento.item, pan });
-          efeitos.push({ tipo: 'item', x: evento.x, y: evento.y, item: evento.item, inicio: agora });
-          break;
-        case 'escudo':
-        case 'congela':
-          som.tocar('escudo', { pan });
-          efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
-          break;
-        case 'gelo':
-          som.tocar('bomba');
-          break;
-        case 'atalho':
-          som.tocar('pronto');
-          efeitos.push({ tipo: 'escudo', x: evento.x, y: evento.y, inicio: agora });
-          efeitos.push({ tipo: 'escudo', x: evento.x2, y: evento.y2, inicio: agora });
-          break;
-        case 'morte':
-          som.tocar('morte', { eu: evento.j === eu, pan });
-          efeitos.push({ tipo: 'morte', x: evento.x, y: evento.y, cor: estado.escalacao[evento.j]?.cor ?? 0, inicio: agora });
-          break;
-        case 'subita':
-          som.tocar('alarme');
-          som.musica('subita');
-          mostrarFaixa('Morte súbita! A arena está fechando.');
-          break;
-        case 'bloco':
-          blocos.push(evento.x);
-          efeitos.push({ tipo: 'bloco', x: evento.x, y: evento.y, inicio: agora });
-          break;
-        default:
-          break;
-      }
-    }
-    if (explosoes.length) som.tocar('bum', { n: explosoes.length, pan: panDe(mediaDe(explosoes)) });
-    if (caixas.length) som.tocar('caixa', { n: caixas.length, pan: panDe(mediaDe(caixas)) });
-    if (blocos.length) som.tocar('bloco', { pan: panDe(mediaDe(blocos)) });
-    if (efeitos.length > MAX_EFEITOS) efeitos.splice(0, efeitos.length - MAX_EFEITOS);
+  // This device's player's share of the match that just ended, for its profile. Once per match.
+  function registrarMinhaPartida({ fimDaRodada = false } = {}) {
+    if (!aoTerminarPartida || partidasRegistradas.has(estado.idPartida)) return;
+    const minhas = estado.estatisticas?.find(linha => linha.id === sala.meuId);
+    if (!minhas || meuIndice() < 0) return;
+    partidasRegistradas.add(estado.idPartida);
+    const duracaoS = Math.round(Math.max(0, ...estado.estatisticas.map(linha => Number(linha.tempoVivo) || 0)));
+    aoTerminarPartida({
+      venceu: estado.resultado?.vencedor === sala.meuId,
+      caixas: minhas.caixas ?? 0,
+      eliminacoes: minhas.eliminacoes ?? 0,
+      jogadores: estado.escalacao.length,
+      robos: estado.escalacao.filter(item => item.robo).length,
+      mapa: MAPAS[estado.mapa]?.tema ?? null,
+      duracaoS,
+      campeaoDaRodada: fimDaRodada && estado.escalacao.length > 1 && campeoes(estado).some(linha => linha.id === sala.meuId),
+      em: Date.now(),
+    });
   }
+
+  function tratarEventos(eventos) {
+    traduzirEventos(eventos, { efeitos, som, eu: meuIndice(), escalacao: estado.escalacao, mostrarFaixa });
+  }
+
 
   function mostrarFaixa(texto) {
     el.faixa.textContent = texto;
@@ -907,6 +901,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       estado,
       meuId: sala.meuId,
       souAnfitriao: sala.souAnfitriao,
+      idAnfitriao: sala.idAnfitriao,
+      link: sala.link,
+      codigo: sala.codigo,
       membros: sala.membrosOrdenados(),
       toque: toqueDisponivel,
       placarInicio,
@@ -1005,7 +1002,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
     }
     el.dicaGelo.hidden = !(eu?.v && eu.gl > 0);
-    hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase });
+    hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase, qualidade: pintor.qualidade });
   }
 
 
@@ -1077,10 +1074,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   if (sala.souAnfitriao) {
+    if (corPreferida !== null) preferencias.set(sala.meuId, corPreferida);
     atribuirCores();
     informar();
   } else {
     sala.enviarAoAnfitriao({ t: 'pedirEstado' });
+    if (corPreferida !== null) sala.enviarAoAnfitriao({ t: 'cor', cor: corPreferida });
   }
   controles.definirModo({ jogando: false, toqueVisivel: toqueDisponivel });
   som.musica(MUSICA_DA_FASE[estado.fase], { tema: 'padrao' });

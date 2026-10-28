@@ -4,8 +4,8 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `8648563`, publicado às 00:48; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
-- `main`: igual à produção no que vai ao ar, com `npm test` (54) e `npm run e2e` (5 cenários) passando.
+- Produção (https://salinha-jogos.netlify.app): ver a última linha da tabela de publicações; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- `main`: igual à produção no que vai ao ar, com `npm test` (115) e `npm run e2e` (23 cenários) passando às 02:00.
 
 ## O que testar primeiro de manhã
 
@@ -18,6 +18,16 @@ A preencher no fim da noite.
 | 00:40 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
 | 00:45 | 1 (jornada, robôs) | `d26cf8f` | Robôs no lobby: o anfitrião adiciona e tira robôs de nível fácil, médio ou difícil; eles jogam a partida, usam os poderes (detonador, gelo, chute, atalho) e só as pessoas precisam ficar prontas. | Frente 1: `npm test`, `npm run e2e` e fumaça. Frente 5, depois: `npm test` 73, `npm run e2e` 6 de 6 (com o cenário novo dos robôs), fumaça 3 de 3. |
 | 00:48 | 4 (rede, contas) | `8648563` | Perfil do aparelho: `site/js/conta.js` (com alternativa local) e a API `/api/perfil` e `/api/ranking` em Netlify Functions com Netlify Blobs; ainda sem tela que use. Primeira publicação com dependência de função (`@netlify/blobs`), instalada pelo script. | Frente 5, depois: `npm test` 88, `/api/perfil` sem credencial responde 401 e `/api/ranking` 200 em produção. |
+| 00:50 | 2 (jogo, poderes) | `3ea6b3f` | Temas de mapa (`MAPAS[n].tema`), estatísticas de cada partida no estado do resultado (contrato da seção 5 do plano), buffer de bomba (apertar um pouco antes não se perde), assistência de esquina mais larga e previsão do convidado conferida com o anfitrião. | Frente 5, depois: `npm test` 104, `npm run e2e` 9 de 9; no ar desde 00:59 pelo menos (dentro de `902c5c2`). |
+| 00:59 | 5 (testes) | `902c5c2` | Só testes e documentação: porta livre nos testes, desempenho com CPU 4x mais lenta, acessibilidade com axe-core, rede ruim, regressão visual (`npm run visual`), fumaça cobrindo a API de perfis e correção de uma corrida no cenário dos robôs. | `npm test` 104, `npm run e2e` 9 de 9, `npm run visual` 3 de 3, fumaça 4 de 4. |
+| 01:06 | 1 (jornada, telas) | `3136467` | Telas do Pavio extraídas de `pavio.js` para `telas.js`, sem mudar comportamento; cores do lobby não repetem com robôs; lobby mostra "📶 reconectando" e espera quem caiu; cartões não cortam o botão de pronto no celular deitado com 7 ou 8 jogadores; contagem cabe no celular. Novo cenário Playwright `lobby.spec.mjs`. | Frente 5, depois: suíte inteira na `main`. |
+| 01:10 | 2 (jogo, mapas, robôs) | `72f2709` | Mapas com layouts e variantes sorteadas por partida (protocolo 8), morte súbita um pouco mais cedo a cada partida, robôs que congelam a bomba que os mataria, se caçam na morte súbita e usam gelo de propósito. | Fumaça em produção depois da publicação. |
+| 01:20 | 3 (visual, som) | `e0fa377` | Segunda publicação do visual: chamas com línguas e brasas, poderes com profundidade e sombra, faíscas no pavio, forma do jogador nas costas, arena de alto contraste quando o aparelho pede, vinheta mais barata. | Frente 5, depois: `npm run e2e` 15 + 2, visual 3 de 3, fumaça 4 de 4 (com uma falha de `/api/ranking` na primeira tentativa, ver problemas). |
+| 01:29 | 1 (jornada, perfil) | `2f62d6e` | Página inicial com o perfil do aparelho (nome, cor, símbolo, "levar meu perfil para outro aparelho") e partidas registradas no perfil. | Frente 5, depois: `npm run e2e` 16 + 2; imagens de referência da página inicial atualizadas. |
+| 01:38 | 5 (testes, conserto) | `a59b658` | Correção do 500 intermitente da API de perfis (loja do Netlify Blobs aberta a cada requisição); fumaça sem escrever perfis em produção; cenários novos de reconexão, jornada, estatísticas, desempenho com robôs; `npm run e2e` em 2 processos. | `npm run e2e` 16 + 2, visual 3 de 3, fumaça 4 de 4, 40 chamadas a `/api/ranking` sem erro. |
+| 01:46 | 4 (rede, contas) | `f4ca66e` | Reconexão do anfitrião em até 10 s; perda de pacotes medida por membro; cada partida registrada uma vez no perfil; cor e símbolo do perfil levados para a sala; leituras de perfil e ranking reaproveitadas; a mesma correção do Blobs feita pela frente (`4159efa`). | Frente 5, depois: `npm test` 115, `npm run e2e` 17 + 2, fumaça 4 de 4. |
+| 01:52 | 3 (visual, som) | `ce31b6a` | Terceira publicação: efeitos e sons próprios para chute, gelo e atalho (`efeitos.js`), câmera fica no vencedor durante o resultado. | Frente 5, depois: suíte inteira na `main`. |
+| 01:56 | 1 (jornada, lobby) | `1e95371` | Lobby com bloco de convite (código, copiar ou compartilhar o link, QR code), ping de cada convidado no cartão; sair pede confirmação quando encerra a rodada dos outros; a queda mostra a contagem dos 10 s; página desatualizada avisa e oferece "Recarregar" (lendo `versao.json`); quem chega no meio é avisado. Cenário novo `entrada.spec.mjs`. | Frente 5, depois: `npm test` 115, `npm run e2e` 21 + 2, imagens do lobby atualizadas. |
 
 ## O que foi testado e como
 
@@ -30,7 +40,7 @@ A preencher no fim da noite.
 
 ## Problemas conhecidos
 
-Nenhum até agora.
+- 01:30, corrigido às 01:38: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
 
 ## Decisões tomadas
 
@@ -39,6 +49,12 @@ Nenhum até agora.
 - 00:55, frente 5: as checagens novas de acessibilidade e rede ruim entram no `npm run e2e` (todos rodam antes de integrar); a regressão visual fica fora dele, porque as telas mudam de propósito a noite toda, e a frente 5 cuida das imagens de referência.
 - 00:55, frente 5: o cenário dos robôs falhava às vezes porque conferia na hora que o convidado via um robô quebrar caixa, e o convidado desenha os outros um pouco no passado; virou uma espera de até 15 s.
 - 00:50, frente 5: o servidor dos testes passou a usar uma porta livre a cada execução, porque a porta fixa 8805 colidia quando duas frentes rodavam a suíte ao mesmo tempo.
+- 01:06, frente 5: o axe-core só aponta `meta-viewport` (zoom desligado), de impacto moderado; fica assim de propósito, porque o Victor pediu a sala sem zoom nem rolagem no iPad, e o teste só reprova problemas sérios ou críticos.
+- 01:55, frente 5: o teste de desempenho passou a medir com a GPU do Mac (Metal) e com as páginas medidas em densidade 2x, como um iPad. Sem GPU, o Chromium de teste desenha o canvas em software e, em 2x com a CPU 4x mais lenta, o anfitrião com 7 robôs caía para ~40 fps com quadros de até 65 ms; o perfil de CPU mostrou 70% do tempo em trabalho nativo de desenho, não no código do jogo. Com GPU, o mesmo cenário fica em 60 fps sem tarefas longas, então não é regressão do visual novo.
+- 01:40, frente 5: a fumaça bloqueia (com 503) qualquer escrita de perfil em produção, porque a página inicial nova cria um perfil no servidor e cada execução deixaria dois perfis falsos; só leituras chegam à API real.
+- 01:38, frente 5: corrigiu `netlify/functions/perfil.mjs` (arquivo da frente 4) em vez de esperar os 30 minutos do protocolo, porque produção estava com 500 intermitente, a correção era de duas linhas e o sistema bloqueou as mensagens entre sessões (limite de mensagens sem o Victor escrever); reverter a API de perfis quebraria a página inicial nova da frente 1.
+- 01:25, frente 5: o `npm run e2e` passou a rodar os cenários funcionais dois de cada vez e o de desempenho sozinho no fim; a suíte caiu de 4,4 para 2,8 min, o que encurta o tempo de trava de todas as frentes.
+- 01:12, frente 5: o `andarAte` dos testes solta a tecla um pouco antes da última casa e volta uma casa se passar do ponto; o cenário de reconexão falhou uma vez porque o convidado passou da casa com a máquina ocupada.
 
 ## Pendências do Victor
 
