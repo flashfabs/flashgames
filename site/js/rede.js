@@ -1,7 +1,7 @@
 // Which STUN/TURN servers the WebRTC links use.
 // "cloudflare" (the default) asks the site's Netlify Function for short-lived Cloudflare TURN credentials, so people
 // on closed networks (symmetric NAT, some mobile carriers) still connect, through a relay near them; when the
-// function is missing or fails, the links use public STUN only. "peerjs" keeps PeerJS's built-in setup, as before.
+// function is missing or fails, it keeps PeerJS's built-in setup, which is what "peerjs" always uses.
 // The address can override the default for testing: ?rede=peerjs, or ?rede=retransmissor to force every link
 // through TURN.
 
@@ -9,7 +9,6 @@ const ENDERECO_ICE = '/api/ice';
 const TEMPO_ICE_MS = 3000;
 const MARGEM_VALIDADE_MS = 10 * 60 * 1000; // fetch new credentials this long before the old ones expire
 const ESPERA_APOS_FALHA_MS = 60 * 1000; // after a failure, reconnection attempts do not wait on the function again
-const STUN_PUBLICO = Object.freeze([{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }]);
 export const MODOS_REDE = Object.freeze(['cloudflare', 'peerjs', 'retransmissor']);
 export const MODO_PADRAO = 'cloudflare';
 
@@ -33,7 +32,7 @@ export function criarFonteIce({ buscar = (...args) => fetch(...args), agora = ()
       credenciais = { iceServers: dados.iceServers, validoAte: agora() + Math.max(0, validadeMs - MARGEM_VALIDADE_MS) };
       return credenciais.iceServers;
     } catch (erro) {
-      console.warn('TURN unavailable, using public STUN only', erro);
+      console.warn('Cloudflare TURN unavailable, using the PeerJS defaults', erro);
       credenciais = { iceServers: null, validoAte: agora() + ESPERA_APOS_FALHA_MS };
       return null;
     }
@@ -43,7 +42,7 @@ export function criarFonteIce({ buscar = (...args) => fetch(...args), agora = ()
     if (modo === 'peerjs') return null;
     const turn = await servidoresTurn();
     if (modo === 'retransmissor') return { iceServers: turn ?? [], iceTransportPolicy: 'relay' };
-    return { iceServers: turn ?? STUN_PUBLICO.map(servidor => ({ ...servidor })) };
+    return turn ? { iceServers: turn } : null;
   };
 }
 

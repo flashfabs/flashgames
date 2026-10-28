@@ -62,7 +62,7 @@ test('Cloudflare mode uses the credentials and caches them until close to expiry
   assert.equal(chamadas, 2);
 });
 
-test('without the function, links fall back to public STUN; relay mode keeps the relay policy', async () => {
+test('without the function, links keep the PeerJS defaults; relay mode keeps the relay policy', async () => {
   const restaurar = silenciar();
   try {
     let chamadas = 0;
@@ -71,16 +71,14 @@ test('without the function, links fall back to public STUN; relay mode keeps the
       buscar: async () => { chamadas++; return respostaJson({ erro: 'TURN não configurado' }, 503); },
       agora: () => agora,
     });
-    const normal = await configuracao('cloudflare');
-    assert.ok(normal.iceServers.length > 0);
-    assert.ok(normal.iceServers.every(servidor => [servidor.urls].flat().every(url => url.startsWith('stun:'))));
+    assert.equal(await configuracao('cloudflare'), null);
     assert.deepEqual(await configuracao('retransmissor'), { iceServers: [], iceTransportPolicy: 'relay' });
     assert.equal(chamadas, 1, 'a failure is remembered for a while, so reconnections do not wait on it again');
     agora = 2 * 60 * 1000;
     await configuracao('cloudflare');
     assert.equal(chamadas, 2);
     const quebrada = criarFonteIce({ buscar: async () => { throw new TypeError('offline'); } });
-    assert.ok((await quebrada('cloudflare')).iceServers.length > 0);
+    assert.equal(await quebrada('cloudflare'), null);
   } finally {
     restaurar();
   }
