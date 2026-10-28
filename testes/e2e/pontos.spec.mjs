@@ -27,20 +27,22 @@ test('a guest bomb eliminates the host and the result screen shows the right sco
 
   await expect(host.pagina.locator('.pavio-aviso h2')).toHaveText('Íris venceu a partida! 🏆');
   await expect(iris.pagina.locator('.pavio-aviso h2')).toHaveText('Você venceu a partida! 🏆');
-  // Columns: position, player, wins, crates, eliminations, points. Elimination 5 + win 15 = 20.
-  const esperado = [['1', 'Íris', '1', '0', '1', '20'], ['2', 'Hugo', '0', '0', '0', '0']];
+  // Columns: position, player, wins, crates, eliminations, points. Elimination 5 + win 15 = 20, all of it
+  // earned in this match, so the points cell also shows the "+20" gain.
+  const esperado = [['1', 'Íris', '1', '0', '1', '20+20'], ['2', 'Hugo', '0', '0', '0', '0']];
   for (const jogador of [host, iris]) {
     const linhas = jogador.pagina.locator('.pavio-placar tbody tr');
     await expect(linhas).toHaveCount(2);
     for (const [n, celulas] of esperado.entries()) {
       await expect(linhas.nth(n).locator('td')).toHaveText(celulas);
     }
-    await expect(jogador.pagina.locator('.pavio-regra-pontos')).toHaveText('Caixa destruída = 1 ponto · eliminação = 5 · partida vencida = 15');
+    await expect(jogador.pagina.locator('.pavio-regra-pontos')).toHaveText('📦 caixa destruída = 1 ponto · 💀 eliminação = 5 · 🏆 partida vencida = 15');
     await expect(jogador.pagina.locator('#lista-membros li').nth(1)).toContainText('⭐ 20');
   }
 
   // The next match of the round starts by itself after the result screen.
   for (const jogador of [host, iris]) {
-    await expect(jogador.pagina.locator('.pavio-sobretitulo')).toHaveText('Partida 2 de 5 · Depósito', { timeout: 12_000 });
+    await expect(jogador.pagina.locator('.pavio-sobretitulo')).toHaveText('Partida 2 de 5', { timeout: 12_000 });
+    await expect(jogador.pagina.locator('.pavio-mapa')).toHaveText('Depósito');
   }
 });

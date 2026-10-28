@@ -21,7 +21,8 @@ test('host creates a room, 4 guests join by link, everyone gets ready and the ro
 
   await host.ficarPronto();
   for (const jogador of todos) {
-    await expect(jogador.pagina.locator('.pavio-sobretitulo')).toHaveText('Partida 1 de 5 · Pátio');
+    await expect(jogador.pagina.locator('.pavio-sobretitulo')).toHaveText('Partida 1 de 5');
+    await expect(jogador.pagina.locator('.pavio-mapa')).toHaveText('Pátio');
   }
   for (const jogador of todos) await jogador.esperarFase('jogo');
   const jogo = await host.jogo();
