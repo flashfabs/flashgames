@@ -3,7 +3,7 @@
 // and, sometimes, a bomb. The core is a danger map (when each cell will burn, chain reactions included) and a
 // timed search for a way out, so a robot never drops a bomb without a safe place to run to.
 
-import { AJUSTES, COLUNAS, LINHAS, PAREDE, CAIXA, CHAO, ITEM, DIRECAO, indice, velocidade } from './regras.js';
+import { AJUSTES, COLUNAS, LINHAS, PAREDE, CAIXA, CHAO, ITEM, DIRECAO, indice, velocidade, destinoAtalho } from './regras.js';
 
 // reacao: seconds between decisions; raio: how far (in cells) it looks for things to do; caca: weight of
 // hitting other players; armadilha: checks whether a bomb leaves an enemy without a way out; cautela: enemies
@@ -448,6 +448,25 @@ export function chuteContra(partida, eu, origem) {
   return null;
 }
 
+// With shortcut charges and no safe way out: the direction of the crates right next to us whose far side
+// stays quiet long enough, when we survive pushing in place for the moment a shortcut takes.
+export function atalhoQueSalva(partida, eu, origem, perigo, margem = MARGEM_S) {
+  if (!(eu.atalhos > 0) || eu.fantasma > 0) return null;
+  const empurrar = AJUSTES.empurrarAtalhoS + 0.1;
+  if (!livre(perigo, origem, 0, empurrar, margem)) return null;
+  const ehCaixa = (x, y) => partida.grade[indice(x, y)] === CAIXA;
+  const livreParaPousar = (x, y) => {
+    const celula = partida.grade[indice(x, y)];
+    return celula !== undefined && celula !== PAREDE && celula !== CAIXA && !partida.bombas.some(b => b.x === x && b.y === y);
+  };
+  const centro = { x: xDe(origem), y: yDe(origem) };
+  for (const direcao of DIRECOES_BRACOS) {
+    const destino = destinoAtalho(centro, direcao, eu.atalhos, ehCaixa, livreParaPousar);
+    if (destino && livre(perigo, indice(destino.x, destino.y), empurrar, empurrar + SEGURO_S, margem)) return direcao;
+  }
+  return null;
+}
+
 // With ice and no safe way out: the direction of a bomb in line that, frozen, leaves a way out (or none).
 // The shot must get there before the fuse runs out; a bomb right next to us is skipped when we can kick,
 // because facing it would kick it instead.
@@ -487,6 +506,7 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
   let relogio = sorteio() * ajustes.reacao; // robots do not all think on the same step
   let gelo = DIRECAO.NENHUMA; // facing this way for one step throws ice
   let empurrar = { d: DIRECAO.NENHUMA, ate: 0 }; // walking into a bomb this way kicks it
+  let atravessar = { d: DIRECAO.NENHUMA, ate: 0, atalhos: 0 }; // pushing crates this way takes a shortcut
   let pausa = 0;
 
   const adotar = (rota, agora) => rota.map(({ celula, saida }) => ({ celula, apos: agora + saida }));
@@ -517,7 +537,12 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
         ?? rotaDeFuga(partida, perigo, origem, { passo, margem });
       arriscando = !rota;
       plano = adotar(rota ?? rotaMenosRuim(partida, perigo, origem, passo), partida.tempo);
-      if (!rota) gelo = geloQueSalva(partida, eu, origem, passo, margem) ?? DIRECAO.NENHUMA;
+      if (!rota) {
+        // Out through the crates if we can, else freeze the bomb.
+        const atalho = atalhoQueSalva(partida, eu, origem, perigo, margem);
+        if (atalho) atravessar = { d: atalho, ate: partida.tempo + AJUSTES.empurrarAtalhoS + 0.25, atalhos: eu.atalhos };
+        else gelo = geloQueSalva(partida, eu, origem, passo, margem) ?? DIRECAO.NENHUMA;
+      }
       return false;
     }
     arriscando = false;
@@ -727,6 +752,11 @@ export function criarRobo({ id, nivel = 'medio', sorteio = Math.random } = {}) {
         gelo = DIRECAO.NENHUMA;
         return { d: direcao, d2: DIRECAO.NENHUMA, bomba: false, gelo: true };
       }
+      // Push the crates until the shortcut is taken (a charge is spent).
+      if (atravessar.d && partida.tempo < atravessar.ate && eu.atalhos === atravessar.atalhos) {
+        return { d: atravessar.d, d2: DIRECAO.NENHUMA, bomba: false };
+      }
+      atravessar.d = DIRECAO.NENHUMA;
       // Push until the bomb starts sliding, never after it: following it would walk into its line.
       const [ex, ey] = VETOR[empurrar.d];
       const aindaParada = empurrar.d && partida.bombas.some(b => !b.deslize && b.x === Math.round(eu.x) + ex && b.y === Math.round(eu.y) + ey);

@@ -1027,7 +1027,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
     }
     el.dicaGelo.hidden = !(eu?.v && eu.gl > 0);
-    hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase });
+    hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase, qualidade: pintor.qualidade });
   }
 
 

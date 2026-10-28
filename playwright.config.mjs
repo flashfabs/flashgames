@@ -20,6 +20,19 @@ function portaLivre() {
 process.env.SALINHA_PORTA ??= String(await portaLivre());
 const PORTA = Number(process.env.SALINHA_PORTA);
 
+const ARGUMENTOS = [
+  // Real local IPs instead of mDNS names, so pages of the same browser find each other quickly.
+  '--disable-features=WebRtcHideLocalIpsWithMdns',
+  // Pages never count as hidden, so requestAnimationFrame keeps running on every player.
+  '--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+  '--autoplay-policy=no-user-gesture-required',
+];
+// Without these, headless Chromium draws canvases in software (SwiftShader), which costs nothing like a tablet's GPU
+// and grows with the pixel count; with them it uses the Mac's GPU through Metal, like Safari on an iPad would.
+const COM_GPU = ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
+
 export default defineConfig({
   testDir: 'testes/e2e',
   testMatch: '*.spec.mjs',
@@ -29,7 +42,7 @@ export default defineConfig({
   fullyParallel: false,
   projects: [
     { name: 'funcionais', testIgnore: /desempenho\.spec\.mjs$/ },
-    { name: 'desempenho', testMatch: /desempenho\.spec\.mjs$/ },
+    { name: 'desempenho', testMatch: /desempenho\.spec\.mjs$/, use: { launchOptions: { args: [...ARGUMENTOS, ...COM_GPU] } } },
   ],
   // The free signaling server sometimes takes long to answer; a retry tells a flaky network from a broken game.
   retries: 1,
@@ -41,17 +54,7 @@ export default defineConfig({
     browserName: 'chromium',
     headless: true,
     trace: 'retain-on-failure',
-    launchOptions: {
-      args: [
-        // Real local IPs instead of mDNS names, so pages of the same browser find each other quickly.
-        '--disable-features=WebRtcHideLocalIpsWithMdns',
-        // Pages never count as hidden, so requestAnimationFrame keeps running on every player.
-        '--disable-background-timer-throttling',
-        '--disable-renderer-backgrounding',
-        '--disable-backgrounding-occluded-windows',
-        '--autoplay-policy=no-user-gesture-required',
-      ],
-    },
+    launchOptions: { args: ARGUMENTOS },
   },
   webServer: {
     command: `python3 -m http.server ${PORTA} --bind 127.0.0.1 --directory site`,
