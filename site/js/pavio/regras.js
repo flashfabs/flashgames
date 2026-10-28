@@ -42,6 +42,10 @@ export const AJUSTES = Object.freeze({
   detonadorS: 10,
   // A remote bomb cannot be set off right after being dropped, so a double press is not suicide.
   armarDetonadorS: 0.35,
+  // A bomb press that cannot be honored right away (standing on the last bomb, none left) waits this long.
+  bufferBombaS: 0.25,
+  // Off its lane by more than this, a blocked player slides to the neighbor lane when that one is open.
+  assistenciaEsquina: 0.1,
   imaS: 8,
   // The magnet pulls items whose cell center is this close (in tiles) to the player's cell.
   raioIma: 3,
@@ -108,6 +112,18 @@ export function ehBlocoFixo(x, y) {
 
 export function sobrepoe(jogador, x, y) {
   return Math.abs(jogador.x - x) < 0.99 && Math.abs(jogador.y - y) < 0.99;
+}
+
+// Collision as a member predicts it on its own screen, from the newest snapshot: g is the grid string and
+// bombas the snapshot bombs ([x, y, ...], a sliding one sits between two cells and blocks both). A bomb the
+// player still overlaps never blocks, which matches the host letting players walk off a fresh bomb.
+export function bloqueiaPrevisto(g, bombas, jogador, x, y) {
+  if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return true;
+  const celula = g[indice(x, y)];
+  if (celula === PAREDE) return true;
+  if (jogador.fantasma) return false;
+  if (celula === CAIXA) return true;
+  return bombas.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(jogador, bx, by));
 }
 
 // The cell a player is pushing against: aligned on its lane, at the center of its cell (where walking
@@ -308,7 +324,7 @@ function moverPasso(jogador, direcao, distancia, bloqueia) {
     } else {
       const vizinha = faixa + Math.sign(desvio);
       const livre = !bloqueia(...celula(base, vizinha)) && !bloqueia(...celula(base + sentido, vizinha));
-      if (Math.abs(desvio) > 0.2 && livre) alvo = vizinha;
+      if (Math.abs(desvio) > AJUSTES.assistenciaEsquina && livre) alvo = vizinha;
     }
     if (alvo === null) return 0;
     const falta = alvo - jogador[cruzado];
@@ -377,6 +393,7 @@ function novoJogador({ id, slot, remoto = false }, n) {
     fantasmaFolga: 0,
     invulneravel: 0,
     pedidosBomba: 0,
+    validadeBomba: 0,
     relogioRemoto: null,
     caixas: 0,
     eliminacoes: 0,
@@ -463,7 +480,9 @@ export class Partida {
 
   pedirBomba(id) {
     const jogador = this.#jogador(id);
-    if (jogador?.vivo) jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
+    if (!jogador?.vivo) return;
+    jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
+    jogador.validadeBomba = AJUSTES.bufferBombaS;
   }
 
   // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
@@ -512,7 +531,9 @@ export class Partida {
       jogador.ima = Math.max(0, jogador.ima - dt);
       if (jogador.fantasma > 0) {
         jogador.fantasma = Math.max(0, jogador.fantasma - dt);
-        // A short leftover lets a ghost that ends inside a crate still walk out of it.
+        // A ghost that wears off inside crates stays one until it is out of them, so it is never trapped.
+        if (jogador.fantasma === 0 && jogador.vivo && this.#sobreCaixa(jogador)) jogador.fantasma = EPS;
+        // A short leftover still accepts reported positions inside crates, which arrive late.
         if (jogador.fantasma === 0) jogador.fantasmaFolga = 1;
       } else {
         jogador.fantasmaFolga = Math.max(0, jogador.fantasmaFolga - dt);
@@ -525,7 +546,7 @@ export class Partida {
     this.#medirDistancias();
     for (const jogador of this.jogadores) {
       if (!jogador.vivo) continue;
-      this.#soltarBombas(jogador);
+      this.#soltarBombas(jogador, dt);
       this.#lancarGelo(jogador);
     }
     this.#atualizarPassantes();
@@ -623,6 +644,15 @@ export class Partida {
     return Boolean(bomba && !bomba.passantes.has(jogador.id));
   }
 
+  #sobreCaixa(jogador) {
+    for (let cy = Math.round(jogador.y - 0.49); cy <= Math.round(jogador.y + 0.49); cy++) {
+      for (let cx = Math.round(jogador.x - 0.49); cx <= Math.round(jogador.x + 0.49); cx++) {
+        if (this.grade[indice(cx, cy)] === CAIXA) return true;
+      }
+    }
+    return false;
+  }
+
   #posicaoLivre(x, y, ignorarCaixas = false) {
     if (x < 0.5 || y < 0.5 || x > COLUNAS - 1.5 || y > LINHAS - 1.5) return false;
     for (let cy = Math.round(y - 0.49); cy <= Math.round(y + 0.49); cy++) {
@@ -676,21 +706,26 @@ export class Partida {
   }
 
   // With the detonator, a press that cannot drop a bomb sets off the oldest armed remote one instead.
+  // Returns whether a bomb was set off.
   #detonar(jogador) {
     const bomba = this.bombas.find(b => b.dono === jogador.id && b.remota && !b.congelada && AJUSTES.detonadorS - b.restante >= AJUSTES.armarDetonadorS);
     if (bomba) bomba.restante = 0;
+    return Boolean(bomba);
   }
 
-  #soltarBombas(jogador) {
+  #soltarBombas(jogador, dt) {
     while (jogador.pedidosBomba > 0) {
-      jogador.pedidosBomba--;
       const x = Math.round(jogador.x);
       const y = Math.round(jogador.y);
       const ativas = this.bombas.filter(b => b.dono === jogador.id).length;
       if (this.#bombaEm(x, y) || this.chamas.has(indice(x, y)) || ativas >= jogador.bombasMax) {
-        this.#detonar(jogador);
+        // The detonator uses such a press; otherwise it waits a moment (stepping off the last bomb, or one
+        // blowing up, lets it through) so a press made a little early is not lost.
+        if (!this.#detonar(jogador)) break;
+        jogador.pedidosBomba--;
         continue;
       }
+      jogador.pedidosBomba--;
       const bomba = {
         x, y,
         dono: jogador.id,
@@ -709,6 +744,9 @@ export class Partida {
       jogador.bombasSoltas++;
       this.eventos.push({ e: 'bomba', x, y });
     }
+    if (jogador.pedidosBomba === 0) return;
+    jogador.validadeBomba -= dt;
+    if (jogador.validadeBomba <= 0) jogador.pedidosBomba = 0;
   }
 
   #atualizarPassantes() {
