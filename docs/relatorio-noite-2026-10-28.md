@@ -33,6 +33,9 @@ A preencher no fim da noite.
 | 02:20 | 3 (visual, som) | `0ca1564` | Quinta publicação: moldura da arena com brilho na cor do tema; etiquetas de nome empilham em vez de se sobrepor quando os jogadores se juntam. | Frente 5, depois: suíte inteira, visual 3 de 3, fumaça 4 de 4. |
 | 02:29 | 2 (jogo, robôs) | `a0b9ece` | Robôs atravessam caixas com o atalho para fugir do fogo; script de comparação dos níveis de robô (20 partidas com semente). | Frente 5, depois: `npm test` 116, suíte inteira. |
 | 02:35 | 1 (jornada, resumos) | `16e65d6` | Resumo da partida e da rodada, votação para pular o resumo e "Jogar de novo" (protocolo 11, juntando as duas mudanças de protocolo 10). | Frente 5, depois: cenários de pontos, rodada completa e acessibilidade da tela de resultado passando. |
+| 02:39 | 3 (visual) | `16f867b` | Correções da revisão de integração no visual (tamanho da bomba do detonador, HUD no celular e outros achados). | Frente 5, depois: `npm test` 121, `npm run e2e` 27 + 2, fumaça 4 de 4. |
+| 02:55 | 1 (jornada) | `72389d6` | Dicas da primeira vez durante a partida (andar, soltar bomba, primeiro poder), tela de configurações (volume de efeitos e música, sensibilidade do toque, contador de quadros, mostrar as dicas de novo), resumo e dicas mais compactos no celular pequeno. Cenário novo `configuracoes.spec.mjs`. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas (link de configurações). |
+| 03:05 | 1 (jornada) | `37d903c` | Teclado e leitor de tela (cores como grupo de opções, foco preso nos diálogos, região viva anunciando contagem, "Valendo!", eliminação e resultados), transição entre a página inicial e a sala, vibração curta no começo da partida e ao ser eliminado, selo da forma no boneco do perfil. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, visual 3 de 3 com imagens novas. |
 
 ## O que foi testado e como
 
