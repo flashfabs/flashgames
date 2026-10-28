@@ -25,6 +25,8 @@ Fluxo de uma sala (pedidos do Victor de 27/10/2026):
 - Cada jogador anda no próprio aparelho, sem esperar a rede, com a mesma função de movimento das regras (`moverComColisao`), e manda a posição ~30 vezes por segundo; o anfitrião aceita só posição plausível (velocidade e paredes) e o aparelho se corrige se ficar longe da versão do anfitrião. Os outros jogadores aparecem com um atraso que se ajusta à oscilação da rede. Chamas só machucam depois de 0,12 s, para compensar o atraso das posições.
 - A lista da sala mostra o ping de cada um até o anfitrião, e 🐢 quando a ligação passa por retransmissor (TURN), que é mais lenta.
 - Reconexão: o anfitrião pinga todos a cada segundo; 3,5 s sem notícia marca a pessoa como fora e 10 s a tiram da sala. Ao entrar, cada membro recebe uma chave; quem cai tenta voltar sozinho com essa chave (até com um id novo no PeerJS) e retoma a mesma vaga. Quem sai de propósito, ou o anfitrião, manda um "tchau" e ninguém espera os 10 s.
+- Queda do anfitrião (desde 28/10/2026): quando todos os membros se calam ao mesmo tempo, ou quando a rede volta, o anfitrião reabre a ligação com o servidor de sinalização com o mesmo id e o mesmo token, e o servidor troca a ligação velha pela nova; a tolerância de 10 s de cada membro só corre enquanto o anfitrião está alcançável, e os membros tentam voltar por até 15 s. Testado com a rede do anfitrião fora por 6 s no meio de uma partida: o membro voltou à mesma vaga e a partida seguiu.
+- Qualidade de conexão: as mensagens do canal rápido levam um número de sequência (`$s`), e cada ponta mede a perda pelos buracos na sequência; o membro informa a dele no `$pong` e o anfitrião publica ping, perda e retransmissor de cada um no `$qualidade`. `nivelConexao()` em `sala.js` diz se a conexão está boa, média ou ruim; a lista mostra a perda ao lado do ping quando passa de 2%.
 - Banda medida em 27/10/2026 (8 jogadores, mesmo formato de retrato): cada retrato tem em média 350 a 420 bytes (máximo de ~1.025, abaixo do limite de fragmentação), e o anfitrião envia ~0,55 Mbps para 7 membros, no pior caso ~0,9 Mbps; recebe ~0,3 Mbps.
 - Controles: teclado (duas direções seguradas viram "siga nesta e vire naquela"; espaço solta bomba e E ou Shift joga gelo), toque (o joystick aparece onde o dedo encosta no lado esquerdo, qualquer toque no lado direito solta bomba e, com gelo, aparece um botão ❄️ acima do de bomba) e controle de videogame (A e X soltam bomba; B e Y jogam gelo, ou soltam bomba quando não há gelo).
 - iPad e celular: a tela da sala fica presa ao tamanho do aparelho (sem rolagem, zoom nem seleção), e o som é liberado no primeiro toque (soltar o dedo), que é o que o Safari exige.
@@ -101,12 +103,21 @@ Netlify, time pessoal `vhccruz-projects`, projeto `salinha-jogos` (id `dddafa63-
 
 O TURN da Cloudflare depende de duas variáveis de ambiente no projeto da Netlify, criadas pelo Victor numa conta Cloudflare pessoal (Realtime → TURN Server → criar chave): `CLOUDFLARE_TURN_KEY_ID` e `CLOUDFLARE_TURN_API_TOKEN`. Sem elas, `/api/ice` responde 503 e o site segue com a configuração embutida do PeerJS, igual à de antes. Custo: 1.000 GB por mês grátis, depois US$ 0,05/GB; o uso esperado fica abaixo de 10 GB por mês.
 
+## Perfil do aparelho
+
+Decisão da noite de 28/10/2026 (sem login com senha, e-mail ou Google, que ficam para o Victor decidir): cada aparelho tem um perfil com apelido, cor, símbolo e estatísticas, sem dado pessoal.
+
+- `site/js/conta.js` é a interface para as telas (`obterPerfil`, `salvarPerfil`, `registrarPartida`, `historico`, `ranking`, `codigoDeRecuperacao`, `recuperar`); funciona sem rede, com uma cópia local, e manda depois as partidas jogadas offline. `site/js/conta-regras.js` tem as regras puras (limpeza dos campos, pontos calculados de caixas, eliminações e vitória, recordes, histórico das últimas 30 partidas, linha do ranking, código de recuperação), usadas pelo navegador e pelo servidor.
+- `netlify/functions/perfil.mjs` guarda os perfis no Netlify Blobs (armazém `perfis`; deploys fora de produção usam `perfis-teste`): `POST/GET/PUT /api/perfil`, `POST /api/perfil/partidas`, `POST /api/perfil/recuperar` e `GET /api/ranking`. O servidor guarda só o SHA-256 do segredo, aceita escrita só da origem do site, limita o corpo a 8 KB e uma chamada de registro a cada 3 s por perfil, e a Netlify limita 60 chamadas por minuto por IP.
+- O código de recuperação (30 letras e números em grupos de 5) é o id mais o segredo: quem tem o código tem o perfil, então ele não pode ir em link de convite.
+- `site/js/pavio/registro.js` registra cada partida terminada: cada aparelho registra só o próprio jogador, pela diferença do placar da rodada entre o começo e o fim da partida. O ranking conta só partidas com pelo menos duas pessoas (robôs não contam) e é "de honra": como não há servidor de jogo, quem quiser trapacear consegue inflar os próprios números.
+
 ## Limitações conhecidas
 
 - Se o anfitrião fechar a aba, a sala acaba para todos (não há troca de anfitrião).
 - O anfitrião joga sem atraso de rede e os outros com o atraso da conexão até ele; numa mesma cidade isso fica em dezenas de milissegundos.
 - O servidor de sinalização do PeerJS é gratuito e sem garantia; se ficar fora do ar, ninguém consegue criar nem entrar em sala (quem já está jogando continua).
-- Se a rede do próprio anfitrião cair, os membros tentam voltar por 10 s, mas isso só dá certo se o anfitrião recuperar o mesmo código no servidor de sinalização; esse caso não foi testado.
+- Se a rede do próprio anfitrião cair por mais de ~10 s, ou se o servidor de sinalização do PeerJS não aceitar a volta dele, os membros desistem e a sala acaba para eles.
 - Quem recarrega a página perde a vaga (a chave de volta fica só na memória da aba).
 - Não há login; o placar vale só enquanto a rodada existir.
 - Aba em segundo plano para de desenhar e de andar (o navegador pausa o quadro); o anfitrião continua simulando.
