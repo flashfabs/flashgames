@@ -2,11 +2,11 @@
 
 import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS } from './sala.js';
 import { criarPavio } from './pavio/pavio.js';
+import { criarPerfil } from './perfil.js';
+import { registrarPartida } from './conta.js';
 import { marcaJogador } from './pavio/desenho.js';
 import { som } from './som.js';
 
-const CHAVE_NOME = 'salinha:nome';
-const APELIDOS = ['Faísca', 'Pólvora', 'Estopim', 'Fagulha', 'Chispa', 'Brasa', 'Rojão', 'Traque', 'Fumaça', 'Pavio'];
 const MAX_MEMBROS = 8;
 const DURACAO_AVISO_MS = 3200;
 const TOLERANCIA_S = TOLERANCIA_MS / 1000;
@@ -23,27 +23,8 @@ const INFO_VAZIA = Object.freeze({ fase: 'lobby', cores: {}, prontos: [], pontos
 let infoJogo = INFO_VAZIA;
 let codigoConvite = null;
 let ocupado = false;
-
-function lerNomeSalvo() {
-  try {
-    return localStorage.getItem(CHAVE_NOME);
-  } catch {
-    return null;
-  }
-}
-
-function salvarNome(nome) {
-  try {
-    localStorage.setItem(CHAVE_NOME, nome);
-  } catch {
-    // Storage may be blocked (private mode); the name just won't be remembered.
-  }
-}
-
-function nomeSorteado() {
-  const apelido = APELIDOS[Math.floor(Math.random() * APELIDOS.length)];
-  return `${apelido} ${10 + Math.floor(Math.random() * 90)}`;
-}
+let perfilAtual = null; // the device profile shown on the home screen (conta.js), with corPreferida
+const perfil = criarPerfil({ raiz: $('#inicio'), campoNome, aoMudar: novo => { perfilAtual = novo; } });
 
 function codigoDoEndereco() {
   return normalizarCodigo(location.hash.slice(1)) ?? normalizarCodigo(new URLSearchParams(location.search).get('sala'));
@@ -71,13 +52,12 @@ function definirOcupado(valor, texto = null) {
 function lerNome() {
   const nome = limparNome(campoNome.value);
   campoNome.value = nome;
-  salvarNome(nome);
+  perfil.confirmar(nome);
   return nome;
 }
 
 function prepararInicio() {
   codigoConvite = codigoDoEndereco();
-  campoNome.value = lerNomeSalvo() || nomeSorteado();
   $('#convite').hidden = !codigoConvite;
   $('#sem-convite').hidden = Boolean(codigoConvite);
   $('#convite-codigo').textContent = codigoConvite ?? '';
@@ -145,9 +125,14 @@ function abrirSala(sala) {
     sala,
     palco: $('#palco'),
     som,
+    corPreferida: perfilAtual?.corPreferida ?? null,
     aoMudarInfo: info => {
       infoJogo = info;
       desenharMembros();
+    },
+    // Each device records its own matches in its profile.
+    aoTerminarPartida: resumo => {
+      registrarPartida(resumo).catch(erro => console.warn('Could not record the match in the profile', erro));
     },
   });
   desenharMembros();
@@ -165,6 +150,7 @@ function voltarAoInicio({ manterEndereco = false } = {}) {
   if (!manterEndereco) history.replaceState(null, '', location.pathname);
   prepararInicio();
   mostrarTela('inicio');
+  perfil.atualizar();
 }
 
 function mostrarQueda(motivo) {

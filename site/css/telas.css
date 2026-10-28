@@ -33,3 +33,174 @@
 .pavio-aviso--cartao > .pavio-cartao {
   flex-shrink: 0;
 }
+
+/* Home screen: the device profile (site/js/perfil.js). */
+.perfil {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  background: #0f1822;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.perfil-topo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.perfil-boneco {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: radial-gradient(circle at 50% 60%, rgba(255, 138, 61, 0.18), transparent 70%);
+}
+
+.perfil-marca {
+  width: 54px;
+  height: 54px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16), 0 8px 18px rgba(0, 0, 0, 0.35);
+  animation: perfil-respira 2.6s ease-in-out infinite;
+}
+
+.perfil-retrato {
+  display: block;
+  width: 72px;
+  height: 72px;
+}
+
+@keyframes perfil-respira {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.04); }
+}
+
+.perfil-identidade {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Label on top, the eight colors on one row (they shrink on a narrow phone), the hint below. */
+.perfil-cores {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px 4px;
+}
+
+.perfil-cores-rotulo {
+  grid-column: 1 / -1;
+  color: var(--texto-suave);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.perfil-cor {
+  display: grid;
+  justify-self: center;
+  place-items: center;
+  width: min(36px, 100%);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.perfil-cor .marca-jogador {
+  width: 72%;
+  height: 72%;
+}
+
+.perfil-cor:hover {
+  transform: scale(1.08);
+}
+
+.perfil-cor[aria-checked='true'] {
+  border-color: var(--destaque);
+  transform: scale(1.12);
+}
+
+.perfil-cor:focus-visible {
+  outline: 3px solid rgba(255, 138, 61, 0.6);
+  outline-offset: 1px;
+}
+
+.perfil-cores-dica {
+  grid-column: 1 / -1;
+}
+
+.perfil-cores-dica,
+.perfil-numeros {
+  width: 100%;
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.perfil-outro {
+  margin-top: 14px;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.perfil-outro summary {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.perfil-outro-corpo {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.perfil-outro-corpo p {
+  margin: 0;
+}
+
+.perfil-outro-corpo .botao {
+  justify-self: start;
+}
+
+.perfil-codigo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.perfil-codigo code {
+  padding: 6px 10px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto);
+  font-size: 14px;
+  letter-spacing: 1px;
+  word-break: break-all;
+}
+
+/* An invitation stands out: it is what the person came for. */
+.convite {
+  padding: 12px 14px 4px;
+  background: rgba(255, 138, 61, 0.08);
+  border: 2px solid rgba(255, 138, 61, 0.55);
+  border-radius: var(--raio);
+}
+
+.convite p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perfil-marca {
+    animation: none;
+  }
+}
