@@ -58,7 +58,8 @@ test('a 6 s network drop keeps the place; a drop longer than 10 s ends the round
   await expect(bia.pagina.locator('#queda')).toBeHidden();
   // She still plays: the host sees her walk.
   await bia.andarAte([17, 13]);
-  await expect.poll(async () => Math.round((await host.posicaoDe(bia)).x), { message: 'the host sees Bia move after coming back' }).toBe(17);
+  const { x: xBia } = await bia.minhaPosicao();
+  await expect.poll(async () => (await host.posicaoDe(bia)).x, { message: 'the host sees Bia move after coming back' }).toBeCloseTo(xBia, 1);
 
   // Long drop: past the tolerance Caio is out, the round ends with the reason and Caio is told he lost the room.
   await caio.pagina.evaluate(() => window.__cortarRede(20_000));

@@ -97,7 +97,7 @@ export class Jogador {
 
   // Walks to cell (x, y) along free cells, holding the arrow keys like a person would. Only crates, walls and
   // bombs block the way; the route prefers straight lines so the player turns as little as possible.
-  async andarAte([alvoX, alvoY]) {
+  async andarAte([alvoX, alvoY], tentativas = 3) {
     const inicio = await this.minhaPosicao();
     if (!inicio) throw new Error(`${this.nome} is not playing`);
     const origem = [Math.round(inicio.x), Math.round(inicio.y)];
@@ -106,7 +106,7 @@ export class Jogador {
     const teclado = this.pagina.keyboard;
     let tecla = null;
     try {
-      for (const [x, y, sentido] of caminho) {
+      for (const [n, [x, y, sentido]] of caminho.entries()) {
         const nova = TECLAS[sentido];
         if (nova !== tecla) {
           // Press the new key before letting go of the old one, so the player never stops at a turn.
@@ -114,10 +114,19 @@ export class Jogador {
           if (tecla) await teclado.up(tecla);
           tecla = nova;
         }
-        await this.pagina.waitForFunction(chegou, { x, y, sentido }, { polling: 'raf', timeout: TEMPO_PASSO_MS });
+        // On the last cell, let go a little early: the key-up takes a moment to reach the page.
+        const folga = n === caminho.length - 1 ? 0.3 : 0.12;
+        await this.pagina.waitForFunction(chegou, { x, y, sentido, folga }, { polling: 'raf', timeout: TEMPO_PASSO_MS });
       }
     } finally {
       if (tecla) await teclado.up(tecla);
+    }
+    // A busy machine can still overshoot into the next cell; walk back when that happens.
+    await this.pagina.waitForTimeout(80);
+    const fim = await this.minhaPosicao();
+    if (fim && (Math.round(fim.x) !== alvoX || Math.round(fim.y) !== alvoY)) {
+      if (tentativas <= 1) throw new Error(`${this.nome} stopped at ${[fim.x, fim.y]} instead of ${[alvoX, alvoY]}`);
+      await this.andarAte([alvoX, alvoY], tentativas - 1);
     }
   }
 }
@@ -132,13 +141,12 @@ function lerMinhaPosicao() {
 }
 
 // Runs in the page: true once the player reached the cell along the direction it is walking.
-function chegou({ x, y, sentido }) {
+function chegou({ x, y, sentido, folga }) {
   const jogo = window.__salinha.jogo();
   const meuId = window.__salinha.sala()?.meuId;
   const n = jogo?.escalacao.findIndex(item => item.id === meuId) ?? -1;
   const eu = n >= 0 ? jogo.vista?.j?.[n] : null;
   if (!eu) return false;
-  const folga = 0.12;
   if (sentido === 'direita') return eu.x >= x - folga;
   if (sentido === 'esquerda') return eu.x <= x + folga;
   if (sentido === 'baixo') return eu.y >= y - folga;
