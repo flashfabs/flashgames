@@ -2,3 +2,5 @@
 node_modules/
 .netlify/
 .claude/worktrees/
+test-results/
+playwright-report/
