@@ -536,7 +536,10 @@ export class Partida {
     const segundos = jogador.relogioRemoto === null ? 1 : Math.min((c - jogador.relogioRemoto) / 1000, 1);
     const permitido = velocidade(jogador.tenis) * segundos * FOLGA_VELOCIDADE + FOLGA_DISTANCIA;
     if (Math.abs(x - jogador.x) + Math.abs(y - jogador.y) > permitido) return false;
-    if (!this.#posicaoLivre(x, y, jogador.fantasma > 0 || jogador.fantasmaFolga > 0)) return false;
+    const fantasma = jogador.fantasma > 0 || jogador.fantasmaFolga > 0;
+    if (!this.#posicaoLivre(x, y, fantasma)) return false;
+    // Nor through a crate on the way: a report after a long silence could otherwise jump one for free.
+    if (!fantasma && this.#cruzaCaixa(jogador.x, jogador.y, x, y)) return false;
     jogador.relogioRemoto = c;
     jogador.x = x;
     jogador.y = y;
@@ -555,9 +558,11 @@ export class Partida {
   }
 
   // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
-  atravessar(id, direcao) {
+  // With posicao (the member's report sent with the request), it hops only from where the member was then.
+  atravessar(id, direcao, posicao = null) {
     const jogador = this.#jogador(id);
     if (!jogador?.vivo || jogador.atalhos <= 0) return false;
+    if (posicao && !this.aplicarPosicao(id, posicao)) return false;
     const destino = this.#destinoAtalho(jogador, direcao, jogador.remoto ? FOLGA_EMPURRAO : EPS);
     if (!destino) return false;
     this.#saltar(jogador, destino);
@@ -582,6 +587,8 @@ export class Partida {
     const [dx, dy] = VETOR[d];
     if (bomba.deslize || this.#bloqueiaBomba(bomba.x + dx, bomba.y + dy, bomba)) return false;
     bomba.deslize = d;
+    // Whoever kicks a bomb answers for what it hits.
+    bomba.autor = jogador.id;
     bomba.avanco = 0;
     this.eventos.push({ e: 'chute', j: jogador.n, x: bomba.x, y: bomba.y });
     return true;
@@ -711,6 +718,17 @@ export class Partida {
     if (celula === CAIXA) return true;
     const bomba = this.#bombaEm(x, y);
     return Boolean(bomba && !bomba.passantes.has(jogador.id));
+  }
+
+  // Whether the straight way between two positions passes over a crate, sampled every quarter tile.
+  #cruzaCaixa(x0, y0, x1, y1) {
+    const passos = Math.ceil((Math.abs(x1 - x0) + Math.abs(y1 - y0)) / 0.25);
+    for (let k = 1; k <= passos; k++) {
+      const px = x0 + ((x1 - x0) * k) / passos;
+      const py = y0 + ((y1 - y0) * k) / passos;
+      if (this.grade[indice(Math.round(px), Math.round(py))] === CAIXA) return true;
+    }
+    return false;
   }
 
   #sobreCaixa(jogador) {
@@ -925,8 +943,10 @@ export class Partida {
   #explodir(bomba, fila) {
     this.bombas = this.bombas.filter(b => b !== bomba);
     this.eventos.push({ e: 'bum', x: bomba.x, y: bomba.y });
-    this.#acenderChama(bomba.x, bomba.y, 'c', bomba.dono);
-    const dono = this.#jogador(bomba.dono);
+    // Credit goes to whoever kicked the bomb last, otherwise to its owner.
+    const autor = bomba.autor ?? bomba.dono;
+    this.#acenderChama(bomba.x, bomba.y, 'c', autor);
+    const dono = this.#jogador(autor);
     for (const [dx, dy, meio, ponta] of BRACOS) {
       for (let passo = 1; passo <= bomba.alcance; passo++) {
         const x = bomba.x + dx * passo;
@@ -941,7 +961,7 @@ export class Partida {
         }
         if (celula === CAIXA) {
           this.#mudarCelula(i, CHAO);
-          this.#acenderChama(x, y, 'x', bomba.dono, sortearItem(this.sorteio, this.itens));
+          this.#acenderChama(x, y, 'x', autor, sortearItem(this.sorteio, this.itens));
           if (dono) dono.caixas++;
           this.eventos.push({ e: 'caixa', j: dono?.n ?? -1, x, y });
           // A piercing blast keeps going through crates.
@@ -953,15 +973,15 @@ export class Partida {
           // Chain reaction: the other bomb blows in this same tick and spreads its own flames.
           outra.restante = 0;
           fila.push(outra);
-          this.#acenderChama(x, y, forma, bomba.dono);
+          this.#acenderChama(x, y, forma, autor);
           break;
         }
         if (ITENS.has(celula)) {
           this.#mudarCelula(i, CHAO);
-          this.#acenderChama(x, y, ponta, bomba.dono);
+          this.#acenderChama(x, y, ponta, autor);
           break;
         }
-        this.#acenderChama(x, y, forma, bomba.dono);
+        this.#acenderChama(x, y, forma, autor);
       }
     }
   }
