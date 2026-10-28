@@ -36,6 +36,9 @@ A preencher no fim da noite.
 - `npm run fumaca`: contra a produção, depois de cada publicação: `versao.json` com o commit da `main`, `/api/ice` respondendo, `/api/ranking` lido e `/api/perfil` recusando sem credencial (só leitura, nenhum perfil é criado) e dois jogadores começando uma rodada pelo servidor de sinalização real.
 - Acessibilidade (`acessibilidade.spec.mjs`, dentro do `npm run e2e`): axe-core com as regras WCAG 2.1 A e AA na tela inicial e no lobby, no computador e no celular; problema sério ou crítico reprova.
 - Rede ruim (`rede-ruim.spec.mjs`, dentro do `npm run e2e`): 120 a 200 ms de atraso em todos os canais e 10% de perda no canal rápido; o convidado anda sem ser puxado para trás, o anfitrião vê o movimento e a bomba na casa certa, o convidado vê o anfitrião andar e o ping aparece alto na lista.
+- Reconexão (`reconexao.spec.mjs`): convidado sem rede por 6 s guarda a vaga e volta; por 20 s, a rodada acaba com o nome dele no motivo; anfitrião sem rede por 5 s (script de queda da frente 4, que também derruba a sinalização) e os convidados voltam sozinhos com a rodada seguindo; anfitrião fora de vez e os convidados recebem "Conexão perdida".
+- Rodada completa (`rodada.spec.mjs`): as 5 partidas na ordem dos mapas, tela final com campeão e placar, volta ao lobby.
+- Jornada (`jornada.spec.mjs`): código errado, sala inexistente, quem chega no meio assiste, sala cheia recusa a nona pessoa.
 - Regressão visual (`npm run visual`, fora do `npm run e2e`): tela inicial e lobby no computador, no iPad e no celular comparados com as imagens em `testes/e2e/visual/`; a frente 5 roda depois de cada integração, olha cada diferença e atualiza as imagens quando a mudança foi de propósito.
 
 ## Problemas conhecidos
