@@ -46,6 +46,7 @@ Rascunho de 03:20, revisado no fim da noite.
 | 03:05 | 1 (jornada) | `37d903c` | Teclado e leitor de tela (cores como grupo de opções, foco preso nos diálogos, região viva anunciando contagem, "Valendo!", eliminação e resultados), transição entre a página inicial e a sala, vibração curta no começo da partida e ao ser eliminado, selo da forma no boneco do perfil. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, visual 3 de 3 com imagens novas. |
 | 03:11 | 1 (jornada) | `b29f064` | Últimas partidas e ranking das partidas com amigos na página inicial. | Frente 5, depois: `npm run e2e` 28 + 2, fumaça 4 de 4; imagens da página inicial atualizadas. |
 | 03:22 | 1 (jornada) | `b7b7104` | Polimento no celular a partir de um passeio em produção; cor escolhida cedo fica guardada. | Frente 5, depois: `npm test` 121, `npm run e2e` 28 + 2, fumaça 4 de 4; imagem do lobby no celular atualizada. |
+| 04:24 | 1 (jornada) | `c367daf` | Celular em pé durante a partida: a lista da sala sai do caminho e os controles de toque ficam no espaço livre (achado das capturas da frente 5). | Frente 5, depois: `npm test` 121, `npm run e2e` 29 + 2, visual 3 de 3, fumaça 4 de 4, captura conferida. |
 
 ## Capturas da noite
 
@@ -92,7 +93,7 @@ A sessão principal revisou o commit `13747d9` (robôs com a `main` dentro) com 
 
 ## Problemas conhecidos
 
-- 04:15, aberto (avisado à frente 1): no celular em pé, durante a partida, a arena ocupa só o alto da tela, sobra um vão grande no meio e o joystick e o botão de bomba ficam por cima do painel "Na sala" no rodapé. No iPad e no celular deitado está certo. Captura: [07-partida-celular.jpg](capturas-2026-10-28/07-partida-celular.jpg).
+- 04:15, corrigido às 04:24: no celular em pé, durante a partida, o joystick e o botão de bomba ficavam por cima do painel "Na sala" no rodapé, com um vão vazio no meio (achado pelas capturas da frente 5). A frente 1 tirou a lista do caminho durante a partida com toque em pé (`ef49e1a`, publicado em `c367daf`); a captura [07-partida-celular.jpg](capturas-2026-10-28/07-partida-celular.jpg) já mostra a tela corrigida.
 - Instabilidade de rede nos testes: com a suíte inteira em 2 processos, dois cenários falharam uma vez e passaram na nova tentativa às 02:30 (acessibilidade do lobby e página desatualizada da frente 1, que depende do servidor de sinalização responder "sala inexistente" a tempo). Isolados, passaram 24 de 24. O de acessibilidade ganhou uma espera pelas animações de entrada (o axe pegava um cartão ainda transparente).
 - 01:30, corrigido às 01:38: `/api/ranking`, `/api/perfil` e a criação de perfil davam 500 de vez em quando em produção. O log da função mostrou `BlobsInternalError: Failed to decode token: Token expired`: a loja do Netlify Blobs era criada uma vez por módulo e guardava o token da primeira invocação nas instâncias quentes. A frente 5 corrigiu (`perfil.mjs` abre a loja a cada requisição) porque as mensagens para a frente 4 estavam bloqueadas naquele momento.
 
