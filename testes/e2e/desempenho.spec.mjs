@@ -10,7 +10,12 @@ const JANELA_MS = 8_000;
 const TECLAS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 // Generous limits: they catch a real regression (a frame loop or a simulation tick that got several times
 // slower) without failing on a busy machine. The measured numbers are printed on every run.
-const LIMITES = { quadroP95Ms: 40, trabalhoP95Ms: 8, tiqueP95Ms: 8 };
+const LIMITES = {
+  normal: { fpsMin: 30, quadroP95Ms: 40, trabalhoP95Ms: 8, tiqueP95Ms: 8 },
+  cpu4x: { fpsMin: 20, quadroP95Ms: 60, trabalhoP95Ms: 16, tiqueP95Ms: 16 },
+};
+// The second window runs with the CPU this many times slower (Chrome DevTools throttling), roughly a tablet.
+const LENTIDAO_CPU = 4;
 
 // Init script: times every animation frame and every timer tick (the host simulates on Web Worker ticks),
 // without touching the game code.
@@ -106,7 +111,24 @@ function vagar(jogador, { bombas }) {
   };
 }
 
-test('8 players: frame times of the host and of a guest', async ({ mesa, playwright, browserName, launchOptions, headless }) => {
+// Measures every player in `medidos` at the same time for one window.
+async function medirJanela(medidos) {
+  const paginas = Object.values(medidos).map(jogador => jogador.pagina);
+  await Promise.all(paginas.map(pagina => pagina.evaluate(() => {
+    Object.assign(window.__desempenho, { ativo: true, intervalos: [], trabalho: [], tiques: [], tarefasLongas: [] });
+  })));
+  await paginas[0].waitForTimeout(JANELA_MS);
+  const resultado = {};
+  for (const [papel, jogador] of Object.entries(medidos)) {
+    resultado[papel] = resumir(await jogador.pagina.evaluate(() => {
+      window.__desempenho.ativo = false;
+      return window.__desempenho;
+    }));
+  }
+  return resultado;
+}
+
+test('8 players: frame times of the host and of a guest, normal and with a 4x slower CPU', async ({ mesa, playwright, browserName, launchOptions, headless }) => {
   const proprios = await Promise.all([0, 1].map(() => playwright[browserName].launch({ ...launchOptions, headless })));
   try {
     const nomes = ['Anfitrião', 'Bruna', 'Caio', 'Dani', 'Enzo', 'Flora', 'Gui', 'Helô'];
@@ -127,17 +149,12 @@ test('8 players: frame times of the host and of a guest', async ({ mesa, playwri
 
     const paradas = convidados.map((jogador, n) => vagar(jogador, { bombas: n % 2 === 1 }));
     await host.pagina.waitForTimeout(1000);
-    await Promise.all(Object.values(medidos).map(jogador => jogador.pagina.evaluate(() => {
-      window.__desempenho.ativo = true;
-    })));
-    await host.pagina.waitForTimeout(JANELA_MS);
-    const resultados = {};
-    for (const [papel, jogador] of Object.entries(medidos)) {
-      resultados[papel] = resumir(await jogador.pagina.evaluate(() => {
-        window.__desempenho.ativo = false;
-        return window.__desempenho;
-      }));
+    const resultados = { normal: await medirJanela(medidos) };
+    for (const jogador of Object.values(medidos)) {
+      const cdp = await jogador.contexto.newCDPSession(jogador.pagina);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: LENTIDAO_CPU });
     }
+    resultados.cpu4x = await medirJanela(medidos);
     for (const parar of paradas) await parar();
 
     const jogo = await host.jogo();
@@ -146,16 +163,19 @@ test('8 players: frame times of the host and of a guest', async ({ mesa, playwri
       vivos: jogo.vista?.j.filter(jogador => jogador.v).length ?? null,
       caixasDestruidas: jogo.vista?.j.reduce((soma, jogador) => soma + jogador.cx, 0) ?? null,
     };
-    console.log(`Desempenho com 8 jogadores (${JANELA_MS / 1000} s de partida):\n${JSON.stringify(resultados, null, 2)}`);
+    console.log(`Desempenho com 8 jogadores (${JANELA_MS / 1000} s por janela, normal e com a CPU ${LENTIDAO_CPU}x mais lenta):\n${JSON.stringify(resultados, null, 2)}`);
     await test.info().attach('desempenho.json', { body: JSON.stringify(resultados, null, 2), contentType: 'application/json' });
 
-    for (const papel of Object.keys(medidos)) {
-      expect(resultados[papel].quadros, `${papel}: frames drawn`).toBeGreaterThan((JANELA_MS / 1000) * 30);
-      expect(resultados[papel].quadroP95Ms, `${papel}: p95 frame interval`).toBeLessThan(LIMITES.quadroP95Ms);
-      expect(resultados[papel].trabalhoP95Ms, `${papel}: p95 time spent in a frame`).toBeLessThan(LIMITES.trabalhoP95Ms);
+    for (const [janela, limites] of Object.entries(LIMITES)) {
+      for (const papel of Object.keys(medidos)) {
+        const medida = resultados[janela][papel];
+        expect(medida.quadros, `${janela}, ${papel}: frames drawn`).toBeGreaterThan((JANELA_MS / 1000) * limites.fpsMin);
+        expect(medida.quadroP95Ms, `${janela}, ${papel}: p95 frame interval`).toBeLessThan(limites.quadroP95Ms);
+        expect(medida.trabalhoP95Ms, `${janela}, ${papel}: p95 time spent in a frame`).toBeLessThan(limites.trabalhoP95Ms);
+      }
+      expect(resultados[janela].anfitriao.tiques, `${janela}, host: simulation ticks`).toBeGreaterThan((JANELA_MS / 1000) * 60);
+      expect(resultados[janela].anfitriao.tiqueP95Ms, `${janela}, host: p95 time of a simulation tick`).toBeLessThan(limites.tiqueP95Ms);
     }
-    expect(resultados.anfitriao.tiques, 'host: simulation ticks').toBeGreaterThan((JANELA_MS / 1000) * 60);
-    expect(resultados.anfitriao.tiqueP95Ms, 'host: p95 time of a simulation tick').toBeLessThan(LIMITES.tiqueP95Ms);
   } finally {
     // Contexts first (the table closes them too), then the two extra browsers.
     await mesa.fechar();

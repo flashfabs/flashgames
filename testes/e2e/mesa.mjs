@@ -200,7 +200,8 @@ export class Mesa {
 
   async novoJogador(nome, { contexto = {}, iniciar = [], navegador = this.navegador } = {}) {
     const ctx = await navegador.newContext({ viewport: VIEWPORT_PADRAO, ...contexto });
-    for (const script of iniciar) await ctx.addInitScript(script);
+    // Each init script is a function, or [function, argument].
+    for (const script of iniciar) await ctx.addInitScript(...[script].flat());
     const pagina = await ctx.newPage();
     pagina.on('pageerror', erro => this.errosDePagina.push(`${nome}: ${erro.message}`));
     pagina.on('console', mensagem => this.registro.push(`[${nome}] ${mensagem.type()}: ${mensagem.text()}`));

@@ -6,13 +6,18 @@
     "test": "node --test testes/*.test.mjs",
     "e2e": "playwright test",
     "fumaca": "playwright test --config playwright.fumaca.config.mjs",
+    "visual": "playwright test --config playwright.visual.config.mjs",
     "publicar": "scripts/preparar-publicacao.sh",
     "serve": "python3 -m http.server 8805 --directory site"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.7"
   }
 }

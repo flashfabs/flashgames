@@ -42,6 +42,10 @@ export const AJUSTES = Object.freeze({
   detonadorS: 10,
   // A remote bomb cannot be set off right after being dropped, so a double press is not suicide.
   armarDetonadorS: 0.35,
+  // A bomb press that cannot be honored right away (standing on the last bomb, none left) waits this long.
+  bufferBombaS: 0.25,
+  // Off its lane by more than this, a blocked player slides to the neighbor lane when that one is open.
+  assistenciaEsquina: 0.1,
   imaS: 8,
   // The magnet pulls items whose cell center is this close (in tiles) to the player's cell.
   raioIma: 3,
@@ -85,12 +89,13 @@ const NOVOS = [
   [ITEM.FANTASMA, ITEM.GELO],
 ];
 const ITENS_ATE = NOVOS.map((_, n) => NOVOS.slice(0, n + 1).flat());
+// tema is a stable key the painter uses for each map's art: patio, deposito, muralhas, labirinto, fornalha.
 export const MAPAS = Object.freeze([
-  { nome: 'Pátio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
-  { nome: 'Depósito', descricao: 'Caixas por todo lado.', densidade: 0.74, muros: [], itens: ITENS_ATE[1], novos: NOVOS[1] },
-  { nome: 'Muralhas', descricao: 'Muros fecham alguns caminhos.', densidade: 0.68, muros: MUROS_MURALHAS, itens: ITENS_ATE[2], novos: NOVOS[2] },
-  { nome: 'Labirinto', descricao: 'Corredores apertados.', densidade: 0.66, muros: MUROS_LABIRINTO, itens: ITENS_ATE[3], novos: NOVOS[3] },
-  { nome: 'Fornalha', descricao: 'O mais fechado, e a morte súbita chega mais cedo.', densidade: 0.72, muros: MUROS_FORNALHA, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
+  { nome: 'Pátio', tema: 'patio', descricao: 'Mapa aberto e poucas caixas.', densidade: 0.5, muros: [], itens: ITENS_ATE[0], novos: [ITEM.ATALHO] },
+  { nome: 'Depósito', tema: 'deposito', descricao: 'Caixas por todo lado.', densidade: 0.74, muros: [], itens: ITENS_ATE[1], novos: NOVOS[1] },
+  { nome: 'Muralhas', tema: 'muralhas', descricao: 'Muros fecham alguns caminhos.', densidade: 0.68, muros: MUROS_MURALHAS, itens: ITENS_ATE[2], novos: NOVOS[2] },
+  { nome: 'Labirinto', tema: 'labirinto', descricao: 'Corredores apertados.', densidade: 0.66, muros: MUROS_LABIRINTO, itens: ITENS_ATE[3], novos: NOVOS[3] },
+  { nome: 'Fornalha', tema: 'fornalha', descricao: 'O mais fechado, e a morte súbita chega mais cedo.', densidade: 0.72, muros: MUROS_FORNALHA, itens: ITENS_ATE[4], novos: NOVOS[4], morteSubitaS: 90 },
 ]);
 
 export const indice = (x, y) => y * COLUNAS + x;
@@ -107,6 +112,18 @@ export function ehBlocoFixo(x, y) {
 
 export function sobrepoe(jogador, x, y) {
   return Math.abs(jogador.x - x) < 0.99 && Math.abs(jogador.y - y) < 0.99;
+}
+
+// Collision as a member predicts it on its own screen, from the newest snapshot: g is the grid string and
+// bombas the snapshot bombs ([x, y, ...], a sliding one sits between two cells and blocks both). A bomb the
+// player still overlaps never blocks, which matches the host letting players walk off a fresh bomb.
+export function bloqueiaPrevisto(g, bombas, jogador, x, y) {
+  if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return true;
+  const celula = g[indice(x, y)];
+  if (celula === PAREDE) return true;
+  if (jogador.fantasma) return false;
+  if (celula === CAIXA) return true;
+  return bombas.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(jogador, bx, by));
 }
 
 // The cell a player is pushing against: aligned on its lane, at the center of its cell (where walking
@@ -307,7 +324,7 @@ function moverPasso(jogador, direcao, distancia, bloqueia) {
     } else {
       const vizinha = faixa + Math.sign(desvio);
       const livre = !bloqueia(...celula(base, vizinha)) && !bloqueia(...celula(base + sentido, vizinha));
-      if (Math.abs(desvio) > 0.2 && livre) alvo = vizinha;
+      if (Math.abs(desvio) > AJUSTES.assistenciaEsquina && livre) alvo = vizinha;
     }
     if (alvo === null) return 0;
     const falta = alvo - jogador[cruzado];
@@ -376,10 +393,40 @@ function novoJogador({ id, slot, remoto = false }, n) {
     fantasmaFolga: 0,
     invulneravel: 0,
     pedidosBomba: 0,
+    validadeBomba: 0,
     relogioRemoto: null,
     caixas: 0,
     eliminacoes: 0,
+    // Match statistics (see estatisticas()).
+    bombasSoltas: 0,
+    itensPegos: {},
+    morte: null,
+    distancia: 0,
+    maiorCadeia: 0,
+    ultimaPosicao: { x, y },
   };
+}
+
+// Adds one match's statistics (Partida.estatisticas()) to the round totals, by player id.
+export function somarEstatisticasRodada(rodada = {}, partida = []) {
+  const soma = { ...rodada };
+  for (const linha of partida) {
+    const atual = soma[linha.id] ?? { partidas: 0, caixas: 0, eliminacoes: 0, bombas: 0, itens: {}, mortes: 0, tempoVivo: 0, distancia: 0, maiorCadeia: 0 };
+    const itens = { ...atual.itens };
+    for (const [item, quantidade] of Object.entries(linha.itens ?? {})) itens[item] = (itens[item] ?? 0) + quantidade;
+    soma[linha.id] = {
+      partidas: atual.partidas + 1,
+      caixas: atual.caixas + (linha.caixas ?? 0),
+      eliminacoes: atual.eliminacoes + (linha.eliminacoes ?? 0),
+      bombas: atual.bombas + (linha.bombas ?? 0),
+      itens,
+      mortes: atual.mortes + (linha.morte ? 1 : 0),
+      tempoVivo: arredondar(atual.tempoVivo + (linha.tempoVivo ?? 0)),
+      distancia: Math.round((atual.distancia + (linha.distancia ?? 0)) * 10) / 10,
+      maiorCadeia: Math.max(atual.maiorCadeia, linha.maiorCadeia ?? 0),
+    };
+  }
+  return soma;
 }
 
 // Score of one player: crates are the steady income, eliminations and match wins weigh more.
@@ -433,7 +480,9 @@ export class Partida {
 
   pedirBomba(id) {
     const jogador = this.#jogador(id);
-    if (jogador?.vivo) jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
+    if (!jogador?.vivo) return;
+    jogador.pedidosBomba = Math.min(jogador.pedidosBomba + 1, 2);
+    jogador.validadeBomba = AJUSTES.bufferBombaS;
   }
 
   // Shortcut asked by a remote player that has been pushing against a crate on its own screen.
@@ -471,7 +520,7 @@ export class Partida {
 
   removerJogador(id) {
     const jogador = this.#jogador(id);
-    if (jogador?.vivo) this.#matar(jogador);
+    if (jogador?.vivo) this.#matar(jogador, 'saiu');
   }
 
   passo(dt) {
@@ -482,7 +531,9 @@ export class Partida {
       jogador.ima = Math.max(0, jogador.ima - dt);
       if (jogador.fantasma > 0) {
         jogador.fantasma = Math.max(0, jogador.fantasma - dt);
-        // A short leftover lets a ghost that ends inside a crate still walk out of it.
+        // A ghost that wears off inside crates stays one until it is out of them, so it is never trapped.
+        if (jogador.fantasma === 0 && jogador.vivo && this.#sobreCaixa(jogador)) jogador.fantasma = EPS;
+        // A short leftover still accepts reported positions inside crates, which arrive late.
         if (jogador.fantasma === 0) jogador.fantasmaFolga = 1;
       } else {
         jogador.fantasmaFolga = Math.max(0, jogador.fantasmaFolga - dt);
@@ -492,9 +543,10 @@ export class Partida {
       if (jogador.chute && jogador.entrada.d) this.chutar(jogador.id, jogador.entrada.d);
       if (jogador.atalhos > 0) this.#empurrarCaixa(jogador, dt);
     }
+    this.#medirDistancias();
     for (const jogador of this.jogadores) {
       if (!jogador.vivo) continue;
-      this.#soltarBombas(jogador);
+      this.#soltarBombas(jogador, dt);
       this.#lancarGelo(jogador);
     }
     this.#atualizarPassantes();
@@ -550,9 +602,20 @@ export class Partida {
     };
   }
 
-  // Per-player tally of this match, used for the round score.
+  // Per-player tally of this match, for the round score and the match summary. morte.causa is 'bomba'
+  // (someone else's, por is its owner), 'propria', 'subita' (sudden death) or 'saiu' (left the room).
   estatisticas() {
-    return this.jogadores.map(j => ({ id: j.id, caixas: j.caixas, eliminacoes: j.eliminacoes }));
+    return this.jogadores.map(j => ({
+      id: j.id,
+      caixas: j.caixas,
+      eliminacoes: j.eliminacoes,
+      bombas: j.bombasSoltas,
+      itens: { ...j.itensPegos },
+      morte: j.morte ? { ...j.morte } : null,
+      tempoVivo: arredondar(j.morte ? j.morte.tempo : this.tempo),
+      distancia: Math.round(j.distancia * 10) / 10,
+      maiorCadeia: j.maiorCadeia,
+    }));
   }
 
   tirarEventos() {
@@ -579,6 +642,15 @@ export class Partida {
     if (celula === CAIXA) return true;
     const bomba = this.#bombaEm(x, y);
     return Boolean(bomba && !bomba.passantes.has(jogador.id));
+  }
+
+  #sobreCaixa(jogador) {
+    for (let cy = Math.round(jogador.y - 0.49); cy <= Math.round(jogador.y + 0.49); cy++) {
+      for (let cx = Math.round(jogador.x - 0.49); cx <= Math.round(jogador.x + 0.49); cx++) {
+        if (this.grade[indice(cx, cy)] === CAIXA) return true;
+      }
+    }
+    return false;
   }
 
   #posicaoLivre(x, y, ignorarCaixas = false) {
@@ -634,21 +706,26 @@ export class Partida {
   }
 
   // With the detonator, a press that cannot drop a bomb sets off the oldest armed remote one instead.
+  // Returns whether a bomb was set off.
   #detonar(jogador) {
     const bomba = this.bombas.find(b => b.dono === jogador.id && b.remota && !b.congelada && AJUSTES.detonadorS - b.restante >= AJUSTES.armarDetonadorS);
     if (bomba) bomba.restante = 0;
+    return Boolean(bomba);
   }
 
-  #soltarBombas(jogador) {
+  #soltarBombas(jogador, dt) {
     while (jogador.pedidosBomba > 0) {
-      jogador.pedidosBomba--;
       const x = Math.round(jogador.x);
       const y = Math.round(jogador.y);
       const ativas = this.bombas.filter(b => b.dono === jogador.id).length;
       if (this.#bombaEm(x, y) || this.chamas.has(indice(x, y)) || ativas >= jogador.bombasMax) {
-        this.#detonar(jogador);
+        // The detonator uses such a press; otherwise it waits a moment (stepping off the last bomb, or one
+        // blowing up, lets it through) so a press made a little early is not lost.
+        if (!this.#detonar(jogador)) break;
+        jogador.pedidosBomba--;
         continue;
       }
+      jogador.pedidosBomba--;
       const bomba = {
         x, y,
         dono: jogador.id,
@@ -664,8 +741,12 @@ export class Partida {
       // Everyone standing on the cell may walk off the new bomb.
       for (const outro of this.jogadores) if (outro.vivo && sobrepoe(outro, x, y)) bomba.passantes.add(outro.id);
       this.bombas.push(bomba);
+      jogador.bombasSoltas++;
       this.eventos.push({ e: 'bomba', x, y });
     }
+    if (jogador.pedidosBomba === 0) return;
+    jogador.validadeBomba -= dt;
+    if (jogador.validadeBomba <= 0) jogador.pedidosBomba = 0;
   }
 
   #atualizarPassantes() {
@@ -741,16 +822,34 @@ export class Partida {
     });
   }
 
+  // Walked distance for the statistics; jumps (shortcuts, corrections) are left out.
+  #medirDistancias() {
+    for (const jogador of this.jogadores) {
+      const passo = Math.abs(jogador.x - jogador.ultimaPosicao.x) + Math.abs(jogador.y - jogador.ultimaPosicao.y);
+      if (jogador.vivo && passo <= 1) jogador.distancia += passo;
+      jogador.ultimaPosicao = { x: jogador.x, y: jogador.y };
+    }
+  }
+
   #atualizarBombas(dt) {
     // A frozen bomb's fuse waits; only another bomb's fire (the chain below) sets it off meanwhile.
     for (const bomba of this.bombas) {
       if (bomba.congelada > 0) bomba.congelada = Math.max(0, bomba.congelada - dt);
       else bomba.restante -= dt;
     }
-    const fila = this.bombas.filter(b => b.restante <= 0 && !b.congelada);
-    while (fila.length) {
-      const bomba = fila.shift();
-      if (this.bombas.includes(bomba)) this.#explodir(bomba, fila);
+    // Each bomb whose time is up starts a chain; its owner is credited with the chain's length.
+    for (const raiz of this.bombas.filter(b => b.restante <= 0 && !b.congelada)) {
+      if (!this.bombas.includes(raiz)) continue;
+      const fila = [raiz];
+      let explodidas = 0;
+      while (fila.length) {
+        const bomba = fila.shift();
+        if (!this.bombas.includes(bomba)) continue;
+        this.#explodir(bomba, fila);
+        explodidas++;
+      }
+      const dono = this.#jogador(raiz.dono);
+      if (dono) dono.maiorCadeia = Math.max(dono.maiorCadeia, explodidas);
     }
   }
 
@@ -845,10 +944,11 @@ export class Partida {
           jogador.invulneravel = AJUSTES.invulneravelEscudoS;
           this.eventos.push({ e: 'escudo', j: jogador.n, x: jogador.x, y: jogador.y });
         } else {
-          this.#matar(jogador);
+          const propria = chama.dono === jogador.id;
+          this.#matar(jogador, propria ? 'propria' : 'bomba', propria ? null : chama.dono ?? null);
           const autor = this.#jogador(chama.dono);
           // Blowing yourself up scores nothing.
-          if (autor && autor !== jogador) autor.eliminacoes++;
+          if (autor && !propria) autor.eliminacoes++;
         }
         continue;
       }
@@ -860,6 +960,7 @@ export class Partida {
   }
 
   #ganharItem(jogador, item) {
+    jogador.itensPegos[item] = (jogador.itensPegos[item] ?? 0) + 1;
     if (item === ITEM.BOMBA) jogador.bombasMax = Math.min(jogador.bombasMax + 1, AJUSTES.maxBombas);
     else if (item === ITEM.FOGO) jogador.alcance = Math.min(jogador.alcance + 1, AJUSTES.maxAlcance);
     else if (item === ITEM.TENIS) jogador.tenis = Math.min(jogador.tenis + 1, AJUSTES.maxTenis);
@@ -905,8 +1006,9 @@ export class Partida {
     });
   }
 
-  #matar(jogador) {
+  #matar(jogador, causa, por = null) {
     jogador.vivo = false;
+    jogador.morte = { tempo: arredondar(this.tempo), por, causa };
     jogador.entrada = { d: DIRECAO.NENHUMA, d2: DIRECAO.NENHUMA };
     jogador.andando = false;
     // Nobody is left to press the detonator: remote bombs go back to a normal fuse.
@@ -930,7 +1032,7 @@ export class Partida {
       this.chamas.delete(i);
       this.bombas = this.bombas.filter(b => b.x !== x || b.y !== y);
       for (const jogador of this.jogadores) {
-        if (jogador.vivo && Math.round(jogador.x) === x && Math.round(jogador.y) === y) this.#matar(jogador);
+        if (jogador.vivo && Math.round(jogador.x) === x && Math.round(jogador.y) === y) this.#matar(jogador, 'subita');
       }
       this.eventos.push({ e: 'bloco', x, y });
     }

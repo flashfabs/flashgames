@@ -4,7 +4,8 @@
 
 import {
   Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
-  indice, gradeVazia, moverComColisao, sobrepoe, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  indice, gradeVazia, moverComColisao, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
+  somarEstatisticasRodada, bloqueiaPrevisto,
 } from './regras.js';
 import { criarPintor, efeitoAtivo } from './desenho.js';
 import { criarControles, temToque } from './controles.js';
@@ -111,6 +112,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
     prontos: [],
     robos: [], // [{ id, nome, nivel }]: computer players added by the host, always ready
     placar: {}, // id -> { vitorias, caixas, eliminacoes } of the current round
+    estatisticas: null, // Partida.estatisticas() of the last match that ended
+    estatisticasRodada: {}, // id -> round totals, see somarEstatisticasRodada
     resultado: null,
     motivo: null,
     fimFaseEm: 0,
@@ -349,6 +352,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       prontos: estado.prontos,
       robos: estado.robos,
       placar: estado.placar,
+      estatisticas: estado.estatisticas,
+      estatisticasRodada: estado.estatisticasRodada,
       resultado: estado.resultado,
       motivo: estado.motivo,
       restante: Math.max(0, restanteFase),
@@ -424,6 +429,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       ...robos.map(robo => ({ id: robo.id, nome: robo.nome, slot: 0, cor: estado.cores[robo.id], robo: robo.nivel })),
     ];
     estado.placar = Object.fromEntries(estado.escalacao.map(item => [item.id, { ...ZERO }]));
+    estado.estatisticas = null;
+    estado.estatisticasRodada = {};
     estado.numero = 0;
     estado.motivo = null;
     comecarPartida();
@@ -451,7 +458,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function somarEstatisticas(vencedor) {
-    for (const { id, caixas, eliminacoes } of partida.estatisticas()) {
+    estado.estatisticas = partida.estatisticas();
+    estado.estatisticasRodada = somarEstatisticasRodada(estado.estatisticasRodada, estado.estatisticas);
+    for (const { id, caixas, eliminacoes } of estado.estatisticas) {
       const placar = estado.placar[id];
       if (!placar) continue;
       placar.caixas += caixas;
@@ -603,6 +612,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
       }))
       : [];
     estado.placar = mensagem.placar && typeof mensagem.placar === 'object' ? mensagem.placar : {};
+    estado.estatisticas = Array.isArray(mensagem.estatisticas) ? mensagem.estatisticas : null;
+    estado.estatisticasRodada = mensagem.estatisticasRodada && typeof mensagem.estatisticasRodada === 'object' ? mensagem.estatisticasRodada : {};
     estado.resultado = mensagem.resultado ?? null;
     estado.motivo = typeof mensagem.motivo === 'string' ? mensagem.motivo : null;
     estado.fimFaseEm = performance.now() + (Number(mensagem.restante) || 0) * 1000;
@@ -700,13 +711,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo }) {
   }
 
   function bloqueiaLocal(x, y) {
-    if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return true;
-    const celula = gradeAtual.g[indice(x, y)];
-    if (celula === PAREDE) return true;
-    if (local.fantasma) return false;
-    if (celula === CAIXA) return true;
-    // A sliding bomb sits between two cells and blocks both.
-    return bombasVisiveis.some(([bx, by]) => Math.abs(bx - x) < 1 && Math.abs(by - y) < 1 && !sobrepoe(local, bx, by));
+    return bloqueiaPrevisto(gradeAtual.g, bombasVisiveis, local, x, y);
   }
 
   // Kicked bombs slide between snapshots: draw them (and collide with them) where they should be by now.
