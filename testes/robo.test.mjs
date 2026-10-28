@@ -219,7 +219,8 @@ test('a robot with the detonator and a single bomb sets its bombs off from a saf
   }
 });
 
-test('robots holding kick, shortcut and ice never use them by accident nor get stuck', () => {
+// Ice is thrown on purpose, only with no other way out (its own test below); kicks and shortcuts never.
+test('robots holding kick, shortcut and ice never kick nor cross crates by accident, nor get stuck', () => {
   const niveis = ['facil', 'medio', 'dificil', 'dificil'];
   for (const mapa of [MAPAS[1], MAPAS[3]]) {
     const sorteio = sorteador(11);
@@ -230,7 +231,7 @@ test('robots holding kick, shortcut and ice never use them by accident nor get s
     const paradoDesde = new Map();
     let maiorParada = 0;
     jogarComRobos(partida, robos, 60, p => {
-      for (const ev of p.tirarEventos()) if (['chute', 'atalho', 'gelo'].includes(ev.e)) usados.push(ev.e);
+      for (const ev of p.tirarEventos()) if (['chute', 'atalho'].includes(ev.e)) usados.push(ev.e);
       for (const j of p.jogadores.filter(vivo => vivo.vivo)) {
         const onde = `${j.x},${j.y}`;
         const visto = paradoDesde.get(j.id);
@@ -238,7 +239,7 @@ test('robots holding kick, shortcut and ice never use them by accident nor get s
         else maiorParada = Math.max(maiorParada, p.tempo - visto.desde);
       }
     });
-    assert.deepEqual(usados, [], `${mapa.nome}: no kick, shortcut or ice shot`);
+    assert.deepEqual(usados, [], `${mapa.nome}: no kick or shortcut`);
     assert.ok(maiorParada < 20, `${mapa.nome}: a robot stood still for ${maiorParada.toFixed(1)} s`);
   }
 });
