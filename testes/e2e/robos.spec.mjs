@@ -53,8 +53,10 @@ test('the host adds robots of every level, a guest sees them, and they play the 
   });
   expect(andaram.length, 'robots left their spawn').toBeGreaterThan(0);
 
-  // ...and the guest sees them move too.
+  // ...and the guest sees them move too. The guest draws everyone slightly in the past, so it may take a moment.
   const vistosPeloGil = await robosNaPartida(gil);
   expect(vistosPeloGil.map(robo => robo.nome)).toEqual(['🤖 Parafuso', '🤖 Rebite', '🤖 Bobina']);
-  expect(vistosPeloGil.some(robo => robo.j.cx > 0)).toBe(true);
+  await expect.poll(async () => (await robosNaPartida(gil)).some(robo => robo.j.cx > 0), {
+    message: 'the guest sees a robot break a crate',
+  }).toBe(true);
 });

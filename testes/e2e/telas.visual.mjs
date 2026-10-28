@@ -1,5 +1,6 @@
-// Screenshots of the home screen and the lobby on three devices. Whatever moves or changes on its own (the canvas,
-// the room code, ping numbers, toasts) is masked, so a difference means the layout or the styles changed.
+// Screenshots of the home screen and the lobby on three devices. Whatever moves or changes on its own is left out
+// (the canvas is hidden, so the cards drawn over it still show; the room code, pings and toasts are masked), so a
+// difference means the layout or the styles changed.
 
 import { devices } from '@playwright/test';
 import { test, expect } from './mesa.mjs';
@@ -11,7 +12,8 @@ const APARELHOS = {
   celular: semNavegador(devices['Pixel 7']),
 };
 
-const mascaras = pagina => [pagina.locator('canvas'), pagina.locator('#sala-codigo'), pagina.locator('.etiqueta--ping'), pagina.locator('#avisos')];
+const mascaras = pagina => [pagina.locator('#sala-codigo'), pagina.locator('.etiqueta--ping'), pagina.locator('#avisos')];
+const SEM_CANVAS = 'canvas { visibility: hidden !important; }';
 
 async function prontaParaFoto(pagina) {
   await pagina.evaluate(() => document.fonts.ready);
@@ -24,13 +26,13 @@ for (const [aparelho, contexto] of Object.entries(APARELHOS)) {
     await host.pagina.goto('/?teste=1');
     await host.pagina.locator('#campo-nome').fill('Ana');
     await prontaParaFoto(host.pagina);
-    await expect(host.pagina).toHaveScreenshot(`inicio-${aparelho}.png`, { fullPage: true, mask: mascaras(host.pagina) });
+    await expect(host.pagina).toHaveScreenshot(`inicio-${aparelho}.png`, { fullPage: true, mask: mascaras(host.pagina), style: SEM_CANVAS });
 
     const { link } = await host.criarSala();
     const convidado = await mesa.novoJogador('Bento');
     await convidado.entrarPeloLink(link);
     await expect(host.pagina.locator('#contagem-membros')).toHaveText('2/8');
     await prontaParaFoto(host.pagina);
-    await expect(host.pagina).toHaveScreenshot(`lobby-${aparelho}.png`, { mask: mascaras(host.pagina) });
+    await expect(host.pagina).toHaveScreenshot(`lobby-${aparelho}.png`, { mask: mascaras(host.pagina), style: SEM_CANVAS });
   });
 }

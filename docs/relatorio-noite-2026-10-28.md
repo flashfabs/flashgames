@@ -23,7 +23,10 @@ A preencher no fim da noite.
 
 - `npm test`: testes de regras, rede e poderes, em Node, a cada integração.
 - `npm run e2e`: cenários Playwright com Chromium sem janela, cada jogador num navegador próprio, contra a `main` servida numa porta livre de `127.0.0.1`: entrada pelo link e prontos com 5 jogadores, andar e bomba vistos pelo anfitrião, saída no meio da rodada, eliminação com o placar certo, iPad com toque (camada, joystick, bomba, sem rolagem nem zoom) e desempenho com 8 jogadores, normal e com a CPU 4x mais lenta.
-- `npm run fumaca`: contra a produção, depois de cada publicação: `versao.json` com o commit da `main`, `/api/ice` respondendo e dois jogadores começando uma rodada pelo servidor de sinalização real.
+- `npm run fumaca`: contra a produção, depois de cada publicação: `versao.json` com o commit da `main`, `/api/ice` respondendo, `/api/ranking` lido e `/api/perfil` recusando sem credencial (só leitura, nenhum perfil é criado) e dois jogadores começando uma rodada pelo servidor de sinalização real.
+- Acessibilidade (`acessibilidade.spec.mjs`, dentro do `npm run e2e`): axe-core com as regras WCAG 2.1 A e AA na tela inicial e no lobby, no computador e no celular; problema sério ou crítico reprova.
+- Rede ruim (`rede-ruim.spec.mjs`, dentro do `npm run e2e`): 120 a 200 ms de atraso em todos os canais e 10% de perda no canal rápido; o convidado anda sem ser puxado para trás, o anfitrião vê o movimento e a bomba na casa certa, o convidado vê o anfitrião andar e o ping aparece alto na lista.
+- Regressão visual (`npm run visual`, fora do `npm run e2e`): tela inicial e lobby no computador, no iPad e no celular comparados com as imagens em `testes/e2e/visual/`; a frente 5 roda depois de cada integração, olha cada diferença e atualiza as imagens quando a mudança foi de propósito.
 
 ## Problemas conhecidos
 
@@ -33,6 +36,9 @@ Nenhum até agora.
 
 - 00:38, frente 5: a pasta de publicação leva só `netlify.toml`, `site/` e `netlify/`; quando as funções precisarem de pacotes, eles entram em `dependencies` do `package.json` da raiz e o script os instala com `npm ci --omit=dev`, sem levar o Playwright.
 - 00:42, frente 5: integração só de documentação ou de testes (sem mudar `site/`, `netlify/`, `netlify.toml` nem `package.json`) roda `npm test` e não republica; a fumaça aceita produção num commit anterior da `main` quando os arquivos publicados são os mesmos.
+- 00:55, frente 5: as checagens novas de acessibilidade e rede ruim entram no `npm run e2e` (todos rodam antes de integrar); a regressão visual fica fora dele, porque as telas mudam de propósito a noite toda, e a frente 5 cuida das imagens de referência.
+- 00:55, frente 5: o cenário dos robôs falhava às vezes porque conferia na hora que o convidado via um robô quebrar caixa, e o convidado desenha os outros um pouco no passado; virou uma espera de até 15 s.
+- 00:50, frente 5: o servidor dos testes passou a usar uma porta livre a cada execução, porque a porta fixa 8805 colidia quando duas frentes rodavam a suíte ao mesmo tempo.
 
 ## Pendências do Victor
 
