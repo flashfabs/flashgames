@@ -76,7 +76,7 @@ const PALETA = {
 const FONTE_EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 const FONTE_TEXTO = 'Rubik, system-ui, sans-serif';
 const FONTE_NOME = `700 12px ${FONTE_TEXTO}`;
-const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.75, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9 };
+const DURACAO_EFEITO = { explosao: 2.4, caixa: 1.3, bloco: 0.75, morte: 1.5, item: 0.9, escudo: 0.6, ponto: 0.8, largada: 0.9, chute: 0.4, congela: 0.7, atalho: 0.6 };
 // Ground effects are drawn under bombs and players; the rest on top of everything.
 const EFEITOS_DO_CHAO = new Set(['explosao', 'caixa', 'bloco']);
 const OLHAR = { [DIRECAO.ESQUERDA]: [-3.5, 0], [DIRECAO.DIREITA]: [3.5, 0], [DIRECAO.BAIXO]: [0, 2] };
@@ -996,6 +996,70 @@ function efeitoEscudo(ctx, cx, cy, idade, reduzido) {
   ctx.stroke();
 }
 
+// A kicked bomb leaves a puff of dust and a few speed lines behind it.
+function efeitoChute(ctx, cx, cy, idade, semente, reduzido) {
+  const p = idade / DURACAO_EFEITO.chute;
+  ctx.globalAlpha = 0.4 * (1 - p);
+  ctx.fillStyle = PALETA.poeira;
+  for (let k = 0; k < 3; k++) {
+    const angulo = aleatorio(semente, k) * Math.PI * 2;
+    circulo(ctx, cx + Math.cos(angulo) * TAM * 0.2 * (reduzido ? 0 : p + 0.3), cy + TAM * 0.25, TAM * (0.12 + p * 0.12));
+    ctx.fill();
+  }
+  if (reduzido) return;
+  ctx.strokeStyle = '#fff4d6';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = 0.8 * (1 - p);
+  ctx.beginPath();
+  for (let k = -1; k <= 1; k++) {
+    const raio = TAM * (0.35 + p * 0.3);
+    const angulo = k * 0.5 + aleatorio(semente, 9) * Math.PI * 2;
+    ctx.moveTo(cx + Math.cos(angulo) * raio, cy + Math.sin(angulo) * raio);
+    ctx.lineTo(cx + Math.cos(angulo) * (raio + 8), cy + Math.sin(angulo) * (raio + 8));
+  }
+  ctx.stroke();
+}
+
+// A bomb freezing: a frost ring and ice shards flying off.
+function efeitoCongela(ctx, cx, cy, idade, semente, reduzido) {
+  const p = idade / DURACAO_EFEITO.congela;
+  ctx.globalAlpha = 0.8 * (1 - p);
+  ctx.strokeStyle = '#a5d8ff';
+  ctx.lineWidth = 4 * (1 - p) + 1;
+  circulo(ctx, cx, cy, TAM * (0.3 + suavizarSaida(p) * 0.5));
+  ctx.stroke();
+  if (reduzido) return;
+  for (let k = 0; k < 8; k++) {
+    const angulo = (k / 8) * Math.PI * 2 + aleatorio(semente, k) * 0.4;
+    const distancia = TAM * (0.25 + suavizarSaida(p) * 0.55);
+    ctx.fillStyle = k % 2 ? '#e7f5ff' : '#74c0fc';
+    lasca(ctx, cx + Math.cos(angulo) * distancia, cy + Math.sin(angulo) * distancia, 7 * (1 - p) + 2, 2.6, angulo);
+  }
+  ctx.fillStyle = '#ffffff';
+  brilho(ctx, cx + TAM * 0.22, cy - TAM * 0.22, 6 * Math.sin(p * Math.PI));
+}
+
+// A shortcut: a purple swirl where the player leaves, and one opening where it arrives.
+function efeitoAtalho(ctx, efeito, cx, cy, idade, reduzido) {
+  const p = idade / DURACAO_EFEITO.atalho;
+  const fechando = !efeito.chegada;
+  const raio = TAM * 0.5 * (fechando ? 1 - p * 0.7 : 0.3 + p * 0.7);
+  ctx.globalAlpha = 1 - p;
+  ctx.strokeStyle = '#d0bfff';
+  ctx.lineWidth = 3;
+  circulo(ctx, cx, cy, raio);
+  ctx.stroke();
+  if (reduzido) return;
+  ctx.fillStyle = '#b197fc';
+  for (let k = 0; k < 10; k++) {
+    const angulo = (k / 10) * Math.PI * 2 + idade * (fechando ? 9 : -9);
+    const r = raio * (0.5 + 0.5 * ((k % 3) / 2));
+    circulo(ctx, cx + Math.cos(angulo) * r, cy + Math.sin(angulo) * r, 2.2);
+    ctx.fill();
+  }
+}
+
 // "JÁ!" in the middle of the arena when the match starts.
 function efeitoLargada(ctx, idade, reduzido) {
   const k = limitar(idade / 0.2, 0, 1);
@@ -1045,6 +1109,15 @@ function desenharEfeito(ctx, efeito, agora, reduzido, tema) {
       break;
     case 'largada':
       efeitoLargada(ctx, idade, reduzido);
+      break;
+    case 'chute':
+      efeitoChute(ctx, cx, cy, idade, semente, reduzido);
+      break;
+    case 'congela':
+      efeitoCongela(ctx, cx, cy, idade, semente, reduzido);
+      break;
+    case 'atalho':
+      efeitoAtalho(ctx, efeito, cx, cy, idade, reduzido);
       break;
     default:
       break;
