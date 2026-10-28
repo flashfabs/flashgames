@@ -2,9 +2,11 @@
 // score table and the podium. They only read the state they are given and call back through `acoes`;
 // pavio.js decides which one is on screen and when.
 
-import { MAPAS, PONTOS } from './regras.js';
+import { MAPAS, PONTOS, MAX_JOGADORES } from './regras.js';
 import { CORES, VISUAL_ITEM, DESCRICAO_ITEM, marcaJogador } from './desenho.js';
 import { NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS } from './robo.js';
+import * as salas from '../sala.js';
+import { desenharQr } from '../qr.js';
 
 export const TOTAL_PARTIDAS = MAPAS.length;
 export const ZERO = Object.freeze({ vitorias: 0, caixas: 0, eliminacoes: 0 });
@@ -84,6 +86,47 @@ function legendaPontos() {
     `📦 caixa destruída = ${PONTOS.caixa} ponto · 💀 eliminação = ${PONTOS.eliminacao} · 🏆 partida vencida = ${PONTOS.vitoria}`);
 }
 
+// Connection to the host: 'boa', 'media' or 'ruim' (the room's own rule when it has one), or null while measuring.
+function nivelDaConexao(membro) {
+  if (typeof salas.nivelConexao === 'function') return salas.nivelConexao(membro);
+  if (membro.ping == null) return null;
+  return membro.ping < 80 ? 'boa' : membro.ping < 160 ? 'media' : 'ruim';
+}
+
+// Fills a connection badge in place: the lobby card is not rebuilt for every ping (once a second).
+function preencherConexao(selo, membro) {
+  const nivel = nivelDaConexao(membro);
+  const ping = membro.ping == null ? null : Math.round(membro.ping);
+  selo.className = `pavio-conexao${nivel ? ` pavio-conexao--${nivel}` : ''}`;
+  selo.textContent = ping === null ? '…' : `${membro.relay ? '🐢 ' : ''}${ping} ms`;
+  selo.title = ping === null
+    ? 'Medindo a conexão'
+    : `${ping} ms até o anfitrião${membro.relay ? ', via retransmissor (a conexão direta não funcionou)' : ''}`;
+}
+
+// Updates the badges of an on-screen lobby card with fresh room data.
+export function atualizarConexoes(raiz, membros) {
+  for (const membro of membros) {
+    const selo = raiz.querySelector(`[data-conexao="${CSS.escape(membro.id)}"]`);
+    if (selo) preencherConexao(selo, membro);
+  }
+}
+
+async function compartilharLink(link, botao) {
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ title: 'Bora jogar Pavio?', text: 'Entra na minha sala:', url: link });
+      return;
+    }
+    await navigator.clipboard.writeText(link);
+    botao.textContent = 'Link copiado!';
+  } catch (erro) {
+    if (erro?.name === 'AbortError') return;
+    console.warn('Sharing the link failed, showing it instead', erro);
+    window.prompt('Copie o link da sala:', link);
+  }
+}
+
 // Remaining time of the current screen as a shrinking bar (hidden when motion is reduced).
 function barraTempo(estado) {
   const restante = Math.max(0, (estado.fimFaseEm - performance.now()) / 1000);
@@ -98,6 +141,50 @@ function barraTempo(estado) {
 // escolherNivelRobo(nivel). A card returns { conteudo, contagem }: the elements to show and, when the card has
 // one, the element whose text pavio.js keeps updated with the seconds left.
 export function criarTelas({ pintor }) {
+  let qrAberto = false; // survives the lobby card being rebuilt
+
+  // Invitation: the room code, a button to share (phone) or copy the link, and a QR code for a phone nearby.
+  function convite({ link, codigo, membros }) {
+    if (!link || membros.length >= MAX_JOGADORES) return null;
+    const toque = matchMedia('(pointer: coarse)').matches && Boolean(navigator.share);
+    const qr = h('canvas', { class: 'pavio-convite-qr', role: 'img', 'aria-label': `QR code com o link da sala ${codigo}`, hidden: !qrAberto });
+    const erroQr = h('p', { class: 'pavio-convite-erro', hidden: true }, 'Não consegui gerar o QR code agora; use o link.');
+    const mostrarQr = async () => {
+      qr.hidden = false;
+      try {
+        await desenharQr(qr, link);
+      } catch (erro) {
+        console.warn('QR code unavailable', erro);
+        qr.hidden = true;
+        erroQr.hidden = false;
+      }
+    };
+    if (qrAberto) mostrarQr();
+    return h('div', { class: 'pavio-convite' },
+      h('p', { class: 'pavio-convite-titulo' }, 'Chame a galera · sala ', h('strong', {}, codigo)),
+      h('div', { class: 'pavio-convite-acoes' },
+        h('button', {
+          class: 'botao botao--secundario botao--pequeno',
+          type: 'button',
+          onclick: evento => compartilharLink(link, evento.currentTarget),
+        }, toque ? 'Compartilhar link' : 'Copiar link do convite'),
+        h('button', {
+          class: 'botao botao--secundario botao--pequeno',
+          type: 'button',
+          'aria-expanded': String(qrAberto),
+          onclick: evento => {
+            qrAberto = !qrAberto;
+            evento.currentTarget.setAttribute('aria-expanded', String(qrAberto));
+            if (qrAberto) mostrarQr();
+            else qr.hidden = true;
+          },
+        }, 'QR code'),
+      ),
+      qr,
+      erroQr,
+    );
+  }
+
   function retratoDe(cor, pose, classe = '') {
     return pintor.retrato(h('canvas', { class: `pavio-retrato ${classe}`.trim(), 'aria-hidden': 'true' }), { cor, pose });
   }
@@ -188,11 +275,18 @@ export function criarTelas({ pintor }) {
       const cor = estado.cores[membro.id] ?? n;
       let situacaoMembro = pronto ? '✅ pronto' : '⏳ esperando';
       if (membro.fora) situacaoMembro = '📶 reconectando';
+      // Everyone but the host shows their connection to the host.
+      let conexao = null;
+      if (membro.id !== tela.idAnfitriao && !membro.fora) {
+        conexao = h('span', { 'data-conexao': membro.id });
+        preencherConexao(conexao, membro);
+      }
       return h('li', { class: [pronto && 'pronto', eu && 'eu', membro.fora && 'fora'].filter(Boolean).join(' ') },
         h('span', { class: 'pavio-prontos-retrato' }, retratoDe(cor, pronto ? 'pronto' : 'jogo'), marcaJogador(cor)),
         h('span', { class: 'pavio-prontos-texto' },
           h('span', { class: 'pavio-prontos-nome' }, membro.nome, eu && h('span', { class: 'pavio-prontos-voce' }, ' (você)')),
           h('span', { class: 'pavio-prontos-estado' }, situacaoMembro)),
+        conexao,
       );
     }), estado.robos.map((robo, n) => linhaRobo(tela, robo, membros.length + n)));
     let situacao = 'Todo mundo pronto!';
@@ -201,13 +295,14 @@ export function criarTelas({ pintor }) {
     const robos = estado.robos.length;
     let dica = situacao;
     if (membros.length === 1 && robos) dica = `Você contra ${robos} ${robos === 1 ? 'robô' : 'robôs'}. Fique pronto para começar.`;
-    else if (membros.length === 1) dica = 'Mande o link lá de cima pra galera ou chame robôs. Sozinho vira treino.';
+    else if (membros.length === 1) dica = 'Mande o link pra galera ou chame robôs. Sozinho vira treino.';
     return {
       conteudo: [
         h('h2', { class: 'pavio-titulo' }, 'Pavio'),
         h('p', { class: 'pavio-subtitulo' }, `Rodada de ${TOTAL_PARTIDAS} partidas: cada uma num mapa mais fechado e com poderes novos.`),
         lista,
         controlesRobos(tela),
+        convite(tela),
         h('button', {
           class: estouPronto ? 'botao botao--secundario' : 'botao botao--grande',
           type: 'button',
