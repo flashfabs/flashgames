@@ -50,10 +50,12 @@ test('on a short screen the lobby keeps its scroll when someone gets ready', asy
 test('on a phone the countdown with two new powers fits the arena', async ({ mesa }) => {
   const ana = await mesa.novoJogador('Ana', { contexto: devices['iPhone 13'] });
   await ana.criarSala();
-  // A hard robot ends the first match quickly; the second one unlocks two powers.
-  await adicionarRobos(ana, ['Difícil']);
+  // Ana sits on her own bomb, so the first match ends in seconds; the second one unlocks two powers.
+  await adicionarRobos(ana, ['Fácil']);
   await ana.pagina.getByRole('button', { name: 'Estou pronto' }).tap();
-  await expect(ana.pagina.locator('.pavio-aviso--contagem .pavio-sobretitulo')).toHaveText('Partida 2 de 5', { timeout: 110_000 });
+  await ana.esperarFase('jogo');
+  await ana.soltarBomba();
+  await expect(ana.pagina.locator('.pavio-aviso--contagem .pavio-sobretitulo')).toHaveText('Partida 2 de 5', { timeout: 30_000 });
   await expect(ana.pagina.locator('.pavio-aviso--contagem .pavio-poder')).toHaveCount(2);
   const arena = await ana.pagina.locator('.pavio-arena').boundingBox();
   for (const seletor of ['.pavio-sobretitulo', '.pavio-mapa', '.pavio-numero']) {
