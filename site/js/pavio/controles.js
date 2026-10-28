@@ -30,6 +30,33 @@ const PROPORCAO_SECUNDARIA = 0.38;
 
 export const temToque = () => navigator.maxTouchPoints > 0 || matchMedia('(any-pointer: coarse)').matches;
 
+// Stick sensitivity for a settings screen (0.6 relaxed to 1.6 twitchy), remembered on this device. Higher
+// means a smaller dead zone and a shorter throw; it applies from the next touch.
+const CHAVE_SENSIBILIDADE = 'salinha:sensibilidade-toque';
+export const SENSIBILIDADE_TOQUE = Object.freeze({ min: 0.6, max: 1.6, padrao: 1 });
+
+export function lerSensibilidadeToque() {
+  try {
+    const valor = Number.parseFloat(localStorage.getItem(CHAVE_SENSIBILIDADE));
+    return Number.isFinite(valor) ? Math.min(SENSIBILIDADE_TOQUE.max, Math.max(SENSIBILIDADE_TOQUE.min, valor)) : SENSIBILIDADE_TOQUE.padrao;
+  } catch {
+    return SENSIBILIDADE_TOQUE.padrao;
+  }
+}
+
+export function definirSensibilidadeToque(valor) {
+  const nova = Math.min(SENSIBILIDADE_TOQUE.max, Math.max(SENSIBILIDADE_TOQUE.min, Number(valor) || SENSIBILIDADE_TOQUE.padrao));
+  try {
+    localStorage.setItem(CHAVE_SENSIBILIDADE, String(nova));
+  } catch {
+    // Storage may be blocked (private mode); it still applies for this visit.
+  }
+  sensibilidadeAtual = nova;
+  return nova;
+}
+
+let sensibilidadeAtual = lerSensibilidadeToque();
+
 const vertical = direcao => direcao === DIRECAO.CIMA || direcao === DIRECAO.BAIXO;
 const iguais = (a, b) => a.d === b.d && a.d2 === b.d2;
 
@@ -171,9 +198,10 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
     let dx = evento.clientX - origem.x;
     let dy = evento.clientY - origem.y;
     const distancia = Math.hypot(dx, dy);
-    if (distancia > RAIO_MANCHE_PX) {
+    const raio = RAIO_MANCHE_PX / sensibilidadeAtual;
+    if (distancia > raio) {
       // Drag the base along with the finger, so reversing direction is quick.
-      const excesso = distancia - RAIO_MANCHE_PX;
+      const excesso = distancia - raio;
       origem.x += (dx / distancia) * excesso;
       origem.y += (dy / distancia) * excesso;
       dx = evento.clientX - origem.x;
@@ -182,7 +210,7 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
     }
     posicionar(manete, origem.x + dx, origem.y + dy);
     const anterior = toque.d;
-    toque = direcaoDoManche(dx, dy, ZONA_MORTA_TOQUE_PX, toque);
+    toque = direcaoDoManche(dx, dy, ZONA_MORTA_TOQUE_PX / sensibilidadeAtual, toque);
     if (toque.d !== anterior) {
       // The pushed direction lights up on the ring, with a tiny tick where vibration exists.
       if (toque.d) base.dataset.d = String(toque.d);

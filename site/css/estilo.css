@@ -688,6 +688,13 @@ html.em-sala body {
   font-variant-numeric: tabular-nums;
 }
 
+.pavio-hud-desempenho {
+  flex: none;
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .pavio-hud-tempo--subita {
   color: #ff8787;
   border-color: rgba(255, 107, 107, 0.6) !important;
