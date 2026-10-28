@@ -69,6 +69,7 @@
         </details>
       </form>
 
+      <button id="botao-config-inicio" class="botao-link" type="button">⚙️ Configurações de som e controle</button>
       <p class="rodape">WASD ou setas para andar · Espaço solta bomba · controle de videogame funciona<br>No celular e no iPad: arraste no lado esquerdo e toque no lado direito</p>
     </div>
   </main>
@@ -84,6 +85,7 @@
       <div class="sala-acoes">
         <button id="botao-som" class="botao-icone" type="button" aria-label="Som">🔊</button>
         <button id="botao-musica" class="botao-icone botao-musica" type="button" aria-label="Música de fundo" aria-pressed="true">🎵</button>
+        <button id="botao-config" class="botao-icone" type="button" aria-label="Configurações" title="Configurações">⚙️</button>
         <button id="botao-sair" class="botao botao--pequeno botao--secundario" type="button">Sair</button>
       </div>
     </header>
@@ -105,6 +107,38 @@
           <button id="botao-reconectar" class="botao" type="button">Tentar de novo</button>
           <button id="botao-nova-sala" class="botao botao--secundario" type="button">Criar nova sala</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="configuracoes" class="queda" hidden>
+    <div class="queda-cartao config-cartao" role="dialog" aria-modal="true" aria-labelledby="config-titulo">
+      <h2 id="config-titulo">Configurações</h2>
+      <div class="config-linha" id="config-linha-efeitos">
+        <label for="config-efeitos">Volume dos efeitos</label>
+        <input id="config-efeitos" type="range" min="0" max="100" step="5">
+        <output id="config-efeitos-valor" for="config-efeitos"></output>
+      </div>
+      <div class="config-linha" id="config-linha-musica">
+        <label for="config-musica">Volume da música</label>
+        <input id="config-musica" type="range" min="0" max="100" step="5">
+        <output id="config-musica-valor" for="config-musica"></output>
+      </div>
+      <div class="config-linha" id="config-linha-toque">
+        <label for="config-toque">Sensibilidade do toque <small>(celular e tablet)</small></label>
+        <input id="config-toque" type="range" step="5">
+        <output id="config-toque-valor" for="config-toque"></output>
+      </div>
+      <div class="config-linha config-linha--marcar" id="config-linha-desempenho">
+        <input id="config-desempenho" type="checkbox">
+        <label for="config-desempenho">Mostrar quadros por segundo durante a partida</label>
+      </div>
+      <div class="config-linha config-linha--dicas">
+        <button id="config-dicas" class="botao botao--secundario botao--pequeno" type="button">Mostrar as dicas de novo</button>
+        <span id="config-dicas-aviso" role="status"></span>
+      </div>
+      <div class="queda-acoes">
+        <button id="botao-fechar-config" class="botao" type="button">Fechar</button>
       </div>
     </div>
   </div>

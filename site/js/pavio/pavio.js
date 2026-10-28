@@ -13,6 +13,7 @@ import { criarHud } from './hud.js';
 import { tratarEventos as traduzirEventos } from './efeitos.js';
 import { criarPassoFixo } from '../relogio.js';
 import { criarRobo, aplicarAcaoDoRobo, NIVEIS as NIVEIS_ROBO, ORDEM_NIVEIS, NOMES_ROBOS } from './robo.js';
+import { criarDicas } from './dicas.js';
 import { criarTelas, atualizarConexoes, h, pontosDe, campeoes, ZERO, TOTAL_PARTIDAS } from './telas.js';
 
 const HZ_SIMULACAO = 60;
@@ -105,6 +106,7 @@ function montarPalco(palco) {
 export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = null }) {
   const el = montarPalco(palco);
   const pintor = criarPintor(el.canvas);
+  const dicas = criarDicas({ arena: el.arena, toque: temToque() });
   const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
   const telas = criarTelas({ pintor });
   const toqueDisponivel = temToque();
@@ -186,10 +188,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     aoEntrada: nova => {
       entrada = nova;
       som.destravar();
+      if (nova.d) dicas.andou();
       if (sala.souAnfitriao) partida?.definirEntrada(sala.meuId, nova.d, nova.d2);
     },
     aoBomba: () => {
       som.destravar();
+      dicas.soltouBomba();
       soltarBomba();
     },
     aoGelo: () => {
@@ -888,6 +892,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   }
 
   function tratarEventos(eventos) {
+    if (eventos.some(evento => evento?.e === 'item' && evento.j === meuIndice())) dicas.pegouPoder();
     traduzirEventos(eventos, { efeitos, som, eu: meuIndice(), escalacao: estado.escalacao, mostrarFaixa });
   }
 
@@ -956,6 +961,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     const rolagem = faseDoAviso === estado.fase ? el.aviso.scrollTop : 0;
     faseDoAviso = estado.fase;
     refContagem = null;
+    // First-time tips only while this device's player is in the match and alive.
+    dicas.definirJogando(estado.fase === 'jogo' && jogando && !morto);
     let conteudo = [];
     let estilo = 'cartao';
     const tela = contextoDaTela();
@@ -1118,6 +1125,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     },
     destruir() {
       destruido = true;
+      dicas.destruir();
       som.musica(null);
       cancelAnimationFrame(quadroId);
       clearTimeout(timerFaixa);

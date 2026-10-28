@@ -446,3 +446,140 @@
     animation: none;
   }
 }
+
+/* First-time tips at the bottom of the arena (site/js/pavio/dicas.js). */
+.pavio-dica-jogo {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  z-index: 4;
+  max-width: calc(100% - 24px);
+  padding: 8px 14px;
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid rgba(255, 212, 59, 0.6);
+  border-radius: 999px;
+  color: #ffe066;
+  font-size: clamp(11px, 3.6cqh, 15px);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: dica-entra 0.3s ease-out;
+}
+
+.pavio-dica-jogo[hidden] {
+  display: none;
+}
+
+@keyframes dica-entra {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pavio-dica-jogo {
+    animation: none;
+  }
+}
+
+/* Settings dialog (site/js/configuracoes.js), on the same overlay as the connection notices. */
+.config-cartao {
+  display: grid;
+  gap: 14px;
+  width: min(420px, 100%);
+  text-align: left;
+}
+
+.config-cartao h2 {
+  margin: 0;
+  text-align: center;
+}
+
+.config-linha {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.config-linha[hidden] {
+  display: none;
+}
+
+.config-linha label {
+  grid-column: 1 / -1;
+  color: var(--texto-suave);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.config-linha input[type='range'] {
+  width: 100%;
+  accent-color: var(--destaque);
+}
+
+.config-linha output {
+  min-width: 44px;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.config-linha--marcar {
+  grid-template-columns: auto 1fr;
+}
+
+.config-linha--marcar label {
+  grid-column: auto;
+}
+
+.config-linha--marcar input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--destaque);
+}
+
+.config-linha--dicas {
+  grid-template-columns: auto 1fr;
+  font-size: 13px;
+}
+
+.config-linha--dicas span {
+  color: var(--texto-suave);
+}
+
+/* The take-out ✕ of a robot sits in its card's corner, so the name keeps the room on a narrow phone. */
+.pavio-prontos-robo {
+  position: relative;
+}
+
+.pavio-prontos-robo .pavio-robo-tirar {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+}
+
+/* Short screens (phone in landscape): highlights and achievements two by two and tighter. */
+@media (max-height: 500px) {
+  .pavio-destaques,
+  .pavio-conquistas {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 4px;
+  }
+
+  .pavio-destaque,
+  .pavio-conquista {
+    gap: 6px;
+    padding: 3px 8px;
+  }
+
+  .pavio-destaque-icone {
+    font-size: 16px;
+  }
+
+  .pavio-destaque-quem {
+    font-size: 13px;
+  }
+}

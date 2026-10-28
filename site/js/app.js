@@ -4,6 +4,7 @@ import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS, nivelConexao } from 
 import { criarPavio } from './pavio/pavio.js';
 import { criarPerfil } from './perfil.js';
 import { registrarPartida } from './conta.js';
+import { criarConfiguracoes } from './configuracoes.js';
 import { marcaJogador } from './pavio/desenho.js';
 import { som } from './som.js';
 
@@ -372,6 +373,10 @@ campoCodigo.addEventListener('keydown', evento => {
 
 $('#botao-copiar').addEventListener('click', compartilharLink);
 $('#botao-sair').addEventListener('click', pedirSaida);
+const configuracoes = criarConfiguracoes({ som, raiz: $('#configuracoes') });
+for (const botao of [$('#botao-config'), $('#botao-config-inicio')]) {
+  botao.addEventListener('click', () => configuracoes.abrir(botao));
+}
 $('#botao-confirmar-saida').addEventListener('click', () => voltarAoInicio());
 $('#botao-ficar').addEventListener('click', () => {
   $('#confirmar-saida').hidden = true;
