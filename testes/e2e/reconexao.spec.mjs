@@ -2,6 +2,7 @@
 // member plays on afterwards; a cut longer than the tolerance ends the round with the reason, as if they had left.
 
 import { test, expect, semCaixas } from './mesa.mjs';
+import { instalarCaos } from './caos.mjs';
 
 // Init script: window.__cortarRede(ms) silences every WebRTC data channel of this page, both ways, for ms
 // milliseconds (sends are dropped and incoming messages ignored), like a Wi-Fi drop. Signaling stays up.
@@ -68,4 +69,42 @@ test('a 6 s network drop keeps the place; a drop longer than 10 s ends the round
   await expect(bia.pagina.locator('.pavio-motivo')).toContainText('Caio');
   expect((await host.sala()).membros.map(item => item.id)).not.toContain(idCaio);
   await expect(caio.pagina.locator('#queda')).toBeVisible({ timeout: 15_000 });
+});
+
+test('the host drops for 5 s: the guests wait, reconnect, and the match goes on', async ({ mesa }) => {
+  const { host, convidados: [bia, caio] } = await mesa.montar(['Ana', 'Bia', 'Caio'], { anfitriao: { iniciar: [instalarCaos, semCaixas] } });
+  await mesa.todosProntos([host, bia, caio]);
+  for (const jogador of [host, bia, caio]) await jogador.esperarFase('jogo');
+  const ids = await Promise.all([bia, caio].map(async jogador => (await jogador.sala()).meuId));
+
+  await host.pagina.evaluate(() => window.__caos.cair(5000));
+  for (const jogador of [bia, caio]) {
+    await expect(jogador.pagina.locator('#queda-titulo'), `${jogador.nome} is told the link dropped`).toHaveText('Reconectando…', { timeout: 10_000 });
+  }
+  for (const jogador of [bia, caio]) {
+    await expect(jogador.pagina.locator('#queda'), `${jogador.nome} gets back in`).toBeHidden({ timeout: 25_000 });
+  }
+  // Same people, same places, same round: nobody was dropped and nothing ended.
+  await expect.poll(async () => (await host.sala()).membros.filter(item => ids.includes(item.id) && !item.fora).length, {
+    message: 'the host has both guests back', timeout: 15_000,
+  }).toBe(2);
+  expect(['jogo', 'resultado']).toContain(await host.fase());
+  expect((await host.jogo()).motivo).toBeNull();
+  for (const [n, jogador] of [bia, caio].entries()) expect((await jogador.sala()).meuId).toBe(ids[n]);
+  // The game still flows both ways after the reconnection.
+  if ((await host.fase()) === 'jogo' && (await bia.minhaPosicao())?.v) {
+    await bia.andarAte([17, 13]);
+    const { x } = await bia.minhaPosicao();
+    await expect.poll(async () => (await host.posicaoDe(bia)).x, { message: 'the host sees Bia move after the drop' }).toBeCloseTo(x, 1);
+  }
+});
+
+test('the host gone for good: past the tolerance the guests are told the room is lost', async ({ mesa }) => {
+  const { host, convidados: [bia] } = await mesa.montar(['Ana', 'Bia'], { anfitriao: { iniciar: [instalarCaos] } });
+  await mesa.todosProntos([host, bia]);
+  await bia.esperarFase('jogo');
+  await host.pagina.evaluate(() => window.__caos.cair(120_000));
+  await expect(bia.pagina.locator('#queda-titulo')).toHaveText('Reconectando…', { timeout: 10_000 });
+  await expect(bia.pagina.locator('#queda-titulo')).toHaveText('Conexão perdida', { timeout: 40_000 });
+  await expect(bia.pagina.locator('#queda-motivo')).not.toBeEmpty();
 });

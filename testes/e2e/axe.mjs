@@ -9,6 +9,14 @@ const REGRAS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 export const CONHECIDOS = {};
 
 export async function verificarAcessibilidade(pagina, onde) {
+  // A card or toast caught halfway through its entrance is still transparent and fails the contrast rule, which
+  // happened under load; wait for finite animations to end (endless ones, like pulsing, are left alone).
+  await pagina.evaluate(() => Promise.race([
+    Promise.all(document.getAnimations()
+      .filter(animacao => animacao.effect?.getComputedTiming().iterations !== Infinity)
+      .map(animacao => animacao.finished.catch(() => null))),
+    new Promise(resolver => setTimeout(resolver, 3000)),
+  ]));
   const { violations: problemas } = await new AxeBuilder({ page: pagina }).withTags(REGRAS).analyze();
   const graves = problemas.filter(problema => ['serious', 'critical'].includes(problema.impact));
   const resumo = graves.map(problema => `${onde}: ${problema.id} (${problema.impact}, ${problema.nodes.length}x) ${problema.help}: ${problema.nodes.slice(0, 3).map(no => no.target.join(' ')).join(' | ')}`);

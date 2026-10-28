@@ -652,6 +652,36 @@ html.em-sala body {
   border-color: transparent;
 }
 
+.pavio-hud--apertado {
+  gap: 4px;
+  font-size: 12px;
+}
+
+.pavio-hud--apertado .pavio-hud-itens {
+  gap: 0;
+}
+
+.pavio-hud--apertado .pavio-chip {
+  height: 20px;
+  gap: 0;
+  padding: 0 2px;
+}
+
+.pavio-hud--apertado .pavio-chip-icone {
+  font-size: 11px;
+}
+
+.pavio-hud--apertado .pavio-chip--contador,
+.pavio-hud--apertado .pavio-chip--liga {
+  border-color: transparent;
+  background-color: transparent;
+}
+
+.pavio-hud--apertado .pavio-hud-pontos,
+.pavio-hud--apertado .pavio-hud-tempo {
+  padding: 1px 6px;
+}
+
 .pavio-chip--novo {
   animation: chip-novo 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.4);
 }
