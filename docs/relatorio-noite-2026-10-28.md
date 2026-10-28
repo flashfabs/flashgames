@@ -4,8 +4,8 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `2f62d6e`, publicado às 01:29; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
-- `main`: igual à produção no que vai ao ar, com `npm test` (112) e `npm run e2e` (18 cenários) passando.
+- Produção (https://salinha-jogos.netlify.app): ver a última linha da tabela de publicações; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- `main`: igual à produção no que vai ao ar, com `npm test` (115) e `npm run e2e` (23 cenários) passando às 02:00.
 
 ## O que testar primeiro de manhã
 
@@ -24,6 +24,10 @@ A preencher no fim da noite.
 | 01:10 | 2 (jogo, mapas, robôs) | `72f2709` | Mapas com layouts e variantes sorteadas por partida (protocolo 8), morte súbita um pouco mais cedo a cada partida, robôs que congelam a bomba que os mataria, se caçam na morte súbita e usam gelo de propósito. | Fumaça em produção depois da publicação. |
 | 01:20 | 3 (visual, som) | `e0fa377` | Segunda publicação do visual: chamas com línguas e brasas, poderes com profundidade e sombra, faíscas no pavio, forma do jogador nas costas, arena de alto contraste quando o aparelho pede, vinheta mais barata. | Frente 5, depois: `npm run e2e` 15 + 2, visual 3 de 3, fumaça 4 de 4 (com uma falha de `/api/ranking` na primeira tentativa, ver problemas). |
 | 01:29 | 1 (jornada, perfil) | `2f62d6e` | Página inicial com o perfil do aparelho (nome, cor, símbolo, "levar meu perfil para outro aparelho") e partidas registradas no perfil. | Frente 5, depois: `npm run e2e` 16 + 2; imagens de referência da página inicial atualizadas. |
+| 01:38 | 5 (testes, conserto) | `a59b658` | Correção do 500 intermitente da API de perfis (loja do Netlify Blobs aberta a cada requisição); fumaça sem escrever perfis em produção; cenários novos de reconexão, jornada, estatísticas, desempenho com robôs; `npm run e2e` em 2 processos. | `npm run e2e` 16 + 2, visual 3 de 3, fumaça 4 de 4, 40 chamadas a `/api/ranking` sem erro. |
+| 01:46 | 4 (rede, contas) | `f4ca66e` | Reconexão do anfitrião em até 10 s; perda de pacotes medida por membro; cada partida registrada uma vez no perfil; cor e símbolo do perfil levados para a sala; leituras de perfil e ranking reaproveitadas; a mesma correção do Blobs feita pela frente (`4159efa`). | Frente 5, depois: `npm test` 115, `npm run e2e` 17 + 2, fumaça 4 de 4. |
+| 01:52 | 3 (visual, som) | `ce31b6a` | Terceira publicação: efeitos e sons próprios para chute, gelo e atalho (`efeitos.js`), câmera fica no vencedor durante o resultado. | Frente 5, depois: suíte inteira na `main`. |
+| 01:56 | 1 (jornada, lobby) | `1e95371` | Lobby com bloco de convite (código, copiar ou compartilhar o link, QR code), ping de cada convidado no cartão; sair pede confirmação quando encerra a rodada dos outros; a queda mostra a contagem dos 10 s; página desatualizada avisa e oferece "Recarregar" (lendo `versao.json`); quem chega no meio é avisado. Cenário novo `entrada.spec.mjs`. | Frente 5, depois: `npm test` 115, `npm run e2e` 21 + 2, imagens do lobby atualizadas. |
 
 ## O que foi testado e como
 
