@@ -127,6 +127,7 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
     ponteiroManche = null;
     toque = NENHUMA;
     camada.classList.remove('pavio-toque--ativo');
+    delete base.dataset.d;
     base.style.transform = '';
     manete.style.transform = '';
   };
@@ -180,7 +181,14 @@ export function criarControles({ camada, base, manete, dicaBomba, dicaGelo, aoEn
       posicionar(base, origem.x, origem.y);
     }
     posicionar(manete, origem.x + dx, origem.y + dy);
+    const anterior = toque.d;
     toque = direcaoDoManche(dx, dy, ZONA_MORTA_TOQUE_PX, toque);
+    if (toque.d !== anterior) {
+      // The pushed direction lights up on the ring, with a tiny tick where vibration exists.
+      if (toque.d) base.dataset.d = String(toque.d);
+      else delete base.dataset.d;
+      if (toque.d) navigator.vibrate?.(5);
+    }
     recalcular();
   };
   const aoSoltar = evento => {
