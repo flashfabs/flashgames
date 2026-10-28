@@ -52,8 +52,19 @@ test('the profile API answers without touching any profile', async ({ request })
   expect(semCredencial.status(), '/api/perfil without credentials').toBe(401);
 });
 
+// The home screen creates a device profile on the server; the smoke test must not fill production with fake
+// profiles, so profile writes get a 503 and the page keeps its local copy (reads still go through).
+async function semGravarPerfil(contexto) {
+  await contexto.route('**/api/perfil**', rota => (rota.request().method() === 'GET'
+    ? rota.continue()
+    : rota.fulfill({ status: 503, contentType: 'application/json', body: '{"erro":"Escrita bloqueada pelo teste de fumaça."}' })));
+}
+
 test('two players start a round in production and see each other move', async ({ mesa }) => {
-  const { host, convidados: [convidado] } = await mesa.montar(['Fumaça A', 'Fumaça B'], { anfitriao: { iniciar: [semCaixas] } });
+  const { host, convidados: [convidado] } = await mesa.montar(['Fumaça A', 'Fumaça B'], {
+    anfitriao: { iniciar: [semCaixas], preparar: semGravarPerfil },
+    convidado: () => ({ preparar: semGravarPerfil }),
+  });
   await mesa.todosProntos([host, convidado]);
   await host.esperarFase('jogo');
   await convidado.esperarFase('jogo');

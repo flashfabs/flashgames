@@ -206,8 +206,10 @@ export class Mesa {
     this.registro = [];
   }
 
-  async novoJogador(nome, { contexto = {}, iniciar = [], navegador = this.navegador } = {}) {
+  // preparar(ctx) runs before the page opens, for routes and the like.
+  async novoJogador(nome, { contexto = {}, iniciar = [], navegador = this.navegador, preparar = null } = {}) {
     const ctx = await navegador.newContext({ viewport: VIEWPORT_PADRAO, ...contexto });
+    if (preparar) await preparar(ctx);
     // Each init script is a function, or [function, argument].
     for (const script of iniciar) await ctx.addInitScript(...[script].flat());
     const pagina = await ctx.newPage();
