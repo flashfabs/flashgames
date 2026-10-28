@@ -81,6 +81,7 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
       elemento('span', { class: 'perfil-cores-rotulo', id: 'perfil-cores-rotulo' }, 'Sua cor'),
       ...Array.from({ length: CORES_DA_SALA }, (_, n) => {
         const marca = desenho.marcaJogador(n);
+        // One tab stop for the group (the chosen color, or the first): the arrow keys move between colors.
         return elemento('button', {
           type: 'button',
           class: 'perfil-cor',
@@ -88,11 +89,22 @@ export function criarPerfil({ raiz, campoNome, aoMudar = () => {} }) {
           'aria-checked': String(atual === n),
           'aria-label': `${desenho.SIMBOLOS[n].nome}`,
           title: `Jogar com o ${desenho.SIMBOLOS[n].nome}`,
+          tabindex: n === (atual ?? 0) ? '0' : '-1',
           onclick: () => escolherCor(n),
+          onkeydown: evento => moverPelasSetas(evento, n),
         }, marca);
       }),
       elemento('span', { class: 'perfil-cores-dica' }, atual === null ? 'automática: a sala escolhe uma livre' : 'se estiver livre na sala, é sua'),
     );
+  }
+
+  function moverPelasSetas(evento, n) {
+    const passo = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[evento.key];
+    if (!passo) return;
+    evento.preventDefault();
+    const proxima = (n + passo + CORES_DA_SALA) % CORES_DA_SALA;
+    escolherCor(proxima).finally(() => cores.querySelectorAll('.perfil-cor')[proxima]?.focus());
+    cores.querySelectorAll('.perfil-cor')[proxima]?.focus();
   }
 
   function mostrar(novo) {
