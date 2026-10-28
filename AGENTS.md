@@ -15,11 +15,22 @@ Site público de jogos com a galera, sem cadastro: alguém cria uma sala, manda 
 ## Trabalho em paralelo (várias sessões ao mesmo tempo)
 
 - Este é um repositório git próprio (a pasta pai não é git, de propósito). A branch `main` é a base; cada sessão trabalha na sua worktree e na sua branch, com commits pequenos em Conventional Commits, em inglês.
-- Não fazer merge na `main` nem rebase dela por conta própria: quem integra é a sessão principal, quando o Victor pedir. Ao terminar, avisar o nome da branch e o que mudou.
-- Não publicar em produção (Netlify `salinha-jogos`): só a sessão principal publica, a partir da `main` integrada.
+- O plano em vigor, com as frentes, os donos de cada arquivo e os contratos entre elas, está em [docs/plano-noite-2026-10-28.md](docs/plano-noite-2026-10-28.md). Mexa só nos arquivos da sua frente; ligar o seu código em arquivo de outra frente com uma ou duas linhas é aceito, desde que dito no commit.
 - Para testar, servir a própria worktree numa porta só sua (a que veio no pedido da sessão), por exemplo `python3 -m http.server <porta> --directory site`, e abrir duas abas: uma cria a sala e a outra entra pelo link. Aba em segundo plano não desenha nem anda (o navegador pausa o `requestAnimationFrame`); trazer para a frente a aba que se quer testar.
-- Mudou o formato de alguma mensagem entre navegadores? Subir `VERSAO_PROTOCOLO` em `site/js/sala.js`, para página velha e nova não se misturarem numa sala.
-- Mexer o mínimo fora da sua área, para o merge com as outras sessões ser simples. Se precisar mudar algo comum (por exemplo o formato do retrato em `pavio.js`), dizer no relatório final.
+- Mudou o formato de alguma mensagem entre navegadores? Subir `VERSAO_PROTOCOLO` em `site/js/sala.js`, para página velha e nova não se misturarem numa sala. Em conflito de merge, vale o maior número mais um.
+
+## Integração e publicação (protocolo da noite de 28/10/2026)
+
+Desde 28/10/2026, por pedido do Victor, cada frente integra e publica a própria entrega, uma de cada vez, seguindo estes passos à risca. A pasta principal `/Users/vhccruz/Dev/claude-code-config/salinha` fica sempre na `main` e sem alterações; ninguém edita nada nela à mão.
+
+1. Pegue a trava: `until mkdir /Users/vhccruz/Dev/claude-code-config/salinha/.git/integracao.lock 2>/dev/null; do sleep 20; done` e escreva nela quem você é e a hora (`echo "<sessão> $(date)" > .../integracao.lock/dono`). Esperando a trava, use a ferramenta Monitor com esse laço, não fique consultando em volta.
+2. Na sua worktree: `git merge main`, resolva conflitos (você conhece o seu código; preserve o das outras frentes), e rode `npm test` e `npm run e2e` (antes, `npm ci` se faltar `node_modules`). Tudo tem que passar.
+3. Avance a `main`: `git -C /Users/vhccruz/Dev/claude-code-config/salinha merge --ff-only <sua-branch>`. Se não for avanço direto, alguém integrou antes: volte ao passo 2.
+4. Publique a `main`: monte uma pasta limpa (`scripts/preparar-publicacao.sh` quando existir; até lá, `git -C <pasta principal> archive HEAD netlify.toml site netlify | tar -x -C <pasta nova na sua área de rascunho>` e grave `site/versao.json` com o commit) e chame `deploy-site` do MCP `netlify-pessoal` com essa pasta e `siteId` `dddafa63-ffb4-434e-b394-c39aad054106`. Nunca publique da worktree nem da pasta do repositório (ela tem `node_modules` e worktrees). Não use `rm -rf`: crie sempre uma pasta nova.
+5. Confira produção: espere `https://salinha-jogos.netlify.app/versao.json` mostrar o commit novo e rode `npm run fumaca` quando existir (até lá, abra o site, crie uma sala e entre por outra aba).
+6. Solte a trava (`rm .../integracao.lock/dono && rmdir .../integracao.lock`) e mande à frente 5 (`pavio-testes`) um resumo de uma linha do que foi publicado e o commit.
+
+Se algo quebrar em produção depois da sua publicação, corrigir é a sua prioridade número um. Trava presa há mais de 45 minutos com o dono parado pode ser removida, registrando isso no relatório da noite. Nunca force push, nunca `reset` na `main`; para desfazer, `git revert`.
 
 ## Convenções
 
@@ -27,4 +38,4 @@ Site público de jogos com a galera, sem cadastro: alguém cria uma sala, manda 
 - Os identificadores do código ficam em português neste projeto, por decisão do Victor em 27/10/2026 (exceção à regra global de nomes em inglês). Código novo segue o mesmo padrão.
 - Nunca usar hard wrap em texto (uma frase por linha), inclusive em Markdown e commits.
 - Rodar `npm test` antes de cada commit; teste novo para regra nova. Mudou fluxo de sala, rede, controles ou tela? Rodar também `npm run e2e`.
-- Nada de conta nova, serviço pago ou credencial sem o Victor aprovar antes.
+- Nada de conta nova, serviço pago ou credencial sem o Victor aprovar antes. Na noite de 28/10/2026, ninguém faz pergunta ao Victor: decida, registre no relatório da noite e siga.
