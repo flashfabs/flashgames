@@ -4,8 +4,8 @@ Relatório para o Victor ler de manhã, mantido pela frente 5 (`pavio-testes`) a
 
 ## Estado agora
 
-- Produção (https://salinha-jogos.netlify.app): `8648563`, publicado às 00:48; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
-- `main`: igual à produção no que vai ao ar, com `npm test` (54) e `npm run e2e` (5 cenários) passando.
+- Produção (https://salinha-jogos.netlify.app): `902c5c2`, publicado às 00:59; a versão publicada aparece em https://salinha-jogos.netlify.app/versao.json.
+- `main`: igual à produção no que vai ao ar, com `npm test` (104) e `npm run e2e` (9 cenários) passando.
 
 ## O que testar primeiro de manhã
 
@@ -18,6 +18,8 @@ A preencher no fim da noite.
 | 00:40 | 5 (testes) | `c749169` | Script de publicação (`scripts/preparar-publicacao.sh`, com `versao.json`), teste de fumaça (`npm run fumaca`), passo 4 do protocolo no AGENTS.md e este relatório. O site em si não mudou desde `684f7e3`. | `npm test` 54, `npm run e2e` 5 de 5, fumaça 3 de 3 em produção (18 s). |
 | 00:45 | 1 (jornada, robôs) | `d26cf8f` | Robôs no lobby: o anfitrião adiciona e tira robôs de nível fácil, médio ou difícil; eles jogam a partida, usam os poderes (detonador, gelo, chute, atalho) e só as pessoas precisam ficar prontas. | Frente 1: `npm test`, `npm run e2e` e fumaça. Frente 5, depois: `npm test` 73, `npm run e2e` 6 de 6 (com o cenário novo dos robôs), fumaça 3 de 3. |
 | 00:48 | 4 (rede, contas) | `8648563` | Perfil do aparelho: `site/js/conta.js` (com alternativa local) e a API `/api/perfil` e `/api/ranking` em Netlify Functions com Netlify Blobs; ainda sem tela que use. Primeira publicação com dependência de função (`@netlify/blobs`), instalada pelo script. | Frente 5, depois: `npm test` 88, `/api/perfil` sem credencial responde 401 e `/api/ranking` 200 em produção. |
+| 00:50 | 2 (jogo, poderes) | `3ea6b3f` | Temas de mapa (`MAPAS[n].tema`), estatísticas de cada partida no estado do resultado (contrato da seção 5 do plano), buffer de bomba (apertar um pouco antes não se perde), assistência de esquina mais larga e previsão do convidado conferida com o anfitrião. | Frente 5, depois: `npm test` 104, `npm run e2e` 9 de 9; no ar desde 00:59 pelo menos (dentro de `902c5c2`). |
+| 00:59 | 5 (testes) | `902c5c2` | Só testes e documentação: porta livre nos testes, desempenho com CPU 4x mais lenta, acessibilidade com axe-core, rede ruim, regressão visual (`npm run visual`), fumaça cobrindo a API de perfis e correção de uma corrida no cenário dos robôs. | `npm test` 104, `npm run e2e` 9 de 9, `npm run visual` 3 de 3, fumaça 4 de 4. |
 
 ## O que foi testado e como
 
