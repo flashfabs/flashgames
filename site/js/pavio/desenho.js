@@ -26,6 +26,8 @@ export const VISUAL_ITEM = {
   [ITEM.ESCUDO]: { fundo: '#0b7285', emoji: '🛡️', nome: 'Escudo', rotulo: 'escudo' },
   [ITEM.PERFURANTE]: { fundo: '#a61e4d', emoji: '💥', nome: 'Fogo perfurante', rotulo: 'perfurante' },
   [ITEM.FANTASMA]: { fundo: '#5f3dc4', emoji: '👻', nome: 'Fantasma', rotulo: 'fantasma' },
+  [ITEM.CHUTE]: { fundo: '#e67700', emoji: '🦶', nome: 'Chute', rotulo: 'chute' },
+  [ITEM.DETONADOR]: { fundo: '#c92a2a', emoji: '🎯', nome: 'Detonador', rotulo: 'detonador' },
 };
 
 export const DESCRICAO_ITEM = {
@@ -35,6 +37,8 @@ export const DESCRICAO_ITEM = {
   [ITEM.ESCUDO]: 'aguenta uma explosão',
   [ITEM.PERFURANTE]: 'o fogo atravessa caixas e quebra todas no caminho',
   [ITEM.FANTASMA]: 'atravessa caixas e bombas por 8 segundos',
+  [ITEM.CHUTE]: 'ande contra uma bomba para chutar, e ela desliza até bater em algo',
+  [ITEM.DETONADOR]: 'suas bombas esperam: sem bomba para soltar, apertar de novo explode a mais antiga',
 };
 
 const PALETA = {
@@ -161,7 +165,7 @@ function desenharSpriteItem(ctx, item) {
   ctx.fillText(visual.emoji, TAM / 2, TAM / 2 + 1);
 }
 
-function desenharBomba(ctx, [x, y, restante], agora) {
+function desenharBomba(ctx, [x, y, restante, , remota], agora) {
   const cx = (x + 0.5) * TAM;
   const cy = (y + 0.5) * TAM + 3;
   const ritmo = restante < 0.7 ? 24 : restante < 1.4 ? 13 : 7;
@@ -185,7 +189,14 @@ function desenharBomba(ctx, [x, y, restante], agora) {
   ctx.moveTo(cx + raio * 0.45, cy - raio * 0.8);
   ctx.quadraticCurveTo(cx + raio * 0.6, cy - raio * 1.35, pontaX, pontaY);
   ctx.stroke();
-  faisca(ctx, pontaX, pontaY, agora);
+  if (!remota) {
+    faisca(ctx, pontaX, pontaY, agora);
+    return;
+  }
+  // A remote bomb has no lit fuse: a blinking red light waits for the detonator.
+  ctx.fillStyle = Math.sin(agora * 9) > 0 ? '#ff3b3b' : '#7a1010';
+  circulo(ctx, pontaX, pontaY, 4);
+  ctx.fill();
 }
 
 function desenharChama(ctx, [i, forma], agora) {
