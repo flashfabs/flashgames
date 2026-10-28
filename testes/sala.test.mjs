@@ -23,3 +23,11 @@ test('connection level combines ping and loss', () => {
   assert.equal(nivelConexao({ ping: 30, perda: 0.2 }), 'ruim');
   assert.equal(nivelConexao({ ping: 200, perda: null }), 'ruim');
 });
+
+test('profile look is cleaned and stays null when absent', async () => {
+  const { limparVisual } = await import('../site/js/sala.js');
+  assert.deepEqual(limparVisual({}), { cor: null, simbolo: null });
+  assert.deepEqual(limparVisual({ cor: 3, simbolo: ' 🦊 ' }), { cor: 3, simbolo: '🦊' });
+  assert.deepEqual(limparVisual({ cor: 99, simbolo: '<b>' }), { cor: null, simbolo: 'b' });
+  assert.deepEqual(limparVisual({ cor: '2', simbolo: '' }), { cor: 2, simbolo: null });
+});

@@ -60,6 +60,16 @@ export function normalizarCodigo(texto) {
   return valido ? codigo : null;
 }
 
+// Profile look a member brings into the room; null when it brought none (old pages, no profile yet).
+export function limparVisual({ cor = null, simbolo = null } = {}) {
+  const numero = Number(cor);
+  const textoSimbolo = String(simbolo ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 16);
+  return {
+    cor: cor !== null && Number.isInteger(numero) && numero >= 0 && numero <= 31 ? numero : null,
+    simbolo: textoSimbolo || null,
+  };
+}
+
 export function limparNome(texto) {
   const nome = String(texto ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, TAMANHO_NOME);
   return nome || 'Sem nome';
@@ -217,7 +227,7 @@ export class Sala extends Emissor {
   codigo = null;
   meuId = null;
   idAnfitriao = null;
-  membros = new Map(); // id -> { id, nome, ordem, ping, relay, perda (0 to 1, or null), fora }
+  membros = new Map(); // id -> { id, nome, ordem, cor, simbolo (from the profile, or null), ping, relay, perda (0 to 1, or null), fora }
 
   #peer = null;
   #conexoes = new Map(); // host only: member id -> its current DataConnection
@@ -253,7 +263,8 @@ export class Sala extends Emissor {
     return `${location.origin}${location.pathname}#${this.codigo}`;
   }
 
-  static async criar({ nome, maxMembros = 8 }) {
+  // cor and simbolo come from the device profile; the game decides whether the color is free.
+  static async criar({ nome, cor = null, simbolo = null, maxMembros = 8 }) {
     const sala = new Sala();
     sala.#maxMembros = maxMembros;
     for (let tentativa = 0; tentativa < 5 && !sala.codigo; tentativa++) {
@@ -268,19 +279,19 @@ export class Sala extends Emissor {
     if (!sala.codigo) throw new ErroSala('codigo', 'Não consegui reservar um código de sala. Tente de novo.');
     sala.meuId = sala.#peer.id;
     sala.idAnfitriao = sala.meuId;
-    sala.#adicionarMembro(sala.meuId, nome);
+    sala.#adicionarMembro(sala.meuId, nome, { cor, simbolo });
     sala.#peer.on('connection', conexao => sala.#aceitar(conexao));
     sala.#iniciarVigia();
     return sala;
   }
 
-  static async entrar(codigo, { nome }) {
+  static async entrar(codigo, { nome, cor = null, simbolo = null }) {
     const sala = new Sala();
     sala.codigo = codigo;
     sala.idAnfitriao = PREFIXO_ID + codigo;
     try {
       await sala.#abrirPeer(null);
-      await sala.#conectarAoAnfitriao({ nome });
+      await sala.#conectarAoAnfitriao({ nome, visual: limparVisual({ cor, simbolo }) });
     } catch (erro) {
       sala.sair();
       throw traduzirErro(erro);
@@ -401,7 +412,7 @@ export class Sala extends Emissor {
   }
 
   // Joins for the first time, or takes the old place back when `volta` ({ id, chave }) is given.
-  #conectarAoAnfitriao({ nome = null, volta = null, limiteMs = TEMPO_ENTRADA_MS }) {
+  #conectarAoAnfitriao({ nome = null, visual = {}, volta = null, limiteMs = TEMPO_ENTRADA_MS }) {
     return new Promise((resolve, reject) => {
       const conexao = this.#peer.connect(this.idAnfitriao, { reliable: true, serialization: 'json' });
       let pronto = false;
@@ -443,7 +454,7 @@ export class Sala extends Emissor {
       };
       conexao.on('open', () => {
         this.#canais.set(conexao, abrirCanalRapido(conexao, aoMensagem, this.#medida(conexao)));
-        conexao.send({ t: '$ola', v: VERSAO_PROTOCOLO, nome: limparNome(nome), ...(volta ? { volta } : {}) });
+        conexao.send({ t: '$ola', v: VERSAO_PROTOCOLO, nome: limparNome(nome), ...visual, ...(volta ? { volta } : {}) });
       });
       conexao.on('data', aoMensagem);
       conexao.on('close', () => {
@@ -528,6 +539,7 @@ export class Sala extends Emissor {
       const membro = {
         id,
         nome: limparNome(m.nome),
+        ...limparVisual(m),
         ordem: Number(m.ordem) || 0,
         ping: antes?.ping ?? null,
         relay: antes?.relay ?? false,
@@ -623,7 +635,7 @@ export class Sala extends Emissor {
     const chave = sortear(ALFABETO, TAMANHO_CHAVE);
     this.#chaves.set(id, chave);
     this.#ligar(id, conexao);
-    const membro = this.#adicionarMembro(id, mensagem.nome);
+    const membro = this.#adicionarMembro(id, mensagem.nome, mensagem);
     enviarSeguro(conexao, { t: '$bemvindo', voce: id, chave, membros: this.membrosOrdenados() });
     this.#anunciarMembros();
     this.emitir('entrou', membro);
@@ -669,8 +681,8 @@ export class Sala extends Emissor {
     membro.ping = membro.ping === null ? amostra : membro.ping * 0.6 + amostra * 0.4;
   }
 
-  #adicionarMembro(id, nome) {
-    const membro = { id, nome: limparNome(nome), ordem: this.#proximaOrdem++, ping: null, relay: false, perda: null, fora: false };
+  #adicionarMembro(id, nome, visual = {}) {
+    const membro = { id, nome: limparNome(nome), ordem: this.#proximaOrdem++, ...limparVisual(visual), ping: null, relay: false, perda: null, fora: false };
     this.membros.set(id, membro);
     return membro;
   }
@@ -690,7 +702,9 @@ export class Sala extends Emissor {
   }
 
   #anunciarMembros() {
-    const membros = this.membrosOrdenados().map(({ id, nome, ordem, fora }) => ({ id, nome, ordem, ...(fora ? { fora: 1 } : {}) }));
+    const membros = this.membrosOrdenados().map(({ id, nome, ordem, cor, simbolo, fora }) => ({
+      id, nome, ordem, ...(cor !== null ? { cor } : {}), ...(simbolo ? { simbolo } : {}), ...(fora ? { fora: 1 } : {}),
+    }));
     this.transmitir({ t: '$membros', membros });
     this.emitir('membros', this.membrosOrdenados());
   }
