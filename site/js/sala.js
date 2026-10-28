@@ -3,22 +3,33 @@
 // Each link has two channels: PeerJS's reliable one (room control, game events that must arrive) and a
 // fast one, unordered and without retransmission, for state that is resent all the time (positions, snapshots),
 // so a lost packet never holds back the newer ones.
+// A member whose link drops (Wi-Fi switch, phone locked) keeps its place for TOLERANCIA_MS: it reconnects with the
+// key the host handed it on joining, even from a new PeerJS id. Leaving on purpose sends a goodbye, so nobody waits.
 // Room-level messages have a type starting with "$"; anything else is handed to the game.
 
 import { criarTique } from './relogio.js';
+import { configuracaoIce, modoDaRede } from './rede.js';
 
-const VERSAO_PROTOCOLO = 3;
+const VERSAO_PROTOCOLO = 5;
 const PREFIXO_ID = `salinha-v${VERSAO_PROTOCOLO}-`;
 const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const TAMANHO_CODIGO = 5;
-const INTERVALO_PING_MS = 2000;
+const TAMANHO_CHAVE = 16;
+const INTERVALO_PING_MS = 1000;
 const INTERVALO_REDE_MS = 6000;
-const LIMITE_SILENCIO_MS = 12000;
+const LIMITE_QUEDA_MS = 3500; // this long without hearing from the other end counts as a dropped link
+export const TOLERANCIA_MS = 10000; // a dropped member keeps its place this long
+const FOLGA_RECONEXAO_MS = 2000; // members try a little longer: the host started counting a bit earlier
+const INTERVALO_TENTATIVA_MS = 800;
 const TEMPO_ABRIR_MS = 15000;
 const TEMPO_ENTRADA_MS = 15000;
+const TEMPO_TENTATIVA_MS = 4000;
+const ESPERA_DESPEDIDA_MS = 300;
 const TAMANHO_NOME = 16;
 const ID_CANAL_RAPIDO = 7;
 const LIMITE_FILA_RAPIDA = 32 * 1024;
+// Read once: the page drops the query string from the address after joining, and reconnections reuse the mode.
+const MODO_REDE = modoDaRede(location.search);
 
 export class ErroSala extends Error {
   constructor(tipo, mensagem) {
@@ -27,9 +38,13 @@ export class ErroSala extends Error {
   }
 }
 
+function sortear(alfabeto, tamanho) {
+  const valores = crypto.getRandomValues(new Uint32Array(tamanho));
+  return Array.from(valores, valor => alfabeto[valor % alfabeto.length]).join('');
+}
+
 export function gerarCodigo() {
-  const valores = crypto.getRandomValues(new Uint32Array(TAMANHO_CODIGO));
-  return Array.from(valores, valor => ALFABETO[valor % ALFABETO.length]).join('');
+  return sortear(ALFABETO, TAMANHO_CODIGO);
 }
 
 export function normalizarCodigo(texto) {
@@ -59,6 +74,8 @@ function traduzirErro(erro) {
       return new ErroSala('desconhecido', erro?.message || 'Algo deu errado na conexão.');
   }
 }
+
+const esperar = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function enviarSeguro(conexao, mensagem) {
   if (!conexao?.open) return;
@@ -151,17 +168,22 @@ class Emissor {
   }
 }
 
+// Events: membros, qualidade, entrou, saiu, fora (a member's link dropped), voltou (it is back), mensagem,
+// caiu (this member lost the room for good) and, on members only, reconectando and reconectou.
 export class Sala extends Emissor {
   codigo = null;
   meuId = null;
   idAnfitriao = null;
-  membros = new Map(); // id -> { id, nome, ordem, ping, relay }
+  membros = new Map(); // id -> { id, nome, ordem, ping, relay, fora }
 
   #peer = null;
-  #conexoes = new Map(); // host only: member id -> DataConnection
-  #canais = new Map(); // host only: member id -> fast RTCDataChannel
+  #conexoes = new Map(); // host only: member id -> its current DataConnection
+  #donos = new WeakMap(); // host only: DataConnection -> member id, once its hello was accepted
+  #chaves = new Map(); // host only: member id -> key that lets it take its place back
+  #canais = new WeakMap(); // DataConnection -> fast RTCDataChannel
   #anfitriao = null; // members only: DataConnection to the host
-  #canalAnfitriao = null; // members only: fast RTCDataChannel to the host
+  #chave = null; // members only: my key, from the host's welcome
+  #reconectando = false;
   #ultimoContato = new Map();
   #proximaOrdem = 0;
   #maxMembros = 8;
@@ -172,6 +194,11 @@ export class Sala extends Emissor {
 
   get souAnfitriao() {
     return this.meuId !== null && this.meuId === this.idAnfitriao;
+  }
+
+  // Members only see the room while their link to the host is up.
+  get conectada() {
+    return this.souAnfitriao || (!this.#reconectando && Boolean(this.#anfitriao?.open));
   }
 
   get link() {
@@ -205,8 +232,7 @@ export class Sala extends Emissor {
     sala.idAnfitriao = PREFIXO_ID + codigo;
     try {
       await sala.#abrirPeer(null);
-      sala.meuId = sala.#peer.id;
-      await sala.#conectarAoAnfitriao(nome);
+      await sala.#conectarAoAnfitriao({ nome });
     } catch (erro) {
       sala.sair();
       throw traduzirErro(erro);
@@ -222,38 +248,54 @@ export class Sala extends Emissor {
   // Members send to the host; on the host this loops back so game code has a single path.
   enviarAoAnfitriao(mensagem, { rapido = false } = {}) {
     if (this.souAnfitriao) queueMicrotask(() => this.emitir('mensagem', this.meuId, mensagem));
-    else enviar(this.#anfitriao, this.#canalAnfitriao, mensagem, rapido);
+    else enviar(this.#anfitriao, this.#canais.get(this.#anfitriao), mensagem, rapido);
   }
 
   // Host only: sends to every member except the host itself.
   transmitir(mensagem, { rapido = false } = {}) {
-    for (const [id, conexao] of this.#conexoes) enviar(conexao, this.#canais.get(id), mensagem, rapido);
+    for (const conexao of this.#conexoes.values()) enviar(conexao, this.#canais.get(conexao), mensagem, rapido);
   }
 
   enviarPara(id, mensagem, { rapido = false } = {}) {
-    if (id === this.meuId) queueMicrotask(() => this.emitir('mensagem', this.meuId, mensagem));
-    else enviar(this.#conexoes.get(id), this.#canais.get(id), mensagem, rapido);
+    if (id === this.meuId) {
+      queueMicrotask(() => this.emitir('mensagem', this.meuId, mensagem));
+      return;
+    }
+    const conexao = this.#conexoes.get(id);
+    enviar(conexao, this.#canais.get(conexao), mensagem, rapido);
   }
 
   sair() {
     if (this.#encerrada) return;
     this.#encerrada = true;
     this.#vigia?.parar();
-    for (const canal of this.#canais.values()) canal?.close();
-    for (const conexao of this.#conexoes.values()) conexao.close();
-    this.#canalAnfitriao?.close();
-    this.#anfitriao?.close();
+    if (this.souAnfitriao) this.transmitir({ t: '$tchau' });
+    else enviarSeguro(this.#anfitriao, { t: '$tchau' });
+    // Give the goodbye a moment to leave before the links are torn down.
+    setTimeout(() => this.#desligar(), ESPERA_DESPEDIDA_MS);
+  }
+
+  #desligar() {
+    for (const conexao of this.#conexoes.values()) {
+      this.#canais.get(conexao)?.close();
+      conexao.close();
+    }
+    if (this.#anfitriao) {
+      this.#canais.get(this.#anfitriao)?.close();
+      this.#anfitriao.close();
+    }
     this.#peer?.destroy();
   }
 
-  #abrirPeer(id) {
+  async #abrirPeer(id, limiteMs = TEMPO_ABRIR_MS) {
     if (typeof Peer === 'undefined') {
-      return Promise.reject(new ErroSala('biblioteca', 'A biblioteca de conexão não carregou. Recarregue a página.'));
+      throw new ErroSala('biblioteca', 'A biblioteca de conexão não carregou. Recarregue a página.');
     }
+    const config = await configuracaoIce(MODO_REDE);
     return new Promise((resolve, reject) => {
-      const opcoes = { debug: 1 };
+      const opcoes = { debug: 1, ...(config ? { config } : {}) };
       const peer = id ? new Peer(id, opcoes) : new Peer(opcoes);
-      const limite = setTimeout(() => falhar(new ErroSala('rede', 'O servidor de salas não respondeu. Tente de novo.')), TEMPO_ABRIR_MS);
+      const limite = setTimeout(() => falhar(new ErroSala('rede', 'O servidor de salas não respondeu. Tente de novo.')), limiteMs);
       const falhar = erro => {
         clearTimeout(limite);
         peer.destroy();
@@ -288,7 +330,8 @@ export class Sala extends Emissor {
     console.warn('PeerJS error', erro?.type, erro);
   }
 
-  #conectarAoAnfitriao(nome) {
+  // Joins for the first time, or takes the old place back when `volta` ({ id, chave }) is given.
+  #conectarAoAnfitriao({ nome = null, volta = null, limiteMs = TEMPO_ENTRADA_MS }) {
     return new Promise((resolve, reject) => {
       const conexao = this.#peer.connect(this.idAnfitriao, { reliable: true, serialization: 'json' });
       let pronto = false;
@@ -297,7 +340,7 @@ export class Sala extends Emissor {
         if (decidido) return;
         decidido = true;
         clearTimeout(limite);
-        this.#aoFalharEntrada = null;
+        if (this.#aoFalharEntrada === terminar) this.#aoFalharEntrada = null;
         if (erro) {
           conexao.close();
           reject(erro);
@@ -308,16 +351,20 @@ export class Sala extends Emissor {
       };
       const limite = setTimeout(
         () => terminar(new ErroSala('tempo', 'A sala não respondeu. Confira o link ou peça um novo.')),
-        TEMPO_ENTRADA_MS,
+        limiteMs,
       );
       this.#aoFalharEntrada = terminar;
 
       const aoMensagem = mensagem => {
-        this.#ultimoContato.set(this.idAnfitriao, performance.now());
         if (pronto) {
+          if (conexao !== this.#anfitriao) return; // a link that was already replaced
+          this.#ultimoContato.set(this.idAnfitriao, performance.now());
           this.#aoMensagemDoAnfitriao(mensagem);
         } else if (mensagem?.t === '$bemvindo') {
           this.#anfitriao = conexao;
+          this.meuId = String(mensagem.voce ?? this.#peer.id);
+          this.#chave = typeof mensagem.chave === 'string' ? mensagem.chave : null;
+          this.#ultimoContato.set(this.idAnfitriao, performance.now());
           this.#aplicarMembros(mensagem.membros);
           terminar();
         } else if (mensagem?.t === '$recusado') {
@@ -325,19 +372,59 @@ export class Sala extends Emissor {
         }
       };
       conexao.on('open', () => {
-        this.#canalAnfitriao = abrirCanalRapido(conexao, aoMensagem);
-        conexao.send({ t: '$ola', v: VERSAO_PROTOCOLO, nome: limparNome(nome) });
+        this.#canais.set(conexao, abrirCanalRapido(conexao, aoMensagem));
+        conexao.send({ t: '$ola', v: VERSAO_PROTOCOLO, nome: limparNome(nome), ...(volta ? { volta } : {}) });
       });
       conexao.on('data', aoMensagem);
       conexao.on('close', () => {
-        if (pronto) this.#perderAnfitriao('O anfitrião saiu da sala.');
-        else terminar(new ErroSala('fechada', 'A sala fechou a conexão.'));
+        if (!pronto) terminar(new ErroSala('fechada', 'A sala fechou a conexão.'));
+        else if (conexao === this.#anfitriao) this.#reconectar();
       });
       conexao.on('error', erro => {
         if (!pronto) terminar(traduzirErro(erro));
         else console.warn('Host connection error', erro);
       });
     });
+  }
+
+  // Members only: the link to the host dropped. Try to take the same place back until the tolerance runs out.
+  async #reconectar() {
+    if (this.#reconectando || this.#encerrada) return;
+    this.#reconectando = true;
+    const antiga = this.#anfitriao;
+    this.#anfitriao = null;
+    antiga?.close();
+    this.emitir('reconectando');
+    const prazo = (this.#ultimoContato.get(this.idAnfitriao) ?? performance.now()) + TOLERANCIA_MS + FOLGA_RECONEXAO_MS;
+    const volta = { id: this.meuId, chave: this.#chave };
+    const nome = this.membros.get(this.meuId)?.nome;
+    for (let tentativa = 1; !this.#encerrada; tentativa++) {
+      try {
+        // The signaling socket usually dies with the network; after a failed try, start from a fresh PeerJS id.
+        if (tentativa > 1 || !this.#peer?.open) await this.#trocarPeer();
+        await this.#conectarAoAnfitriao({ nome, volta, limiteMs: TEMPO_TENTATIVA_MS });
+        this.#reconectando = false;
+        if (!this.#encerrada) this.emitir('reconectou');
+        return;
+      } catch (erro) {
+        if (this.#encerrada) return;
+        const recusado = erro?.tipo === 'recusado';
+        if (recusado || performance.now() > prazo) {
+          this.#reconectando = false;
+          this.#perderAnfitriao(recusado ? erro.message : 'A conexão com o anfitrião caiu e não voltou a tempo.');
+          return;
+        }
+        console.warn(`Reconnection attempt ${tentativa} failed`, erro);
+        await esperar(INTERVALO_TENTATIVA_MS);
+      }
+    }
+  }
+
+  async #trocarPeer() {
+    const anterior = this.#peer;
+    this.#peer = null;
+    anterior?.destroy();
+    await this.#abrirPeer(null, TEMPO_TENTATIVA_MS);
   }
 
   #aoMensagemDoAnfitriao(mensagem) {
@@ -352,6 +439,9 @@ export class Sala extends Emissor {
       case '$qualidade':
         this.#aplicarQualidade(mensagem.q);
         break;
+      case '$tchau':
+        this.#perderAnfitriao('O anfitrião saiu da sala.');
+        break;
       default:
         if (!mensagem.t.startsWith('$')) this.emitir('mensagem', this.idAnfitriao, mensagem);
     }
@@ -363,11 +453,22 @@ export class Sala extends Emissor {
     this.membros = new Map(lista.map(m => {
       const id = String(m.id);
       const antes = anteriores.get(id);
-      return [id, { id, nome: limparNome(m.nome), ordem: Number(m.ordem) || 0, ping: antes?.ping ?? null, relay: antes?.relay ?? false }];
+      const membro = {
+        id,
+        nome: limparNome(m.nome),
+        ordem: Number(m.ordem) || 0,
+        ping: antes?.ping ?? null,
+        relay: antes?.relay ?? false,
+        fora: Boolean(m.fora),
+      };
+      return [id, membro];
     }));
     if (anteriores.size) {
       for (const membro of this.membros.values()) {
-        if (!anteriores.has(membro.id) && membro.id !== this.meuId) this.emitir('entrou', membro);
+        if (membro.id === this.meuId) continue;
+        const antes = anteriores.get(membro.id);
+        if (!antes) this.emitir('entrou', membro);
+        else if (antes.fora !== membro.fora) this.emitir(membro.fora ? 'fora' : 'voltou', membro);
       }
       for (const membro of anteriores.values()) {
         if (!this.membros.has(membro.id)) this.emitir('saiu', membro);
@@ -389,34 +490,39 @@ export class Sala extends Emissor {
 
   #aceitar(conexao) {
     const aoMensagem = mensagem => this.#aoMensagemDoMembro(conexao, mensagem);
-    conexao.on('open', () => this.#canais.set(conexao.peer, abrirCanalRapido(conexao, aoMensagem)));
+    conexao.on('open', () => this.#canais.set(conexao, abrirCanalRapido(conexao, aoMensagem)));
     conexao.on('data', aoMensagem);
-    conexao.on('close', () => this.#removerMembro(conexao.peer, conexao));
+    conexao.on('close', () => this.#aoCairLigacao(conexao));
     conexao.on('error', erro => {
       console.warn('Member connection error', erro);
-      this.#removerMembro(conexao.peer, conexao);
+      this.#aoCairLigacao(conexao);
     });
+  }
+
+  // A dropped link does not remove the member yet: it may come back within the tolerance.
+  #aoCairLigacao(conexao) {
+    const id = this.#donos.get(conexao);
+    if (this.#encerrada || !id || this.#conexoes.get(id) !== conexao) return;
+    this.#marcarFora(id, true);
   }
 
   #aoMensagemDoMembro(conexao, mensagem) {
     if (typeof mensagem?.t !== 'string') return;
-    const id = conexao.peer;
-    this.#ultimoContato.set(id, performance.now());
     if (mensagem.t === '$ola') {
       this.#receberOla(conexao, mensagem);
       return;
     }
-    if (this.#conexoes.get(id) !== conexao) return;
-    if (mensagem.t === '$pong') {
-      this.#registrarPing(id, performance.now() - Number(mensagem.h));
-      return;
-    }
-    if (!mensagem.t.startsWith('$')) this.emitir('mensagem', id, mensagem);
+    const id = this.#donos.get(conexao);
+    if (!id || this.#conexoes.get(id) !== conexao) return;
+    this.#ultimoContato.set(id, performance.now());
+    this.#marcarFora(id, false);
+    if (mensagem.t === '$pong') this.#registrarPing(id, performance.now() - Number(mensagem.h));
+    else if (mensagem.t === '$tchau') this.#removerMembro(id, conexao);
+    else if (!mensagem.t.startsWith('$')) this.emitir('mensagem', id, mensagem);
   }
 
   #receberOla(conexao, mensagem) {
-    const id = conexao.peer;
-    if (this.#conexoes.has(id)) return;
+    if (this.#donos.has(conexao)) return;
     const recusar = motivo => {
       enviarSeguro(conexao, { t: '$recusado', motivo });
       setTimeout(() => conexao.close(), 500);
@@ -425,15 +531,56 @@ export class Sala extends Emissor {
       recusar('Esta página está desatualizada. Recarregue e entre de novo pelo link.');
       return;
     }
+    if (mensagem.volta) {
+      this.#receberVolta(conexao, mensagem.volta, recusar);
+      return;
+    }
+    const id = conexao.peer;
+    if (this.membros.has(id)) return;
     if (this.membros.size >= this.#maxMembros) {
       recusar(`A sala está cheia (máximo de ${this.#maxMembros}).`);
       return;
     }
-    this.#conexoes.set(id, conexao);
+    const chave = sortear(ALFABETO, TAMANHO_CHAVE);
+    this.#chaves.set(id, chave);
+    this.#ligar(id, conexao);
     const membro = this.#adicionarMembro(id, mensagem.nome);
-    enviarSeguro(conexao, { t: '$bemvindo', membros: this.membrosOrdenados() });
+    enviarSeguro(conexao, { t: '$bemvindo', voce: id, chave, membros: this.membrosOrdenados() });
     this.#anunciarMembros();
     this.emitir('entrou', membro);
+  }
+
+  // A member that dropped comes back, maybe from a new PeerJS id, and takes its old place.
+  #receberVolta(conexao, volta, recusar) {
+    const id = String(volta?.id ?? '');
+    const chave = this.#chaves.get(id);
+    if (!this.membros.has(id) || !chave || volta?.chave !== chave) {
+      recusar(`Você ficou fora por mais de ${TOLERANCIA_MS / 1000} segundos e a sala seguiu sem você. Entre de novo pelo link.`);
+      return;
+    }
+    const antiga = this.#conexoes.get(id);
+    this.#ligar(id, conexao);
+    if (antiga && antiga !== conexao) antiga.close();
+    const membro = this.membros.get(id);
+    const estavaFora = membro.fora;
+    membro.fora = false;
+    enviarSeguro(conexao, { t: '$bemvindo', voce: id, chave, membros: this.membrosOrdenados() });
+    this.#anunciarMembros();
+    if (estavaFora) this.emitir('voltou', membro);
+  }
+
+  #ligar(id, conexao) {
+    this.#conexoes.set(id, conexao);
+    this.#donos.set(conexao, id);
+    this.#ultimoContato.set(id, performance.now());
+  }
+
+  #marcarFora(id, fora) {
+    const membro = this.membros.get(id);
+    if (!membro || membro.fora === fora) return;
+    membro.fora = fora;
+    this.#anunciarMembros();
+    this.emitir(fora ? 'fora' : 'voltou', membro);
   }
 
   #registrarPing(id, amostra) {
@@ -444,7 +591,7 @@ export class Sala extends Emissor {
   }
 
   #adicionarMembro(id, nome) {
-    const membro = { id, nome: limparNome(nome), ordem: this.#proximaOrdem++, ping: null, relay: false };
+    const membro = { id, nome: limparNome(nome), ordem: this.#proximaOrdem++, ping: null, relay: false, fora: false };
     this.membros.set(id, membro);
     return membro;
   }
@@ -452,9 +599,10 @@ export class Sala extends Emissor {
   #removerMembro(id, conexao) {
     if (this.#encerrada || this.#conexoes.get(id) !== conexao) return;
     this.#conexoes.delete(id);
-    this.#canais.get(id)?.close();
-    this.#canais.delete(id);
+    this.#chaves.delete(id);
     this.#ultimoContato.delete(id);
+    this.#canais.get(conexao)?.close();
+    conexao.close();
     const membro = this.membros.get(id);
     if (!membro) return;
     this.membros.delete(id);
@@ -463,7 +611,7 @@ export class Sala extends Emissor {
   }
 
   #anunciarMembros() {
-    const membros = this.membrosOrdenados().map(({ id, nome, ordem }) => ({ id, nome, ordem }));
+    const membros = this.membrosOrdenados().map(({ id, nome, ordem, fora }) => ({ id, nome, ordem, ...(fora ? { fora: 1 } : {}) }));
     this.transmitir({ t: '$membros', membros });
     this.emitir('membros', this.membrosOrdenados());
   }
@@ -478,22 +626,23 @@ export class Sala extends Emissor {
     this.#vigia = criarTique(INTERVALO_PING_MS, () => this.#vigiar());
   }
 
-  // The host pings everyone (round trip time shows in the member list); silence beyond the limit is a drop.
+  // The host pings everyone (round trip time shows in the member list). A short silence marks a member as away;
+  // one longer than the tolerance removes it. Members start reconnecting after the same short silence.
   #vigiar() {
     const agora = performance.now();
     if (!this.souAnfitriao) {
       const ultimo = this.#ultimoContato.get(this.idAnfitriao) ?? agora;
-      if (agora - ultimo > LIMITE_SILENCIO_MS) this.#perderAnfitriao('A conexão com o anfitrião caiu.');
+      if (!this.#reconectando && agora - ultimo > LIMITE_QUEDA_MS) this.#reconectar();
       return;
     }
     for (const [id, conexao] of this.#conexoes) {
-      const ultimo = this.#ultimoContato.get(id) ?? agora;
-      if (agora - ultimo > LIMITE_SILENCIO_MS) {
+      const silencio = agora - (this.#ultimoContato.get(id) ?? agora);
+      if (silencio > TOLERANCIA_MS) {
         this.#removerMembro(id, conexao);
-        conexao.close();
-      } else {
-        enviarSeguro(conexao, { t: '$ping', h: agora });
+        continue;
       }
+      if (silencio > LIMITE_QUEDA_MS) this.#marcarFora(id, true);
+      enviarSeguro(conexao, { t: '$ping', h: agora });
     }
     if (agora - this.#ultimaChecagemRede >= INTERVALO_REDE_MS) {
       this.#ultimaChecagemRede = agora;

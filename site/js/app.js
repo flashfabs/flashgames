@@ -1,6 +1,6 @@
 // Site shell: home screen, room screen and member list. Games plug in through the room (Sala).
 
-import { Sala, normalizarCodigo, limparNome } from './sala.js';
+import { Sala, normalizarCodigo, limparNome, TOLERANCIA_MS } from './sala.js';
 import { criarPavio } from './pavio/pavio.js';
 import { marcaJogador } from './pavio/desenho.js';
 import { som } from './som.js';
@@ -9,6 +9,7 @@ const CHAVE_NOME = 'salinha:nome';
 const APELIDOS = ['Faísca', 'Pólvora', 'Estopim', 'Fagulha', 'Chispa', 'Brasa', 'Rojão', 'Traque', 'Fumaça', 'Pavio'];
 const MAX_MEMBROS = 8;
 const DURACAO_AVISO_MS = 3200;
+const TOLERANCIA_S = TOLERANCIA_MS / 1000;
 
 const $ = seletor => document.querySelector(seletor);
 const telas = { inicio: $('#inicio'), sala: $('#sala') };
@@ -132,6 +133,13 @@ function abrirSala(sala) {
     avisar(`${membro.nome} saiu da sala`);
     som.tocar('saiu');
   });
+  sala.on('fora', membro => avisar(`${membro.nome} caiu; a vaga fica guardada por ${TOLERANCIA_S} s`));
+  sala.on('voltou', membro => avisar(`${membro.nome} voltou`));
+  sala.on('reconectando', () => mostrarReconexao());
+  sala.on('reconectou', () => {
+    $('#queda').hidden = true;
+    avisar('Conexão de volta!');
+  });
   sala.on('caiu', motivo => mostrarQueda(motivo));
   jogoAtual = criarPavio({
     sala,
@@ -160,7 +168,17 @@ function voltarAoInicio({ manterEndereco = false } = {}) {
 }
 
 function mostrarQueda(motivo) {
+  $('#queda-titulo').textContent = 'Conexão perdida';
   $('#queda-motivo').textContent = motivo;
+  $('#queda-acoes').hidden = false;
+  $('#queda').hidden = false;
+}
+
+// Same dialog, without buttons: the room is trying to get this member back on its own.
+function mostrarReconexao() {
+  $('#queda-titulo').textContent = 'Reconectando…';
+  $('#queda-motivo').textContent = `A conexão caiu. Sua vaga fica guardada por ${TOLERANCIA_S} segundos enquanto a gente tenta voltar.`;
+  $('#queda-acoes').hidden = true;
   $('#queda').hidden = false;
 }
 
@@ -195,7 +213,8 @@ function desenharMembros() {
     } else {
       item.append(etiqueta(`⭐ ${infoJogo.pontos[membro.id] ?? 0}`, 'etiqueta--pontos', 'Pontos na rodada'));
     }
-    if (membro.id !== sala.idAnfitriao) item.append(etiquetaDeConexao(membro));
+    if (membro.fora) item.append(etiqueta('📶 reconectando', 'etiqueta--ping etiqueta--ruim', `A conexão caiu; a vaga fica guardada por ${TOLERANCIA_S} s`));
+    else if (membro.id !== sala.idAnfitriao) item.append(etiquetaDeConexao(membro));
     return item;
   }));
 }
