@@ -60,7 +60,7 @@ Na fase 1, o RTS não toca em `site/js/sala.js`, `site/js/app.js`, `site/index.h
 | C5 | Dados de jogo em inteiros, validados no carregamento | `site/rts/dados/{unidades,predios,armas}.json` | F5 (números), F1 (esquema e validador) | F1, F7 | campo `versao` |
 | C6 | Mapa: `mapa.json` (cabeçalho), `camadas.bin` (solo, altura, passabilidade, recurso, decoração) e `entidades.json` | `site/rts/dados/mapas/<id>/` | F5 | F1, F2, F7 | campo `versao`, esquema testado pela F1 |
 | C7 | Gatilhos de missão (condições e ações) em JSON | `site/rts/dados/missoes/` | F5 (dados), F1 (avaliador), F6 (comportamentos) | F1 | campo `versao` |
-| C8 | Projeção e luz: elevação, metros e pixels por célula por nível, sol, transformação de cor | `site/rts/dados/projecao.json` | F2 | F3, F7 | `versao`; v1 congelada no M2 |
+| C8 | Projeção e luz: elevação, metros e pixels por célula por nível, campo de visão em células (30 colunas em 16:9, linhas fixas, colunas entre 24 e 40) e os três zooms, sol, transformação de cor, exagero da infantaria e cores de time; a câmera da página é `{ x, y, zoom }`, com o zoom como fator, e as conversões entre tela e mapa ficam em `site/rts/js/entrada/camera.js` sobre `site/rts/js/render/projecao.js` | `site/rts/dados/projecao.json` | F2 | F3, F7 | `versao`; v1 congelada no M2 |
 | C9 | Manifesto de sprites por asset e índice por fase, com pontos de encaixe por direção | `site/rts/assets/sprites/<categoria>/<asset>.json`, `site/rts/assets/indice.json` | F3 | F2, F8 | `versao` |
 | C10 | Sons: evento para ids de som, categoria, prioridade e variações | `site/rts/dados/sons.json` | F4 | F4 | `versao` |
 | C11 | Textos de interface, briefings, falas e legendas por id | `site/rts/dados/textos/pt-BR.json` | F5 | F7, F4 | ids estáveis |
