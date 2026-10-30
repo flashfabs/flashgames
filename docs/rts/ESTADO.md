@@ -10,6 +10,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 
 - Etapa: E0 (pré-produção e higiene) junto com a onda 1 (E1 motor de produção e E2 fábrica de arte), por pedido do Victor em 30/10/2026.
 - Integração: branch `rts/base`, criada em 30/10/2026 a partir da `main` em `94d4631`; nada do RTS foi para a `main` nem para a Netlify.
+- Guarda da produção, 30/10/2026: `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404 e a `rts/base` não tem deploy de branch na Netlify.
 - Sessões da onda 1: `rts-qualidade`, `rts-arte`, `rts-design`, `rts-motor`, `rts-render` e `rts-interface`.
 
 ## Decisões
@@ -52,7 +53,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | Log do EEVEE pelo SSH mostra a NVIDIA | PC da RTX 4090 | pendente (`rts-arte`) | — |
 | `rtx.sh renderizar tanque` com trava, código 0 e `relatorio.json` | Mac para o PC da RTX 4090 | pendente (`rts-arte`) | — |
 | Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | pendente (`rts-arte`) | — |
-| Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados, antes do protótipo | 30/10/2026 |
+| Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados antes do protótipo; 23,98 MiB soltos e 5,44 MiB empacotados com o protótipo e o passo zero (os atlas do protótipo e de `site/rts/assets/prototipo/` são os mesmos objetos) | 30/10/2026 |
 
 Navegadores do Playwright: o 1.63 do projeto pede Firefox 155 e WebKit 26.6, que não estão no cache desta máquina; o Firefox 153 e o WebKit 26.5 do playwright-core 1.62.1 serviram para as medições de 30/10/2026.
 Sem eles, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
@@ -159,6 +160,7 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 ### F3 Arte e Blender (`rts-arte`)
 
 Onda 1 aberta em 30/10/2026; nada integrado ainda.
+O Blender 5.2.3 LTS foi instalado no PC da RTX 4090 pelo winget em 30/10/2026, pela sessão que fez o plano, para o teste do pipeline; fica nessa versão durante a fase 1.
 
 ### F5 Design, mundo e fase 1 (`rts-design`)
 
@@ -171,7 +173,10 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 ### F8 Qualidade e coordenação (`rts-qualidade`)
 
 - 30/10/2026: `rts/base` criada da `main` (`94d4631`); protótipo em `prototipos/rts-4k/` sem as imagens do SDXL e com o cabeçalho SPDX no script do Blender; configuração `prototipo-rts` (porta 8811) no `.claude/launch.json`; `testes/rts-originalidade.test.mjs`; este arquivo e o [frentes.md](frentes.md).
-- Pendente nesta onda: página de diagnóstico em `prototipos/diagnostico/`, roteiro de 15 minutos, projeto Playwright `rts-determinismo`, barreira de determinismo com a `rts-motor`, pushes da `rts/base` no Action.
+- 30/10/2026: o Action roda em cada push da `rts/base`, com histórico completo e o texto do pull request no teste de originalidade; o primeiro run passou em 5m55s.
+- 30/10/2026: página de diagnóstico em `prototipos/diagnostico/` (configuração `diagnostico-rts`, porta 8820), conferida no Chromium, no Firefox e no WebKit; [roteiro de medições](roteiro-medicoes.md) com o caminho do PC testado pelo SSH.
+- 30/10/2026: projetos Playwright `rts-determinismo-chromium`, `-firefox` e `-webkit` (`testes/e2e/rts-determinismo.spec.mjs`) com o roteiro do protótipo num Worker, prontos para os replays dourados da `rts-motor` em `testes/rts-replays/` (formato combinado: `executarReplay(replay)` devolve `{ somas, final }`, e o arquivo traz `somas` e `final` esperados); a barreira de lint fica com a `rts-motor` em `testes/rts-sim-barreira.test.mjs`.
+- Pendente: Firefox e WebKit do Playwright 1.63 no Mac (decisão D16), endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro, os replays dourados no `rts-determinismo`.
 
 ### F4, F6 e F9
 
