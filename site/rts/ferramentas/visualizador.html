@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Visualizador de atlas</title>
+  <style>
+    :root { color-scheme: dark; --fundo: #0b0a09; --painel: #15130f; --borda: rgba(255, 255, 255, 0.14); --texto: #e9e2d6; --suave: #a59c8f; --destaque: #ffcf7a; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    body { display: grid; grid-template-rows: auto 1fr; }
+    header { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; padding: 10px 14px; background: var(--painel); border-bottom: 1px solid var(--borda); }
+    header h1 { margin: 0; font-size: 13px; color: var(--destaque); font-weight: 600; }
+    label, .grupo { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+    select, input[type=text] { background: #0f0e0c; color: var(--texto); border: 1px solid var(--borda); border-radius: 4px; padding: 3px 6px; font: inherit; }
+    input[type=text] { width: 22ch; }
+    .cores { display: inline-flex; gap: 4px; }
+    .cores button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+    .cores button[aria-pressed=true] { border-color: #fff; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; min-height: 0; background: #000; }
+    main.so-a { grid-template-columns: 1fr; }
+    main.so-a #lado-b { display: none; }
+    .lado { position: relative; min-height: 0; overflow: hidden; }
+    .lado canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .legenda { position: absolute; left: 10px; bottom: 10px; padding: 6px 9px; background: rgba(10, 9, 8, 0.8); border: 1px solid var(--borda); border-radius: 6px; pointer-events: none; white-space: pre; }
+    .legenda b { color: var(--destaque); font-weight: 600; }
+    .erro { color: #ff8a70; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Visualizador de atlas</h1>
+    <span class="grupo">A <select id="fonte-a" aria-label="Versão A"></select><input id="url-a" type="text" placeholder="URL do manifesto" aria-label="URL do manifesto A" hidden></span>
+    <span class="grupo">B <select id="fonte-b" aria-label="Versão B"></select><input id="url-b" type="text" placeholder="URL do manifesto" aria-label="URL do manifesto B" hidden></span>
+    <label>Animação <select id="animacao"></select></label>
+    <label>Mostrar <select id="modo"><option value="uma">uma direção</option><option value="todas">todas as direções</option></select></label>
+    <label>Direção <input id="direcao" type="range" min="0" max="15" value="0"><output id="direcao-valor">0</output></label>
+    <label><input id="girar" type="checkbox"> girar</label>
+    <label>Torre <select id="animacao-torre"></select> <input id="torre" type="range" min="0" max="31" value="0" aria-label="Giro da torre"></label>
+    <label>Nível <select id="nivel"><option value="uhd">uhd</option><option value="hd">hd</option></select></label>
+    <label>Zoom <select id="zoom"><option value="0.75">afastado</option><option value="1" selected>padrão</option><option value="1.25">aproximado</option><option value="2">inspeção 2×</option><option value="4">inspeção 4×</option></select></label>
+    <span class="grupo">Time <span class="cores" id="cores"></span></span>
+    <label><input id="regua" type="checkbox" checked> régua de células</label>
+    <label><input id="pontos" type="checkbox" checked> pontos de encaixe</label>
+    <label>Sombra <select id="sombra"><option value="alfa">derivada do alfa</option><option value="camada">camada renderizada</option><option value="comparar">comparar (A alfa, B camada)</option><option value="nenhuma">nenhuma</option></select></label>
+  </header>
+  <main id="lados">
+    <section class="lado" id="lado-a"><canvas class="cena"></canvas><canvas class="regua"></canvas><div class="legenda"></div></section>
+    <section class="lado" id="lado-b"><canvas class="cena"></canvas><canvas class="regua"></canvas><div class="legenda"></div></section>
+  </main>
+  <script type="module" src="../js/render/visualizador.js"></script>
+</body>
+</html>

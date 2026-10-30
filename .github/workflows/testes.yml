@@ -1,4 +1,4 @@
-# Every pull request and every push to main or to rts/base (the RTS integration branch) runs the unit tests and the functional end-to-end tests.
+# Every pull request and every push to main or to rts/base (the RTS integration branch) runs the unit tests, the functional end-to-end tests and the RTS determinism barrier in Chromium, Firefox and WebKit.
 # Nothing is published here: Netlify builds and publishes from GitHub on its own.
 # The performance suite stays on the Mac: it measures the Mac's GPU through Metal, and these runners have none.
 name: Testes
@@ -43,11 +43,15 @@ jobs:
             ${{ github.event.pull_request.title }}
             ${{ github.event.pull_request.body }}
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install the browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: End-to-end tests
         run: SALINHA_PROCESSOS=2 npx playwright test --project=funcionais
+
+      # The same RTS matches inside a Worker of each engine must give the same checksums as Node.
+      - name: RTS determinism in three engines
+        run: npx playwright test --project='rts-determinismo-*'
 
       - name: Keep test traces
         if: failure()

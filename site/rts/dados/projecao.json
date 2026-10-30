@@ -1,0 +1,56 @@
+{
+  "versao": 0,
+  "estado": "proposta ate o portao de estilo; a v1 congela elevacao, escala, direcoes e acabamento",
+  "camera": {
+    "tipo": "ortografica",
+    "elevacaoGraus": 55,
+    "olhaPara": "norte",
+    "blenderRotacaoGraus": [35, 0, 0]
+  },
+  "metrosPorCelula": 4,
+  "pxPorCelula": { "hd": 64, "uhd": 128 },
+  "campoDeVisao": {
+    "colunasReferencia": 30,
+    "proporcaoReferencia": [16, 9],
+    "colunasMin": 24,
+    "colunasMax": 40,
+    "zooms": { "afastado": 0.75, "padrao": 1, "aproximado": 1.25 }
+  },
+  "sol": {
+    "azimuteTelaGraus": 135,
+    "elevacaoGraus": 50,
+    "energia": 2.6,
+    "anguloGraus": 6,
+    "vetorParaOSol": [-0.4545, 0.4545, 0.766],
+    "blenderRotacaoGraus": [40, 0, -135]
+  },
+  "ceu": { "cor": [0.42, 0.44, 0.48], "forca": 0.35 },
+  "transformacaoDeCor": "Standard",
+  "aparencia": "None",
+  "exposicao": 0,
+  "gama": 1,
+  "exageroInfantaria": 1.4,
+  "direcoes": { "zero": "leste", "sentido": "horario-na-tela", "giraOModelo": true },
+  "time": {
+    "fator": 1.8,
+    "cinzaNoPasseDeCor": 140,
+    "cores": [
+      [41, 189, 204],
+      [224, 87, 31],
+      [64, 110, 235],
+      [214, 40, 56],
+      [92, 204, 64],
+      [150, 70, 220],
+      [235, 72, 170],
+      [236, 236, 228]
+    ]
+  },
+  "notas": [
+    "Axes: map x points east (screen right) and map y points south (screen down); Blender x is east, y is north, z is up, and the camera looks north.",
+    "A ground offset of d cells shows as d*px horizontally and d*px*sin(elevation) vertically; a height of h metres shows h*(px/metrosPorCelula)*cos(elevation) up.",
+    "Default zoom: px = canvasHeight / (colunasReferencia * 9/16), then clamped so the visible columns stay in [colunasMin, colunasMax]; the zoom factor multiplies the clamped value.",
+    "Blender ortho_scale = frameWidthPx / pxPorCelula[level] * metrosPorCelula (a 256 px uhd frame gives 8 m).",
+    "Sun azimuth is where the light comes from, counter-clockwise from east with north up; vetorParaOSol is in Blender axes.",
+    "Team tint: final = mix(colour, colour * teamColour * fator, mask); paint team areas neutral grey around sRGB cinzaNoPasseDeCor."
+  ]
+}

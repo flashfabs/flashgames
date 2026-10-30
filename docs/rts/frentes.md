@@ -26,6 +26,7 @@ Nada do RTS vai para a `main` nem para a Netlify antes disso; nunca force push, 
 3. Avance a `rts/base` e mande para o GitHub: `git -C /Users/vhccruz/Dev/salinha fetch . <sua-branch>:rts/base && git -C /Users/vhccruz/Dev/salinha push origin rts/base`. Se o `fetch` recusar por não ser avanço direto, alguém integrou antes: volte ao passo 2.
 4. Solte a trava (`rm /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock/dono && rmdir /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock`) e mande à `rts-qualidade` uma linha com o que entrou e o commit.
 
+O `npm run e2e` completo roda só com a trava na mão; fora dela, cada sessão roda o `npm test` e só os specs do seu trabalho. Com dois e2e completos ao mesmo tempo a carga do Mac passou de 70 em 30/10/2026 e os testes do Pavio estouraram o tempo sem nada quebrado.
 A `rts/base` nunca fica com checkout em nenhuma worktree, senão o `fetch` do passo 3 é recusado.
 O Action `.github/workflows/testes.yml` roda em cada push da `rts/base`; vermelho na `rts/base` é prioridade de quem integrou por último.
 Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando as outras sessões.
@@ -59,7 +60,7 @@ Na fase 1, o RTS não toca em `site/js/sala.js`, `site/js/app.js`, `site/index.h
 | C5 | Dados de jogo em inteiros, validados no carregamento | `site/rts/dados/{unidades,predios,armas}.json` | F5 (números), F1 (esquema e validador) | F1, F7 | campo `versao` |
 | C6 | Mapa: `mapa.json` (cabeçalho), `camadas.bin` (solo, altura, passabilidade, recurso, decoração) e `entidades.json` | `site/rts/dados/mapas/<id>/` | F5 | F1, F2, F7 | campo `versao`, esquema testado pela F1 |
 | C7 | Gatilhos de missão (condições e ações) em JSON | `site/rts/dados/missoes/` | F5 (dados), F1 (avaliador), F6 (comportamentos) | F1 | campo `versao` |
-| C8 | Projeção e luz: elevação, metros e pixels por célula por nível, sol, transformação de cor | `site/rts/dados/projecao.json` | F2 | F3, F7 | `versao`; v1 congelada no M2 |
+| C8 | Projeção e luz: elevação, metros e pixels por célula por nível, campo de visão em células (30 colunas em 16:9, linhas fixas, colunas entre 24 e 40) e os três zooms, sol, transformação de cor, exagero da infantaria e cores de time; a câmera da página é `{ x, y, zoom }`, com o zoom como fator, e as conversões entre tela e mapa ficam em `site/rts/js/entrada/camera.js` sobre `site/rts/js/render/projecao.js` | `site/rts/dados/projecao.json` | F2 | F3, F7 | `versao`; v1 congelada no M2 |
 | C9 | Manifesto de sprites por asset e índice por fase, com pontos de encaixe por direção | `site/rts/assets/sprites/<categoria>/<asset>.json`, `site/rts/assets/indice.json` | F3 | F2, F8 | `versao` |
 | C10 | Sons: evento para ids de som, categoria, prioridade e variações | `site/rts/dados/sons.json` | F4 | F4 | `versao` |
 | C11 | Textos de interface, briefings, falas e legendas por id | `site/rts/dados/textos/pt-BR.json` | F5 | F7, F4 | ids estáveis |

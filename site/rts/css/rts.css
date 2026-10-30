@@ -1,0 +1,27 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #0b0a09; color: #e9e2d6; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; }
+#palco { position: fixed; inset: 0; display: grid; place-items: center; background: #050404; }
+#tela { display: block; cursor: crosshair; touch-action: none; }
+#caixa-selecao { position: absolute; border: 1px solid #6dff8a; background: rgba(109, 255, 138, 0.08); pointer-events: none; }
+#painel { position: fixed; top: 12px; left: 12px; padding: 10px 12px; background: rgba(10, 9, 8, 0.78); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; min-width: 330px; pointer-events: none; }
+#painel b { color: #ffcf7a; font-weight: 600; }
+#painel div { white-space: nowrap; }
+#painel .ajuda { margin-top: 6px; color: #a59c8f; white-space: normal; max-width: 440px; }
+#minimapa { position: fixed; right: 12px; bottom: 12px; width: 220px; height: 220px; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 6px; background: #000; cursor: pointer; image-rendering: auto; }
+#resultado { position: fixed; top: 12px; right: 12px; margin: 0; padding: 12px; background: rgba(10, 9, 8, 0.9); border: 1px solid #ffcf7a; border-radius: 8px; white-space: pre; }
+#tela:focus { outline: none; }
+#palco[data-modo="atacarMovendo"] #tela { cursor: cell; }
+#palco[data-modo="mover"] #tela, #palco[data-modo="patrulhar"] #tela { cursor: copy; }
+#sobreposicao { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+#sobreposicao line { stroke-width: 2; stroke-dasharray: 6 5; opacity: 0.85; }
+#sobreposicao circle { stroke: #050404; stroke-width: 1.5; }
+#comandos { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; padding: 8px 10px; background: rgba(10, 9, 8, 0.82); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 10px; max-width: calc(100vw - 280px); }
+.comandos-linha { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+#comandos button { font: inherit; color: #e9e2d6; background: #24211d; border: 1px solid #4a443c; border-radius: 6px; min-height: 30px; min-width: 30px; padding: 3px 9px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+#comandos button:hover:not(:disabled) { border-color: #ffcf7a; }
+#comandos button:disabled { opacity: 0.45; cursor: default; }
+#comandos button[aria-pressed="true"] { background: #5a3f12; border-color: #ffcf7a; }
+#comandos button[data-vazio="true"] { color: #8a8174; }
+#comandos kbd { font: inherit; font-size: 11px; color: #a59c8f; }
+.comandos-aviso { color: #a59c8f; min-height: 18px; }
