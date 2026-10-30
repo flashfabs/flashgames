@@ -27,7 +27,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | D30 | `rts/base` como integração do RTS, com trava própria, juntada à `main` só nos marcos | aceita em 30/10/2026 |
 | D31 | Se ninguém do grupo modelar à mão, tudo por script | aceita em 30/10/2026 |
 | D08 a D12 | Jogo comercial desde já, fontes de arte, 2D pré-renderizado, IA só para conceito, câmera e escala | abertas; D12 se decide no M2, vendo em 4K |
-| D16 | Ferramentas a instalar (Tiled, Pillow, Firefox e WebKit do Playwright) | aberta; ver Medições |
+| D16 | Ferramentas a instalar (Tiled, Pillow, Firefox e WebKit do Playwright) | Firefox e WebKit do Playwright aprovados e instalados no Mac em 30/10/2026; Tiled e Pillow seguem abertos |
 
 ## Medições da E0
 
@@ -55,9 +55,8 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | sobrevive: com o cliente morto aos 25 s de um lote de 192 quadros, o Blender terminou sozinho; como o `Start-Process` morre quando a sessão SSH termina normalmente, o `rtx.sh` lança o lote pelo WMI (`Win32_Process.Create`) e o próprio PC solta a trava, sem `schtasks`. Queda de rede sem FIN não foi testada (exigiria derrubar o Tailscale) | `rts-arte`, 30/10/2026 |
 | Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados antes do protótipo; 23,98 MiB soltos e 5,44 MiB empacotados com o protótipo e o passo zero (os atlas do protótipo e de `site/rts/assets/prototipo/` são os mesmos objetos) | 30/10/2026 |
 
-Navegadores do Playwright: o 1.63 do projeto pede Firefox 155 e WebKit 26.6, que não estão no cache desta máquina; o Firefox 153 e o WebKit 26.5 do playwright-core 1.62.1 serviram para as medições de 30/10/2026.
-Sem eles, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
-Instalar no Mac (`npx playwright install firefox webkit`) depende de aprovação do Victor (decisão D16).
+Navegadores do Playwright: o Firefox 155 e o WebKit 26.6 do Playwright 1.63 foram instalados no Mac em 30/10/2026, com aprovação do Victor (D16), e o `rts-determinismo` passou nos três motores localmente; as medições anteriores do Firefox 153 e do WebKit 26.5 vieram do playwright-core 1.62.1.
+Numa máquina sem esses navegadores, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
 
 ## Critérios por etapa
 
@@ -93,7 +92,7 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 
 | Critério | Meta | Estado |
 | --- | --- | --- |
-| `rtx.sh renderizar <asset>` | atlas, manifesto e procedência sem passo manual, testes verdes | pendente |
+| `rtx.sh renderizar <asset>` | atlas, manifesto e procedência sem passo manual, testes verdes | feito em 30/10/2026 (`rts-arte`): os 11 assets do portão saíram assim do commit `19ffcaa`, código 0 em todos, com `npm test` verde |
 | Veículo de 32 direções com todos os passes | até 10 minutos de GPU e até 1 GB de disco | medido em 30/10/2026 pela `rts-arte`: Cesto Blindado com cor, time, normal e sombra, 1.920 renders em 129 s de GPU e 222 s de lote, 123 MB no D:; sem o denoiser na CPU, 0,03 a 0,06 s por quadro de 256 px |
 | Memória de textura | estimada dentro de 20% da medida no navegador | pendente |
 | Teste de leitura de 5 segundos | pelo menos 80% de acerto em 4K, 1080p e com filtro de daltonismo, com 5 pessoas | pendente |
@@ -196,8 +195,15 @@ Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada 
 
 ### F3 Arte e Blender (`rts-arte`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
 O Blender 5.2.3 LTS foi instalado no PC da RTX 4090 pelo winget em 30/10/2026, pela sessão que fez o plano, para o teste do pipeline; fica nessa versão durante a fase 1.
+
+- 30/10/2026, onda 0: no PC, `D:\rts\{scripts,config,fonte,saida,cache,logs}` e a trava `D:\rts\trava-gpu` (pasta criada de forma atômica, com arquivo `dono`); `ferramentas/arte/rtx.sh` com `checar`, `enviar`, `renderizar`, `acompanhar`, `buscar`, `reempacotar`, `limpar` e `trava`, que antes de cada lote confere o alcance pelo SSH, o espaço em C: e D:, o tamanho de `D:\rts` (teto de 12 GB) e a VRAM livre (mínimo de 6.000 MiB), lança o lote pelo WMI e deixa o próprio PC soltar a trava; os temporários do Blender vão para `D:\rts\cache`.
+- 30/10/2026, onda 0: EEVEE pelo SSH na GPU, lote que sobrevive à queda do SSH e custo por quadro medidos (tabela de medições acima e `arte/blender/MEDICOES.md`); o cerca de 1 s por quadro do teste anterior era o denoiser na CPU, e a fábrica usa 256 amostras sem denoiser (0,056 s por quadro de 256 px, sem tremor entre quadros).
+- 30/10/2026, onda 1: fábrica em `arte/blender/` (GPL-3.0-or-later): `comum/compat.py` com o que mudou na API 5.x conferido no 5.2.3 (motor EEVEE, actions com slots, compositor em node group, `media_type` antes do formato, `use_nodes`, `gpu.init()`), leitura do `projecao.json`, câmera ortográfica e luz canônica, passes `cor`, `time`, `normal` e `sombra` por troca de material, pontos de encaixe por direção e quadro, camadas que reusam (`usa`) ou recortam (`recorte`) outras, e o empacotador dentro do próprio Blender (recorte, âncora par, `hd` por redução 2×2 ponderada pela cobertura, MaxRects até 4096, WebP sem bloco de metadados e conferido byte a byte quando sem perda, hash no nome, manifesto C9, procedência e `site/rts/assets/indice.json`).
+- 30/10/2026, onda 1: portão de estilo, tudo por script, sem modelagem à mão e sem IA generativa: `religadores-veiculo-cesto-blindado` (32 direções, camadas corpo, torre, torre-erguida e completo, 8 animações, também a 45° e 65° como `-e45` e `-e65`), `religadores-infantaria-turma-de-linha` (esqueleto comum da infantaria e as 4 ações em actions com slots: a prova do personagem 100% por script da D31), `desligados-veiculo-carro-vela` (vela de malha refeita a cada quadro, faixa de time na lona), `religadores-construcao-escritorio-regional` (atividade em laço, porta de enrolar, danificada e camada `luzes` separada), `efeito-explosao-media`, `terreno-terra-batida` (ladrilho de 8 células sem emenda), `interface-retrato-turma-de-linha` e `interface-icone-escritorio-regional`; o tanque do protótipo ficou só como `teste-veiculo-tanque`. Os 32 atlas de direção trazem as 16 direções como uma sim, outra não.
+- Números: lote do Cesto de 32 direções com cor, time e sombra em 140 s (90 s de GPU), 74 MB no D:; 5,1 MB de WebP no `uhd` e 1,6 MB no `hd`; todos os assets do portão somam 26 MB no repositório, nenhum arquivo acima de 2 MB.
+- Pendente para o M2 (Victor, no visualizador da `rts-render`): elevação (45, 55 ou 65), 16 ou 32 direções, acabamento e a sombra; a sombra renderizada sai mais bonita, mas corta na borda do quadro e pesa 1 byte por pixel, e a recomendação é sombra derivada do alfa nas unidades e camada renderizada só nas construções, com quadro maior.
+- Pendente: o Cesto com 32 direções e todas as animações estima cerca de 150 MB de textura no `uhd` (páginas inteiras), acima do que cabe no orçamento de 256 MB da fase toda; as alavancas são 16 direções, menos quadros na transição e página menor; o teste de 5 segundos com 5 pessoas; destruído, carcaça, abalroar, construindo e o busto falante ficam para o kit da onda 2.
 
 ### F5 Design, mundo e fase 1 (`rts-design`)
 
@@ -235,7 +241,8 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 - 30/10/2026: o Action roda em cada push da `rts/base`, com histórico completo e o texto do pull request no teste de originalidade; o primeiro run passou em 5m55s.
 - 30/10/2026: página de diagnóstico em `prototipos/diagnostico/` (configuração `diagnostico-rts`, porta 8820), conferida no Chromium, no Firefox e no WebKit; [roteiro de medições](roteiro-medicoes.md) com o caminho do PC testado pelo SSH.
 - 30/10/2026: projetos Playwright `rts-determinismo-chromium`, `-firefox` e `-webkit` (`testes/e2e/rts-determinismo.spec.mjs`) com o roteiro do protótipo num Worker, prontos para os replays dourados da `rts-motor` em `testes/rts-replays/` (formato combinado: `executarReplay(replay)` devolve `{ somas, final }`, e o arquivo traz `somas` e `final` esperados); a barreira de lint fica com a `rts-motor` em `testes/rts-sim-barreira.test.mjs`.
-- Pendente: Firefox e WebKit do Playwright 1.63 no Mac (decisão D16), endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro, os replays dourados no `rts-determinismo`.
+- 30/10/2026: primeiro Action com os três motores na `rts/base` (`c51ffb0`) verde em 6,5 minutos: 35 funcionais e `rts-determinismo` no Chromium, no Firefox e no WebKit; Firefox 155 e WebKit 26.6 instalados no Mac (D16).
+- Pendente: endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro, os replays dourados no `rts-determinismo`.
 
 ### F4, F6 e F9
 
