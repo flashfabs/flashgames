@@ -1,75 +1,68 @@
-// Units for the renderer: interpolation between the last two simulation snapshots, smoothed body and turret
-// angles, culling to the camera and to the fog, packed into the instance buffer.
+// Units for the renderer: interpolation between the last two simulation snapshots, matched by id with generation,
+// body and turret facing interpolated along the shortest turn, culling to the camera and to the fog, packed into the
+// instance buffer.
 import { FLOATS_UNIDADE } from './renderizador.js';
-import { FP, PASSOS_POR_SEGUNDO, TIPOS } from '../sim/simulacao.js';
+import { FP, PASSOS_POR_SEGUNDO, VOLTA, slotDe } from '../sim/contratos.js';
 
 const PASSO_MS = 1000 / PASSOS_POR_SEGUNDO;
+const RADIANOS = (2 * Math.PI) / VOLTA;
 
-function suavizarAngulo(atual, alvo, maximo) {
-  let d = alvo - atual;
-  while (d > Math.PI) d -= 2 * Math.PI;
-  while (d < -Math.PI) d += 2 * Math.PI;
-  return atual + Math.max(-maximo, Math.min(maximo, d));
+// Angle in radians between two integer facings (0..255), along the shortest turn.
+function interpolarAngulo(a, b, alfa) {
+  const d = ((b - a + 128) & 255) - 128;
+  return (a + d * alfa) * RADIANOS;
 }
 
 export function criarMontagemUnidades({ estado, camera, canvas, selecionadas, visivel }) {
-  let anguloCorpo = null;
-  let anguloTorre = null;
   let buffer = new Float32Array(8192 * FLOATS_UNIDADE);
 
-  function iniciarAngulos(mapa) {
-    anguloCorpo = new Float32Array(mapa.time.length);
-    anguloTorre = new Float32Array(mapa.time.length);
-    for (let i = 0; i < mapa.time.length; i++) anguloCorpo[i] = anguloTorre[i] = mapa.time[i] === 0 ? -Math.PI / 4 : (3 * Math.PI) / 4;
-  }
-
-  function montar(agora, dt) {
+  function montar(agora) {
     const { anterior, atual, mapa } = estado;
     if (!atual || !mapa) return 0;
     const alfa = Math.min(1, (agora - estado.chegadaAtual) / PASSO_MS);
-    const total = mapa.time.length;
-    if (buffer.length < total * FLOATS_UNIDADE) buffer = new Float32Array(total * FLOATS_UNIDADE);
-    const giro = dt * 0.006;
+    if (buffer.length < atual.n * FLOATS_UNIDADE) buffer = new Float32Array(atual.n * FLOATS_UNIDADE);
     const margem = 2;
     const meiaL = canvas.width / camera.zoom / 2 + margem;
     const meiaA = canvas.height / camera.zoom / 2 + margem;
     let n = 0;
-    for (let i = 0; i < total; i++) {
-      if (atual.vida[i] <= 0) continue;
-      let x = atual.x[i] / FP;
-      let y = atual.y[i] / FP;
-      if (anterior && anterior.vida[i] > 0) {
-        const px = anterior.x[i] / FP;
-        const py = anterior.y[i] / FP;
-        if (Math.abs(x - px) < 3 && Math.abs(y - py) < 3) {
-          const dx = x - px;
-          const dy = y - py;
-          if (dx * dx + dy * dy > 0.0004) anguloCorpo[i] = suavizarAngulo(anguloCorpo[i], Math.atan2(dy, dx), giro);
-          x = px + dx * alfa;
-          y = py + dy * alfa;
+    let j = 0; // walks the previous snapshot alongside the current one, both in slot order
+    for (let k = 0; k < atual.n; k++) {
+      const id = atual.id[k];
+      let x = atual.x[k] / FP;
+      let y = atual.y[k] / FP;
+      let corpo = atual.dirCorpo[k] * RADIANOS;
+      let torre = atual.dirTorre[k] * RADIANOS;
+      if (anterior) {
+        const slot = slotDe(id);
+        while (j < anterior.n && slotDe(anterior.id[j]) < slot) j++;
+        if (j < anterior.n && anterior.id[j] === id) {
+          const px = anterior.x[j] / FP;
+          const py = anterior.y[j] / FP;
+          if (Math.abs(x - px) < 3 && Math.abs(y - py) < 3) {
+            x = px + (x - px) * alfa;
+            y = py + (y - py) * alfa;
+          }
+          corpo = interpolarAngulo(anterior.dirCorpo[j], atual.dirCorpo[k], alfa);
+          torre = interpolarAngulo(anterior.dirTorre[j], atual.dirTorre[k], alfa);
         }
       }
-      const alvo = atual.alvo[i];
-      const alvoTorre = alvo >= 0 ? Math.atan2(atual.y[alvo] - atual.y[i], atual.x[alvo] - atual.x[i]) : anguloCorpo[i];
-      anguloTorre[i] = suavizarAngulo(anguloTorre[i], alvoTorre, giro * 1.6);
       if (Math.abs(x - camera.x) > meiaL || Math.abs(y - camera.y) > meiaA) continue;
-      if (mapa.time[i] !== 0 && !visivel(x, y)) continue;
+      if (atual.dono[k] !== estado.jogadorLocal && !visivel(x, y)) continue;
       const o = n * FLOATS_UNIDADE;
       buffer[o] = x;
       buffer[o + 1] = y;
-      buffer[o + 2] = anguloCorpo[i];
-      buffer[o + 3] = anguloTorre[i];
-      buffer[o + 4] = mapa.time[i];
-      buffer[o + 5] = mapa.tipo[i];
-      buffer[o + 6] = atual.vida[i] / TIPOS[mapa.tipo[i]].vida;
-      buffer[o + 7] = selecionadas.has(i) ? 1 : 0;
+      buffer[o + 2] = corpo;
+      buffer[o + 3] = torre;
+      buffer[o + 4] = atual.dono[k];
+      buffer[o + 5] = atual.tipo[k];
+      buffer[o + 6] = atual.vida[k] / 255;
+      buffer[o + 7] = selecionadas.has(id) ? 1 : 0;
       n++;
     }
     return n;
   }
 
   return {
-    iniciarAngulos,
     montar,
     // the buffer grows with the unit count, so read it after montar()
     get buffer() {

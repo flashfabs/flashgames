@@ -38,7 +38,7 @@ const { ajustarTamanho } = criarResolucao({ canvas, palco, camera, resolucao: op
 const simulacao = criarPonteSimulacao();
 const { estado, visivel } = simulacao;
 const unidades = criarMontagemUnidades({ estado, camera, canvas, selecionadas, visivel });
-const efeitos = criarEfeitos({ estado, visivel });
+const efeitos = criarEfeitos({ visivel });
 const minimapa = criarMinimapa({ minimapa: document.getElementById('minimapa'), canvas, camera, estado });
 const painel = criarPainel({ painel: painelElemento, canvas, estado, resolucao: opcoes.resolucao, info: render.info, atlasInfo });
 const medicao = criarMedicao({ ativa: opcoes.bench, segundos: opcoes.segundos, estado, camera, canvas, info: render.info, atlasInfo, saida: document.getElementById('resultado') });
@@ -49,13 +49,12 @@ simulacao.iniciar({
   avancar: opcoes.avancar,
   aoReceberMapa(mapa) {
     render.definirMapa(mapa.largura, mapa.altura, mapa.bloqueado, mapa.relevo);
-    unidades.iniciarAngulos(mapa);
     camera.x = mapa.bases[0].x + 14;
     camera.y = mapa.bases[0].y - 10;
     minimapa.preparar();
   },
   aoReceberEstado(retrato) {
-    render.atualizarNeblina(retrato.neblina);
+    render.atualizarNeblina(retrato.visao);
     efeitos.registrarEventos(retrato);
   },
 });
@@ -88,7 +87,7 @@ function quadro(agora) {
   const inicio = performance.now();
   controles.moverCamera(dt);
   medicao.conduzir(agora);
-  const nUnidades = unidades.montar(agora, dt);
+  const nUnidades = unidades.montar(agora);
   const { nD, nF, nB } = efeitos.montar(agora);
   render.desenhar({
     camera,

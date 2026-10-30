@@ -2,13 +2,13 @@
 // Integer math only (Int32 arrays, Math.imul, truncating division, shifts), so every JS engine
 // produces the same state bit for bit; floats live only in the renderer. Runs in a Worker, in Node and in JavaScriptCore.
 
-export const FP_BITS = 10;
-export const FP = 1 << FP_BITS; // one map cell in world units
-export const PASSOS_POR_SEGUNDO = 30;
+import {
+  FP_BITS, FP, PASSOS_POR_SEGUNDO, VISAO, TIPO_COMANDO, EVENTO, SEM_ENTIDADE,
+  idDe, slotDe, geracaoDe, proximaGeracao, compararComandos,
+} from './contratos.js';
+import { criarSorteio, raizInteira, anguloDe, girarAngulo } from './matematica.js';
 
-export const NEBLINA_NUNCA = 0;
-export const NEBLINA_VISTA = 128;
-export const NEBLINA_VISIVEL = 255;
+export { FP_BITS, FP, PASSOS_POR_SEGUNDO };
 
 const SEM_DIRECAO = 255;
 const INFINITO = 0x7fffffff;
@@ -32,16 +32,11 @@ const RAIO_VISAO = 7; // cells
 const ESPERA_RENASCER = 4 * PASSOS_POR_SEGUNDO;
 const TROCA_ONDA = 40 * PASSOS_POR_SEGUNDO;
 const MAX_ORDENS = 32;
-
-export function criarSorteio(semente) {
-  let s = (semente | 0) || 0x2545f491;
-  return function sortear(limite) {
-    s ^= s << 13;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    return (s >>> 0) % limite;
-  };
-}
+// body and turret turn rates in angle units per tick (a full turn is 256)
+const GIRO_CORPO = 8;
+const GIRO_TORRE = 13;
+// facing at the start: team 0 looks north-east, team 1 south-west
+const DIRECAO_INICIAL = [224, 96];
 
 function hash2(ix, iy, semente) {
   let h = Math.imul(ix, 0x27d4eb2d) ^ Math.imul(iy, 0x165667b1) ^ semente;
@@ -65,17 +60,6 @@ function ruido(x, y, passo, semente) {
   const ab = a + (((b - a) * sx) >> 8);
   const cd = c + (((d - c) * sx) >> 8);
   return ab + (((cd - ab) * sy) >> 8);
-}
-
-export function raizInteira(n) {
-  if (n <= 0) return 0;
-  let x = n;
-  let y = (x + 1) >> 1;
-  while (y < x) {
-    x = y;
-    y = (x + ((n / x) | 0)) >> 1;
-  }
-  return x;
 }
 
 function gerarMapa(largura, altura, semente) {
@@ -304,6 +288,7 @@ export function criarSimulacao({ semente = 1, largura = 192, altura = 192, unida
     vx: new Int32Array(total),
     vy: new Int32Array(total),
     time: new Uint8Array(total),
+    geracao: new Uint16Array(total),
     tipo: new Uint8Array(total),
     vida: new Int16Array(total),
     recarga: new Int16Array(total),
@@ -311,6 +296,8 @@ export function criarSimulacao({ semente = 1, largura = 192, altura = 192, unida
     ordem: new Int16Array(total),
     parada: new Uint8Array(total),
     alvo: new Int32Array(total).fill(-1),
+    dirCorpo: new Uint8Array(total),
+    dirTorre: new Uint8Array(total),
     neblina: new Uint8Array(celulas),
     carimbo: new Int32Array(celulas),
     baldeLargura: (largura >> 1) + 1,
@@ -326,6 +313,8 @@ export function criarSimulacao({ semente = 1, largura = 192, altura = 192, unida
   sim.baldeCabeca = new Int32Array(sim.baldeLargura * ((altura >> 1) + 1));
   for (let i = 0; i < total; i++) {
     sim.time[i] = i < unidadesPorTime ? 0 : 1;
+    sim.geracao[i] = 1;
+    sim.dirCorpo[i] = sim.dirTorre[i] = DIRECAO_INICIAL[sim.time[i]];
     sim.tipo[i] = i % 10 < 7 ? 0 : 1;
     sim.vida[i] = TIPOS[sim.tipo[i]].vida;
     sim.ordem[i] = sim.time[i];
@@ -337,29 +326,42 @@ export function criarSimulacao({ semente = 1, largura = 192, altura = 192, unida
   return sim;
 }
 
+/** Id with generation of the entity in a slot. */
+export const idDoSlot = (sim, i) => idDe(i, sim.geracao[i]);
+
+/** Slot of a live entity owned by the player, or -1 when the id is stale, foreign or dead. */
+function slotDoJogador(sim, id, jogador) {
+  const i = slotDe(id);
+  if (i >= sim.total || sim.geracao[i] !== geracaoDe(id)) return -1;
+  if (sim.time[i] !== jogador || sim.vida[i] <= 0) return -1;
+  return i;
+}
+
 // Commands carry the tick they run on, as lockstep multiplayer will need.
 export function agendarComando(sim, comando) {
   sim.comandos.push(comando);
 }
 
 function aplicarComandos(sim) {
+  const devidos = [];
   const restantes = [];
-  for (const comando of sim.comandos) {
-    if (comando.tick > sim.tick) {
-      restantes.push(comando);
-      continue;
+  for (const comando of sim.comandos) (comando.tick > sim.tick ? restantes : devidos).push(comando);
+  sim.comandos = restantes;
+  devidos.sort(compararComandos);
+  for (const comando of devidos) {
+    if (comando.tipo !== TIPO_COMANDO.MOVER) continue;
+    const unidades = [];
+    for (const id of comando.unidades) {
+      const i = slotDoJogador(sim, id, comando.jogador);
+      if (i >= 0) unidades.push(i);
     }
-    if (comando.tipo === 'mover') {
-      const unidades = comando.unidades.filter(i => i >= 0 && i < sim.total && sim.time[i] === comando.time && sim.vida[i] > 0);
-      if (unidades.length === 0) continue;
-      const indice = novaOrdem(sim, comando.cx, comando.cy, unidades.length, false);
-      for (const i of unidades) {
-        sim.ordem[i] = indice;
-        sim.parada[i] = 0;
-      }
+    if (unidades.length === 0) continue;
+    const indice = novaOrdem(sim, comando.x >> FP_BITS, comando.y >> FP_BITS, unidades.length, false);
+    for (const i of unidades) {
+      sim.ordem[i] = indice;
+      sim.parada[i] = 0;
     }
   }
-  sim.comandos = restantes;
 }
 
 // The computer side alternates its default order between the centre and the player's base, in waves.
@@ -372,17 +374,36 @@ function conduzirComputador(sim) {
   for (let i = 0; i < sim.total; i++) if (sim.ordem[i] === 1) sim.parada[i] = 0;
 }
 
+// Presentation event record (contratos.js): kind, tick, entity, target, entity position, target position, arg.
+function emitirEvento(sim, tipo, i, alvo, arg) {
+  const temAlvo = alvo >= 0;
+  sim.eventos.push(
+    tipo,
+    sim.tick,
+    idDoSlot(sim, i),
+    temAlvo ? idDoSlot(sim, alvo) : SEM_ENTIDADE,
+    sim.x[i],
+    sim.y[i],
+    temAlvo ? sim.x[alvo] : sim.x[i],
+    temAlvo ? sim.y[alvo] : sim.y[i],
+    arg,
+  );
+}
+
 function renascer(sim) {
   for (let i = 0; i < sim.total; i++) {
     if (sim.vida[i] > 0 || sim.tick - sim.morteEm[i] < ESPERA_RENASCER) continue;
+    // a respawned unit is a new entity in the same slot
+    sim.geracao[i] = proximaGeracao(sim.geracao[i]);
     sim.vida[i] = TIPOS[sim.tipo[i]].vida;
     sim.recarga[i] = 0;
     sim.alvo[i] = -1;
     sim.vx[i] = sim.vy[i] = 0;
+    sim.dirCorpo[i] = sim.dirTorre[i] = DIRECAO_INICIAL[sim.time[i]];
     sim.ordem[i] = sim.time[i];
     sim.parada[i] = 0;
     posicionarNaBase(sim, i);
-    sim.eventos.push(3, i, 0);
+    emitirEvento(sim, EVENTO.SURGIMENTO, i, -1, sim.tipo[i]);
   }
 }
 
@@ -440,12 +461,12 @@ function combater(sim) {
     if (alvo < 0 || sim.recarga[i] > 0) continue;
     sim.recarga[i] = tipo.recarga;
     sim.vida[alvo] -= tipo.dano;
-    sim.eventos.push(1, i, alvo);
+    emitirEvento(sim, EVENTO.TIRO, i, alvo, sim.tipo[i]);
     if (sim.vida[alvo] <= 0) {
       sim.vida[alvo] = 0;
       sim.morteEm[alvo] = sim.tick;
       sim.alvo[alvo] = -1;
-      sim.eventos.push(2, alvo, i);
+      emitirEvento(sim, EVENTO.MORTE, alvo, i, sim.tipo[alvo]);
     }
   }
 }
@@ -507,15 +528,24 @@ function mover(sim) {
     // terrain collision, one axis at a time so units slide along rock
     if (bloqueado[(sim.y[i] >> FP_BITS) * largura + (nx >> FP_BITS)]) nx = sim.x[i];
     if (bloqueado[(ny >> FP_BITS) * largura + (nx >> FP_BITS)]) ny = sim.y[i];
+    orientar(sim, i, nx - sim.x[i], ny - sim.y[i]);
     sim.x[i] = nx;
     sim.y[i] = ny;
   }
 }
 
+// Body faces the direction of travel; the turret faces the target, or follows the body.
+function orientar(sim, i, dx, dy) {
+  if (dx * dx + dy * dy > 400) sim.dirCorpo[i] = girarAngulo(sim.dirCorpo[i], anguloDe(dx, dy), GIRO_CORPO);
+  const alvo = sim.alvo[i];
+  const desejada = alvo >= 0 ? anguloDe(sim.x[alvo] - sim.x[i], sim.y[alvo] - sim.y[i]) : sim.dirCorpo[i];
+  sim.dirTorre[i] = girarAngulo(sim.dirTorre[i], desejada, GIRO_TORRE);
+}
+
 // Fog of war for team 0: visible cells decay to "seen" and every unit stamps its sight circle again.
 function atualizarNeblina(sim) {
   const { neblina, carimbo, largura, altura } = sim;
-  for (let c = 0; c < neblina.length; c++) if (neblina[c] === NEBLINA_VISIVEL) neblina[c] = NEBLINA_VISTA;
+  for (let c = 0; c < neblina.length; c++) if (neblina[c] === VISAO.VISIVEL) neblina[c] = VISAO.VISTA;
   const r2 = RAIO_VISAO * RAIO_VISAO;
   for (let i = 0; i < sim.total; i++) {
     if (sim.time[i] !== 0 || sim.vida[i] <= 0) continue;
@@ -528,7 +558,7 @@ function atualizarNeblina(sim) {
       const dy = y - cy;
       for (let x = Math.max(0, cx - RAIO_VISAO); x <= Math.min(largura - 1, cx + RAIO_VISAO); x++) {
         const dx = x - cx;
-        if (dx * dx + dy * dy <= r2) neblina[y * largura + x] = NEBLINA_VISIVEL;
+        if (dx * dx + dy * dy <= r2) neblina[y * largura + x] = VISAO.VISIVEL;
       }
     }
   }

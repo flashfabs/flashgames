@@ -1,30 +1,24 @@
 // Worker that owns the simulation: fixed 30 Hz clock, commands scheduled for the next tick,
-// and one transferable snapshot per tick for the renderer to interpolate.
+// and one transferable snapshot per tick for the renderer to interpolate (protocol in sim/contratos.js).
 import { criarSimulacao, passo, agendarComando, somaDeVerificacao, PASSOS_POR_SEGUNDO } from './sim/simulacao.js';
+import { montarMapaEstatico, montarRetrato } from './sim/retrato.js';
+import { PARA_TRABALHADOR, comandoValido, transferiveisDoRetrato } from './sim/contratos.js';
 
 let sim = null;
 let pausado = false;
 let relogio = null;
 
 self.onmessage = ({ data }) => {
-  if (data.t === 'iniciar') {
+  if (data.t === PARA_TRABALHADOR.INICIAR) {
     sim = criarSimulacao(data.opcoes);
     // ?avancar=<ticks> fast-forwards the match (screenshots, benchmarks of the mid-game)
     for (let k = 0; k < (data.opcoes.avancar ?? 0); k++) passo(sim);
-    self.postMessage({
-      t: 'mapa',
-      largura: sim.largura,
-      altura: sim.altura,
-      bloqueado: sim.bloqueado,
-      relevo: sim.relevo,
-      bases: sim.bases,
-      time: sim.time,
-      tipo: sim.tipo,
-    });
+    self.postMessage(montarMapaEstatico(sim, data.opcoes.jogadorLocal ?? 0));
     iniciarRelogio();
-  } else if (data.t === 'comando' && sim) {
-    agendarComando(sim, { ...data.comando, tick: sim.tick + 1 });
-  } else if (data.t === 'pausa') {
+  } else if (data.t === PARA_TRABALHADOR.COMANDO && sim) {
+    const comando = { ...data.comando, tick: sim.tick + 1 };
+    if (comandoValido(comando)) agendarComando(sim, comando);
+  } else if (data.t === PARA_TRABALHADOR.PAUSAR) {
     pausado = data.valor;
   }
 };
@@ -51,15 +45,7 @@ function iniciarRelogio() {
 function executarPasso() {
   const inicio = performance.now();
   passo(sim);
-  const ms = performance.now() - inicio;
-  const x = sim.x.slice();
-  const y = sim.y.slice();
-  const vida = sim.vida.slice();
-  const alvo = sim.alvo.slice();
-  const neblina = sim.neblina.slice();
-  const eventos = Int32Array.from(sim.eventos);
-  self.postMessage(
-    { t: 'estado', tick: sim.tick, ms, soma: somaDeVerificacao(sim), x, y, vida, alvo, neblina, eventos },
-    [x.buffer, y.buffer, vida.buffer, alvo.buffer, neblina.buffer, eventos.buffer],
-  );
+  const msPasso = performance.now() - inicio;
+  const retrato = montarRetrato(sim, { msPasso, soma: somaDeVerificacao(sim) });
+  self.postMessage(retrato, transferiveisDoRetrato(retrato));
 }

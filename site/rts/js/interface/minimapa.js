@@ -1,6 +1,6 @@
 // Minimap on a 2D canvas, redrawn at most every 150 ms: terrain background drawn once, fog overlay, unit dots and the
 // camera rectangle; clicking moves the camera.
-import { FP } from '../sim/simulacao.js';
+import { FP, VISAO } from '../sim/contratos.js';
 
 export function criarMinimapa({ minimapa, canvas, camera, estado }) {
   const ctxMini = minimapa.getContext('2d');
@@ -26,22 +26,22 @@ export function criarMinimapa({ minimapa, canvas, camera, estado }) {
   function desenhar(agora) {
     if (!estado.mapa || !estado.atual || agora - ultimoMini < 150) return;
     ultimoMini = agora;
-    const { largura, altura, time } = estado.mapa;
-    const { neblina, x, y, vida } = estado.atual;
+    const { largura, altura } = estado.mapa;
+    const { visao, x, y, dono, n } = estado.atual;
     const ctxN = neblinaMini.getContext('2d');
     const imagem = ctxN.createImageData(largura, altura);
-    for (let i = 0; i < neblina.length; i++) imagem.data[i * 4 + 3] = neblina[i] === 255 ? 0 : neblina[i] === 128 ? 130 : 245;
+    for (let i = 0; i < visao.length; i++) imagem.data[i * 4 + 3] = visao[i] === VISAO.VISIVEL ? 0 : visao[i] === VISAO.VISTA ? 130 : 245;
     ctxN.putImageData(imagem, 0, 0);
     const escala = minimapa.width / largura;
     ctxMini.imageSmoothingEnabled = true;
     ctxMini.drawImage(fundoMini, 0, 0, minimapa.width, minimapa.height);
     ctxMini.drawImage(neblinaMini, 0, 0, minimapa.width, minimapa.height);
-    for (let i = 0; i < time.length; i++) {
-      if (vida[i] <= 0) continue;
-      const ux = x[i] / FP;
-      const uy = y[i] / FP;
-      if (time[i] !== 0 && neblina[(uy | 0) * largura + (ux | 0)] !== 255) continue;
-      ctxMini.fillStyle = time[i] === 0 ? '#3fd6e0' : '#f0662a';
+    for (let k = 0; k < n; k++) {
+      const ux = x[k] / FP;
+      const uy = y[k] / FP;
+      const local = dono[k] === estado.jogadorLocal;
+      if (!local && visao[(uy | 0) * largura + (ux | 0)] !== VISAO.VISIVEL) continue;
+      ctxMini.fillStyle = local ? '#3fd6e0' : '#f0662a';
       ctxMini.fillRect(ux * escala - 1, uy * escala - 1, 2, 2);
     }
     const meiaL = canvas.width / camera.zoom / 2;

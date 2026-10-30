@@ -1,6 +1,6 @@
 // Automated benchmark (?bench=1&seg=N): after a warm-up the camera orbits the centre of the map while frame times,
 // CPU time per frame and simulation step times are collected; the result lands in window.__bench and on the page.
-import { PASSOS_POR_SEGUNDO } from '../sim/simulacao.js';
+import { PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
 
 export function percentil(lista, p) {
   if (lista.length === 0) return 0;
@@ -28,7 +28,7 @@ export function criarMedicao({ ativa, segundos, estado, camera, canvas, info, at
       const ticks = estado.tickMs.slice(-Math.round(segundos * PASSOS_POR_SEGUNDO));
       window.__bench = {
         resolucao: `${canvas.width}x${canvas.height}`,
-        unidades: estado.mapa.time.length,
+        unidades: estado.atual?.n ?? 0,
         placa: info.placa,
         quadros: q.length,
         qpsMedio: +(1000 / (q.reduce((a, b) => a + b, 0) / q.length)).toFixed(1),

@@ -13,7 +13,8 @@ export function criarPainel({ painel, canvas, estado, resolucao, info, atlasInfo
     ultimoHud = agora;
     const media = quadrosHud.reduce((a, b) => a + b, 0) / quadrosHud.length;
     const ticks = estado.tickMs.slice(-60);
-    const vivos = estado.atual ? [0, 1].map(t => estado.mapa.time.reduce((s, tt, i) => s + (tt === t && estado.atual.vida[i] > 0 ? 1 : 0), 0)) : [0, 0];
+    const vivos = [0, 0];
+    if (estado.atual) for (let k = 0; k < estado.atual.n; k++) vivos[estado.atual.dono[k]]++;
     campo('fps').textContent = `${(1000 / media).toFixed(0)} qps · ${media.toFixed(1)} ms (p95 ${percentil(quadrosHud, 95).toFixed(1)})`;
     campo('cpu').textContent = `${cpu.toFixed(2)} ms CPU no quadro`;
     campo('sim').textContent = `${percentil(ticks, 50).toFixed(2)} ms por passo (p95 ${percentil(ticks, 95).toFixed(2)}) · 30 passos/s`;

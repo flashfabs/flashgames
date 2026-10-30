@@ -1,31 +1,48 @@
-// Main-thread side of the simulation worker: starts it, forwards commands and pause, and keeps the last two
-// snapshots so the presentation can interpolate between them. The worker protocol lives here and in trabalhador.js.
-import { NEBLINA_VISIVEL } from './sim/simulacao.js';
+// Main-thread side of the simulation worker (the local command source): starts it, stamps commands with the local
+// player and a sequence number, forwards pause, and keeps the last two snapshots so the presentation can interpolate
+// between them. The message formats are in sim/contratos.js.
+import { PARA_TRABALHADOR, DO_TRABALHADOR, VISAO, SEM_ENTIDADE, criarComando } from './sim/contratos.js';
 
 export function criarPonteSimulacao() {
-  const estado = { mapa: null, anterior: null, atual: null, chegadaAtual: 0, tickMs: [], soma: 0, tick: 0 };
+  // mapa: MapaEstatico; anterior and atual: the last two Retrato
+  const estado = { mapa: null, anterior: null, atual: null, chegadaAtual: 0, tickMs: [], soma: 0, tick: 0, jogadorLocal: 0 };
   let trabalhador = null;
+  let seq = 0;
 
   // Starts the worker; aoReceberMapa gets the static map once, aoReceberEstado every snapshot.
-  function iniciar({ semente, unidadesPorTime, avancar, aoReceberMapa, aoReceberEstado }) {
+  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, aoReceberMapa, aoReceberEstado }) {
+    estado.jogadorLocal = jogadorLocal;
     trabalhador = new Worker(new URL('./trabalhador.js', import.meta.url), { type: 'module' });
-    trabalhador.postMessage({ t: 'iniciar', opcoes: { semente, unidadesPorTime, avancar } });
+    trabalhador.postMessage({ t: PARA_TRABALHADOR.INICIAR, opcoes: { semente, unidadesPorTime, avancar, jogadorLocal } });
     trabalhador.onmessage = ({ data }) => {
-      if (data.t === 'mapa') {
+      if (data.t === DO_TRABALHADOR.PRONTO) {
         estado.mapa = data;
         aoReceberMapa(data);
         return;
       }
-      if (data.t === 'estado') {
+      if (data.t === DO_TRABALHADOR.RETRATO) {
         estado.anterior = estado.atual;
         estado.atual = data;
         estado.chegadaAtual = performance.now();
-        estado.tickMs.push(data.ms);
+        estado.tickMs.push(data.msPasso);
         estado.soma = data.soma;
         estado.tick = data.tick;
         aoReceberEstado(data);
+        return;
       }
+      if (data.t === DO_TRABALHADOR.ERRO) console.error('simulação:', data.mensagem);
     };
+  }
+
+  /**
+   * Sends an order of the local player; the worker schedules it for the next tick.
+   * @param {{tipo: number, unidades?: number[], alvo?: number, x?: number, y?: number, arg?: number, fila?: number}} ordem
+   */
+  function enviarComando({ tipo, unidades = [], alvo = SEM_ENTIDADE, x = 0, y = 0, arg = 0, fila = 0 }) {
+    if (!trabalhador) return;
+    const comando = criarComando({ jogador: estado.jogadorLocal, seq: seq++, tipo, unidades, alvo, x, y, arg, fila });
+    delete comando.tick;
+    trabalhador.postMessage({ t: PARA_TRABALHADOR.COMANDO, comando });
   }
 
   // Whether a map cell (in cell units, fractional allowed) is visible to the local player in the latest snapshot.
@@ -36,14 +53,14 @@ export function criarPonteSimulacao() {
     const cx = x | 0;
     const cy = y | 0;
     if (cx < 0 || cy < 0 || cx >= m.largura || cy >= m.altura) return false;
-    return atual.neblina[cy * m.largura + cx] === NEBLINA_VISIVEL;
+    return atual.visao[cy * m.largura + cx] === VISAO.VISIVEL;
   }
 
   return {
     estado,
     iniciar,
     visivel,
-    enviarComando: comando => trabalhador?.postMessage({ t: 'comando', comando }),
-    pausar: valor => trabalhador?.postMessage({ t: 'pausa', valor }),
+    enviarComando,
+    pausar: valor => trabalhador?.postMessage({ t: PARA_TRABALHADOR.PAUSAR, valor }),
   };
 }
