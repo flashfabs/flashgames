@@ -1,5 +1,5 @@
 // Debug HUD panel, refreshed every 400 ms: frame rate, CPU per frame, simulation step time, resolution, live units,
-// tick and checksum, GPU and atlas.
+// tick and checksum, GPU and atlas, and the click-to-marker latency.
 import { percentil } from '../render/medicao.js';
 
 export function criarPainel({ painel, canvas, estado, resolucao, info, atlasInfo }) {
@@ -7,7 +7,7 @@ export function criarPainel({ painel, canvas, estado, resolucao, info, atlasInfo
   let ultimoHud = 0;
   let quadrosHud = [];
 
-  function atualizar(agora, dt, cpu, nVisiveis) {
+  function atualizar(agora, dt, cpu, nVisiveis, cliques) {
     quadrosHud.push(dt);
     if (agora - ultimoHud < 400) return;
     ultimoHud = agora;
@@ -21,6 +21,7 @@ export function criarPainel({ painel, canvas, estado, resolucao, info, atlasInfo
     campo('res').textContent = `${canvas.width}×${canvas.height} (${resolucao}, dpr ${window.devicePixelRatio})`;
     campo('unidades').textContent = `${vivos[0]} × ${vivos[1]} vivas · ${nVisiveis} na tela`;
     campo('soma').textContent = `passo ${estado.tick} · soma ${estado.soma.toString(16).padStart(8, '0')}`;
+    if (cliques?.n) campo('clique').textContent = `clique até a marca: ${cliques.p50.toFixed(0)} ms (p95 ${cliques.p95.toFixed(0)}, máx ${cliques.maximo.toFixed(0)}) · ${cliques.acimaDaMeta} de ${cliques.n} acima de 100 ms`;
     campo('placa').textContent = `${info.placa}${atlasInfo.descricao ? ` · atlas: ${atlasInfo.descricao}` : ''}`;
     quadrosHud = [];
   }
