@@ -73,6 +73,34 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     return escolherNivel(projecao, pxPorCelula(projecao, canvas.width, canvas.height, 1));
   }
 
+  // Frame plan shared by the game and the atlas viewer; listas holds sprites, sombras, aneis and barras.
+  function desenharCena(agora, dt, listas) {
+    const s = escala.registrar(agora, dt);
+    escala.informarGpu(backend.tempoDeGpuMs);
+    const { nD, nF, nB } = efeitos.contagem;
+    const tempo = agora / 1000;
+    backend.comecarCena(s, alvo);
+    backend.definirQuadroComum(preencherQuadro(camera, vista.px * (alvo[0] / vista.largura), alvo[0], alvo[1], tempo));
+    backend.desenharTerreno();
+    backend.desenharEfeitos(efeitos.decalques, nD, false);
+    backend.desenharAneis(listas.aneis.dados, listas.aneis.n);
+    backend.desenharSombras(listas.sombras.dados, listas.sombras.n);
+    backend.desenharSprites(listas.sprites.dados, listas.sprites.n);
+    backend.desenharEfeitos(efeitos.fumaca, nF, false);
+    backend.desenharEfeitos(efeitos.brilho, nB, true);
+    backend.terminarCena(Math.min(0.25, (1 - s) * 0.6));
+    backend.definirQuadroComum(preencherQuadro(camera, vista.px, vista.largura, vista.altura, tempo));
+    backend.desenharBarras(listas.barras.dados, listas.barras.n);
+    backend.terminarQuadro();
+
+    estatisticas.escala = s;
+    estatisticas.alvoLargura = alvo[0];
+    estatisticas.alvoAltura = alvo[1];
+    estatisticas.sprites = listas.sprites.n;
+    estatisticas.gpuMs = backend.tempoDeGpuMs;
+    return listas.sprites.n;
+  }
+
   return {
     info: backend.info,
     projecao,
@@ -104,10 +132,10 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       backend.atualizarNeblina(visao);
     },
 
-    /** Loads a sprite manifest (C9) at the level that suits the canvas. */
-    async carregarManifesto(url) {
+    /** Loads a sprite manifest (C9) at a level (by default the one that suits the canvas). */
+    async carregarManifesto(url, nivel = nivelDoCanvas()) {
       const manifesto = await carregarManifesto(url);
-      const folha = await folhas.adicionarManifesto(manifesto, nivelDoCanvas());
+      const folha = await folhas.adicionarManifesto(manifesto, nivel);
       estatisticas.nivel = folha.nivel;
       return folha;
     },
@@ -125,34 +153,21 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
      * @param {{ agora: number, dt: number, estado: any, selecionadas: Set<number> }} p
      */
     desenhar({ agora, dt, estado, selecionadas }) {
-      const s = escala.registrar(agora, dt);
-      escala.informarGpu(backend.tempoDeGpuMs);
       vista.px = pxPorCelula(projecao, vista.largura, vista.altura, camera.zoom);
       areaVisivel(projecao, camera, vista, 0, area);
       unidades.montar({ estado, area, selecionadas, visivel, agora });
-      const { nD, nF, nB } = efeitos.montar(agora);
-      const tempo = agora / 1000;
+      efeitos.montar(agora);
+      return desenharCena(agora, dt, unidades);
+    },
 
-      backend.comecarCena(s, alvo);
-      backend.definirQuadroComum(preencherQuadro(camera, vista.px * (alvo[0] / vista.largura), alvo[0], alvo[1], tempo));
-      backend.desenharTerreno();
-      backend.desenharEfeitos(efeitos.decalques, nD, false);
-      backend.desenharAneis(unidades.aneis.dados, unidades.aneis.n);
-      backend.desenharSombras(unidades.sombras.dados, unidades.sombras.n);
-      backend.desenharSprites(unidades.sprites.dados, unidades.sprites.n);
-      backend.desenharEfeitos(efeitos.fumaca, nF, false);
-      backend.desenharEfeitos(efeitos.brilho, nB, true);
-      backend.terminarCena(Math.min(0.25, (1 - s) * 0.6));
-      backend.definirQuadroComum(preencherQuadro(camera, vista.px, vista.largura, vista.altura, tempo));
-      backend.desenharBarras(unidades.barras.dados, unidades.barras.n);
-      backend.terminarQuadro();
-
-      estatisticas.escala = s;
-      estatisticas.alvoLargura = alvo[0];
-      estatisticas.alvoAltura = alvo[1];
-      estatisticas.sprites = unidades.sprites.n;
-      estatisticas.gpuMs = backend.tempoDeGpuMs;
-      return unidades.sprites.n;
+    /**
+     * Draws a frame from instance lists built elsewhere (the atlas viewer): { sprites, sombras, aneis, barras },
+     * each { dados: Float32Array, n }, sprites already sorted back to front; the game's effects are drawn too.
+     */
+    desenharInstancias(agora, dt, listas) {
+      vista.px = pxPorCelula(projecao, vista.largura, vista.altura, camera.zoom);
+      efeitos.montar(agora);
+      return desenharCena(agora, dt, listas);
     },
 
     /** Ground point under a pointer (client CSS pixels), in map cells, written into saida ([x, y]). */
