@@ -213,9 +213,13 @@ function folhasFalsas() {
   return { folha: nome => lista.get(nome) ?? null, totalQuadros: 116 };
 }
 
-function retrato(tick, entidades) {
+const LADO_MAPA = 100;
+
+function retrato(tick, entidades, visivel = () => true) {
   const n = entidades.length;
-  const r = { tick, n, id: new Int32Array(n), tipo: new Uint16Array(n), dono: new Uint8Array(n), x: new Int32Array(n), y: new Int32Array(n), dirCorpo: new Uint8Array(n), dirTorre: new Uint8Array(n), inicioAnim: new Int32Array(n), vida: new Uint8Array(n) };
+  const visao = new Uint8Array(LADO_MAPA * LADO_MAPA);
+  for (let i = 0; i < visao.length; i++) visao[i] = visivel(i % LADO_MAPA, Math.floor(i / LADO_MAPA)) ? 255 : 128;
+  const r = { tick, n, visao, id: new Int32Array(n), tipo: new Uint16Array(n), dono: new Uint8Array(n), x: new Int32Array(n), y: new Int32Array(n), dirCorpo: new Uint8Array(n), dirTorre: new Uint8Array(n), inicioAnim: new Int32Array(n), vida: new Uint8Array(n) };
   entidades.forEach((e, k) => {
     r.id[k] = e.id;
     r.tipo[k] = e.tipo ?? 0;
@@ -231,7 +235,8 @@ function retrato(tick, entidades) {
 function montarCom(estado, opcoes = {}) {
   const projecao = criarProjecao(copia());
   const m = criarMontagemUnidades({ projecao, folhas: folhasFalsas() });
-  m.montar({ estado, area: opcoes.area ?? [0, 0, 100, 100], selecionadas: opcoes.selecionadas ?? new Set(), visivel: opcoes.visivel ?? (() => true), agora: opcoes.agora ?? 0 });
+  const mapa = { largura: LADO_MAPA, altura: LADO_MAPA };
+  m.montar({ estado: { mapa, ...estado }, area: opcoes.area ?? [0, 0, 100, 100], selecionadas: opcoes.selecionadas ?? new Set(), agora: opcoes.agora ?? 0 });
   return m;
 }
 
@@ -253,7 +258,7 @@ test('facings are interpolated along the shortest turn', () => {
   const projecao = criarProjecao(copia());
   const folhas = folhasFalsas();
   const m = criarMontagemUnidades({ projecao, folhas });
-  m.montar({ estado: { anterior, atual, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 10, 10], selecionadas: new Set(), visivel: () => true, agora: 1000 / 60 });
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, anterior, atual, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 10, 10], selecionadas: new Set(), agora: 1000 / 60 });
   // halfway between 250 and 6 the short way is 0 (east), the first direction
   assert.equal(m.sprites.dados[4], 0);
 });
@@ -264,9 +269,10 @@ test('units outside the visible ground or in enemy fog are culled', () => {
     { id: idDe(2, 1), x: 50, y: 5 },
     { id: idDe(3, 1), x: 6, y: 6, dono: 1 },
     { id: idDe(4, 1), x: 7, y: 7, dono: 1 },
-  ]);
-  const m = montarCom({ anterior: null, atual, chegadaAtual: 0, jogadorLocal: 0 }, { area: [0, 0, 20, 20], visivel: (x, y) => x < 6.5 });
-  assert.deepEqual(posicoes(m).map(p => p[0]).sort((a, b) => a - b), [5, 6]);
+    { id: idDe(5, 1), x: 8, y: 8, dono: 0 },
+  ], cx => cx <= 6);
+  const m = montarCom({ anterior: null, atual, chegadaAtual: 0, jogadorLocal: 0 }, { area: [0, 0, 20, 20] });
+  assert.deepEqual(posicoes(m).map(p => p[0]).sort((a, b) => a - b), [5, 6, 8], 'own units show even in fog');
 });
 
 test('sprites come out back to front and selection adds a ring and a bar', () => {

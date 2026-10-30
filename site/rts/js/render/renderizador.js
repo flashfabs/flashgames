@@ -155,7 +155,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     desenhar({ agora, dt, estado, selecionadas }) {
       vista.px = pxPorCelula(projecao, vista.largura, vista.altura, camera.zoom);
       areaVisivel(projecao, camera, vista, 0, area);
-      unidades.montar({ estado, area, selecionadas, visivel, agora });
+      unidades.montar({ estado, area, selecionadas, agora });
       efeitos.montar(agora);
       return desenharCena(agora, dt, unidades);
     },

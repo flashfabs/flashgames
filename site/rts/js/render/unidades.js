@@ -2,9 +2,9 @@
 // position and facings, culls to the visible ground and to the fog, and writes the sprite (sorted back to front),
 // shadow, selection ring and health bar instances into preallocated buffers. Nothing is allocated per frame.
 import { FLOATS_INSTANCIA } from './backend-webgl2.js';
-import { criarOrdenacao, chave16 } from './ordenacao.js';
-import { quadroGlobal, pontoDeEncaixe } from './sprites.js';
-import { FP, PASSOS_POR_SEGUNDO, slotDe } from '../sim/contratos.js';
+import { criarOrdenacao } from './ordenacao.js';
+import { pontoDeEncaixe } from './sprites.js';
+import { FP, PASSOS_POR_SEGUNDO, VISAO, slotDe } from '../sim/contratos.js';
 
 const PASSO_MS = 1000 / PASSOS_POR_SEGUNDO;
 const MARGEM_CELULAS = 2;
@@ -20,12 +20,6 @@ export const APARENCIAS_PADRAO = Object.freeze([
   { variantes: [{ corpo: 'ficha-veiculo-leve', torre: 'ficha-veiculo-leve' }], raio: 0.42, sombraMetros: 0.9 },
   { variantes: [{ corpo: 'prototipo-tanque' }, { corpo: 'ficha-tanque', torre: 'ficha-tanque' }], raio: 0.55, sombraMetros: 1.4 },
 ]);
-
-// Angle 0..255 (float) between two integer facings, along the shortest turn.
-function interpolarAngulo(a, b, alfa) {
-  const d = ((b - a + 128) & 255) - 128;
-  return (((a + d * alfa) % 256) + 256) % 256;
-}
 
 class Instancias {
   constructor(capacidade) {
@@ -84,17 +78,20 @@ export function criarMontagemUnidades({ projecao, folhas }) {
     });
   }
 
+  // Per-unit doubles travel through this scratch array: passing a fractional number to a function that is not
+  // inlined boxes it on the heap, so the hot loop only ever passes integers and objects. Fields: x, y, height.
+  const posicao = new Float64Array(3);
+
   /**
    * @param {object} p
    * @param {{ anterior: any, atual: any, mapa: any, chegadaAtual: number, jogadorLocal: number }} p.estado
    * @param {Float64Array | number[]} p.area visible ground [x0, y0, x1, y1] in cells
    * @param {Set<number>} p.selecionadas ids with generation
-   * @param {(x: number, y: number) => boolean} p.visivel
    * @param {number} p.agora
    */
-  function montar({ estado, area, selecionadas, visivel, agora }) {
+  function montar({ estado, area, selecionadas, agora }) {
     brutos.n = sprites.n = sombras.n = aneis.n = barras.n = 0;
-    const { anterior, atual } = estado;
+    const { anterior, atual, mapa } = estado;
     if (!atual) return;
     resolver();
     const alfa = Math.min(1, (agora - estado.chegadaAtual) / PASSO_MS);
@@ -102,7 +99,11 @@ export function criarMontagemUnidades({ projecao, folhas }) {
     const y0 = area[1] - MARGEM_CELULAS;
     const x1 = area[2] + MARGEM_CELULAS;
     const y1 = area[3] + MARGEM_CELULAS;
+    const escalaChave = 65535 / (y1 - y0);
     const tempoTick = atual.tick + alfa;
+    const visao = atual.visao;
+    const largura = mapa ? mapa.largura : 0;
+    const altura = mapa ? mapa.altura : 0;
     let j = 0; // walks the previous snapshot alongside the current one, both in slot order
     for (let k = 0; k < atual.n; k++) {
       const id = atual.id[k];
@@ -122,31 +123,42 @@ export function criarMontagemUnidades({ projecao, folhas }) {
             x = px + (x - px) * alfa;
             y = py + (y - py) * alfa;
           }
-          corpo = interpolarAngulo(anterior.dirCorpo[j], atual.dirCorpo[k], alfa);
-          torre = interpolarAngulo(anterior.dirTorre[j], atual.dirTorre[k], alfa);
+          // facings along the shortest turn, as angles 0..256
+          const dc = ((atual.dirCorpo[k] - anterior.dirCorpo[j] + 128) & 255) - 128;
+          corpo = anterior.dirCorpo[j] + dc * alfa;
+          const dt = ((atual.dirTorre[k] - anterior.dirTorre[j] + 128) & 255) - 128;
+          torre = anterior.dirTorre[j] + dt * alfa;
         }
       }
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
       const dono = atual.dono[k];
-      if (dono !== estado.jogadorLocal && !visivel(x, y)) continue;
+      if (dono !== estado.jogadorLocal) {
+        const cx = x | 0;
+        const cy = y | 0;
+        if (cx < 0 || cy < 0 || cx >= largura || cy >= altura || visao[cy * largura + cx] !== VISAO.VISIVEL) continue;
+      }
       const aparencia = resolvidas[atual.tipo[k]] ?? resolvidas[0];
       if (!aparencia?.corpo || !aparencia.animParado) continue;
       const time = dono & 7;
-      const chave = chave16(y, y0, y1);
+      const t = (y - y0) * escalaChave;
+      const chave = t <= 0 ? 0 : t >= 65535 ? 65535 : t | 0;
       const tempoS = (tempoTick - atual.inicioAnim[k]) / PASSOS_POR_SEGUNDO;
       const anim = andando && aparencia.animAndando ? aparencia.animAndando : aparencia.animParado;
-      const quadro = quadroGlobal(aparencia.corpo, anim, corpo, tempoS);
-      emitirSprite(x, y, 0, quadro, time, aparencia.sombraMetros, chave);
-      if (aparencia.torre && aparencia.animTorre) {
-        let tx = x;
-        let ty = y;
-        let tz = 0;
+      const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
+      const quadro = quadroDe(aparencia.corpo, anim, Math.round((corpo * anim.direcoes) / 256), passo);
+      posicao[0] = x;
+      posicao[1] = y;
+      posicao[2] = 0;
+      emitirSprite(quadro, time, aparencia, chave);
+      const animTorre = aparencia.animTorre;
+      if (aparencia.torre && animTorre) {
         if (pontoDeEncaixe(aparencia.corpo, 'encaixe_torre', quadro - aparencia.corpo.primeiroQuadro, projecao, encaixe)) {
-          tx += encaixe[0];
-          ty += encaixe[1];
-          tz = encaixe[2];
+          posicao[0] = x + encaixe[0];
+          posicao[1] = y + encaixe[1];
+          posicao[2] = encaixe[2];
         }
-        emitirSprite(tx, ty, tz, quadroGlobal(aparencia.torre, aparencia.animTorre, torre, tempoS), time, aparencia.sombraMetros, chave);
+        const passoTorre = animTorre.fps > 0 && tempoS > 0 ? Math.floor(tempoS * animTorre.fps) : 0;
+        emitirSprite(quadroDe(aparencia.torre, animTorre, Math.round((torre * animTorre.direcoes) / 256), passoTorre), time, aparencia, chave);
       }
       const selecionada = selecionadas.has(id);
       if (selecionada) {
@@ -177,17 +189,25 @@ export function criarMontagemUnidades({ projecao, folhas }) {
     ordenar();
   }
 
-  function emitirSprite(x, y, z, quadro, time, sombraMetros, chave) {
+  // Global frame of an animation for a direction step and a time step (both integers, any range).
+  function quadroDe(folha, anim, direcao, passo) {
+    const d = ((direcao % anim.direcoes) + anim.direcoes) % anim.direcoes;
+    const q = anim.laco ? passo % anim.quadros : Math.min(passo, anim.quadros - 1);
+    return folha.primeiroQuadro + anim.base + d * anim.quadros + q;
+  }
+
+  // Writes one sprite at posicao (and its shadow); quadro, time and chave are integers.
+  function emitirSprite(quadro, time, aparencia, chave) {
     const i = brutos.n;
     const o = brutos.proxima();
     const d = brutos.dados;
-    d[o] = x;
-    d[o + 1] = y;
-    d[o + 2] = z;
+    d[o] = posicao[0];
+    d[o + 1] = posicao[1];
+    d[o + 2] = posicao[2];
     d[o + 3] = 1;
     d[o + 4] = quadro;
     d[o + 5] = time;
-    d[o + 6] = sombraMetros;
+    d[o + 6] = aparencia.sombraMetros;
     d[o + 7] = 1;
     ordenacao.garantir(i + 1);
     ordenacao.chaves[i] = chave;
