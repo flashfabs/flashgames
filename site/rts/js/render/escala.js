@@ -29,7 +29,8 @@ export function criarControleDeEscala(opcoes = {}) {
   let inicioJanela = NaN;
   let degrau = opcoes.degrauInicial ?? 0;
   let fixo = false;
-  let ultimaMudanca = -Infinity;
+  // the first probe waits a calm stretch from the first frame, like any other
+  let ultimaMudanca = NaN;
   let calma = CALMA_INICIAL_MS;
   let provando = false;
 
@@ -52,6 +53,7 @@ export function criarControleDeEscala(opcoes = {}) {
    */
   function registrar(agora, intervaloMs) {
     if (Number.isNaN(inicioJanela)) inicioJanela = agora;
+    if (Number.isNaN(ultimaMudanca)) ultimaMudanca = agora;
     const fim = (inicio + quantidade) % CAPACIDADE;
     intervalos[fim] = intervaloMs;
     instantes[fim] = agora;

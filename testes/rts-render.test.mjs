@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { criarProjecao, validarProjecao, pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from '../site/rts/js/render/projecao.js';
 import { criarControleDeEscala, DEGRAUS } from '../site/rts/js/render/escala.js';
-import { lerManifesto, direcaoDoAngulo, quadroDaAnimacao } from '../site/rts/js/ativos/manifesto.js';
+import { lerManifesto, lerManifestoTerreno, direcaoDoAngulo, quadroDaAnimacao } from '../site/rts/js/ativos/manifesto.js';
+import { existsSync } from 'node:fs';
 import { pontoDeEncaixe } from '../site/rts/js/render/sprites.js';
 
 const projecaoJson = JSON.parse(readFileSync(new URL('../site/rts/dados/projecao.json', import.meta.url), 'utf8'));
@@ -119,6 +120,14 @@ test('dynamic scale probes up after 5 s of calm and backs off when the probe fai
   assert.equal(r.escala, 1);
   r = alimentar(c, r.agora, 2500, 1000 / 60);
   assert.equal(c.estado.calmaMs, 5000, 'a probe that survives resets the wait');
+});
+
+test('dynamic scale starting low waits a calm stretch before the first probe', () => {
+  const c = criarControleDeEscala({ degrauInicial: DEGRAUS.length - 1 });
+  let r = alimentar(c, 0, 4800, 1000 / 60);
+  assert.equal(r.escala, 0.5);
+  r = alimentar(c, r.agora, 400, 1000 / 60);
+  assert.equal(r.escala, 0.67);
 });
 
 test('dynamic scale can be pinned and released', () => {
@@ -326,4 +335,39 @@ test('the turret anchor is a ground point; other points are heights over the anc
   assert.ok(pontoDeEncaixe(folha, 'topo', 0, projecao, saida));
   assert.ok(saida[1] === 0 && Math.abs(saida[2] - (73.4 / 128) * (4 / projecao.cosseno)) < 1e-6, 'a height in metres');
   assert.equal(pontoDeEncaixe(folha, 'boca', 0, projecao, saida), false);
+});
+
+// Consumer side of contract C9: every asset the art index lists must be readable by the renderer, with its pages on disk.
+test('every manifest in the art index is readable by the renderer', () => {
+  const caminhoIndice = new URL('../site/rts/assets/indice.json', import.meta.url);
+  if (!existsSync(caminhoIndice)) return;
+  const indice = JSON.parse(readFileSync(caminhoIndice, 'utf8'));
+  const entradas = Object.entries(indice.assets ?? {});
+  assert.ok(entradas.length > 0, 'the index lists assets');
+  for (const [nome, entrada] of entradas) {
+    const url = new URL(entrada.manifesto, caminhoIndice);
+    const json = JSON.parse(readFileSync(url, 'utf8'));
+    if (json.tipo === 'terreno') {
+      const terreno = lerManifestoTerreno(json, url);
+      for (const nivel of Object.values(terreno.niveis)) assert.ok(existsSync(new URL(nivel.cor)), `${nome}: ${nivel.cor}`);
+      continue;
+    }
+    const m = lerManifesto(json, url);
+    assert.equal(m.asset, nome);
+    for (const nivel of Object.values(m.niveis)) {
+      for (const pagina of nivel.paginas) {
+        for (const arquivo of [pagina.cor, pagina.time, pagina.sombra].filter(Boolean)) assert.ok(existsSync(new URL(arquivo)), `${nome}: ${arquivo}`);
+      }
+    }
+    for (const [animacao, a] of Object.entries(json.animacoes)) {
+      if (a.base !== undefined) assert.equal(m.animacao(animacao).base, a.base, `${nome}: base of ${animacao}`);
+    }
+  }
+});
+
+test('a terrain manifest needs square tiles and a tile size in cells', () => {
+  const base = { versao: 1, asset: 'terreno-teste', tipo: 'terreno', celulasPorLadrilho: 8, paginas: { uhd: [{ cor: 't.webp', largura: 1024, altura: 1024 }] } };
+  assert.equal(lerManifestoTerreno(base, 'https://exemplo.test/t/m.json').niveis.uhd.cor, 'https://exemplo.test/t/t.webp');
+  assert.throws(() => lerManifestoTerreno({ ...base, celulasPorLadrilho: 0 }), /celulasPorLadrilho/);
+  assert.throws(() => lerManifestoTerreno({ ...base, paginas: { uhd: [{ cor: 't.webp', largura: 1024, altura: 512 }] } }), /quadrada/);
 });

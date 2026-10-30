@@ -43,10 +43,13 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-// Procedural desert terrain with fog of war, evaluated per pixel at the ground point under it.
+// Desert terrain with fog of war, evaluated per pixel at the ground point under it: the ground is the art's
+// tileable texture when one is loaded (uCelulasPorLadrilho > 0) or procedural noise otherwise; rocks stay procedural.
 export const FRAG_TERRENO = `${CABECALHO}${RUIDO}
 uniform sampler2D uMapa;
 uniform sampler2D uNeblina;
+uniform sampler2D uLadrilho;
+uniform float uCelulasPorLadrilho;
 out vec4 cor;
 float rocha(vec2 w) { return texture(uMapa, w / uDimMapa.xy).r; }
 void main() {
@@ -66,6 +69,7 @@ void main() {
   vec2 grao = fract(w * 5.0) - 0.5;
   float pedrinha = step(0.94, hash(floor(w * 5.0))) * smoothstep(0.32, 0.12, length(grao));
   solo = mix(solo, solo * 0.62, pedrinha);
+  if (uCelulasPorLadrilho > 0.0) solo = texture(uLadrilho, w / uCelulasPorLadrilho).rgb * (0.94 + (n1 - 0.5) * 0.16);
 
   float r = rocha(w);
   float pedraMascara = smoothstep(0.40, 0.56, r + (fbm(w * 0.9) - 0.5) * 0.35);
@@ -97,6 +101,8 @@ void main() {
 }`;
 
 // Sprite instance: aPosicao = (x, y, height in metres, scale), aDados = (frame, team, shadow height in metres, alpha).
+// A negative alpha draws the sprite additively (lights, glow) in the same sorted draw: premultiplied colour with
+// zero alpha adds to what is behind.
 // The frame table holds two texels per frame: (layer, x, y, width) and (height, offsetX, offsetY, px per cell of the level).
 const SPRITE_VERT_COMUM = `
 layout(location = 0) in vec2 aCanto;
@@ -139,7 +145,7 @@ void main() {
   vec4 c = texture(uCor, vUV);
   float m = texture(uTime, vUV).r;
   vec3 tingido = mix(c.rgb, c.rgb * uCores[vTime & 7].rgb * uDimMapa.z, m);
-  cor = vec4(tingido, c.a) * vAlfa;
+  cor = vAlfa < 0.0 ? vec4(tingido * -vAlfa, 0.0) : vec4(tingido, c.a) * vAlfa;
 }`;
 
 // Shadow of a sprite. With a shadow height (aDados.z >= 0) it is derived from the sprite's alpha, slid along the

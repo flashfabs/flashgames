@@ -131,6 +131,28 @@ export function quadroDaAnimacao(a, direcao, tempoS) {
   return a.base + (direcao % a.direcoes) * a.quadros + quadro;
 }
 
+/**
+ * Reads a terrain manifest (one tileable page per level covering celulasPorLadrilho cells).
+ * @param {any} m parsed JSON
+ * @param {string | URL} [base]
+ */
+export function lerManifestoTerreno(m, base) {
+  const falha = mensagem => {
+    throw new Error(`terreno ${m?.asset ?? '?'}: ${mensagem}`);
+  };
+  if (!m || m.tipo !== 'terreno') falha('não é um manifesto de terreno');
+  if (!(m.celulasPorLadrilho > 0)) falha('celulasPorLadrilho inválido');
+  const niveis = {};
+  for (const nivel of NIVEIS) {
+    const pagina = m.paginas?.[nivel]?.[0];
+    if (!pagina) continue;
+    if (typeof pagina.cor !== 'string' || !(pagina.largura > 0) || pagina.largura !== pagina.altura) falha(`${nivel}: página precisa ser quadrada`);
+    niveis[nivel] = { cor: base ? new URL(pagina.cor, base).href : pagina.cor, largura: pagina.largura };
+  }
+  if (Object.keys(niveis).length === 0) falha('nenhum nível (hd ou uhd)');
+  return { asset: m.asset, celulasPorLadrilho: m.celulasPorLadrilho, niveis };
+}
+
 /** Fetches a manifest and reads it, resolving page names against the manifest URL. */
 export async function carregarManifesto(url) {
   const resposta = await fetch(url);
