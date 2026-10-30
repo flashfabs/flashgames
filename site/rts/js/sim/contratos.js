@@ -1,0 +1,273 @@
+// Contracts between the simulation and everyone else: commands (the only input of the simulation), the per-tick
+// snapshot sent to the presentation, presentation events, the team view for the computer players, and the
+// messages between the main thread and the worker. Pure data and integer helpers, no DOM, safe in a Worker and Node.
+// A contract change goes in its own commit, bumps its version and is announced to the consumers.
+
+/** Version of the command format; frozen at 1 once the lockstep spike validates it. */
+export const VERSAO_COMANDOS = 0;
+/** Version of the snapshot, events and static map formats. */
+export const VERSAO_SIMULACAO = 1;
+
+// ---------- units of measure ----------
+
+export const FP_BITS = 10;
+/** One map cell in world units. Positions, ranges and speeds are integers in world units. */
+export const FP = 1 << FP_BITS;
+export const PASSOS_POR_SEGUNDO = 30;
+/** Angles are integers 0..255; 0 points to +x (east), 64 to +y (south, down on screen), a full turn is 256. */
+export const VOLTA = 256;
+/** Simulation speeds offered to the player, in percent of PASSOS_POR_SEGUNDO. */
+export const VELOCIDADES = Object.freeze([75, 100, 125]);
+export const MAX_JOGADORES = 8;
+
+// ---------- entity ids with generation ----------
+
+// An id packs the slot (low 16 bits) and the slot's generation (15 bits above), so a late command or a stale
+// snapshot never hits the new entity that took a freed slot. Generations start at 1, so every valid id is > 0.
+export const BITS_SLOT = 16;
+export const MAX_SLOTS = 1 << BITS_SLOT;
+export const MAX_GERACAO = 0x7fff;
+export const SEM_ENTIDADE = -1;
+
+export const idDe = (slot, geracao) => slot | (geracao << BITS_SLOT);
+export const slotDe = id => id & (MAX_SLOTS - 1);
+export const geracaoDe = id => id >>> BITS_SLOT;
+/** Next generation for a slot that is being reused, wrapping inside 1..MAX_GERACAO. */
+export const proximaGeracao = geracao => (geracao >= MAX_GERACAO ? 1 : geracao + 1);
+
+// ---------- commands (C1) ----------
+
+/** Command kinds; 0 is never valid. */
+export const TIPO_COMANDO = Object.freeze({
+  MOVER: 1,
+  ATACAR: 2,
+  ATACAR_MOVENDO: 3,
+  PARAR: 4,
+  SEGURAR_POSICAO: 5,
+  PATRULHAR: 6,
+  CONSTRUIR: 7,
+  PRODUZIR: 8,
+  CANCELAR: 9,
+  PONTO_DE_ENCONTRO: 10,
+  COLETAR: 11,
+  REPARAR: 12,
+  HABILIDADE: 13,
+  DESISTIR: 14,
+});
+const ULTIMO_TIPO_COMANDO = 14;
+
+/**
+ * The only input of the simulation. Control groups, camera, selection and pause are not commands.
+ * The simulation validates ownership, existence, cost and position and silently drops what is invalid,
+ * the same way on every machine; within a tick, commands apply in total order (jogador, seq).
+ * @typedef {object} Comando
+ * @property {number} tick      tick the command runs on, set by the command source, never by the interface
+ * @property {number} jogador   player index, 0..MAX_JOGADORES-1
+ * @property {number} seq       per-player sequence number, strictly increasing
+ * @property {number} tipo      TIPO_COMANDO.*
+ * @property {number[]} unidades ids with generation of the units being ordered (may be empty)
+ * @property {number} alvo      target entity id, or SEM_ENTIDADE
+ * @property {number} x         target point in world units (1 cell = FP)
+ * @property {number} y
+ * @property {number} arg       unit or building kind, ability, mode; 0 when unused
+ * @property {number} fila      1 appends to the units' order queue (Shift), 0 replaces it
+ */
+
+/** Builds a command with every field present and defaults for the optional ones. */
+export function criarComando({ tick = 0, jogador, seq, tipo, unidades = [], alvo = SEM_ENTIDADE, x = 0, y = 0, arg = 0, fila = 0 }) {
+  return { tick, jogador, seq, tipo, unidades: Array.from(unidades), alvo, x, y, arg, fila };
+}
+
+const ehInteiro = v => Number.isInteger(v) && v >= -0x80000000 && v <= 0x7fffffff;
+
+/** Structural check only (integer fields, ranges); game rules are checked by the simulation. */
+export function comandoValido(c) {
+  if (!c || typeof c !== 'object') return false;
+  for (const campo of ['tick', 'jogador', 'seq', 'tipo', 'alvo', 'x', 'y', 'arg', 'fila']) if (!ehInteiro(c[campo])) return false;
+  if (c.tick < 0 || c.seq < 0) return false;
+  if (c.jogador < 0 || c.jogador >= MAX_JOGADORES) return false;
+  if (c.tipo < 1 || c.tipo > ULTIMO_TIPO_COMANDO) return false;
+  if (c.fila !== 0 && c.fila !== 1) return false;
+  if (!Array.isArray(c.unidades) || c.unidades.length > MAX_SLOTS) return false;
+  for (const id of c.unidades) if (!ehInteiro(id) || id <= 0) return false;
+  return true;
+}
+
+/** Total order used to apply commands: tick, then player, then sequence. */
+export function compararComandos(a, b) {
+  return a.tick - b.tick || a.jogador - b.jogador || a.seq - b.seq;
+}
+
+// Compact array form for the network and the replay: [tick, jogador, seq, tipo, alvo, x, y, arg, fila, ...unidades].
+const CAMPOS_FIXOS = 9;
+
+export function comandoParaArray(c) {
+  return [c.tick, c.jogador, c.seq, c.tipo, c.alvo, c.x, c.y, c.arg, c.fila, ...c.unidades];
+}
+
+export function comandoDeArray(a) {
+  return { tick: a[0], jogador: a[1], seq: a[2], tipo: a[3], alvo: a[4], x: a[5], y: a[6], arg: a[7], fila: a[8], unidades: a.slice(CAMPOS_FIXOS) };
+}
+
+// ---------- fog of war ----------
+
+/**
+ * Per-cell visibility for one team. The values are chosen so the grid uploads straight to an R8 texture:
+ * never seen, seen before (terrain and building ghosts only), visible now.
+ */
+export const VISAO = Object.freeze({ NUNCA: 0, VISTA: 128, VISIVEL: 255 });
+
+// ---------- presentation events (C3) ----------
+
+/** Event kinds. The simulation writes them for the presentation and never reads them back. */
+export const EVENTO = Object.freeze({
+  TIRO: 1,
+  IMPACTO: 2,
+  EXPLOSAO: 3,
+  MORTE: 4,
+  PRODUCAO_CONCLUIDA: 5,
+  CONSTRUCAO_CONCLUIDA: 6,
+  SOB_ATAQUE: 7,
+  RECURSO_ESGOTADO: 8,
+  MENSAGEM_MISSAO: 9,
+  OBJETIVO: 10,
+  VITORIA: 11,
+  DERROTA: 12,
+  SURGIMENTO: 13,
+});
+
+// Events travel as flat Int32Array records of TAMANHO_EVENTO integers; E_* are the offsets inside a record.
+// Positions are in world units at the moment of the event, so the presentation needs no lookup.
+// TIRO: entidade at (x, y) fires at alvo at (alvoX, alvoY), arg is the shooter's kind.
+// MORTE: entidade died at (x, y), alvo is the killer, arg is the dead entity's kind.
+// SURGIMENTO: entidade appeared (spawned or respawned) at (x, y), arg is its kind.
+// Without a target, alvo is SEM_ENTIDADE and (alvoX, alvoY) repeats (x, y).
+export const TAMANHO_EVENTO = 9;
+export const E_TIPO = 0;
+export const E_TICK = 1;
+export const E_ENTIDADE = 2;
+export const E_ALVO = 3;
+export const E_X = 4;
+export const E_Y = 5;
+export const E_ALVO_X = 6;
+export const E_ALVO_Y = 7;
+export const E_ARG = 8;
+
+// ---------- snapshot (C2) ----------
+
+/** Bits of Retrato.bandeiras. */
+export const BANDEIRA = Object.freeze({
+  PARADA: 1, // has no order to follow
+  EM_COMBATE: 2, // has a target in range
+  PRESA: 4, // movement stalled by blocking (stuck detection)
+});
+
+/**
+ * Per-entity arrays of the snapshot, in slot order, one entry per live entity (n entries).
+ * Name and TypedArray constructor; the worker transfers their buffers without copying.
+ */
+export const CAMPOS_RETRATO = Object.freeze([
+  ['id', Int32Array], // id with generation; match entities between snapshots by id, never by index
+  ['tipo', Uint16Array], // unit or building kind
+  ['dono', Uint8Array], // player index
+  ['x', Int32Array], // position in world units
+  ['y', Int32Array],
+  ['nivel', Uint8Array], // height level of the cell, 0..3
+  ['dirCorpo', Uint8Array], // body facing, 0..255
+  ['dirTorre', Uint8Array], // turret facing, 0..255
+  ['anim', Uint8Array], // animation code
+  ['inicioAnim', Int32Array], // tick the animation started
+  ['vida', Uint8Array], // health as a fraction of the maximum, 1..255 while alive
+  ['bandeiras', Uint16Array], // BANDEIRA.*
+  ['alvo', Int32Array], // id of the current target, or SEM_ENTIDADE
+]);
+
+/**
+ * One snapshot per tick, worker to main thread.
+ * @typedef {object} Retrato
+ * @property {'retrato'} t
+ * @property {number} versao     VERSAO_SIMULACAO
+ * @property {number} tick
+ * @property {number} msPasso    wall time the step took in the worker (measurement only)
+ * @property {number} soma       state checksum after this tick (uint32)
+ * @property {number} n          live entities, the length of every per-entity array
+ * @property {Int32Array} id
+ * @property {Uint16Array} tipo
+ * @property {Uint8Array} dono
+ * @property {Int32Array} x
+ * @property {Int32Array} y
+ * @property {Uint8Array} nivel
+ * @property {Uint8Array} dirCorpo
+ * @property {Uint8Array} dirTorre
+ * @property {Uint8Array} anim
+ * @property {Int32Array} inicioAnim
+ * @property {Uint8Array} vida
+ * @property {Uint16Array} bandeiras
+ * @property {Int32Array} alvo
+ * @property {Uint8Array} visao      VISAO.* per cell for the local player's team, row-major
+ * @property {Int32Array} recursos   per player
+ * @property {Int32Array} eventos    TAMANHO_EVENTO integers per event, for the ticks since the previous snapshot
+ */
+
+/** Allocates the per-entity arrays of a snapshot for n entities. */
+export function alocarCamposRetrato(n) {
+  const campos = {};
+  for (const [nome, Tipo] of CAMPOS_RETRATO) campos[nome] = new Tipo(n);
+  return campos;
+}
+
+/** Buffers to transfer with postMessage. */
+export function transferiveisDoRetrato(retrato) {
+  const lista = CAMPOS_RETRATO.map(([nome]) => retrato[nome].buffer);
+  lista.push(retrato.visao.buffer, retrato.recursos.buffer, retrato.eventos.buffer);
+  return lista;
+}
+
+/**
+ * Static part of the match, sent once by the worker when it is ready.
+ * @typedef {object} MapaEstatico
+ * @property {'pronto'} t
+ * @property {number} versao      VERSAO_SIMULACAO
+ * @property {number} largura     cells
+ * @property {number} altura
+ * @property {Uint8Array} bloqueado 1 where ground units cannot pass
+ * @property {Uint8Array} relevo  0..255 visual relief
+ * @property {Uint8Array} nivel   height level 0..3 per cell
+ * @property {{x: number, y: number}[]} bases start cells per player
+ * @property {number} jogadorLocal the player the snapshot's visao belongs to
+ * @property {{jogador: number, time: number}[]} jogadores
+ */
+
+// ---------- team view for computer players (C4) ----------
+
+/**
+ * What one team can see: the only input of a computer player, so it cannot cheat by construction.
+ * Produced by vistaDoTime(sim, time) in sim/; same per-entity layout as the snapshot.
+ * @typedef {object} VistaDoTime
+ * @property {number} tick
+ * @property {number} time
+ * @property {Int32Array} recursos   own players' resources
+ * @property {object} proprias       own entities, every field of CAMPOS_RETRATO plus n
+ * @property {object} inimigas       enemy entities on visible cells, same layout
+ * @property {object} fantasmas      enemy buildings last seen on cells not visible now: id, tipo, dono, x, y, n
+ * @property {Uint8Array} visao      VISAO.* per cell for this team
+ */
+
+// ---------- messages between the main thread and the worker ----------
+
+/** Main thread to worker. */
+export const PARA_TRABALHADOR = Object.freeze({
+  INICIAR: 'iniciar', // { opcoes: { semente, unidadesPorTime, avancar, jogadorLocal } }
+  COMANDO: 'comando', // { comando }: a Comando without tick; the worker schedules it for the next tick
+  PAUSAR: 'pausar', // { valor: boolean }
+  VELOCIDADE: 'velocidade', // { percentual: one of VELOCIDADES }
+  SALVAR: 'salvar', // {}
+});
+
+/** Worker to main thread. */
+export const DO_TRABALHADOR = Object.freeze({
+  PRONTO: 'pronto', // MapaEstatico
+  RETRATO: 'retrato', // Retrato
+  SALVO: 'salvo', // { bytes: ArrayBuffer }
+  ERRO: 'erro', // { mensagem }
+});

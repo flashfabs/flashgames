@@ -1,4 +1,4 @@
-# Every pull request and every push to main runs the unit tests and the functional end-to-end tests.
+# Every pull request and every push to main or to rts/base (the RTS integration branch) runs the unit tests and the functional end-to-end tests.
 # Nothing is published here: Netlify builds and publishes from GitHub on its own.
 # The performance suite stays on the Mac: it measures the Mac's GPU through Metal, and these runners have none.
 name: Testes
@@ -6,10 +6,10 @@ name: Testes
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, rts/base]
   workflow_dispatch:
 
-# A newer push to the same pull request cancels the run still going; runs on main always finish.
+# A newer push to the same pull request cancels the run still going; runs on main and rts/base always finish.
 concurrency:
   group: testes-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -22,7 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # Full history, so the RTS originality test can read every commit message in origin/main..HEAD.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -32,8 +35,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The pull request title and body go through the environment, never into the shell command line.
       - name: Unit tests
         run: npm test
+        env:
+          RTS_TEXTO_EXTRA: |
+            ${{ github.event.pull_request.title }}
+            ${{ github.event.pull_request.body }}
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium

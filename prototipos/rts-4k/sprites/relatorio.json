@@ -1,0 +1,29 @@
+{
+  "blender": "5.2.3 LTS",
+  "dispositivo": "OPTIX",
+  "gpus": [
+    "NVIDIA GeForce RTX 4090"
+  ],
+  "direcoes": 16,
+  "quadro": 256,
+  "amostras": 64,
+  "segundos_por_quadro": {
+    "cor": 1.033,
+    "primeiro_quadro_cor": 0.6,
+    "time": 1.019,
+    "normal": 1.018
+  },
+  "atlas_cor": [
+    4096,
+    256
+  ],
+  "atlas_time": [
+    4096,
+    256
+  ],
+  "atlas_normal": [
+    4096,
+    256
+  ],
+  "segundos_vitrine_1080p_256amostras": 23.18
+}
