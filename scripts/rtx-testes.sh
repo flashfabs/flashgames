@@ -2,7 +2,7 @@
 # Runs the end-to-end tests of this worktree on the RTX 4090 Windows PC, so the Mac only edits, commits and runs npm test.
 #
 # Usage: scripts/rtx-testes.sh [command]
-#   (nothing) or e2e            the whole npm run e2e: funcionais, desempenho (with the GPU lock) and rts-determinismo-*
+#   (nothing) or e2e            funcionais, the RTS performance spec (with the GPU lock) and rts-determinismo-*; the Pavio performance spec stays on the Mac
 #   -- <playwright args...>     npx playwright test <args>, e.g. -- --project=funcionais testes/e2e/sala.spec.mjs
 #   acompanhar <run>            follows a run after a dropped connection and brings its results back
 #   estado                      the test and GPU locks, and the newest runs of this session
