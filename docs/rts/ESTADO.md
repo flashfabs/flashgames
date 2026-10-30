@@ -163,12 +163,14 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 
 | Medição | Máquina, navegador e tela | Resultado | Fonte |
 | --- | --- | --- | --- |
-| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média, GPU cerca de 10 ms pela consulta de tempo | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
-| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela, GPU cerca de 13 ms | idem |
+| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
+| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela | idem |
+| Escala dinâmica no laço real, com quadros forçados a 28 ms por 3 s | idem | desce 100, 85, 75 e 67% (um degrau a cada 2 s) e volta a 100% por provas aos 9,7 s, 14,9 s e 20,4 s | script com `requestAnimationFrame` ocupado, 30/10/2026 |
+| Tempo de GPU pela consulta de tempo (`EXT_disjoint_timer_query_webgl2`) | idem | cerca de 10 ms com 2 ou 2.000 unidades e também com a cena a 50% (1920×1080): na ANGLE sobre Metal o número não acompanha os pixels, então não serve para medir nem para guiar a escala | script de amostragem, 30/10/2026 |
 | Alocação por quadro no caminho do render | idem, amostragem do HeapProfiler por 6 s depois de 15 s de partida | antes: cerca de 33 KB por quadro no laço das unidades (números empacotados); depois: o laço some da lista, e o render inteiro fica em poucos KB por segundo, fora do código otimizado; o que mais aloca no quadro é a chegada do retrato do Worker, que é o contrato C2 | script de amostragem, 30/10/2026 |
 | Render em 4K no Safari 26 | MacBook Pro M5 Pro | pendente (Victor): abrir `/rts/?bench=1&res=4k&seg=20&avancar=600` em tela cheia e copiar o JSON que aparece no canto | — |
 
-Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o tempo de GPU em 4K (10 a 13 ms) deixa pouca folga para 120 Hz, e o terreno procedural em tela cheia é o primeiro suspeito, a confirmar antes do splatting da onda 2.
+Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o custo de GPU por passe ainda não tem medida confiável no Mac (a consulta de tempo da ANGLE não acompanha os pixels), e para 120 Hz em 4K vale medir o terreno procedural contra o splatting da onda 2 por tempo de quadro, com a escala fixa.
 
 ### F3 Arte e Blender (`rts-arte`)
 

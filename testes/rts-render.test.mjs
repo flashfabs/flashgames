@@ -121,16 +121,6 @@ test('dynamic scale probes up after 5 s of calm and backs off when the probe fai
   assert.equal(c.estado.calmaMs, 5000, 'a probe that survives resets the wait');
 });
 
-test('dynamic scale does not probe when the GPU time would not fit the next step', () => {
-  const c = criarControleDeEscala({ degrauInicial: 2 });
-  c.informarGpu(12);
-  let r = alimentar(c, 0, 20000, 1000 / 60);
-  assert.equal(r.escala, 0.75);
-  c.informarGpu(5);
-  r = alimentar(c, r.agora, 3000, 1000 / 60);
-  assert.equal(r.escala, 0.85);
-});
-
 test('dynamic scale can be pinned and released', () => {
   const c = criarControleDeEscala();
   c.fixar(0.5);
