@@ -51,7 +51,7 @@ Três comandos, todos rodando na raiz do repositório:
 - `npm run e2e`: testes de ponta a ponta (`testes/e2e/*.spec.mjs`) com Playwright e Chromium sem janela; cada jogador é um navegador de verdade na sua própria página. Roda os cenários funcionais dois de cada vez (`SALINHA_PROCESSOS` muda isso) e depois o de desempenho sozinho, para os números não sofrerem com as outras páginas; tudo leva cerca de 3 min.
 - `npm run fumaca`: teste de fumaça contra a produção (`testes/e2e/producao.fumaca.mjs`, cerca de 15 s): espera `/versao.json` mostrar o commit da `main` (ou `COMMIT=<commit>`), confere que `/api/ice` responde (503 enquanto a chave do TURN não existir), que `/api/ranking` responde, que `/api/perfil` recusa leitura sem credencial (401) e escrita de outro site (403), sem nunca gravar perfil, e joga o começo de uma rodada com dois jogadores no site publicado. `SALINHA_URL=<endereço>` aponta para outro lugar, como uma prévia da Netlify.
 
-Para publicar, `scripts/preparar-publicacao.sh <pasta>` monta uma pasta nova a partir da `main` (só `netlify.toml`, `site/` e `netlify/`, com `site/versao.json` contendo commit e hora, e as `dependencies` das funções instaladas quando houver) e imprime o caminho dela; recusa quando a `main` local está atrás da `origin/main`. O passo a passo está no `AGENTS.md`.
+Publicar é juntar na `main`: a Netlify está ligada ao GitHub, publica cada push na `main` e faz uma prévia de cada pull request; o passo a passo está no `AGENTS.md`. Para publicar à mão, `scripts/preparar-publicacao.sh <pasta>` monta uma pasta nova a partir da `main` (só `netlify.toml`, `site/`, `netlify/` e o gerador do `site/versao.json`, com as `dependencies` das funções instaladas quando houver) e imprime o caminho dela; recusa quando a `main` local está atrás da `origin/main`.
 
 Na primeira vez numa máquina nova, instalar as dependências e o Chromium do Playwright:
 
@@ -106,7 +106,7 @@ O que os testes de ponta a ponta ainda não cobrem: Safari e Firefox (só Chromi
 
 ## Publicação
 
-Netlify, time pessoal `vhccruz-projects`, projeto `salinha-jogos` (id `dddafa63-ffb4-434e-b394-c39aad054106`; o nome `salinha` já era de outra pessoa), em https://salinha-jogos.netlify.app. A pasta publicada é `site/` e as funções ficam em `netlify/functions/` (ambas no `netlify.toml`); pela CLI, `netlify deploy --prod --dir site --functions netlify/functions`.
+Netlify, time pessoal `vhccruz-projects`, projeto `salinha-jogos` (id `dddafa63-ffb4-434e-b394-c39aad054106`; o nome `salinha` já era de outra pessoa), em https://salinha-jogos.netlify.app. Desde 29/10/2026 o projeto está ligado ao repositório `flashfabs/flashgames` pelo app da Netlify no GitHub: cada push na `main` publica, e cada pull request ganha uma prévia em `https://deploy-preview-<número>--salinha-jogos.netlify.app`. O build só roda `scripts/gerar-versao.mjs`, que grava `site/versao.json` com o commit publicado; a pasta publicada é `site/` e as funções ficam em `netlify/functions/` (tudo no `netlify.toml`).
 
 O TURN da Cloudflare depende de duas variáveis de ambiente no projeto da Netlify, criadas pelo Victor numa conta Cloudflare pessoal (Realtime → TURN Server → criar chave): `CLOUDFLARE_TURN_KEY_ID` e `CLOUDFLARE_TURN_API_TOKEN`. Sem elas, `/api/ice` responde 503 e o site segue com a configuração embutida do PeerJS, igual à de antes. Custo: 1.000 GB por mês grátis, depois US$ 0,05/GB; o uso esperado fica abaixo de 10 GB por mês.
 
