@@ -5,8 +5,8 @@
 
 /** Version of the command format; frozen at 1 once the lockstep spike validates it. */
 export const VERSAO_COMANDOS = 0;
-/** Version of the snapshot, events and static map formats. */
-export const VERSAO_SIMULACAO = 1;
+/** Version of the snapshot, events and static map formats, and of the simulation rules replays depend on. */
+export const VERSAO_SIMULACAO = 2;
 
 // ---------- units of measure ----------
 
@@ -189,7 +189,9 @@ export const CAMPOS_RETRATO = Object.freeze([
  * @property {number} versao     VERSAO_SIMULACAO
  * @property {number} tick
  * @property {number} msPasso    wall time the step took in the worker (measurement only)
- * @property {number} soma       state checksum after this tick (uint32)
+ * @property {number} soma       state checksum (uint32) after tick `tickSoma`; hashing the whole state costs about half a
+ *                               step, so the worker does it once per second of game time (every PASSOS_POR_SEGUNDO ticks)
+ * @property {number} tickSoma   the tick `soma` belongs to
  * @property {number} n          live entities, the length of every per-entity array
  * @property {Int32Array} id
  * @property {Uint16Array} tipo

@@ -21,7 +21,7 @@ export function montarMapaEstatico(sim, jogadorLocal) {
 }
 
 /** Snapshot of every live entity in slot order, the local team's fog, resources and this tick's events. */
-export function montarRetrato(sim, { msPasso = 0, soma = 0, jogadorLocal = 0 } = {}) {
+export function montarRetrato(sim, { msPasso = 0, soma = 0, tickSoma = 0, jogadorLocal = 0 } = {}) {
   let n = 0;
   for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i]) n++;
   const r = alocarCamposRetrato(n);
@@ -50,6 +50,7 @@ export function montarRetrato(sim, { msPasso = 0, soma = 0, jogadorLocal = 0 } =
     tick: sim.tick,
     msPasso,
     soma,
+    tickSoma,
     n,
     ...r,
     visao: visaoDoTime(sim, jogadorLocal),

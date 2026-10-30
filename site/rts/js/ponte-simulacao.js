@@ -5,7 +5,7 @@ import { PARA_TRABALHADOR, DO_TRABALHADOR, VISAO, SEM_ENTIDADE, criarComando } f
 
 export function criarPonteSimulacao() {
   // mapa: MapaEstatico; anterior and atual: the last two Retrato
-  const estado = { mapa: null, anterior: null, atual: null, chegadaAtual: 0, tickMs: [], soma: 0, tick: 0, jogadorLocal: 0 };
+  const estado = { mapa: null, anterior: null, atual: null, chegadaAtual: 0, tickMs: [], soma: 0, tickSoma: 0, tick: 0, jogadorLocal: 0 };
   let trabalhador = null;
   let seq = 0;
   let salvando = null;
@@ -27,6 +27,7 @@ export function criarPonteSimulacao() {
         estado.chegadaAtual = performance.now();
         estado.tickMs.push(data.msPasso);
         estado.soma = data.soma;
+        estado.tickSoma = data.tickSoma;
         estado.tick = data.tick;
         aoReceberEstado(data);
         return;
