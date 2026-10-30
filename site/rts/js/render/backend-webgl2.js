@@ -90,6 +90,8 @@ export function criarBackendWebGL2(canvas) {
   const placa = depuracao ? gl.getParameter(depuracao.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
   const info = {
     placa,
+    // no GPU acceleration: the browser draws on the CPU (test runners, blocked drivers, remote sessions)
+    software: /SwiftShader|llvmpipe|softpipe|Software|WARP|Basic Render/i.test(placa),
     maxTextura: gl.getParameter(gl.MAX_TEXTURE_SIZE),
     maxCamadas: gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS),
     tempoDeGpu: Boolean(temporizador),

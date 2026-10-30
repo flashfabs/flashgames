@@ -122,6 +122,14 @@ test('dynamic scale probes up after 5 s of calm and backs off when the probe fai
   assert.equal(c.estado.calmaMs, 5000, 'a probe that survives resets the wait');
 });
 
+test('dynamic scale starting low waits a calm stretch before the first probe', () => {
+  const c = criarControleDeEscala({ degrauInicial: DEGRAUS.length - 1 });
+  let r = alimentar(c, 0, 4800, 1000 / 60);
+  assert.equal(r.escala, 0.5);
+  r = alimentar(c, r.agora, 400, 1000 / 60);
+  assert.equal(r.escala, 0.67);
+});
+
 test('dynamic scale can be pinned and released', () => {
   const c = criarControleDeEscala();
   c.fixar(0.5);

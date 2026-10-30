@@ -7,7 +7,7 @@
 // native resolution so they stay crisp.
 import { criarBackendWebGL2, FLOATS_QUADRO } from './backend-webgl2.js';
 import { pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from './projecao.js';
-import { criarControleDeEscala } from './escala.js';
+import { criarControleDeEscala, DEGRAUS } from './escala.js';
 import { criarFolhas } from './sprites.js';
 import { criarMontagemUnidades } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
@@ -39,7 +39,8 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   let mapaLargura = 1;
   let mapaAltura = 1;
 
-  const escala = criarControleDeEscala();
+  // drawing on the CPU, the scene starts at the lowest step and probes up only if the frames allow
+  const escala = criarControleDeEscala({ degrauInicial: backend.info.software ? DEGRAUS.length - 1 : 0 });
   if (escalaFixa !== null) escala.fixar(escalaFixa);
   const folhas = criarFolhas(backend, projecao, () => preencherQuadro(camera0, 1, vista.largura, vista.altura, 0));
   const unidades = criarMontagemUnidades({ projecao, folhas });
