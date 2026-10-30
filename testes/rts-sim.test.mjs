@@ -278,3 +278,26 @@ test('the snapshot lists live entities in slot order with the local team fog', (
   assert.deepEqual(r.visao, visaoDoTime(sim, 1));
   assert.ok(r.vida.every(v => v >= 1 && v <= 255));
 });
+
+test('harvesters of the same kind on their way pass through each other, other units do not', () => {
+  const tipos = DADOS_PROTOTIPO.map(t => ({ ...t }));
+  tipos.push({ ...tipos[0], nome: 'coletor', coletor: 1 });
+  // two units of a kind face each other on one row and are sent to swap places; returns their closest approach
+  const cruzar = tipo => {
+    const unidades = [
+      { tipo, time: 0, x: 10 * FP + 512, y: 15 * FP + 512 },
+      { tipo, time: 0, x: 20 * FP + 512, y: 15 * FP + 512 },
+    ];
+    const sim = criarSimulacao({ mapa: mapaAberto(), unidades, tipos, regras: REGRAS_LIVRES });
+    agendarComando(sim, criarComando({ tick: 1, jogador: 0, seq: 0, tipo: TIPO_COMANDO.MOVER, unidades: [id(sim, 0)], x: 22 * FP + 512, y: 15 * FP + 512 }));
+    agendarComando(sim, criarComando({ tick: 1, jogador: 0, seq: 1, tipo: TIPO_COMANDO.MOVER, unidades: [id(sim, 1)], x: 8 * FP + 512, y: 15 * FP + 512 }));
+    let menor = Infinity;
+    for (let k = 0; k < 300; k++) {
+      passo(sim);
+      menor = Math.min(menor, Math.hypot(sim.x[0] - sim.x[1], sim.y[0] - sim.y[1]));
+    }
+    return menor;
+  };
+  assert.ok(cruzar(2) < 100, 'harvesters overlap as they cross');
+  assert.ok(cruzar(0) > 300, 'buggies keep apart');
+});
