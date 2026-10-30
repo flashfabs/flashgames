@@ -49,6 +49,8 @@ class Instancias {
  */
 export function criarMontagemUnidades({ projecao, folhas }) {
   let aparencias = APARENCIAS_PADRAO;
+  // 'alfa' derives shadows from the sprite alpha; 'camada' uses the sheet's rendered shadow layer where it has one
+  let modoSombra = 'alfa';
   // resolved sheets per kind, refreshed when a sheet finishes loading
   let resolvidas = [];
   let versaoFolhas = -1;
@@ -207,7 +209,7 @@ export function criarMontagemUnidades({ projecao, folhas }) {
     d[o + 3] = 1;
     d[o + 4] = quadro;
     d[o + 5] = time;
-    d[o + 6] = aparencia.sombraMetros;
+    d[o + 6] = modoSombra === 'camada' && aparencia.corpo.temSombra ? -1 : aparencia.sombraMetros;
     d[o + 7] = 1;
     ordenacao.garantir(i + 1);
     ordenacao.chaves[i] = chave;
@@ -235,6 +237,10 @@ export function criarMontagemUnidades({ projecao, folhas }) {
     definirAparencias(lista) {
       aparencias = lista;
       versaoFolhas = -1;
+    },
+    /** @param {'alfa' | 'camada'} modo */
+    definirModoSombra(modo) {
+      modoSombra = modo;
     },
     sprites,
     sombras,

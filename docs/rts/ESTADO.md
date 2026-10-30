@@ -4,7 +4,7 @@ Estado vivo do RTS original da Salinha: o que cada frente fez, o que foi medido 
 Quem divide o trabalho e como integrar está em [frentes.md](frentes.md); o plano completo, com a pesquisa, fica fora do repositório, na base de conhecimento privada do Victor.
 Cada sessão atualiza a sua seção no fim da onda; a `rts-qualidade` mantém as medições e os critérios.
 
-Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a carga guardada em baterias velhas virou o recurso; os Religadores (jogador) enfrentam os Desligados (atravessadores e freteiros), e a Antena entra depois.
+Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a carga guardada em baterias velhas virou o recurso; os Religadores (jogador) enfrentam os Desligados (atravessadores e freteiros), e a terceira facção (codinome Facção 3, a comunidade da emissora) entra depois.
 
 ## Onde estamos
 
@@ -162,12 +162,14 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 
 | Medição | Máquina, navegador e tela | Resultado | Fonte |
 | --- | --- | --- | --- |
-| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média, GPU cerca de 10 ms pela consulta de tempo | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
-| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela, GPU cerca de 13 ms | idem |
+| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
+| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela | idem |
+| Escala dinâmica no laço real, com quadros forçados a 28 ms por 3 s | idem | desce 100, 85, 75 e 67% (um degrau a cada 2 s) e volta a 100% por provas aos 9,7 s, 14,9 s e 20,4 s | script com `requestAnimationFrame` ocupado, 30/10/2026 |
+| Tempo de GPU pela consulta de tempo (`EXT_disjoint_timer_query_webgl2`) | idem | cerca de 10 ms com 2 ou 2.000 unidades e também com a cena a 50% (1920×1080): na ANGLE sobre Metal o número não acompanha os pixels, então não serve para medir nem para guiar a escala | script de amostragem, 30/10/2026 |
 | Alocação por quadro no caminho do render | idem, amostragem do HeapProfiler por 6 s depois de 15 s de partida | antes: cerca de 33 KB por quadro no laço das unidades (números empacotados); depois: o laço some da lista, e o render inteiro fica em poucos KB por segundo, fora do código otimizado; o que mais aloca no quadro é a chegada do retrato do Worker, que é o contrato C2 | script de amostragem, 30/10/2026 |
 | Render em 4K no Safari 26 | MacBook Pro M5 Pro | pendente (Victor): abrir `/rts/?bench=1&res=4k&seg=20&avancar=600` em tela cheia e copiar o JSON que aparece no canto | — |
 
-Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o tempo de GPU em 4K (10 a 13 ms) deixa pouca folga para 120 Hz, e o terreno procedural em tela cheia é o primeiro suspeito, a confirmar antes do splatting da onda 2.
+Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o custo de GPU por passe ainda não tem medida confiável no Mac (a consulta de tempo da ANGLE não acompanha os pixels), e para 120 Hz em 4K vale medir o terreno procedural contra o splatting da onda 2 por tempo de quadro, com a escala fixa.
 
 ### F3 Arte e Blender (`rts-arte`)
 
@@ -176,11 +178,33 @@ O Blender 5.2.3 LTS foi instalado no PC da RTX 4090 pelo winget em 30/10/2026, p
 
 ### F5 Design, mundo e fase 1 (`rts-design`)
 
-Onda 1 aberta em 30/10/2026, só para os briefs; nada integrado ainda.
+Onda 1 aberta em 30/10/2026, só para os briefs.
+
+- 30/10/2026: 34 briefs em [arte/briefs/](../../arte/briefs/README.md) (os 33 do plano e o Poste Avançado, que a missão usa), com formato, convenções de render, máscara de time e checklist de originalidade no README; [faccoes.md](../../arte/briefs/faccoes.md) com as três facções e o bloco de originalidade de facção. Os 4 do portão de estilo (Cesto Blindado, Turma de Linha, Carro-Vela e Escritório Regional) foram mandados à `rts-arte` em 30/10/2026.
+- Premissa dos Desligados reescrita como atravessadores e freteiros, sem ideologia contra a tecnologia; o conflito da fase 1 é de mercado (dono da rede contra atravessador). O checklist ganhou o bloco de facção, com a pergunta "a dupla jogador contra inimigo reproduz a dupla de algum jogo conhecido?".
+- Propostas de troca, aguardando o Victor, já escritas nos briefs: a infantaria básica dos Desligados virou o Chapa (carabina de ar, alcance 4, a tocaia ficou); o batedor de bicicleta virou o Rolimã (carrinho de rolimã com estilingue, os estrepes ficaram); a artilharia que arma e desarma virou o Canhão de Caldeira (morteiro a vapor com apito de aviso). As duas primeiras ficavam perto de unidades de uma facção conhecida; a terceira tinha o nome, a função e a mecânica de uma máquina de cerco de outra série famosa nas versões em português.
+- Mudanças de dados que as trocas pedem, para a onda 2: alcance da infantaria básica dos Desligados de 3 para 4 células, sem o bônus de dano de perto; valor da rajada do Cata-vento a definir (o vento virou rajadas anunciadas).
+- Pendente: aprovação das três trocas pelo Victor; revisão por alguém que jogou o jogo que inspirou o projeto ("isso te lembra algo específico?"); teste de combinação por alguém que não é fã; teste de 5 segundos no portão (`rts-arte`); briefs dos nós de recurso, do terreno e dos retratos.
+
+#### Busca simples de nomes das facções (30/10/2026)
+
+Busca na web, sem consulta ao INPI, ao USPTO nem ao EUIPO, que fica para a decisão D20 junto com o nome do jogo.
+
+| Nome | Busca | Resultado | Decisão |
+| --- | --- | --- | --- |
+| Religadores | "Religadores" com jogo, game e marca | nenhum jogo, facção ou marca com esse nome; "religador" é o nome técnico de um equipamento de rede elétrica | mantido |
+| Desligados | "Desligados" com facção, jogo, game e faction | nenhuma facção ou jogo com esse nome | mantido |
+| nome provisório anterior da terceira facção | o nome com faction, video game, marca e rádio Brasil | coincide com o nome de uma rede de rádio real e muito ouvida no Brasil, e a facção é uma rádio; nenhum uso como facção de jogo | em dúvida: virou o codinome neutro Facção 3 até a D20 |
+
+Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026, sem uso encontrado como unidade de jogo para os nomes novos; os termos comuns de dicionário (garagem, poste, torre de vigia, paliçada) passam pela combinação, e os pontos de atenção estão no checklist de cada brief.
 
 ### F7 Interface e controles (`rts-interface`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
+- 30/10/2026: bateria de teclas e gestos em `prototipos/teclas/index.html` (um arquivo, sem nenhuma requisição), com `testes/e2e/rts-teclas.spec.mjs`; ela entra no roteiro de 15 minutos, e o "Copiar resultado" dela traz uma leitura automática de quais teclas servem em cada navegador.
+- 30/10/2026: entrada da E1 ligada à página: seleção por clique, caixa, Shift (soma na caixa, alterna no clique) e duplo clique (todos do tipo na tela); ordem de contexto pelo botão direito, clique com dois dedos ou Control e clique no Mac (ataca o inimigo visível sob o ponteiro, senão move); A, M e R armam atacar-mover, mover e patrulhar para o próximo clique, Shift mantém armado para enfileirar, Esc ou botão direito cancelam; S para, H segura, P pausa; fila com os pontos no chão (`interface/sobreposicao.js`); grupos de 1 a 9; câmera por setas, bordas, botão do meio ou Espaço e arrasto, e dois dedos no trackpad; três zooms (0,75, 1 e 1,25) pela roda, pela pinça (roda com `ctrlKey` e `GestureEvent`) e por + e −; marca no chão, som provisório e latência do clique medida no painel; todo comando tem botão na barra de baixo.
+- Decisões provisórias, a confirmar com a bateria no Safari 26, no Chrome do Mac e no Chrome do Windows: P é pausa e patrulha fica no R (no Mac, sem Fn, o F10 tira o som, então ele não serve de pausa); guardar grupo aceita Ctrl e Option/Alt com o número, porque cada sistema pode tomar um deles (abas no Windows, Mesas no Mac); WASD saiu da câmera porque A e S são comandos; a tecla do painel de medição (H) e a da tela cheia (F) saíram, e a tela cheia ficou no botão.
+- Medido: clique até a marca no chão com p50 de 22 ms e p95 de 28 ms em 4 cliques, no navegador do app do Claude (Chromium 152) no MacBook Pro M5 Pro, pelo painel do jogo (30/10/2026); o `rts-entrada.spec.mjs` reprova p50 acima de 100 ms. A medida vai até o fim do quadro que desenha a marca; o navegador ainda leva até uma atualização de tela para mostrar.
+- Pendente: a simulação obedecer ATACAR_MOVENDO, PARAR, SEGURAR_POSICAO, PATRULHAR e a fila (`rts-motor`, a interface já envia); a projeção com elevação no `entrada/camera.js` (`rts-render`); calibrar pela bateria a regra que separa a roda do mouse da rolagem do trackpad (hoje: evento isolado com Δy de 40 ou mais é roda; `?roda=zoom` ou `?roda=arrastar` forçam); conferir a pinça por `GestureEvent` no Safari de verdade; aviso na tela quando a ponte pausar por aba oculta; os e2e só rodam no Chromium até a decisão D16; o M1 com o Victor.
 
 ### F8 Qualidade e coordenação (`rts-qualidade`)
 

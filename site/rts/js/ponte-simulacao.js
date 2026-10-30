@@ -1,6 +1,6 @@
 // Main-thread side of the simulation worker (the local command source): starts it, stamps commands with the local
-// player and a sequence number, forwards pause, and keeps the last two snapshots so the presentation can interpolate
-// between them. The message formats are in sim/contratos.js.
+// player and a sequence number, forwards pause and speed, pauses while the tab is hidden, saves and loads, and keeps
+// the last two snapshots so the presentation can interpolate between them. The message formats are in sim/contratos.js.
 import { PARA_TRABALHADOR, DO_TRABALHADOR, VISAO, SEM_ENTIDADE, criarComando } from './sim/contratos.js';
 
 export function criarPonteSimulacao() {
@@ -8,6 +8,7 @@ export function criarPonteSimulacao() {
   const estado = { mapa: null, anterior: null, atual: null, chegadaAtual: 0, tickMs: [], soma: 0, tick: 0, jogadorLocal: 0 };
   let trabalhador = null;
   let seq = 0;
+  let salvando = null;
 
   // Starts the worker; aoReceberMapa gets the static map once, aoReceberEstado every snapshot.
   function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, aoReceberMapa, aoReceberEstado }) {
@@ -30,8 +31,30 @@ export function criarPonteSimulacao() {
         aoReceberEstado(data);
         return;
       }
+      if (data.t === DO_TRABALHADOR.SALVO) {
+        salvando?.(data);
+        salvando = null;
+        return;
+      }
       if (data.t === DO_TRABALHADOR.ERRO) console.error('simulação:', data.mensagem);
     };
+    // a single-player match stops while nobody can see it
+    document.addEventListener('visibilitychange', () => pausar(document.hidden, 'visibilidade'));
+    if (document.hidden) pausar(true, 'visibilidade');
+  }
+
+  /** Pauses or resumes for one reason; the match runs only when no reason is left. */
+  function pausar(valor, motivo = 'jogador') {
+    trabalhador?.postMessage({ t: PARA_TRABALHADOR.PAUSAR, valor: Boolean(valor), motivo });
+  }
+
+  /** Whole state and the replay so far: Promise<{ tick, bytes, replay }>. */
+  function salvar() {
+    return new Promise((resolver, rejeitar) => {
+      if (!trabalhador) return rejeitar(new Error('a simulação não começou'));
+      salvando = resolver;
+      trabalhador.postMessage({ t: PARA_TRABALHADOR.SALVAR });
+    });
   }
 
   /**
@@ -61,6 +84,9 @@ export function criarPonteSimulacao() {
     iniciar,
     visivel,
     enviarComando,
-    pausar: valor => trabalhador?.postMessage({ t: PARA_TRABALHADOR.PAUSAR, valor }),
+    pausar,
+    velocidade: percentual => trabalhador?.postMessage({ t: PARA_TRABALHADOR.VELOCIDADE, percentual }),
+    salvar,
+    carregar: bytes => trabalhador?.postMessage({ t: PARA_TRABALHADOR.CARREGAR, bytes }, [bytes]),
   };
 }
