@@ -87,14 +87,17 @@ export function criarBackendWebGL2(canvas) {
   if (!gl) throw new Error('WebGL2 indisponível neste navegador');
   const depuracao = gl.getExtension('WEBGL_debug_renderer_info');
   const temporizador = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  const placa = depuracao ? gl.getParameter(depuracao.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
   const info = {
-    placa: depuracao ? gl.getParameter(depuracao.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+    placa,
+    // no GPU acceleration: the browser draws on the CPU (test runners, blocked drivers, remote sessions)
+    software: /SwiftShader|llvmpipe|softpipe|Software|WARP|Basic Render/i.test(placa),
     maxTextura: gl.getParameter(gl.MAX_TEXTURE_SIZE),
     maxCamadas: gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS),
     tempoDeGpu: Boolean(temporizador),
   };
 
-  const terreno = programa(gl, F.VERT_TELA, F.FRAG_TERRENO, { uMapa: 0, uNeblina: 1 });
+  const terreno = programa(gl, F.VERT_TELA, F.FRAG_TERRENO, { uMapa: 0, uNeblina: 1, uLadrilho: 7 });
   const sprite = programa(gl, F.VERT_SPRITE, F.FRAG_SPRITE, { uQuadros: 2, uCor: 3, uTime: 4 });
   const sombra = programa(gl, F.VERT_SOMBRA, F.FRAG_SOMBRA, { uQuadros: 2, uCor: 3, uSombra: 6 });
   const anel = programa(gl, F.VERT_ANEL, F.FRAG_ANEL);
@@ -120,6 +123,8 @@ export function criarBackendWebGL2(canvas) {
   const texMapa = textura2D(gl, gl.LINEAR);
   const texNeblina = textura2D(gl, gl.LINEAR);
   const texQuadros = textura2D(gl, gl.NEAREST);
+  const texLadrilho = textura2D(gl, gl.LINEAR);
+  let celulasPorLadrilho = 0;
   let mapaLargura = 1;
   let mapaAltura = 1;
 
@@ -232,6 +237,24 @@ export function criarBackendWebGL2(canvas) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, largura, altura, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(largura * altura));
       mapaLargura = largura;
       mapaAltura = altura;
+    },
+
+    /**
+     * Tileable ground texture (premultiplied ImageBitmap) repeating every `celulas` cells; null goes back to the
+     * procedural ground.
+     */
+    definirLadrilho(imagem, celulas) {
+      if (!imagem) {
+        celulasPorLadrilho = 0;
+        return;
+      }
+      gl.bindTexture(gl.TEXTURE_2D, texLadrilho);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, imagem);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      celulasPorLadrilho = celulas;
     },
 
     /** Fog of war of the local player, one byte per cell. */
@@ -386,6 +409,9 @@ export function criarBackendWebGL2(canvas) {
       gl.bindTexture(gl.TEXTURE_2D, texMapa);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, texNeblina);
+      gl.activeTexture(gl.TEXTURE7);
+      gl.bindTexture(gl.TEXTURE_2D, texLadrilho);
+      gl.uniform1f(terreno.u.uCelulasPorLadrilho, celulasPorLadrilho);
       gl.bindVertexArray(vaoTela);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.enable(gl.BLEND);

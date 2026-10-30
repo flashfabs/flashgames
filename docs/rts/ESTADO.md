@@ -106,12 +106,12 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 
 | Critério | Meta | Estado |
 | --- | --- | --- |
-| Mesmo hash entre motores | Node, Chromium, Firefox e WebKit iguais em 3 cenários de 18.000 passos com combate, ordens e neblina; Safari conferido à mão | pendente |
-| Passo da simulação com 2.000 unidades | p99 até 10 ms, máximo até 20 ms; nenhum campo de fluxo acima de 3 ms num passo | pendente |
-| Ponte de 2 células | 20 unidades atravessam em até 1,5 vez o tempo de uma sozinha mais 8 s | pendente |
-| 20 ordens simultâneas | ninguém preso por mais de 5 s | pendente |
-| Neblina com 2.000 unidades e 4 times | até 1 ms por passo | pendente |
-| Salvar, carregar e replay | mesmo hash depois de carregar; replay reproduz as somas | pendente |
+| Mesmo hash entre motores | Node, Chromium, Firefox e WebKit iguais em 3 cenários de 18.000 passos com combate, ordens e neblina; Safari conferido à mão | feito em 30/10/2026 (seção F1): os 3 replays de `testes/rts-replays/` dão o mesmo final no Node 22 do Mac e no Node 24 do PC; a versão anterior deles bateu também no `jsc` do macOS, no Chromium 153, no Firefox 155 e no WebKit 26.6; a versão atual nos navegadores fica com o `rts-determinismo` do Action; Safari de verdade pendente (Victor) |
+| Passo da simulação com 2.000 unidades | p99 até 10 ms, máximo até 20 ms; nenhum campo de fluxo acima de 3 ms num passo | no PC da RTX 4090 sem carga: p99 4,4 ms, máximo 9,6 ms, pior fatia de campo 2,5 ms (seção F1); no M5 Pro, medida limpa pendente (o Mac estava com carga acima de 20) |
+| Ponte de 2 células | 20 unidades atravessam em até 1,5 vez o tempo de uma sozinha mais 8 s | feito: 20 tanques em 1.211 passos, um sozinho em 1.128, limite 1.932 (`testes/rts-sim-movimento.test.mjs`) |
+| 20 ordens simultâneas | ninguém preso por mais de 5 s | parcial: no cenário do teste (semente 7) o pior caso é 74 passos (2,5 s); em 6 sementes do mesmo cenário, 4 passam e 2 não (8,5 s e 6,9 s), por filas em passagens de 1 célula e fluxo contrário em corredores diagonais estreitos do mapa de ruído |
+| Neblina com 2.000 unidades e 4 times | até 1 ms por passo | feito: média 0,16 ms, p99 0,62 ms, máximo 2,0 ms no PC (`ferramentas/rts/medir-neblina.mjs`) |
+| Salvar, carregar e replay | mesmo hash depois de carregar; replay reproduz as somas | feito: carregar no meio do cálculo de um campo e com comandos pendentes continua com as mesmas somas por subsistema; os replays dourados reproduzem as somas (`testes/rts-sim.test.mjs`, `testes/rts-sim-replays.test.mjs`) |
 | Render em 4K com 2.000 unidades, Chrome e Safari | menos de 1% dos quadros acima de 20 ms, CPU por quadro medida e a tela dita | Chromium com Metal: 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,3 ms, canvas 3840×2160 (seção F2); Safari pendente (Victor) |
 | Clique até a marca no chão | abaixo de 100 ms | pendente |
 
@@ -177,7 +177,29 @@ O [roteiro de medições](roteiro-medicoes.md) cobre o Safari 26, o Chrome e o E
 
 ### F1 Motor e simulação (`rts-motor`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
+- 30/10/2026, passo zero: o protótipo foi para `site/rts/` dividido pelos donos (simulação em `js/sim/`, worker em `js/trabalhador.js`, render em `js/render/` e `js/ativos/`, entrada e interface em `js/entrada/` e `js/interface/`, `js/principal.js` só com a montagem e o laço de quadro, `js/ponte-simulacao.js` como lado da página do protocolo do worker), sem mudar comportamento; `prototipos/rts-4k/` ficou congelado.
+- 30/10/2026: `site/rts/js/sim/contratos.js` com o comando (C1, `TIPO_COMANDO`, validação, ordem total e forma compacta), ids com geração (slot nos 16 bits baixos), o retrato por passo (C2, arrays por entidade viva em ordem de slot), os eventos (C3, registros de 9 inteiros com posições), a forma da `VistaDoTime` (C4) e as mensagens do worker; `VERSAO_COMANDOS` 0 e `VERSAO_SIMULACAO` 1.
+- 30/10/2026, onda 1 integrada: simulação dividida por subsistema (`estado`, `entidades`, `dados` com esquema e validador de inteiros, `mapa` com morros nos níveis 0 a 2, `caminhos`, `ordens`, `movimento`, `combate`, `neblina`, `vista`, `soma`, `persistencia`, `replay`), tabelas trigonométricas inteiras geradas por `ferramentas/rts/tabelas/gerar-tabelas.mjs`.
+- Caminhos: campo de fluxo por destino com cache LRU de 40 campos compartilhado pelas ordens, calculado em fatias de 12.000 expansões por passo (contagem, não relógio, para fatiar igual em toda máquina), com pedágio perto da rocha (24 na célula encostada, 6 a duas células) para os grupos não colarem nas paredes.
+- Movimento: formação na chegada (fileiras perpendiculares à aproximação, mais largas que fundas, mantendo a ordem da esquerda para a direita), mira numa célula adiante no campo ou em linha reta quando a visada está livre, detecção de unidade presa com desvio para o lado e chegada aceita perto da vaga ou encostada no próprio grupo parado, prioridades na separação (quem está parado cede, quem segura posição não é empurrado, grupos que se cruzam se empurram pouco e mantêm a direita, unidade travada atravessa grupos em movimento de outras ordens, coletores do mesmo tipo passam um pelo outro).
+- Comandos obedecidos: MOVER, ATACAR_MOVENDO, ATACAR, PATRULHAR, PARAR, SEGURAR_POSICAO e a fila do Shift (até 8); o resto do `TIPO_COMANDO` é descartado até a onda 2.
+- Neblina incremental por time (contagem de observadores por célula, só quem muda de célula custa) com altura: de baixo se vê a borda de um morro, não o que está atrás.
+- Worker com relógio fixo a 75, 100 ou 125% de 30 passos por segundo, recuperação de até 4 passos, pausa por motivo (jogador ou aba oculta), salvar e carregar e gravação do replay da partida.
+- Testes: `testes/rts-sim.test.mjs` (contratos, matemática, dados, mapas, campos fatiados, neblina, vista, comandos, salvar e carregar), `testes/rts-sim-barreira.test.mjs` (barreira de determinismo sobre `site/rts/js/sim/`), `testes/rts-sim-replays.test.mjs` com os 3 replays dourados de `testes/rts-replays/` (gerados por `ferramentas/rts/gerar-replays.mjs`) e `testes/rts-sim-movimento.test.mjs` (ponte e 20 ordens).
+
+| Medição | Máquina | Resultado | Fonte |
+| --- | --- | --- | --- |
+| Replays dourados, 3 de 18.000 passos | Mac (Node 22, V8 12.4) e PC (Node 24, V8 13.6) | finais `22d9d9dd`, `0d7f99a8` e `d5574fea` iguais nos dois; gerados no PC e conferidos no Mac | `ferramentas/rts/verificar-replays.mjs`, 30/10/2026 |
+| Mesmos replays antes do pedágio 24/6 | Mac: `jsc` do macOS, Chromium 153, Firefox 155, WebKit 26.6 | os 3 finais iguais ao Node em todos | 30/10/2026 |
+| Passo com 2.000 unidades, 9.000 passos com rajadas de 20 ordens | PC, i7-12700KF, Node 24, sem carga | p50 2,7 ms, p99 4,4 ms, máximo 9,6 ms; pior fatia de campo 2,5 ms; neblina média 0,41 ms | `ferramentas/rts/medir-passo.mjs`, 30/10/2026 |
+| O mesmo com a CPU do PC em 69% por outros processos | PC | p99 6,5 a 10,3 ms, máximo 15 a 39 ms, pior fatia de campo 5 a 7 ms; pedágio antigo e novo iguais dentro do ruído | idem |
+| Passo com 2.000 unidades | MacBook Pro M5 Pro, Node 22, carga do Mac em torno de 20 | p50 1,7 ms, p99 2,8 ms, máximo 10,4 ms (só o primeiro passo) | 30/10/2026 |
+| Neblina, 4 times de 500 unidades vivas patrulhando | PC | média 0,16 ms, p99 0,62 ms, máximo 2,0 ms | `ferramentas/rts/medir-neblina.mjs` |
+| Ponte de 2 células | Node | 20 tanques 1.211 passos, um sozinho 1.128 | `testes/rts-sim-movimento.test.mjs` |
+| 20 ordens simultâneas, cerca de 1.900 unidades, 6 sementes | PC | pior unidade sem avançar: 74, 133, 140, 140, 206 e 256 passos (sementes 7, 11, 5, 99, 42 e 23) | `testes/rts-sim-cenarios.mjs` |
+
+Pendências da F1: as 20 ordens simultâneas em mapas com passagens de 1 célula e corredores diagonais estreitos (próximo passo: campo por classe de movimento com folga, para veículo não entrar em fresta, e custo por congestionamento); a medida limpa do passo no M5 Pro e o Safari de verdade (Victor); `VERSAO_COMANDOS` só congela depois do spike S7 da `rts-rede`; os fantasmas de prédios na `vistaDoTime` entram com as construções; os números de unidades saem de `DADOS_PROTOTIPO` quando a `rts-design` entregar os dados.
+Na onda 2: economia, construção, produção, lotação, combate com a matriz, veterania, pesquisas, religar estruturas e o avaliador de gatilhos.
 
 ### F2 Renderização e 4K (`rts-render`)
 
@@ -216,9 +238,9 @@ Onda 1 aberta em 30/10/2026, só para os briefs.
 
 - 30/10/2026: 34 briefs em [arte/briefs/](../../arte/briefs/README.md) (os 33 do plano e o Poste Avançado, que a missão usa), com formato, convenções de render, máscara de time e checklist de originalidade no README; [faccoes.md](../../arte/briefs/faccoes.md) com as três facções e o bloco de originalidade de facção. Os 4 do portão de estilo (Cesto Blindado, Turma de Linha, Carro-Vela e Escritório Regional) foram mandados à `rts-arte` em 30/10/2026.
 - Premissa dos Desligados reescrita como atravessadores e freteiros, sem ideologia contra a tecnologia; o conflito da fase 1 é de mercado (dono da rede contra atravessador). O checklist ganhou o bloco de facção, com a pergunta "a dupla jogador contra inimigo reproduz a dupla de algum jogo conhecido?".
-- Propostas de troca, aguardando o Victor, já escritas nos briefs: a infantaria básica dos Desligados virou o Chapa (carabina de ar, alcance 4, a tocaia ficou); o batedor de bicicleta virou o Rolimã (carrinho de rolimã com estilingue, os estrepes ficaram); a artilharia que arma e desarma virou o Canhão de Caldeira (morteiro a vapor com apito de aviso). As duas primeiras ficavam perto de unidades de uma facção conhecida; a terceira tinha o nome, a função e a mecânica de uma máquina de cerco de outra série famosa nas versões em português.
+- Trocas aprovadas pelo Victor em 30/10/2026 e já escritas nos briefs: a infantaria básica dos Desligados virou o Chapa (carabina de ar, alcance 4, a tocaia ficou); o batedor de bicicleta virou o Rolimã (carrinho de rolimã com estilingue, os estrepes ficaram); a artilharia que arma e desarma virou o Canhão de Caldeira (morteiro a vapor com apito de aviso). As duas primeiras ficavam perto de unidades de uma facção conhecida; a terceira tinha o nome, a função e a mecânica de uma máquina de cerco de outra série famosa nas versões em português.
 - Mudanças de dados que as trocas pedem, para a onda 2: alcance da infantaria básica dos Desligados de 3 para 4 células, sem o bônus de dano de perto; valor da rajada do Cata-vento a definir (o vento virou rajadas anunciadas).
-- Pendente: aprovação das três trocas pelo Victor; revisão por alguém que jogou o jogo que inspirou o projeto ("isso te lembra algo específico?"); teste de combinação por alguém que não é fã; teste de 5 segundos no portão (`rts-arte`); briefs dos nós de recurso, do terreno e dos retratos.
+- Pendente: revisão por alguém que jogou o jogo que inspirou o projeto ("isso te lembra algo específico?"); teste de combinação por alguém que não é fã; teste de 5 segundos no portão (`rts-arte`); briefs dos nós de recurso, do terreno e dos retratos.
 
 #### Busca simples de nomes das facções (30/10/2026)
 

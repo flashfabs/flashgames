@@ -60,11 +60,12 @@ def _tentar(tamanhos, largura, altura, margem):
     return posicoes
 
 
-def empacotar(tamanhos, maximo=4096, margem=2):
+def empacotar(tamanhos, maximo=4096, margem=2, fixo=False):
     """Pack (width, height) rectangles into as few power-of-two pages as possible, each up to maximo.
 
     Returns [(page_width, page_height, {index: (x, y)})]. Pages are the smallest power-of-two size that
     holds what is left; when nothing fits in one maximo page, a full page is filled and packing goes on.
+    With fixo every page is maximo by maximo.
     """
     pendentes = sorted(enumerate(tamanhos), key=lambda item: (-item[1][1], -item[1][0], item[0]))
     for _, (w, h) in pendentes:
@@ -73,8 +74,10 @@ def empacotar(tamanhos, maximo=4096, margem=2):
     paginas = []
     while pendentes:
         area = sum((w + margem) * (h + margem) for _, (w, h) in pendentes)
-        candidatos = sorted(((a, b) for a in _potencias(maximo) for b in _potencias(maximo) if a * b >= area and b <= a),
-                            key=lambda t: (t[0] * t[1], t[0]))
+        candidatos = [] if fixo else sorted(((a, b) for a in _potencias(maximo) for b in _potencias(maximo) if a * b >= area and b <= a),
+                                            key=lambda t: (t[0] * t[1], t[0]))
+        if fixo and area <= maximo * maximo:
+            candidatos = [(maximo, maximo)]
         escolhido = None
         for largura, altura in candidatos:
             posicoes = _tentar(pendentes, largura, altura, margem)

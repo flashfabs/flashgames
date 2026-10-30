@@ -7,8 +7,11 @@
 export const CHEGADA = 1.5;
 /** Ticks an order may take to show up in the snapshot before an idle unit's points are dropped. */
 export const TOLERANCIA_TICKS = 4;
+/** Orders the simulation keeps per unit; Shift orders beyond this are dropped there, so they are not drawn here. */
+export const MAXIMO_NA_FILA = 8;
 
-export function criarFilaVisual() {
+/** repetem: order kinds that never finish on arrival (patrol goes back and forth), so their point stays drawn. */
+export function criarFilaVisual({ repetem = new Set() } = {}) {
   // id → { pontos: [{x, y, tipo}], tick }
   const filas = new Map();
 
@@ -19,6 +22,7 @@ export function criarFilaVisual() {
         const atual = filas.get(id);
         const novo = { x: ponto.x, y: ponto.y, tipo };
         if (fila && atual) {
+          if (atual.pontos.length >= MAXIMO_NA_FILA) continue;
           atual.pontos.push(novo);
           atual.tick = tick;
         } else {
@@ -40,7 +44,7 @@ export function criarFilaVisual() {
           filas.delete(id);
           continue;
         }
-        while (fila.pontos.length > 0 && Math.hypot(p.x - fila.pontos[0].x, p.y - fila.pontos[0].y) <= CHEGADA) fila.pontos.shift();
+        while (fila.pontos.length > 0 && !repetem.has(fila.pontos[0].tipo) && Math.hypot(p.x - fila.pontos[0].x, p.y - fila.pontos[0].y) <= CHEGADA) fila.pontos.shift();
         if (fila.pontos.length === 0 || (parada(id) && tick > fila.tick + TOLERANCIA_TICKS)) filas.delete(id);
       }
     },

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Packer of the art factory, run inside Blender with its bundled numpy (nothing to install):
-trim, anchor, hd by 2x2 reduction of uhd, MaxRects atlas pages up to 4096, WebP, content hash in the file
+trim, anchor, hd by 2x2 reduction of uhd, MaxRects atlas pages of one size per level, WebP, content hash in the file
 name, sprite manifest (contract C9) and provenance record.
 
 Images move as raw 8-bit values from the PNG frames to the WebP pages (no colour conversion): the colour page
@@ -12,6 +12,7 @@ shadow pages are lossy (quality 90 and 85), the team mask and the normals lossle
 import hashlib
 import json
 import os
+import re
 
 import bpy
 import numpy as np
@@ -21,7 +22,9 @@ from .fabrica import caminho_quadro, ordem_dos_quadros
 
 BORDA = 1
 MARGEM = 2
-PAGINA_MAXIMA = 4096
+# One page size per level: the renderer stacks pages in a texture array whose layers all take the size
+# of the largest page, so a uniform size wastes nothing (agreed with the render front on 30/10/2026).
+PAGINA = {"uhd": 2048, "hd": 1024}
 BLOCOS_PERMITIDOS = {"VP8 ", "VP8L", "VP8X", "ALPH"}
 # The soft, noisy shadow compresses badly without loss (about 5 MB per 4096 page) and loses nothing visible with it.
 QUALIDADE_SOMBRA = 85
@@ -194,8 +197,7 @@ def montar_nivel(descricao, quadros, nivel, destino, qualidade_cor):
     asset = descricao["asset"]
     passes = descricao["passes"]
     tamanhos = [q[nivel]["pixels"]["cor"].shape[1::-1] for q in quadros]
-    maximo = PAGINA_MAXIMA if nivel == "uhd" else PAGINA_MAXIMA // 2
-    arranjo = maxrects.empacotar(tamanhos, maximo, MARGEM)
+    arranjo = maxrects.empacotar(tamanhos, PAGINA[nivel], MARGEM, fixo=True)
     entradas = [None] * len(quadros)
     paginas = []
     bytes_arquivos = 0
@@ -226,7 +228,8 @@ def montar_nivel(descricao, quadros, nivel, destino, qualidade_cor):
 
 
 def pontos_do_manifesto(tabela_pontos):
-    return {nome: lista for nome, lista in sorted(tabela_pontos.items()) if any(v is not None for v in lista)}
+    # runs made before points carried their own name keep Blender's duplicate suffix (giroflex.001)
+    return {re.sub(r"\.\d{3}$", "", nome): lista for nome, lista in sorted(tabela_pontos.items()) if any(v is not None for v in lista)}
 
 
 def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):

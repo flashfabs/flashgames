@@ -131,7 +131,8 @@ def construir(ctx):
         m.cilindro(f"isolador{y:+.1f}", (8.6, -6.6 + y, 9.62), 0.06, 0.26, branco, raiz)
     sujeira = [m.caixa(f"escombro{k}", (x, -6.6, 0.25), (1.6, 1.2, 0.5), fuligem, raiz, 0.08, (0.3, 0.2, k)) for k, x in enumerate((-6.5, -2.4))]
     m.ponto("porta", (3.6, -6.6, 0.0), raiz)
-    m.ponto("topo", (-4.0, -6.0, 8.2), raiz)
+    # health bar and selection: above the middle of the footprint, so it sits over the building on screen
+    m.ponto("topo", (0.0, 0.0, 9.5), raiz)
     m.ponto("topo_mastro", (-7.3, -4.8, 11.3), raiz)
     m.ponto("cruzeta", (8.6, -7.9, 9.62), raiz)
     return {"raiz": raiz, "exaustor": exaustor, "bandeira": bandeira, "porta": porta, "numero": numero,
