@@ -1,0 +1,131 @@
+*{box-sizing:border-box} [hidden]{display:none!important} body{margin:0;background:#172b24;color:#fdf5dd;font:15px/1.4 system-ui,sans-serif} button,input,select{font:inherit}button{cursor:pointer} a{color:#ffdda0} button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid #ffd45b;outline-offset:2px}
+.inicio-farm{min-height:100dvh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 15% 20%,#b77a40,#2d4b35 68%,#172b24)}.home-farm{width:min(1100px,100%);min-height:610px;display:grid;grid-template-columns:1fr minmax(330px,390px);gap:30px;align-items:center;padding:32px;background:linear-gradient(90deg,rgba(22,37,25,.88),rgba(27,43,29,.25) 55%,rgba(22,30,21,.58)),url('../img/pimp-my-farm.png') center/cover;border:1px solid #e6c48877;border-radius:24px;box-shadow:0 24px 70px #0b1b15a8}.apresentacao{align-self:stretch;display:flex;flex-direction:column;align-items:flex-start;justify-content:center}.voltar{position:relative;align-self:flex-start;margin-bottom:auto;text-decoration:none;font-weight:800}.selo{color:#ffe3a1;font-size:12px;letter-spacing:.14em;font-weight:900}.apresentacao h1{font-size:clamp(52px,7vw,88px);line-height:.95;letter-spacing:-.055em;color:#fff0b4;text-shadow:0 4px #70411b,0 7px 25px #2b1e0d;margin:14px 0}.apresentacao p{max-width:410px;font-size:18px;text-shadow:0 2px 5px #1b170a}.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.tags span{padding:6px 11px;background:#1d3029c9;border:1px solid #fff4c555;border-radius:999px;font-weight:700}.painel-inicio{padding:24px;border:1px solid #ffefc179;border-radius:18px;background:#182b24d9;box-shadow:inset 0 1px #fff5,0 12px 35px #13251b99;backdrop-filter:blur(7px)}.painel-inicio h2{margin:0;color:#ffe3a0;font-size:24px}.painel-inicio p{color:#eee4ca}.painel-inicio label{display:block;font-weight:800;font-size:12px;letter-spacing:.08em;margin-top:18px}.painel-inicio input,.acoes select,.acoes input{width:100%;border:1px solid #bda97f;background:#10241c;color:white;padding:12px;border-radius:10px}.painel-inicio button,.topo button,.acoes button,.lobby button{border:1px solid #ffe5a399;border-radius:10px;padding:10px 14px;background:#405c3a;color:white;font-weight:800;box-shadow:inset 0 1px #fff6}.painel-inicio .primario,.primario{width:100%;margin-top:14px;background:linear-gradient(#f9bc40,#df781c);color:#30200d;font-size:19px;padding:15px;border:1px solid #fff1ba}.ou{text-align:center;margin:18px 0 10px;color:#e2d4b9;font-size:12px}.entrar{display:flex;gap:8px}.entrar input{min-width:0}.como{margin-top:15px;color:#efdbb0}.como summary{cursor:pointer;font-weight:700}
+.sala-farm{max-width:1600px;margin:auto;min-height:100vh}.topo{display:flex;align-items:center;gap:15px;padding:12px 22px;background:#20392e;border-bottom:1px solid #a6bd8a55}.marca{font-size:20px;font-weight:900;color:#ffe7aa;text-decoration:none;margin-right:auto}.sala-link{display:flex;align-items:center;gap:9px}.sala-link strong{letter-spacing:.12em}.topo button{font-size:13px;padding:7px 11px}.sala-conteudo{padding:18px}.lobby{max-width:700px;margin:4vh auto;padding:30px;background:#263f31;border:1px solid #9bb17e77;border-radius:20px}.lobby h1{margin-top:0;color:#ffe5a1}.jogadores{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}.jogador{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:#182b22}.bolinha{width:13px;height:13px;border-radius:50%;background:var(--cor)}.lobby-acoes{display:flex;gap:10px;flex-wrap:wrap}.lobby-acoes .primario{width:auto;margin:0}.aviso{text-align:center;color:#ffdfa0;min-height:24px}.jogo{display:grid;grid-template-columns:minmax(0,1fr) 325px;gap:16px;align-items:start}.tabuleiro-painel,.acoes{background:#243d31;border:1px solid #9ab28366;border-radius:16px;padding:15px}.turno{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.turno strong{font-size:18px;color:#ffe3a4}.tabuleiro{width:100%;max-height:calc(100vh - 160px);display:block;touch-action:manipulation}.hex{stroke:#e6dfb1;stroke-width:.035;stroke-linejoin:round}.hex.alvo{cursor:pointer;stroke:#fff;stroke-width:.08}.numero{fill:#fff3d7;stroke:#6c5435;stroke-width:.03}.numero-texto{font-size:.33px;font-weight:900;fill:#513522;text-anchor:middle;dominant-baseline:central;pointer-events:none}.icone-terreno{font-size:.47px;text-anchor:middle;pointer-events:none}.estrada-hit{stroke:transparent;stroke-width:.23;cursor:pointer}.estrada{stroke:#604b31;stroke-width:.1;stroke-linecap:round;pointer-events:none}.estrada.livre{stroke:#ffffffaa;stroke-dasharray:.08 .08}.casa-hit{fill:transparent;cursor:pointer}.casa{stroke:#342a20;stroke-width:.04;pointer-events:none}.casa.livre{fill:#fff8;stroke:#6a5533}.acoes h2{margin:0 0 8px;color:#ffe3a4}.acoes h3{font-size:14px;margin:15px 0 5px}.recursos{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.recurso{padding:6px 2px;text-align:center;background:#152b22;border-radius:8px;font-size:12px}.recurso b{display:block;font-size:17px}.acoes button{margin:4px 3px 4px 0}.acoes button:disabled{opacity:.45;cursor:not-allowed}.acoes button.selecionado{background:#d69826;color:#241b0e}.placar{display:grid;gap:5px;margin:10px 0}.placar div{display:flex;gap:7px;align-items:center}.placar b{margin-left:auto}.troca{border-top:1px solid #b2c89455;margin-top:12px;padding-top:8px}.linha{display:flex;gap:5px;align-items:center}.linha select,.linha input{padding:6px;min-width:0}.linha input{width:52px}.linha select{font-size:12px}.dica{color:#e4d9b8;font-size:12px}.acoes details summary{cursor:pointer;color:#ffdda0}.acoes details p{font-size:12px;color:#e4d9b8}
+@media(max-width:800px){.home-farm{grid-template-columns:1fr;padding:20px;gap:20px}.apresentacao{min-height:280px}.apresentacao h1{font-size:55px}.painel-inicio{padding:18px}.jogo{grid-template-columns:1fr}.tabuleiro{max-height:none}.topo{padding:10px;flex-wrap:wrap}.sala-conteudo{padding:10px}.sala-link{order:3;width:100%}.inicio-farm{padding:10px}.acoes{order:2}}
+.linha-carta{display:flex;align-items:center;gap:4px;flex-wrap:wrap}.linha-carta select{width:auto;max-width:110px;padding:5px;font-size:12px}
+.porto{font-size:.19px;font-weight:900;text-anchor:middle;dominant-baseline:central;fill:#fff7dc;paint-order:stroke;stroke:#203c32;stroke-width:.06;stroke-linejoin:round;pointer-events:none}
+
+.apresentacao .como { position: relative; margin: 0 0 2px; color: #fff3d4; }
+.apresentacao .como summary { display: inline-flex; align-items: center; padding: 8px 15px; border: 1px solid rgba(255, 244, 210, .65); border-radius: 999px; background: rgba(23, 37, 26, .30); box-shadow: inset 0 1px rgba(255,255,255,.25); list-style: none; }
+.apresentacao .como summary::-webkit-details-marker { display: none; }
+.apresentacao .como summary:hover { background: rgba(23, 37, 26, .55); }
+.apresentacao .como p { position: absolute; z-index: 2; top: 100%; left: 0; width: min(340px, 78vw); margin: 7px 0 0; padding: 12px 14px; border: 1px solid rgba(255, 231, 179, .55); border-radius: 12px; background: rgba(24, 43, 32, .96); box-shadow: 0 8px 20px rgba(0,0,0,.3); color: #fff3d4; font-size: 13px; line-height: 1.45; text-shadow: none; }
+
+.apresentacao h1 { font-size: clamp(60px, 7.8vw, 100px); letter-spacing: -.015em; line-height: 1; }
+@media (max-width: 800px) { .apresentacao h1 { font-size: clamp(52px, 12vw, 76px); letter-spacing: -.01em; } }
+.apresentacao h1 { font-size: clamp(68px, 9vw, 116px); }
+@media (max-width: 800px) { .apresentacao h1 { font-size: clamp(58px, 14vw, 88px); } }
+.farm-marca { align-self: flex-start; display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin-bottom: auto; color: #fff7df; text-decoration: none; }
+.farm-marca-nome { flex: none; font-size: 21px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+.farm-marca-lema { max-width: none; font-size: clamp(7px, .7vw, 9px); font-weight: 400; line-height: 1.3; white-space: nowrap; text-shadow: 0 1px 4px #241b12, 0 1px 6px #241b12; }
+@media (max-width: 799px) { .farm-marca { gap: 8px; } .farm-marca-lema { white-space: normal; font-size: 10px; } }
+
+.painel-inicio { background: rgba(22, 40, 28, .35); border-color: rgba(255, 245, 206, .52); box-shadow: inset 0 1px rgba(255,255,255,.26), 0 12px 30px rgba(22, 30, 20, .22); backdrop-filter: blur(3px); }
+.painel-inicio .primario { min-height: 68px; font-size: 24px; font-weight: 900; background: linear-gradient(180deg, #ffdc70, #f3a42f 52%, #df781c); border: 2px solid #fff2bc; box-shadow: inset 0 2px rgba(255,255,255,.55), 0 5px 0 #a45a1c, 0 10px 18px rgba(65,35,11,.32); text-shadow: 0 1px rgba(255,255,255,.3); transition: transform .16s, filter .16s, box-shadow .16s; }
+.painel-inicio .primario:hover { filter: brightness(1.08); transform: translateY(-2px); }
+.painel-inicio .primario:active { transform: translateY(2px); box-shadow: inset 0 2px rgba(255,255,255,.45), 0 2px 0 #a45a1c; }
+.painel-inicio .primario {
+  display: flex; align-items: center; justify-content: center; gap: 11px;
+  padding: 8px 18px; color: #fff; background: linear-gradient(180deg, #399afa 0%, #0865e4 55%, #034dbc 100%);
+  border: 2px solid #d6ebff; border-radius: 12px; background-clip: padding-box;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.52), 0 4px 12px rgba(5,35,85,.32);
+  text-shadow: -1px -1px 0 #162333, 1px -1px 0 #162333, -1px 1px 0 #162333, 1px 1px 0 #162333;
+}
+.painel-inicio .primario .trator-icone { width: 56px; height: 44px; flex: none; filter: drop-shadow(0 2px 1px rgba(0,0,0,.3)); }
+.painel-inicio .primario:active { box-shadow: inset 0 2px 4px rgba(0,30,90,.3), 0 2px 5px rgba(5,35,85,.2); }
+.painel-inicio .primario .trator-icone { display: inline-flex; align-items: center; justify-content: center; width: auto; height: auto; font-size: 40px; line-height: 1; text-shadow: none; }
+.painel-inicio .primario { background: linear-gradient(180deg, #673d88 0%, #4a2769 55%, #341947 100%); border-color: #e3d3f0; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 4px 12px rgba(30,13,48,.35); }
+.painel-inicio .primario:active { box-shadow: inset 0 2px 4px rgba(22,8,35,.4), 0 2px 5px rgba(30,13,48,.25); }
+.config-sala{margin:16px 0 0;padding:12px;border:1px solid #fff3c96b;border-radius:12px;background:#13291eb8}.config-sala legend{padding:0 5px;color:#ffe6a4;font-weight:800}.config-grade{display:grid;grid-template-columns:1fr 1fr;gap:8px}.config-grade label,.dificuldades-bots label{margin:0;font-size:11px;letter-spacing:0;color:#f8e9cb}.config-grade label:last-child{grid-column:1/-1}.config-sala select{display:block;width:100%;margin-top:5px;padding:7px 8px;border:1px solid #bda97f;border-radius:8px;background:#172e22;color:#fff;font-size:13px}.dificuldades-bots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.config-dica{margin:8px 0 0!important;font-size:11px;color:#e5d7b8!important}.salas-publicas{margin-top:10px}.salas-publicas summary{cursor:pointer;color:#ffe6a4;font-weight:700}.sala-publica{display:flex;align-items:center;gap:7px;margin-top:8px}.sala-publica span{flex:1;min-width:0}.sala-publica button{padding:5px 8px;font-size:12px}.dificuldade-lobby{display:block;margin-top:8px;width:100%;border:1px solid #bda97f;border-radius:8px;background:#10241c;color:#fff;padding:6px}.jogador-bot{display:block}.jogador-bot .jogador{padding:7px 10px}
+.apresentacao { justify-content: flex-start; }
+.farm-marca { margin-bottom: clamp(40px, 7vh, 72px); }
+.apresentacao h1 { margin-top: 0; }
+@media (max-width: 800px) { .farm-marca { margin-bottom: 30px; } }
+
+/* The overlay and image share the same rounded edges and positioning. */
+.home-farm { background-origin: border-box, border-box; background-clip: padding-box, padding-box; background-position: center, center; background-size: cover, cover; background-repeat: no-repeat; }
+.painel-inicio #nome { margin-top: 12px; }
+.config-bots { height: 144px; margin-top: 10px; }
+.config-bots-titulo { margin: 0 0 4px !important; color: #f8e9cb !important; font-size: 11px; font-weight: 800; }
+.dificuldades-bots { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 0; }
+.dificuldades-bots label { min-width: 0; }
+.dificuldades-bots select { min-width: 0; }
+.config-bots-vazio { margin: 6px 0 0 !important; color: #e5d7b8 !important; font-size: 11px; }
+
+/* Show the whole width of the illustration while blending it into the card's taller edges. */
+.home-farm { position: relative; isolation: isolate; }
+.home-farm::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: linear-gradient(90deg, rgba(22,37,25,.76), rgba(27,43,29,.25) 55%, rgba(22,30,21,.42)), url('../img/pimp-my-farm.png');
+  background-position: center, center;
+  background-size: 100% 100%, 100% auto;
+  background-repeat: no-repeat;
+  mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent);
+  pointer-events: none;
+}
+@media (max-width: 800px) { .home-farm::before { display: none; } }
+@media (min-width: 801px) {
+  .home-farm { container-type: inline-size; }
+  .home-farm::before { mask-image: linear-gradient(to bottom, transparent calc(50% - 28.14cqw), #000 calc(50% - 22cqw), #000 calc(50% + 22cqw), transparent calc(50% + 28.14cqw)); }
+}
+
+/* A single illustration composed for the proportions of the home card. */
+.home-farm {
+  background-image: linear-gradient(90deg, rgba(22,37,25,.70), rgba(27,43,29,.22) 55%, rgba(22,30,21,.38)), url('../img/pimp-my-farm-carrocas.png');
+  background-size: cover, cover;
+  background-position: center, center;
+}
+.home-farm::before { display: none; }
+
+.estrada-contorno{stroke:#151515;stroke-width:.19;stroke-linecap:round;pointer-events:none}.casa-figura{pointer-events:none;overflow:visible}.botoes-construcao{display:flex;gap:8px}.botoes-construcao button{width:56px;height:52px;padding:8px;display:grid;place-items:center}.botoes-construcao svg{width:32px;height:32px}.troca-recursos{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}.acoes .troca-recurso{margin:0;padding:6px 2px;display:grid;place-items:center;font-size:20px}.troca-recurso b{font-size:12px}.acoes .troca-limpar{font-size:11px;padding:4px 8px}.troca select{max-width:100%}
+
+.textura-terreno{pointer-events:none}.porto-ligacao{stroke:#fff1c6;stroke-width:.035;stroke-dasharray:.07 .035;pointer-events:none}
+@media(min-width:1051px){.jogo.negociando{grid-template-columns:minmax(0,1fr) minmax(220px,260px) minmax(245px,280px);gap:10px}.jogo.negociando .acoes{padding:11px}.painel-negociacao .troca{border:0;margin:0;padding:0}.painel-negociacao .troca h3{margin:7px 0 4px}.painel-negociacao .dica{margin:6px 0}.painel-negociacao .troca-recurso{padding:3px 2px}.painel-negociacao select{padding:7px}}
+@media(max-width:1050px) and (min-width:801px){.jogo.negociando{grid-template-columns:minmax(0,1fr) minmax(185px,220px) minmax(220px,250px);gap:8px}.jogo.negociando .acoes{padding:8px}.painel-negociacao .troca{border:0;margin:0;padding:0}.painel-negociacao .troca h3{margin:6px 0 4px}.painel-negociacao .dica{margin:6px 0}.painel-negociacao .troca-recurso{padding:3px 1px}.painel-negociacao select{padding:7px}}
+
+.contorno-terreno{stroke:#e6dfb1;stroke-width:.035;stroke-linejoin:round;pointer-events:none}
+
+.porto-grupo{pointer-events:none}.porto-ligacao-sombra{stroke:#172b23;stroke-width:.09;stroke-linecap:round}.porto-ligacao{stroke:#fff1c6;stroke-width:.045;stroke-dasharray:.065 .06;stroke-linecap:round}.porto-ponto{fill:none;stroke:#fff2b5;stroke-width:.045}.porto-etiqueta{fill:#193c34;stroke:#f4d797;stroke-width:.035}.porto-proprio .porto-etiqueta{fill:#486632;stroke:#fff1a2;stroke-width:.05}.porto-icone{font-size:.25px;text-anchor:middle;dominant-baseline:central}.porto-taxa{font-size:.19px;font-weight:900;text-anchor:middle;dominant-baseline:central;fill:#fff8e4}.legenda-portos{color:#dddbb9;font-size:12px;margin:4px 0 0}
+
+.porto-icone{font-size:.31px}.porto-taxa{font-size:.25px}.casa.livre{fill:#fff;stroke:#111;stroke-width:.025}
+
+.icone-ladrao{font-size:.68px;text-anchor:middle;pointer-events:none}.historico-jogo{background:#f4eedf;color:#26362b;border-radius:10px;padding:8px 10px;margin-bottom:12px}.acoes .historico-jogo h3{color:#314334;margin:0 0 5px;font-size:13px}.historico-lista{max-height:130px;overflow-y:auto;font-size:12px;line-height:1.35}.historico-lista p{margin:0}.historico-evento{display:flex;align-items:baseline;gap:5px;padding:2px 0;border-top:1px solid #dddbc9}.historico-cor{flex:none;width:8px;height:8px;border-radius:50%;border:1px solid #344}.banco-disponivel h3{margin-top:10px}.linha-dados{display:flex;align-items:center;gap:7px;margin-top:8px}.dados-visuais{display:flex;gap:4px;align-items:center}.dado{font-size:34px;line-height:1;color:#fff6e3;text-shadow:0 2px 2px #000;display:inline-block}.dados-visuais.rolando .dado{animation:rolar-dado .65s ease-out}.dados-visuais.rolando .dado:nth-child(2){animation-delay:.08s}@keyframes rolar-dado{0%{transform:rotate(0deg) scale(.7)}35%{transform:rotate(170deg) scale(1.25)}70%{transform:rotate(330deg) scale(.8)}100%{transform:rotate(360deg) scale(1)}}@media(prefers-reduced-motion:reduce){.dados-visuais.rolando .dado{animation:none}}
+
+.tabuleiro-painel{position:relative}.popup-troca{position:absolute;z-index:5;top:58px;right:16px;width:min(270px,calc(100% - 32px));padding:12px 14px;background:#fff9e9;color:#20372b;border:2px solid #d8b66d;border-radius:14px;box-shadow:0 8px 25px #0006;font-size:14px}.popup-troca-topo{display:flex;justify-content:space-between;align-items:center;gap:8px}.popup-troca-prazo{font-weight:900;color:#785522}.popup-troca p{margin:6px 0}.popup-troca-acoes{display:flex;gap:10px;margin-top:8px}.popup-troca button{border:0;border-radius:8px;font-weight:900;cursor:pointer}.popup-troca-aceitar,.popup-troca-recusar{width:46px;height:38px;color:#fff;font-size:23px}.popup-troca-aceitar{background:#2b9a50}.popup-troca-recusar{background:#c7423c}.popup-troca button:disabled{opacity:.4;cursor:not-allowed}.popup-troca-info{font-size:12px;color:#485746}.popup-troca-escolha,.popup-troca-cancelar{padding:7px;margin:4px 5px 0 0;background:#dfebd9;color:#243e2d}.popup-troca-cancelar{background:#eee2d2}
+
+.figura-ladrao{pointer-events:none;overflow:visible}
+
+.minha-fazenda{position:absolute;right:15px;bottom:32px;width:min(245px,36%);padding:9px;background:#1a332df2;border:1px solid #ddca8799;border-radius:12px;box-shadow:0 3px 12px #0006}.minha-fazenda h2{font-size:15px;color:#ffe3a4;margin:0 0 6px}.minha-fazenda .recursos{gap:3px}.minha-fazenda .recurso{font-size:12px}.minha-fazenda .recurso b{font-size:14px}.recurso-voador{position:fixed;z-index:9999;font-size:27px;pointer-events:none;filter:drop-shadow(0 2px 3px #0009)}@media(max-width:800px){.minha-fazenda{position:static;width:auto;margin:8px 0}.tabuleiro-painel{display:flex;flex-direction:column}.minha-fazenda{align-self:flex-end;min-width:min(245px,100%)}}
+
+.escolha-bot{position:absolute;z-index:8;top:65px;right:18px;width:min(310px,calc(100% - 36px));padding:15px;border-radius:14px;background:#fff8e7;color:#20382b;border:2px solid #d5b56e;box-shadow:0 10px 24px #0007}.escolha-bot h2{font-size:18px;margin:0}.escolha-bot p{font-size:13px}.escolha-bot button{display:block;width:100%;margin:7px 0;padding:9px;border:2px solid;border-radius:8px;background:#e3eadb;color:#20382b;font-weight:800;cursor:pointer}
+
+@media (min-width:801px){.jogo{align-items:stretch}.acoes.com-fazenda{position:relative;padding-bottom:112px}.jogo.negociando .acoes.com-fazenda{padding-bottom:112px}.acoes.com-fazenda .minha-fazenda{position:absolute;left:15px;right:15px;bottom:15px;width:auto}}
+@media (max-width:800px){.acoes .minha-fazenda{position:static;width:auto;min-width:0;margin:14px 0 0}}
+
+.acoes button.dados-visuais{display:flex;align-items:center;gap:4px;background:transparent;border:0;box-shadow:none;padding:4px;margin:0;cursor:pointer}.acoes button.dados-visuais:disabled{opacity:1;cursor:default}.acoes button.dados-visuais:not(:disabled):hover{transform:scale(1.08)}.contador-dados{font-size:12px;color:#e4d9b8}
+
+.acoes button.dados-visuais{gap:10px;padding:6px 5px}.dados-visuais .dado{box-sizing:border-box;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);place-items:center;width:52px;height:52px;padding:7px;border:1px solid #c4bcae;border-radius:10px;background:linear-gradient(145deg,#fffefa 3%,#ede9df 54%,#d3cdc2 100%);box-shadow:inset 1px 2px 2px #fff,inset -2px -3px 4px #aaa39799,0 4px 0 #91887b,0 6px 8px #0007;transform:rotate(-4deg);text-shadow:none}.dados-visuais .dado:nth-child(2){transform:rotate(5deg)}.dado-ponto{width:8px;height:8px;border-radius:50%;background:transparent}.dado-ponto.ativo{background:radial-gradient(circle at 35% 30%,#4a4139,#171512 65%);box-shadow:inset 0 1px 1px #000a,0 1px #fff9}
+
+.acoes button.comprar-desenvolvimento{display:inline-flex;align-items:center;align-self:flex-start;gap:9px;width:max-content;padding:2px;background:transparent;border:0;box-shadow:none}.carta-desenvolvimento{display:grid;place-items:center;width:44px;height:59px;border:1px solid #183e29;border-radius:6px;background:linear-gradient(145deg,#9d63c2,#682f91);box-shadow:inset 0 1px 2px #fff7,0 2px 4px #0007}.carta-desenvolvimento svg{width:26px;height:26px}.cartas-quantidade{font-size:18px;color:#fff2cf}.comprar-desenvolvimento:not(:disabled):hover .carta-desenvolvimento{filter:brightness(1.18);transform:translateY(-2px)}
+
+.banco-disponivel .recurso>span{font-size:24px;line-height:1.15;display:block}.botoes-construcao{align-items:center;flex-wrap:wrap}.botoes-construcao .comprar-desenvolvimento{flex:0 0 auto;align-self:center;margin-left:3px}
+@media(min-width:801px){.sala-farm{height:100dvh;min-height:0;display:flex;flex-direction:column}.sala-farm[hidden]{display:none}.sala-conteudo{flex:1;min-height:0;padding:10px 16px}.sala-conteudo:has(.jogo){overflow:hidden}.jogo{height:100%;min-height:0}.tabuleiro-painel{min-height:0;display:flex;flex-direction:column}.tabuleiro-painel .tabuleiro{flex:1;min-height:0;max-height:none}.acoes{min-height:0;overflow-y:auto}.acoes.com-fazenda,.jogo.negociando .acoes.com-fazenda{display:flex;flex-direction:column;padding-bottom:15px;overflow:hidden}.conteudo-acoes{min-height:0;overflow-y:auto;flex:0 1 auto}.acoes.com-fazenda .minha-fazenda{position:static;flex:none;margin: auto 0 0;width:auto}.painel-negociacao{overflow-y:auto}.aviso{min-height:20px}.historico-lista{max-height:min(110px,14vh)}}
+@media(max-width:800px){.conteudo-acoes{display:contents}}
+.botoes-construcao .comprar-desenvolvimento{height:auto}
+
+.botoes-construcao button:not(.comprar-desenvolvimento){position:relative}.contagem-construcao{position:absolute;right:2px;bottom:1px;min-width:20px;padding:1px 4px;border-radius:8px;background:#f5e9ca;color:#24372c;font-size:12px;line-height:16px;font-weight:900;text-align:center}.botoes-construcao button:disabled{opacity:.72}
+
+.contagem-construcao{font-size:10px;line-height:13px;min-width:16px;padding:1px 3px}
+
+.botoes-construcao button:not(.comprar-desenvolvimento){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;height:70px;padding:5px}.botoes-construcao button:not(.comprar-desenvolvimento) svg{width:32px;height:32px;flex:none}.contagem-construcao{position:static;display:block;font-size:12px;line-height:16px;min-width:20px;padding:1px 4px;flex:none}
+
+.jogo>.acoes:not(.painel-negociacao){background-image:linear-gradient(rgba(15,38,27,.46),rgba(15,38,27,.60)),url('../img/farm-painel-jogo.png');background-size:cover;background-position:center;background-repeat:no-repeat}.acoes button.comprar-desenvolvimento{padding:0}.botoes-construcao .comprar-desenvolvimento{margin-left:0}.carta-desenvolvimento{width:64px;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.carta-desenvolvimento svg{width:32px;height:32px;flex:none}.cartas-quantidade{display:block;min-width:20px;padding:1px 4px;border-radius:8px;background:#f5e9ca;color:#24372c;font-size:12px;line-height:16px;font-weight:900;text-align:center}
+.jogo>.tabuleiro-painel{background-image:linear-gradient(rgba(15,38,27,.53),rgba(15,38,27,.62)),url('../img/farm-painel-jogo.png');background-size:cover;background-position:center;background-repeat:no-repeat}
+.jogo>.acoes:not(.painel-negociacao){background-image:linear-gradient(rgba(15,38,27,.68),rgba(15,38,27,.52) 45%,rgba(15,38,27,.66)),url('../img/farm-painel-direito-v2.png');background-size:100% 100%;background-position:center}
+.jogo>.acoes:not(.painel-negociacao){position:relative;isolation:isolate;background-image:none}
+.jogo>.acoes:not(.painel-negociacao)::before{content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background-image:linear-gradient(rgba(15,38,27,.68),rgba(15,38,27,.52) 45%,rgba(15,38,27,.66)),url('../img/farm-painel-direito-v2.png');background-size:100% 100%;background-position:center;transform:scaleX(-1)}
+.historico-jogo{background:rgba(244,238,223,.91)}
