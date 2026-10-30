@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Protótipo RTS 4K</title>
+  <link rel="stylesheet" href="css/rts.css">
+</head>
+<body>
+  <div id="palco"><canvas id="tela"></canvas><div id="caixa-selecao" hidden></div></div>
+  <aside id="painel">
+    <div><b>Protótipo RTS 4K</b> · WebGL2 · simulação em worker</div>
+    <div data-campo="fps">…</div>
+    <div data-campo="cpu">…</div>
+    <div data-campo="sim">…</div>
+    <div data-campo="res">…</div>
+    <div data-campo="unidades">…</div>
+    <div data-campo="soma">…</div>
+    <div data-campo="placa">…</div>
+    <div class="ajuda">arrastar: selecionar · botão direito: mover · WASD: câmera · roda: zoom · F: tela cheia · H: painel · P: pausa</div>
+  </aside>
+  <canvas id="minimapa" width="440" height="440"></canvas>
+  <pre id="resultado" hidden></pre>
+  <script type="module" src="js/principal.js"></script>
+</body>
+</html>
