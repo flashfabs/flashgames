@@ -363,3 +363,8 @@
   transform: rotate(-47deg);
   transform-origin: left center;
 }
+
+.inicio-outro-jogo { display: inline-flex; align-items: center; gap: 9px; margin-top: 15px; padding: 8px 12px; color: #fff2d1; background: rgba(25,48,33,.68); border: 1px solid rgba(226,239,193,.5); border-radius: 12px; text-decoration: none; font-size: 11px; line-height: 1.25; box-shadow: inset 0 1px rgba(255,255,255,.28); }
+.inicio-outro-jogo > span:first-child { font-size: 23px; }
+.inicio-outro-jogo strong { display: block; color: #ffe1a0; font-size: 14px; }
+.inicio-outro-jogo:hover { background: rgba(42,85,48,.88); }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#213a2b"><title>Pimp My Farm · Salinha</title>
+  <link rel="stylesheet" href="css/farm.css">
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+  <script type="module" src="js/farm/app.js"></script>
+</head>
+<body>
+<main id="inicio" class="inicio-farm">
+  <div class="home-farm">
+    <div class="apresentacao"><a href="/" class="farm-marca" aria-label="Salinha — voltar ao início"><span class="farm-marca-nome"><span aria-hidden="true">🌾</span> Salinha</span><span class="farm-marca-lema">Jogos rápidos com a galera, direto no navegador. Sem cadastro: crie uma sala e mande o link.</span></a><h1>Pimp<br>My Farm</h1><details class="como"><summary>📖 Como jogar</summary><p>Role os dados para colher recursos, construa estradas e fazendas, melhore-as e negocie. O primeiro a alcançar 10 pontos vence.</p></details><p>Plante suas raízes, negocie com a galera e construa a fazenda mais próspera.</p><div class="tags"><span>🌾 Estratégia</span><span>👥 1–6 jogadores</span></div></div>
+    <div class="painel-inicio">
+      <h2>Prepare sua fazenda</h2>
+      <p>Sem cadastro. Crie uma sala e mande o link para a galera.</p>
+      <form id="form-inicio"><input id="nome" maxlength="16" autocomplete="nickname" placeholder="Seu nome" aria-label="Seu nome"></form>
+      <fieldset class="config-sala" id="config-sala">
+        <legend>⚙️ Configurar partida</legend>
+        <div class="config-grade">
+          <label for="limite">Limite de jogadores<select id="limite"><option value="1">1 jogador</option><option value="2">2 jogadores</option><option value="3">3 jogadores</option><option value="4">4 jogadores</option><option value="5">5 jogadores</option><option value="6" selected>6 jogadores</option></select></label>
+          <label for="bot-quantidade">Número de bots<select id="bot-quantidade"></select></label>
+          <label for="privacidade">Visibilidade<select id="privacidade"><option value="privada">Privada · por convite</option><option value="publica">Pública · aparece na lista</option></select></label>
+        </div>
+        <div class="config-bots"><p class="config-bots-titulo">Dificuldade de cada bot</p><div id="dificuldades-bots" class="dificuldades-bots"></div><p id="dificuldades-vazio" class="config-bots-vazio">Escolha o número de bots acima.</p></div>
+        <p class="config-dica">O limite inclui você, os bots e os convidados.</p>
+      </fieldset>
+      <button class="primario" type="submit" id="criar" form="form-inicio"><span class="trator-icone" aria-hidden="true">🚜</span><span>Criar sala</span></button>
+      <div class="ou">ou entre com um código</div>
+      <form id="form-codigo" class="entrar"><input id="codigo" maxlength="7" placeholder="K7Q2M" aria-label="Código da sala"><button type="submit">Entrar</button></form>
+      <details id="salas-publicas" class="salas-publicas"><summary>🌐 Salas públicas</summary><div id="lista-publicas"></div></details>
+      <p id="status-inicio" role="status"></p>
+    </div>
+  </div>
+</main>
+<main id="sala" class="sala-farm" hidden>
+  <header class="topo"><a href="/farm.html" class="marca">🌾 Pimp My Farm</a><div class="sala-link">Sala <strong id="sala-codigo"></strong><button id="copiar" type="button">Copiar código</button><button id="copiar-link" type="button">Copiar link</button></div><button id="sair" type="button" class="sair">Sair</button></header>
+  <div id="sala-conteudo" class="sala-conteudo"></div>
+  <div id="aviso" class="aviso" role="status"></div>
+</main>
+</body></html>
