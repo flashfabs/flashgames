@@ -2,9 +2,9 @@
 // keyboard camera, fullscreen, HUD toggle, pause and select-all.
 import { FP, TIPO_COMANDO } from '../sim/contratos.js';
 import { EFEITO } from '../render/renderizador.js';
-import { paraMundo } from './camera.js';
+import { paraMundo, definirZoom } from './camera.js';
 
-export function ligarControles({ canvas, palco, caixaSelecao, painel, camera, estado, selecionadas, ajustarTamanho, simulacao, efeitos }) {
+export function ligarControles({ canvas, palco, caixaSelecao, painel, camera, estado, selecionadas, simulacao, efeitos }) {
   const teclas = new Set();
   let arrasto = null;
   let pausado = false;
@@ -30,9 +30,10 @@ export function ligarControles({ canvas, palco, caixaSelecao, painel, camera, es
   canvas.addEventListener('pointermove', e => {
     if (!arrasto) return;
     if (arrasto.pan) {
-      const escala = canvas.width / canvas.getBoundingClientRect().width;
-      camera.x -= ((e.clientX - arrasto.x) * escala) / camera.zoom;
-      camera.y -= ((e.clientY - arrasto.y) * escala) / camera.zoom;
+      const antes = mundo(arrasto.x, arrasto.y);
+      const depois = mundo(e.clientX, e.clientY);
+      camera.x -= depois.x - antes.x;
+      camera.y -= depois.y - antes.y;
       arrasto.x = e.clientX;
       arrasto.y = e.clientY;
       return;
@@ -84,8 +85,7 @@ export function ligarControles({ canvas, palco, caixaSelecao, painel, camera, es
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const antes = mundo(e.clientX, e.clientY);
-    camera.zoomCss = Math.max(14, Math.min(140, camera.zoomCss * Math.exp(-e.deltaY * 0.0015)));
-    ajustarTamanho();
+    definirZoom(camera, camera.zoom * Math.exp(-e.deltaY * 0.0015));
     const depois = mundo(e.clientX, e.clientY);
     camera.x += antes.x - depois.x;
     camera.y += antes.y - depois.y;
@@ -108,7 +108,7 @@ export function ligarControles({ canvas, palco, caixaSelecao, painel, camera, es
 
   // Keyboard camera, called once per frame.
   function moverCamera(dt) {
-    const v = (dt / 1000) * 28 * (46 / camera.zoomCss);
+    const v = (dt / 1000) * 18 / camera.zoom;
     if (teclas.has('w') || teclas.has('arrowup')) camera.y -= v;
     if (teclas.has('s') || teclas.has('arrowdown')) camera.y += v;
     if (teclas.has('a') || teclas.has('arrowleft')) camera.x -= v;

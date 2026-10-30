@@ -85,7 +85,7 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 | 20 ordens simultâneas | ninguém preso por mais de 5 s | pendente |
 | Neblina com 2.000 unidades e 4 times | até 1 ms por passo | pendente |
 | Salvar, carregar e replay | mesmo hash depois de carregar; replay reproduz as somas | pendente |
-| Render em 4K com 2.000 unidades, Chrome e Safari | menos de 1% dos quadros acima de 20 ms, CPU por quadro medida e a tela dita | pendente |
+| Render em 4K com 2.000 unidades, Chrome e Safari | menos de 1% dos quadros acima de 20 ms, CPU por quadro medida e a tela dita | Chromium com Metal: 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,3 ms, canvas 3840×2160 (seção F2); Safari pendente (Victor) |
 | Clique até a marca no chão | abaixo de 100 ms | pendente |
 
 ### E2. Fábrica de arte e portão de estilo (plano, E2)
@@ -154,7 +154,20 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 
 ### F2 Renderização e 4K (`rts-render`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
+- 30/10/2026: `site/rts/dados/projecao.json` v0 (contrato C8), enviado à `rts-arte` na primeira hora: câmera ortográfica a 55° olhando para o norte, 4 m por célula, 64 px por célula no `hd` e 128 no `uhd`, campo de visão de 30 colunas em 16:9 com as linhas fixas para qualquer proporção (colunas presas entre 24 e 40, o que dá exatamente 128 px por célula em 3840×2160 e 64 em 1920×1080), zooms 0,75, 1 e 1,25, sol vindo de 135° a 50° de altura, transformação Standard, exagero da infantaria 1,4 e oito cores de time provisórias; a coerência interna (câmera e sol do Blender batendo com elevação e azimute) é conferida em `testes/rts-render.test.mjs`.
+- Renderizador em `site/rts/js/render/`: backend WebGL2 atrás de uma interface estreita (`backend-webgl2.js`, o único arquivo que fala com o GL), projeção com a correção sen(elevação) no terreno e nos sprites (`projecao.js`), canvas em CSS vezes DPR com teto na área de 3840×2160 e reajuste quando o DPR muda (`resolucao.js`), escala dinâmica 100, 85, 75, 67 e 50% com histerese e prova de subida (`escala.js`), todos os sprites da cena num draw só, ordenado de trás para a frente por radix estável, com as páginas em texture arrays (`ordenacao.js`, `sprites.js`), sombra derivada do alfa ao longo do sol, anéis de seleção e barras de vida instanciados (as barras na resolução nativa, depois da ampliação), unidades casadas entre retratos por id com geração (`unidades.js`) e efeitos em pool (`efeitos.js`).
+- Leitor do manifesto de sprites (C9) com pontos de encaixe por quadro em `site/rts/js/ativos/manifesto.js`, conferido também contra os dois primeiros manifestos da `rts-arte`; o tanque do protótipo passa pelo mesmo caminho (`ativos/atlas.js`) e os tipos sem arte ganham fichas desenhadas na GPU.
+- Visualizador de atlas do portão de estilo em `site/rts/ferramentas/visualizador.html` (sem link): asset, animação, uma direção ou todas num anel, torre, `hd` ou `uhd`, as 8 cores de time, os três zooms do jogo mais 2× e 4× de inspeção, régua de células, âncora e pontos de encaixe, e duas versões lado a lado com os mesmos controles; os parâmetros da URL (`a`, `b`, `anim`, `dir`, `modo`, `nivel`, `time`, `zoom`) deixam um link para cada comparação.
+- Costura combinada com a `rts-interface`: `entrada/camera.js` tem `paraMundo`, `paraTela`, `definirZoom` e `pixelsCssPorCelula` sobre a projeção, e a câmera é `{ x, y, zoom }` com o zoom como fator do `projecao.json`.
+
+| Medição | Máquina, navegador e tela | Resultado | Fonte |
+| --- | --- | --- | --- |
+| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média, GPU cerca de 10 ms pela consulta de tempo | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
+| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela, GPU cerca de 13 ms | idem |
+| Alocação por quadro no caminho do render | idem, amostragem do HeapProfiler por 6 s depois de 15 s de partida | antes: cerca de 33 KB por quadro no laço das unidades (números empacotados); depois: o laço some da lista, e o render inteiro fica em poucos KB por segundo, fora do código otimizado; o que mais aloca no quadro é a chegada do retrato do Worker, que é o contrato C2 | script de amostragem, 30/10/2026 |
+| Render em 4K no Safari 26 | MacBook Pro M5 Pro | pendente (Victor): abrir `/rts/?bench=1&res=4k&seg=20&avancar=600` em tela cheia e copiar o JSON que aparece no canto | — |
+
+Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o tempo de GPU em 4K (10 a 13 ms) deixa pouca folga para 120 Hz, e o terreno procedural em tela cheia é o primeiro suspeito, a confirmar antes do splatting da onda 2.
 
 ### F3 Arte e Blender (`rts-arte`)
 
