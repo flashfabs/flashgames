@@ -63,6 +63,8 @@ npm install
 npx playwright install chromium
 ```
 
+No GitHub, o Action `.github/workflows/testes.yml` roda `npm test` e os testes de ponta a ponta funcionais em cada pull request e em cada push na `main`, sem publicar nada. Os de desempenho ficam de fora: medem a GPU do Mac pelo Metal, e o servidor do GitHub não tem GPU.
+
 Como funcionam os de ponta a ponta:
 
 - O Playwright sobe o site numa porta livre de `127.0.0.1` escolhida a cada execução (`python3 -m http.server`; `SALINHA_PORTA=<porta>` fixa uma) e o derruba no fim, então várias worktrees podem rodar a suíte ao mesmo tempo.
