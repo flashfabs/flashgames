@@ -7,12 +7,26 @@
 # Usage: scripts/preparar-publicacao.sh [parent folder]    (default: $TMPDIR)
 #        REF=<branch or commit> scripts/preparar-publicacao.sh ...
 # The last line printed is the absolute path of the new folder.
+# Publishing main refuses when the local main does not contain origin/main (a clone behind GitHub would put an old version live).
 set -euo pipefail
 
 aqui="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repositorio="$(cd "$(git -C "$aqui" rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
 ref="${REF:-main}"
 pai="${1:-${TMPDIR:-/tmp}}"
+
+if [[ "$ref" == "main" ]]; then
+  if ! git -C "$repositorio" fetch --quiet origin main; then
+    echo "error: could not fetch origin/main to check that main in $repositorio is up to date" >&2
+    exit 1
+  fi
+  if ! git -C "$repositorio" merge-base --is-ancestor origin/main main; then
+    local_curto="$(git -C "$repositorio" rev-parse --short main)"
+    origem_curto="$(git -C "$repositorio" rev-parse --short origin/main)"
+    echo "error: main (${local_curto}) in $repositorio is behind origin/main (${origem_curto}); update it with: git -C $repositorio pull --ff-only origin main" >&2
+    exit 1
+  fi
+fi
 
 commit="$(git -C "$repositorio" rev-parse --verify "${ref}^{commit}")"
 curto="$(git -C "$repositorio" rev-parse --short "$commit")"
