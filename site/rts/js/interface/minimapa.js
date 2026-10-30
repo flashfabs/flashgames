@@ -2,7 +2,7 @@
 // camera rectangle; clicking moves the camera.
 import { FP, VISAO } from '../sim/contratos.js';
 
-export function criarMinimapa({ minimapa, canvas, camera, estado }) {
+export function criarMinimapa({ minimapa, camera, estado, render }) {
   const ctxMini = minimapa.getContext('2d');
   const fundoMini = document.createElement('canvas');
   const neblinaMini = document.createElement('canvas');
@@ -44,11 +44,10 @@ export function criarMinimapa({ minimapa, canvas, camera, estado }) {
       ctxMini.fillStyle = local ? '#3fd6e0' : '#f0662a';
       ctxMini.fillRect(ux * escala - 1, uy * escala - 1, 2, 2);
     }
-    const meiaL = canvas.width / camera.zoom / 2;
-    const meiaA = canvas.height / camera.zoom / 2;
+    const [x0, y0, x1, y1] = render.areaVisivel();
     ctxMini.strokeStyle = '#fff';
     ctxMini.lineWidth = 1;
-    ctxMini.strokeRect((camera.x - meiaL) * escala, (camera.y - meiaA) * escala, meiaL * 2 * escala, meiaA * 2 * escala);
+    ctxMini.strokeRect(x0 * escala, y0 * escala, (x1 - x0) * escala, (y1 - y0) * escala);
   }
 
   minimapa.addEventListener('pointerdown', e => {
