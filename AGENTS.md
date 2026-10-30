@@ -2,7 +2,7 @@
 
 Instruções para quem trabalhar neste repositório (Claude Code ou Codex). Elas se somam às regras globais do Victor.
 
-O repositório é `vhccruz/salinha` no GitHub, público desde 28/10/2026 para receber outros colaboradores, e o clone de trabalho fica em `/Users/vhccruz/Dev/salinha`. Até 28/10/2026 o projeto morava em `~/Dev/claude-code-config/salinha`, e é dessa época o histórico da noite em `docs/`.
+O repositório é `flashfabs/flashgames` no GitHub, da organização Flash Fabs, público para receber outros colaboradores. Ele nasceu como `vhccruz/salinha` em 28/10/2026 e foi renomeado e transferido em 29/10/2026; o GitHub redireciona o endereço antigo, e o produto no site continua se chamando Salinha. O clone de trabalho do Victor fica em `/Users/vhccruz/Dev/salinha`. Até 28/10/2026 o projeto morava em `~/Dev/claude-code-config/salinha`, e é dessa época o histórico da noite em `docs/`.
 
 ## O que é
 
