@@ -139,3 +139,16 @@ test('queue points append with Shift, go away as units reach them, and vanish wh
   fila.atualizar(200, posicao, () => false);
   assert.equal(fila.pontosDe(7).length, 0, 'a dead unit leaves no points');
 });
+
+test('click latency closes every pending input at the end of the frame that draws it', async () => {
+  const { criarMedidorDeLatencia, META_LATENCIA_MS } = await import('../site/rts/js/entrada/latencia.js');
+  const medidor = criarMedidorDeLatencia(3);
+  medidor.anotar(1000, 'ordem');
+  medidor.anotar(1010, 'selecao');
+  medidor.aoDesenhar(1030);
+  medidor.anotar(2000, 'ordem');
+  medidor.aoDesenhar(2000 + META_LATENCIA_MS + 20);
+  medidor.aoDesenhar(5000);
+  assert.deepEqual(medidor.amostras().map(amostra => amostra.ms), [30, 20, META_LATENCIA_MS + 20]);
+  assert.deepEqual(medidor.resumo(), { n: 3, p50: 30, p95: META_LATENCIA_MS + 20, maximo: META_LATENCIA_MS + 20, acimaDaMeta: 1 });
+});
