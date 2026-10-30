@@ -4,6 +4,8 @@
 // (frame interval percentiles, frames over 20 ms, CPU time per frame, GPU time when exposed, screen and browser).
 // The limits are a regression guard for a busy machine; the E1 target (under 1% of frames over 20 ms on the
 // M5 Pro, Chrome and Safari) is measured on a quiet machine and recorded in docs/rts/ESTADO.md.
+// The last test opens the atlas viewer of the style gate with two versions side by side (a 404 for the art index,
+// which does not exist yet, is expected).
 
 import { test, expect } from '@playwright/test';
 
@@ -33,3 +35,17 @@ for (const cenario of CENARIOS) {
     expect(resultado.cpuQuadroP95).toBeLessThan(LIMITES.cpuQuadroP95Ms);
   });
 }
+
+test('visualizador de atlas compara duas versões sem erro', async ({ page }) => {
+  const erros = [];
+  page.on('pageerror', erro => erros.push(erro.message));
+  page.on('console', mensagem => mensagem.type() === 'error' && !/404/.test(mensagem.text()) && erros.push(mensagem.text()));
+  await page.goto('/rts/ferramentas/visualizador.html?a=prototipo&b=ficha-tanque&modo=todas&zoom=2');
+  await page.waitForFunction(() => window.__visualizador?.lados.every(l => l.folha));
+  await expect(page.locator('#lado-a .legenda')).toContainText('prototipo-tanque');
+  await expect(page.locator('#lado-b .legenda')).toContainText('ficha-tanque');
+  const sprites = await page.evaluate(() => window.__visualizador.lados.map(l => l.render.estatisticas.sprites));
+  expect(sprites[0]).toBe(16);
+  expect(sprites[1]).toBe(32);
+  expect(erros).toEqual([]);
+});
