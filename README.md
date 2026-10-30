@@ -48,7 +48,7 @@ Os testes automáticos estão na seção [Testes](#testes).
 Três comandos, todos rodando na raiz do repositório:
 
 - `npm test`: testes das regras do jogo (`testes/*.test.mjs`, Node 22, sem dependências, menos de 1 s).
-- `npm run e2e`: testes de ponta a ponta (`testes/e2e/*.spec.mjs`) com Playwright e Chromium sem janela; cada jogador é um navegador de verdade na sua própria página. Roda os cenários funcionais dois de cada vez (`SALINHA_PROCESSOS` muda isso) e depois o de desempenho sozinho, para os números não sofrerem com as outras páginas; tudo leva cerca de 3 min.
+- `npm run e2e`: testes de ponta a ponta (`testes/e2e/*.spec.mjs`) com Playwright e Chromium sem janela; cada jogador é um navegador de verdade na sua própria página. Roda os cenários funcionais dois de cada vez (`SALINHA_PROCESSOS` muda isso) e depois o de desempenho sozinho, para os números não sofrerem com as outras páginas; tudo leva cerca de 3 min. Por último, os projetos `rts-determinismo-chromium`, `-firefox` e `-webkit` conferem que o RTS dá as mesmas somas de verificação num Worker de cada motor e no Node; um motor que não esteja instalado na máquina é pulado com um aviso.
 - `npm run fumaca`: teste de fumaça contra a produção (`testes/e2e/producao.fumaca.mjs`, cerca de 15 s): espera `/versao.json` mostrar o commit da `main` (ou `COMMIT=<commit>`), confere que `/api/ice` responde (503 enquanto a chave do TURN não existir), que `/api/ranking` responde, que `/api/perfil` recusa leitura sem credencial (401) e escrita de outro site (403), sem nunca gravar perfil, e joga o começo de uma rodada com dois jogadores no site publicado. `SALINHA_URL=<endereço>` aponta para outro lugar, como uma prévia da Netlify.
 
 Para publicar, `scripts/preparar-publicacao.sh <pasta>` monta uma pasta nova a partir da `main` (só `netlify.toml`, `site/` e `netlify/`, com `site/versao.json` contendo commit e hora, e as `dependencies` das funções instaladas quando houver) e imprime o caminho dela; recusa quando a `main` local está atrás da `origin/main`. O passo a passo está no `AGENTS.md`.
@@ -63,7 +63,7 @@ npm install
 npx playwright install chromium
 ```
 
-No GitHub, o Action `.github/workflows/testes.yml` roda `npm test` e os testes de ponta a ponta funcionais em cada pull request e em cada push na `main`, sem publicar nada. Os de desempenho ficam de fora: medem a GPU do Mac pelo Metal, e o servidor do GitHub não tem GPU.
+No GitHub, o Action `.github/workflows/testes.yml` roda `npm test`, os testes de ponta a ponta funcionais e o determinismo do RTS no Chromium, no Firefox e no WebKit em cada pull request e em cada push na `main` e na `rts/base` (a integração do RTS), sem publicar nada. Os de desempenho ficam de fora: medem a GPU do Mac pelo Metal, e o servidor do GitHub não tem GPU.
 
 Como funcionam os de ponta a ponta:
 

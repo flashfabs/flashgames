@@ -19,6 +19,9 @@ function portaLivre() {
 
 process.env.SALINHA_PORTA ??= String(await portaLivre());
 const PORTA = Number(process.env.SALINHA_PORTA);
+// A second server on the repository root, for the RTS determinism barrier, which loads prototipos/, site/rts/ and testes/ modules in a Worker.
+process.env.SALINHA_PORTA_RAIZ ??= String(await portaLivre());
+const PORTA_RAIZ = Number(process.env.SALINHA_PORTA_RAIZ);
 
 const ARGUMENTOS = [
   // Real local IPs instead of mDNS names, so pages of the same browser find each other quickly.
@@ -41,8 +44,14 @@ export default defineConfig({
   workers: Number(process.env.SALINHA_PROCESSOS ?? 1),
   fullyParallel: false,
   projects: [
-    { name: 'funcionais', testIgnore: /(desempenho|longo|galeria)\.spec\.mjs$/ },
+    { name: 'funcionais', testIgnore: /(desempenho|longo|galeria|rts-determinismo)\.spec\.mjs$/ },
     { name: 'desempenho', testMatch: /(desempenho|longo|galeria)\.spec\.mjs$/, use: { launchOptions: { args: [...ARGUMENTOS, ...COM_GPU] } } },
+    // The same matches in the three engines; npm run e2e runs them with --project='rts-determinismo-*'.
+    ...['chromium', 'firefox', 'webkit'].map((motor) => ({
+      name: `rts-determinismo-${motor}`,
+      testMatch: /rts-determinismo\.spec\.mjs$/,
+      use: { browserName: motor, baseURL: `http://127.0.0.1:${PORTA_RAIZ}`, launchOptions: motor === 'chromium' ? { args: ARGUMENTOS } : {} },
+    })),
   ],
   // The free signaling server sometimes takes long to answer; a retry tells a flaky network from a broken game.
   retries: 1,
@@ -56,11 +65,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
     launchOptions: { args: ARGUMENTOS },
   },
-  webServer: {
-    command: `python3 -m http.server ${PORTA} --bind 127.0.0.1 --directory site`,
-    url: `http://127.0.0.1:${PORTA}/`,
-    reuseExistingServer: false,
-    stdout: 'ignore',
-    stderr: 'ignore',
-  },
+  webServer: [
+    {
+      command: `python3 -m http.server ${PORTA} --bind 127.0.0.1 --directory site`,
+      url: `http://127.0.0.1:${PORTA}/`,
+      reuseExistingServer: false,
+      stdout: 'ignore',
+      stderr: 'ignore',
+    },
+    {
+      command: `python3 -m http.server ${PORTA_RAIZ} --bind 127.0.0.1 --directory .`,
+      url: `http://127.0.0.1:${PORTA_RAIZ}/testes/e2e/`,
+      reuseExistingServer: false,
+      stdout: 'ignore',
+      stderr: 'ignore',
+    },
+  ],
 });

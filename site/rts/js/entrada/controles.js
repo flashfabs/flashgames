@@ -5,7 +5,7 @@
 import { FP, SEM_ENTIDADE } from '../sim/contratos.js';
 import { ACAO, ACOES_COM_ALVO, SETAS, E_MAC, acaoDaTecla, modificadores } from './teclas.js';
 import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO } from './selecao.js';
-import { paraMundo, paraTela, pixelsCssPorCelula } from './camera.js';
+import { paraMundo, paraTela } from './camera.js';
 
 /** Client pixels from the window edge where the camera scrolls. */
 const BORDA_PX = 8;
@@ -260,9 +260,11 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
       zoom.passo(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
       return;
     }
-    const px = pixelsCssPorCelula(canvas, camera);
-    camera.x += e.deltaX / px;
-    camera.y += e.deltaY / px;
+    // Two fingers drag the map like a page: the ground moves by the scrolled pixels, foreshortening included.
+    const { x: antesX, y: antesY } = paraMundo(canvas, camera, e.clientX, e.clientY, tmp);
+    const depois = paraMundo(canvas, camera, e.clientX + e.deltaX, e.clientY + e.deltaY, tmp);
+    camera.x += depois.x - antesX;
+    camera.y += depois.y - antesY;
   }, { passive: false });
 
   canvas.addEventListener('gesturestart', e => {

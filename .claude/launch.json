@@ -14,10 +14,22 @@
       "port": 8811
     },
     {
+      "name": "diagnostico-rts",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8820", "--directory", "prototipos"],
+      "port": 8820
+    },
+    {
       "name": "rts-interface",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8823", "--bind", "127.0.0.1"],
       "port": 8823
+    },
+    {
+      "name": "rts-render",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8822", "--directory", "site"],
+      "port": 8822
     }
   ]
 }

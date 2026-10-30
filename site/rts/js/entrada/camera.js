@@ -1,38 +1,57 @@
-// Camera state in map cells (centre and zoom) and the conversions between client pixels and the map. This file is the
-// seam with the renderer: input code only calls these functions and never reads camera.zoom or camera.zoomCss itself.
+// Camera state and every screen/map conversion of the input layer. The camera is the map point at the screen centre
+// (cells) and the zoom factor of projecao.json (1 = default view, between the far and near zooms); the projection
+// (oblique camera, so screen y is foreshortened by sin(elevation)) comes from render/projecao.js.
+import { pxPorCelula, telaParaMundo, mundoParaTela } from '../render/projecao.js';
 
-/** CSS pixels per cell at zoom factor 1. */
-const PIXELS_CSS_POR_CELULA = 46;
-
-export function criarCamera(zoomCss = PIXELS_CSS_POR_CELULA) {
-  // zoom (backing pixels per cell) is derived from zoomCss (CSS pixels per cell) by the resolution module
-  return { x: 96, y: 96, zoom: 1, zoomCss };
+/**
+ * @param {number} zoom
+ * @param {ReturnType<typeof import('../render/projecao.js').criarProjecao>} projecao
+ */
+export function criarCamera(zoom, projecao) {
+  return { x: 96, y: 96, zoom, projecao };
 }
 
-/** Map point (cells) under the client pixel (clienteX, clienteY), written to saida and returned. */
+const vista = { largura: 1, altura: 1, px: 1 };
+const ponto = [0, 0];
+
+function atualizarVista(canvas, camera) {
+  vista.largura = canvas.width;
+  vista.altura = canvas.height;
+  vista.px = pxPorCelula(camera.projecao, canvas.width, canvas.height, camera.zoom);
+  return vista;
+}
+
+/** Canvas pixels per cell across the screen (down the screen it is this times sin(elevation)). */
+export function pixelsPorCelula(canvas, camera) {
+  return atualizarVista(canvas, camera).px;
+}
+
+/** CSS pixels per cell across the screen. */
+export function pixelsCssPorCelula(canvas, camera) {
+  return (pixelsPorCelula(canvas, camera) * canvas.clientWidth) / canvas.width;
+}
+
+/** Ground point under a pointer (client CSS pixels), in map cells, written into saida.x and saida.y. */
 export function paraMundo(canvas, camera, clienteX, clienteY, saida = { x: 0, y: 0 }) {
   const r = canvas.getBoundingClientRect();
-  const escala = canvas.width / r.width;
-  saida.x = camera.x + ((clienteX - r.left) * escala - canvas.width / 2) / camera.zoom;
-  saida.y = camera.y + ((clienteY - r.top) * escala - canvas.height / 2) / camera.zoom;
+  const k = canvas.width / r.width;
+  telaParaMundo(camera.projecao, camera, atualizarVista(canvas, camera), (clienteX - r.left) * k, (clienteY - r.top) * k, ponto);
+  saida.x = ponto[0];
+  saida.y = ponto[1];
   return saida;
 }
 
-/** Client pixel (CSS) of the ground point (x, y) in cells, written to saida and returned. */
+/** Ground point (map cells) to client CSS pixels, written into saida.x and saida.y. */
 export function paraTela(canvas, camera, x, y, saida = { x: 0, y: 0 }) {
   const r = canvas.getBoundingClientRect();
-  const escala = r.width / canvas.width;
-  saida.x = r.left + ((x - camera.x) * camera.zoom + canvas.width / 2) * escala;
-  saida.y = r.top + ((y - camera.y) * camera.zoom + canvas.height / 2) * escala;
+  mundoParaTela(camera.projecao, camera, atualizarVista(canvas, camera), x, y, 0, ponto);
+  saida.x = r.left + (ponto[0] * r.width) / canvas.width;
+  saida.y = r.top + (ponto[1] * r.height) / canvas.height;
   return saida;
 }
 
-/** CSS pixels one cell takes horizontally on screen now, to turn pointer drags into camera moves. */
-export function pixelsCssPorCelula(canvas, camera) {
-  return camera.zoom * (canvas.getBoundingClientRect().width / canvas.width);
-}
-
-/** Sets the zoom factor (1 is the default view); the resolution module re-derives the backing zoom afterwards. */
+/** Sets the zoom factor, kept between the far and near zooms of projecao.json. */
 export function definirZoom(camera, fator) {
-  camera.zoomCss = PIXELS_CSS_POR_CELULA * fator;
+  const { afastado, aproximado } = camera.projecao.zooms;
+  camera.zoom = Math.max(afastado, Math.min(aproximado, fator));
 }
