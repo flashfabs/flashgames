@@ -16,6 +16,9 @@ let jogadorLocal = 0;
 let percentual = 100;
 const pausas = new Set();
 let relogio = null;
+// the latest checksum and its tick (see Retrato.soma)
+let soma = 0;
+let tickSoma = -1;
 
 self.onmessage = ({ data }) => {
   try {
@@ -66,6 +69,7 @@ function tratar(data) {
     }
     case PARA_TRABALHADOR.CARREGAR:
       sim = carregar(data.bytes);
+      tickSoma = -1;
       // a loaded match has no replay from its first tick
       gravador = null;
       self.postMessage(montarMapaEstatico(sim, jogadorLocal));
@@ -104,6 +108,10 @@ function executarPasso() {
   const inicio = performance.now();
   passo(sim);
   const msPasso = performance.now() - inicio;
-  const retrato = montarRetrato(sim, { msPasso, soma: somaDeVerificacao(sim), jogadorLocal });
+  if (sim.tick % PASSOS_POR_SEGUNDO === 0 || tickSoma < 0) {
+    soma = somaDeVerificacao(sim);
+    tickSoma = sim.tick;
+  }
+  const retrato = montarRetrato(sim, { msPasso, soma, tickSoma, jogadorLocal });
   self.postMessage(retrato, transferiveisDoRetrato(retrato));
 }

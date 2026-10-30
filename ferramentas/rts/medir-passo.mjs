@@ -2,7 +2,9 @@
 // simultaneous orders: p50, p99 and worst step, the worst flow-field slice and the mean fog update. Prints JSON.
 // Wall time suffers when the machine is busy (the process gets descheduled), so CPU time per step is reported too;
 // run it on a quiet machine for the wall numbers and say which ones a result quotes.
-//   node ferramentas/rts/medir-passo.mjs [ticks=9000]
+// With --retrato it also builds the per-tick snapshot after each step, as the worker does, so the garbage the snapshot
+// leaves behind is collected during the steps like in the game.
+//   node ferramentas/rts/medir-passo.mjs [ticks=9000] [--retrato]
 import { cpus, loadavg } from 'node:os';
 import { criarSimulacao, agendarComando } from '../../site/rts/js/sim/simulacao.js';
 import { TIPO_COMANDO, FP, criarComando, idDe } from '../../site/rts/js/sim/contratos.js';
@@ -11,13 +13,15 @@ import { atualizarNeblina } from '../../site/rts/js/sim/neblina.js';
 import { montarBaldes, mover } from '../../site/rts/js/sim/movimento.js';
 import { combater } from '../../site/rts/js/sim/combate.js';
 import * as simulacao from '../../site/rts/js/sim/simulacao.js';
+import { montarRetrato } from '../../site/rts/js/sim/retrato.js';
 
-const passos = Number(process.argv[2] ?? 9000);
+const passos = Number(process.argv.find(a => /^\d+$/.test(a)) ?? 9000);
+const comRetrato = process.argv.includes('--retrato');
 const sim = criarSimulacao({ semente: 7, unidadesPorTime: 1000 });
 
 // the step, unrolled so each part can be timed (same order as passo())
 const internos = simulacao.__internos;
-const tempos = { passo: [], cpu: [], caminhos: [], neblina: [] };
+const tempos = { passo: [], cpu: [], caminhos: [], neblina: [], retrato: [] };
 const agora = () => performance.now();
 const cpu = () => {
   const { user, system } = process.cpuUsage();
@@ -57,6 +61,11 @@ for (let k = 0; k < passos; k++) {
   tempos.neblina.push(agora() - n0);
   tempos.passo.push(agora() - inicio);
   tempos.cpu.push(cpu() - inicioCpu);
+  if (comRetrato) {
+    const r0 = agora();
+    montarRetrato(sim, { soma: simulacao.somaDeVerificacao(sim) });
+    tempos.retrato.push(agora() - r0);
+  }
 }
 
 const ordenar = lista => [...lista].sort((a, b) => a - b);
@@ -78,4 +87,5 @@ console.log(JSON.stringify({
   campoMax: +Math.max(...tempos.caminhos).toFixed(2),
   campoP99: quantil(tempos.caminhos, 0.99),
   neblinaMedia: media(tempos.neblina),
+  ...(comRetrato ? { retratoMedia: media(tempos.retrato), retratoP99: quantil(tempos.retrato, 0.99) } : {}),
 }));
