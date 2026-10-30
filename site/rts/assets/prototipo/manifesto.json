@@ -1,0 +1,1 @@
+{ "cor": "tanque-cor.png", "time": "tanque-time.png", "normal": "tanque-normal.png", "direcoes": 16, "quadro": 256, "escala": 1.0, "origem": "blender/renderizar_veiculo.py (Blender 5.2.3, Cycles OptiX, RTX 4090)" }
