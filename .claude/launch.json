@@ -18,6 +18,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8823", "--bind", "127.0.0.1"],
       "port": 8823
+    },
+    {
+      "name": "rts-render",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8822", "--directory", "site"],
+      "port": 8822
     }
   ]
 }
