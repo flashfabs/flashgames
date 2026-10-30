@@ -2,20 +2,34 @@
 // Every function returns the same integer in every JavaScript engine.
 import { SENO, ARCO_TANGENTE, PASSOS_TANGENTE } from './tabelas.js';
 
-/** xorshift32 stream; sortear(limite) returns an integer in 0..limite-1. */
+/** xorshift32 stream as plain data, so it can be saved: { estado }. */
 export function criarSorteio(semente) {
-  let s = (semente | 0) || 0x2545f491;
-  return function sortear(limite) {
-    s ^= s << 13;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    return (s >>> 0) % limite;
-  };
+  return { estado: (semente | 0) || 0x2545f491 };
 }
 
-/** floor(sqrt(n)) for 0 <= n < 2^53, by Newton's method on integers. */
+/** Next number of the stream, an integer in 0..limite-1. */
+export function sortear(sorteio, limite) {
+  let s = sorteio.estado;
+  s ^= s << 13;
+  s ^= s >>> 17;
+  s ^= s << 5;
+  sorteio.estado = s;
+  return (s >>> 0) % limite;
+}
+
+/** floor(sqrt(n)) for 0 <= n < 2^53, by Newton's method on integers from a power-of-two first guess. */
 export function raizInteira(n) {
   if (n <= 0) return 0;
+  if (n < 0x80000000) {
+    // 32-bit fast path: the guess 2^ceil(bits/2) is above the root, so Newton descends in a few steps
+    let x = 1 << ((33 - Math.clz32(n)) >> 1);
+    let y = (x + ((n / x) | 0)) >> 1;
+    while (y < x) {
+      x = y;
+      y = (x + ((n / x) | 0)) >> 1;
+    }
+    return x;
+  }
   let x = n;
   let y = Math.trunc((x + 1) / 2);
   while (y < x) {

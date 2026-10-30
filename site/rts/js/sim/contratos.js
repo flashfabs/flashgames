@@ -257,17 +257,18 @@ export function transferiveisDoRetrato(retrato) {
 
 /** Main thread to worker. */
 export const PARA_TRABALHADOR = Object.freeze({
-  INICIAR: 'iniciar', // { opcoes: { semente, unidadesPorTime, avancar, jogadorLocal } }
+  INICIAR: 'iniciar', // { opcoes: criarSimulacao options plus avancar (ticks to fast-forward) and jogadorLocal }
   COMANDO: 'comando', // { comando }: a Comando without tick; the worker schedules it for the next tick
-  PAUSAR: 'pausar', // { valor: boolean }
+  PAUSAR: 'pausar', // { valor: boolean, motivo: 'jogador' | 'visibilidade' }; the clock runs only with no reason left
   VELOCIDADE: 'velocidade', // { percentual: one of VELOCIDADES }
   SALVAR: 'salvar', // {}
+  CARREGAR: 'carregar', // { bytes: ArrayBuffer from SALVO }; answered with PRONTO
 });
 
 /** Worker to main thread. */
 export const DO_TRABALHADOR = Object.freeze({
   PRONTO: 'pronto', // MapaEstatico
   RETRATO: 'retrato', // Retrato
-  SALVO: 'salvo', // { bytes: ArrayBuffer }
-  ERRO: 'erro', // { mensagem }
+  SALVO: 'salvo', // { tick, bytes: ArrayBuffer, replay: replay JSON of the match so far, or null after a load }
+  ERRO: 'erro', // { mensagem }; the clock stops
 });
