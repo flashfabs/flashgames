@@ -1,0 +1,12 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #0b0a09; color: #e9e2d6; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; }
+#palco { position: fixed; inset: 0; display: grid; place-items: center; background: #050404; }
+#tela { display: block; cursor: crosshair; touch-action: none; }
+#caixa-selecao { position: absolute; border: 1px solid #6dff8a; background: rgba(109, 255, 138, 0.08); pointer-events: none; }
+#painel { position: fixed; top: 12px; left: 12px; padding: 10px 12px; background: rgba(10, 9, 8, 0.78); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; min-width: 330px; pointer-events: none; }
+#painel b { color: #ffcf7a; font-weight: 600; }
+#painel div { white-space: nowrap; }
+#painel .ajuda { margin-top: 6px; color: #a59c8f; }
+#minimapa { position: fixed; right: 12px; bottom: 12px; width: 220px; height: 220px; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 6px; background: #000; cursor: pointer; image-rendering: auto; }
+#resultado { position: fixed; top: 12px; right: 12px; margin: 0; padding: 12px; background: rgba(10, 9, 8, 0.9); border: 1px solid #ffcf7a; border-radius: 8px; white-space: pre; }
