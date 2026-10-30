@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8792", "--directory", "site"],
       "port": 8792
+    },
+    {
+      "name": "prototipo-rts",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8811", "--directory", "prototipos/rts-4k"],
+      "port": 8811
     }
   ]
 }
