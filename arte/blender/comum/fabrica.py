@@ -84,7 +84,7 @@ def executar(modulo, projecao, argumentos, saida, progresso=print):
     passes = descricao["passes"]
     sequencia = list(ordem_dos_quadros(descricao))
     tempos = {passe: [] for passe in passes}
-    tabela_pontos = {o.name: [None] * len(sequencia) for o in pontos}
+    tabela_pontos = {o["ponto"]: [None] * len(sequencia) for o in pontos}
     repouso_raiz = tuple(raiz.rotation_euler)
     camadas_sombra = descricao.get("camadasSombra", [next(iter(descricao["camadas"]))])
     total = len(sequencia) * len(passes)
@@ -138,7 +138,7 @@ def executar(modulo, projecao, argumentos, saida, progresso=print):
                     bpy.context.view_layer.update()
                     for obj in pontos:
                         if camada_de(obj) in usa:
-                            tabela_pontos[obj.name][indice] = cena.projetar(camera, obj.matrix_world.translation, largura, altura, ancora)
+                            tabela_pontos[obj["ponto"]][indice] = cena.projetar(camera, obj.matrix_world.translation, largura, altura, ancora)
                 feitos += 1
                 if feitos % 50 == 0 or feitos == total:
                     progresso(f"PROGRESSO {feitos}/{total} quadros ({passe}, {animacao['nome']})")

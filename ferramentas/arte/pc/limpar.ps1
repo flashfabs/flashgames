@@ -1,4 +1,4 @@
-# Keeps only the newest runs of each asset in D:\rts\saida and empties old temp files in D:\rts\cache.
+# Keeps only the newest runs of each asset in D:\rts\saida and empties old Blender temp files in D:\rts\cache.
 # Unless -Apagar is "sim" it only lists what would go.
 param(
     [int]$Manter = 2,
@@ -11,7 +11,9 @@ foreach ($asset in Get-ChildItem D:\rts\saida -Directory -ErrorAction SilentlyCo
     $execucoes = @(Get-ChildItem $asset.FullName -Directory | Sort-Object Name -Descending)
     if ($execucoes.Count -gt $Manter) { $alvos += $execucoes[$Manter..($execucoes.Count - 1)] }
 }
-$alvos += @(Get-ChildItem D:\rts\cache -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) })
+# only the Blender caches: other tools keep their own folders under D:\rts (the test runner's tmp-testes)
+$caches = "D:\rts\cache\tmp", "D:\rts\cache\render", "D:\rts\cache\texturas"
+$alvos += @(Get-ChildItem $caches -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) })
 $total = 0
 foreach ($alvo in $alvos) {
     $tamanho = if ($alvo.PSIsContainer) { (Get-ChildItem $alvo.FullName -Recurse -File | Measure-Object Length -Sum).Sum } else { $alvo.Length }

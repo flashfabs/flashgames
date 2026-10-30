@@ -6,7 +6,8 @@
 #   enviar                         copies arte/blender, ferramentas/arte/pc and site/rts/dados/projecao.json to D:\rts
 #   renderizar <asset> [k=v...]    checar + enviar + GPU lock + Blender batch + packing + buscar, no manual step
 #   acompanhar <asset> <run>       follows a batch that is still running on the PC (after a dropped connection)
-#   reempacotar <asset> [run]      packs the frames of a run again (packer changes), without the GPU, then buscar
+#   reempacotar <asset> [run] [k=v] packs the frames of a run again (packer changes), without the GPU, then buscar;
+#                                  pass the run's own options again (elevacao=45 for an elevation variant)
 #   buscar <asset> [run]           brings the packed atlases, manifest and provenance of a run into the repository
 #   limpar [--apagar]              keeps the two newest runs of each asset in D:\rts\saida (lists only, unless --apagar)
 #   trava [estado|soltar <run>]    shows or releases the GPU lock
@@ -149,20 +150,24 @@ renderizar() {
 }
 
 reempacotar() {
-  local asset="$1" execucao="${2:-}"
+  local asset="$1" execucao=""
+  shift
+  if [[ "${1:-}" =~ ^[0-9]{8}-[0-9]{6}$ ]]; then execucao="$1"; shift; fi
   validar_asset "$asset"
   enviar
   if [[ -z "$execucao" ]]; then
     execucao="$(ssh "${ssh_opcoes[@]}" "$host" "(Get-ChildItem D:\\rts\\saida\\$asset -Directory | Sort-Object Name -Descending | Select-Object -First 1).Name" | tr -d '\r')"
   fi
   [[ -n "$execucao" ]] || erro "no run of $asset on the PC"
-  pc lancar.ps1 Asset "$asset" Execucao "$execucao" Argumentos "so-empacotar"
+  local juntos
+  juntos="$(IFS=,; echo "so-empacotar,commit=$(git -C "$raiz" rev-parse --short HEAD)${*:+,$*}")"
+  pc lancar.ps1 Asset "$asset" Execucao "$execucao" Argumentos "$juntos"
   acompanhar "$asset" "$execucao" || erro "packing $execucao of $asset failed"
   buscar "$asset" "$execucao"
 }
 
 comando="${1:-}"
-[[ -n "$comando" ]] || { sed -n '2,18p' "$0"; exit 2; }
+[[ -n "$comando" ]] || { sed -n '2,19p' "$0"; exit 2; }
 shift
 case "$comando" in
   checar) checar ;;

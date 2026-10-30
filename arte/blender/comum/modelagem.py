@@ -79,7 +79,8 @@ def vazio(nome, local=(0, 0, 0), pai=None, camada=None, rotacao=(0, 0, 0)):
 def ponto(nome, local, pai):
     """Named attachment point (muzzle, exhaust, top...), projected per direction and frame into the manifest."""
     obj = vazio(nome, local, pai)
-    obj["ponto"] = True
+    # the manifest uses this name, never obj.name, which Blender suffixes (.001) when a mesh has the same name
+    obj["ponto"] = nome
     return obj
 
 
