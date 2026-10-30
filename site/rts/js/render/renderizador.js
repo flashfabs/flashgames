@@ -11,7 +11,7 @@ import { criarControleDeEscala } from './escala.js';
 import { criarFolhas } from './sprites.js';
 import { criarMontagemUnidades } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
-import { carregarManifesto } from '../ativos/manifesto.js';
+import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
 
 export { EFEITO };
@@ -137,6 +137,22 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       const folha = await folhas.adicionarManifesto(manifesto, nivel);
       estatisticas.nivel = folha.nivel;
       return folha;
+    },
+
+    /** Loads a terrain manifest as the ground texture (null goes back to the procedural ground). */
+    async carregarTerreno(url, nivel = nivelDoCanvas()) {
+      if (!url) {
+        backend.definirLadrilho(null, 0);
+        return null;
+      }
+      const resposta = await fetch(url);
+      if (!resposta.ok) throw new Error(`terreno ${url}: HTTP ${resposta.status}`);
+      const terreno = lerManifestoTerreno(await resposta.json(), resposta.url || url);
+      const pagina = terreno.niveis[nivel] ?? terreno.niveis.uhd ?? terreno.niveis.hd;
+      const imagem = await carregarImagem(pagina.cor, true);
+      backend.definirLadrilho(imagem, terreno.celulasPorLadrilho);
+      imagem.close();
+      return terreno;
     },
 
     /** Loads the prototype's Blender tank; resolves to null when it is missing. */

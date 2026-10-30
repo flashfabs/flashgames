@@ -56,7 +56,8 @@ export function criarFolhas(backend, projecao, quadroComum) {
     for (let i = animacao.base; i < animacao.base + animacao.direcoes * animacao.quadros; i++) {
       if (!Number.isNaN(topo[i * 2 + 1])) maior = Math.max(maior, -topo[i * 2 + 1]);
     }
-    return maior > -Infinity ? (maior / pxNivel) * (projecao.metrosPorCelula / projecao.cosseno) : padrao;
+    // a topo at or below the anchor would bury the bar in the sprite: keep the default then
+    return maior > 0 ? (maior / pxNivel) * (projecao.metrosPorCelula / projecao.cosseno) : padrao;
   }
 
   function publicar(folha) {
