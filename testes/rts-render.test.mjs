@@ -173,6 +173,7 @@ test('the manifest reader lays out animations, directions and frames in order', 
   assert.equal(quadroDaAnimacao(m.animacao('andando'), 3, 0.15), 4 + 3 * 2 + 1);
   assert.equal(quadroDaAnimacao(m.animacao('andando'), 3, 0.25), 4 + 3 * 2 + 0, 'loops');
   assert.equal(quadroDaAnimacao(m.animacao('morrendo'), 1, 5), 12 + 1 * 3 + 2, 'holds the last frame');
+  assert.equal(quadroDaAnimacao(m.animacao('andando'), 2, -0.2), 4 + 2 * 2, 'a negative time holds the first frame');
   assert.equal(m.niveis.uhd.pontos.topo[5 * 2], 5);
   assert.ok(Number.isNaN(m.niveis.uhd.pontos.topo[13 * 2]), 'missing point is NaN');
   assert.equal(m.niveis.hd, undefined);

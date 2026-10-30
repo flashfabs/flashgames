@@ -125,7 +125,8 @@ export function direcaoDoAngulo(angulo256, direcoes) {
  * @param {number} tempoS seconds since the animation started
  */
 export function quadroDaAnimacao(a, direcao, tempoS) {
-  let quadro = a.fps > 0 ? Math.floor(tempoS * a.fps) : 0;
+  // an animation stamped in the future (snapshot ahead of the clock) holds its first frame
+  let quadro = a.fps > 0 && tempoS > 0 ? Math.floor(tempoS * a.fps) : 0;
   quadro = a.laco ? quadro % a.quadros : Math.min(quadro, a.quadros - 1);
   return a.base + (direcao % a.direcoes) * a.quadros + quadro;
 }
