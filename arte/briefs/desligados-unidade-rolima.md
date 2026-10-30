@@ -3,7 +3,7 @@
 - id: `desligados/rolima`
 - Facção: Desligados (inimigo na fase 1) · Categoria: unidade, veículo pequeno · Lote: fase 1
 - Versão: 1, de 30/10/2026
-- Estado: proposta de troca do batedor, aguardando o Victor (ver o checklist).
+- Estado: troca do batedor aprovada pelo Victor em 30/10/2026 (motivo no checklist).
 
 ## Papel na matriz
 
@@ -78,6 +78,6 @@ O que distingue das outras da facção: a Carroça é larga e de toldo; o Carro-
 - [x] Números da nossa tabela de partida.
 - [ ] Falas: pendente, etapa de som e falas.
 - [ ] Ficha de origem: pendente, `rts-arte`, junto com o asset.
-- [ ] Aprovação da troca pelo Victor: pendente.
+- [x] Troca aprovada pelo Victor em 30/10/2026.
 - [ ] Revisão por quem jogou o jogo que inspirou o projeto: pendente, pedida ao Victor.
 - [ ] Teste de combinação por alguém que não é fã: pendente, pedido ao Victor.
