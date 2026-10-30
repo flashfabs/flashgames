@@ -71,14 +71,14 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `${PYTHON} -m http.server ${PORTA} --bind 127.0.0.1 --directory site`,
+      command: `${PYTHON} scripts/servidor-testes.py ${PORTA} site`,
       url: `http://127.0.0.1:${PORTA}/`,
       reuseExistingServer: false,
       stdout: 'ignore',
       stderr: 'ignore',
     },
     {
-      command: `${PYTHON} -m http.server ${PORTA_RAIZ} --bind 127.0.0.1 --directory .`,
+      command: `${PYTHON} scripts/servidor-testes.py ${PORTA_RAIZ} .`,
       url: `http://127.0.0.1:${PORTA_RAIZ}/testes/e2e/`,
       reuseExistingServer: false,
       stdout: 'ignore',

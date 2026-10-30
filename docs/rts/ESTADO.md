@@ -12,6 +12,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 - Integração: branch `rts/base`, criada em 30/10/2026 a partir da `main` em `94d4631`; nada do RTS foi para a `main` nem para a Netlify.
 - Guarda da produção, 30/10/2026: `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404 e a `rts/base` não tem deploy de branch na Netlify.
 - Sessões da onda 1: `rts-qualidade`, `rts-arte`, `rts-design`, `rts-motor`, `rts-render` e `rts-interface`.
+- Regra do Victor de 30/10/2026, 20h17: o que exige esforço roda no PC da RTX 4090 e o Mac fica com editar, git e `npm test`; os testes de ponta a ponta rodam no PC por `scripts/rtx-testes.sh` (detalhes em [frentes.md](frentes.md), seção Onde roda o quê).
 
 ## Decisões
 
@@ -57,6 +58,32 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 
 Navegadores do Playwright: o Firefox 155 e o WebKit 26.6 do Playwright 1.63 foram instalados no Mac em 30/10/2026, com aprovação do Victor (D16), e o `rts-determinismo` passou nos três motores localmente; as medições anteriores do Firefox 153 e do WebKit 26.5 vieram do playwright-core 1.62.1.
 Numa máquina sem esses navegadores, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
+
+## Testes no PC da RTX 4090
+
+Executor `scripts/rtx-testes.sh`, entregue em 30/10/2026; números das execuções `20261030-203756` e `20261030-205046` em `D:\rts\testes\rts-qualidade-97785b`.
+
+| Medição | Resultado |
+| --- | --- |
+| Placa do Chrome lançado pelo SSH (sessão 0) | NVIDIA GeForce RTX 4090 nos quatro backends do ANGLE (d3d11, gl, vulkan, d3d11on12); o executor usa o d3d11 e confere antes de cada passo de desempenho |
+| Funcionais | 41 de 41, nenhum instável, em 4,7 minutos com 2 processos |
+| `rts-determinismo` | 12 de 12 (roteiro do protótipo e os 3 replays dourados no Chromium, no Firefox e no WebKit), em 2,5 minutos: o mesmo resultado do Mac e do Action |
+| `rts-desempenho`, 2.000 unidades em 4K (3840×2160), zoom padrão | 60 qps, quadro p99 16,8 ms, 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,5 ms, GPU 4,8 ms por quadro, passo da simulação p50/p95 8,9/22,2 ms |
+| `rts-desempenho`, zoom afastado | 60 qps, p99 16,8 ms, 0 de 600 acima de 20 ms, GPU 1,6 ms, passo p50/p95 9,1/18,8 ms |
+| Pavio, 8 jogadores (`desempenho.spec.mjs`) | reprova no PC: trabalho por quadro p95 do convidado 8,7 ms contra o limite de 8 ms; com a CPU 4x mais lenta, quadro p95 de 183 ms no anfitrião e 150 ms no convidado (a limitação de CPU do Chrome pesa muito mais no Windows). Os limites foram feitos para o Mac, como substituto de um iPad, então esse teste fica fora do e2e do PC e entra na lista abaixo |
+| Pavio, anfitrião com 7 robôs | passa no PC |
+| Disco do executor no D: | 1,19 GB de navegadores em `D:\rts\playwright` e 1,70 GB em `D:\rts\testes` (todas as sessões), de 3,71 GB em `D:\rts`; o `checar.ps1` da `rts-arte` recusa lote acima de 12 GB |
+
+Duas correções saíram dessas execuções: o servidor dos testes passou a aceitar 128 conexões na fila (`scripts/servidor-testes.py`), porque o padrão de 5 do Python recusava conexões no Windows quando os 7 convidados entram juntos, e o controle de gestos sintéticos do `toque.spec.mjs` pula no Windows como já pulava no Linux.
+
+## Medições que esperam o Mac
+
+Rodam só quando o Victor pedir, uma por vez, com o Mac sem outras sessões pesadas:
+
+- Safari 26 de verdade: página de diagnóstico, bench do jogo em 4K e a soma no Worker ([roteiro](roteiro-medicoes.md), Parte 1).
+- Bateria de teclas no Safari e no Chrome do Mac ([roteiro](roteiro-medicoes.md), Partes 1 e 2).
+- Referência de 60 qps no Metal do M5 Pro: `rts-desempenho` em 4K com 2.000 unidades no Chrome e o passo da simulação limpo, sem outras sessões rodando (critérios da E1).
+- Pavio com 8 jogadores (`npx playwright test testes/e2e/desempenho.spec.mjs --project=desempenho --workers=1`), cujos limites são do Mac.
 
 ## Critérios por etapa
 
@@ -243,7 +270,9 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 - 30/10/2026: página de diagnóstico em `prototipos/diagnostico/` (configuração `diagnostico-rts`, porta 8820), conferida no Chromium, no Firefox e no WebKit; [roteiro de medições](roteiro-medicoes.md) com o caminho do PC testado pelo SSH.
 - 30/10/2026: projetos Playwright `rts-determinismo-chromium`, `-firefox` e `-webkit` (`testes/e2e/rts-determinismo.spec.mjs`) com o roteiro do protótipo num Worker, prontos para os replays dourados da `rts-motor` em `testes/rts-replays/` (formato combinado: `executarReplay(replay)` devolve `{ somas, final }`, e o arquivo traz `somas` e `final` esperados); a barreira de lint fica com a `rts-motor` em `testes/rts-sim-barreira.test.mjs`.
 - 30/10/2026: primeiro Action com os três motores na `rts/base` (`c51ffb0`) verde em 6,5 minutos: 35 funcionais e `rts-determinismo` no Chromium, no Firefox e no WebKit; Firefox 155 e WebKit 26.6 instalados no Mac (D16).
-- Pendente: endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro, os replays dourados no `rts-determinismo`.
+- 30/10/2026: os 3 replays dourados da `rts-motor` entraram no `rts-determinismo` sem mudança no spec.
+- 30/10/2026: executor de testes no PC da RTX 4090 (`scripts/rtx-testes.sh` e `scripts/pc-testes/`), com trava própria `D:\rts\trava-testes`, a trava da GPU nos passos de desempenho, lançamento pelo WMI e conferência da placa; números na seção Testes no PC da RTX 4090.
+- Pendente: endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro e as medições que esperam o Mac.
 
 ### F4, F6 e F9
 

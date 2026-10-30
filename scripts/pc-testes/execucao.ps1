@@ -181,7 +181,8 @@ try {
 
     if ($Modo -eq "e2e") {
         Rodar-Passo "funcionais" @("--project=funcionais", "--workers=$Processos") $false
-        Rodar-Passo "desempenho" @("--project=desempenho") $true
+        # Only the RTS performance spec: the Pavio one measures the Mac GPU as a stand-in for an iPad, and its limits do not hold on this PC (see docs/rts/ESTADO.md).
+        Rodar-Passo "desempenho" @("--project=desempenho", "testes/e2e/rts-desempenho.spec.mjs") $true
         Rodar-Passo "rts-determinismo" @("--project=rts-determinismo-*") $false
     } else {
         $lista = @($utf8.GetString([Convert]::FromBase64String($Argumentos)) -split "`n" | Where-Object { $_ -ne "" })

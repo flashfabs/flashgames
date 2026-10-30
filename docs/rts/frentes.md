@@ -8,7 +8,7 @@ O estado vivo de cada frente fica em [ESTADO.md](ESTADO.md); as regras do reposi
 - O jogo é original: nenhum nome, termo, imagem, som, número, mapa ou texto de outro jogo, e nenhuma menção à série que inspirou o projeto em código, arquivo, commit, branch, pull request ou prompt de IA. O `testes/rts-originalidade.test.mjs` reprova.
 - A pesquisa e o plano que citam essa série ficam fora do repositório, na base de conhecimento privada do Victor (decisão D01).
 - Identificadores em português, comentários e commits em inglês (Conventional Commits), interface em português do Brasil, nunca hard wrap (uma frase por linha, inclusive em Markdown e commits).
-- `npm test` antes de cada commit; mexeu em tela, entrada, fluxo ou desempenho, rode também `npm run e2e`.
+- `npm test` antes de cada commit; mexeu em tela, entrada, fluxo ou desempenho, rode também os testes de ponta a ponta no PC da RTX 4090 com `scripts/rtx-testes.sh` (seção Onde roda o quê).
 - Contrato mudou: commit próprio, a versão do contrato sobe e os consumidores são avisados por mensagem.
 - Mexa só nos arquivos da sua frente; ligar o seu código em arquivo de outra frente com uma ou duas linhas é aceito se dito no commit; acima disso, peça ao dono por mensagem.
 - Sem aprovação do Victor: nada de instalar ferramenta, criar conta, aceitar licença, baixar modelo, mexer no WSL do PC da RTX 4090 (o sincronizador do WhatsApp roda lá) ou usar a GPU fora da trava `D:\rts\trava-gpu`.
@@ -16,17 +16,28 @@ O estado vivo de cada frente fica em [ESTADO.md](ESTADO.md); as regras do reposi
 - Cada sessão trabalha numa worktree do clone oficial `/Users/vhccruz/Dev/salinha`, numa branch `rts/<frente>-<assunto>` (ou na branch que o app criou, desde que neutra), e serve a worktree na sua porta.
 - No fim da onda, a sessão atualiza a sua seção do [ESTADO.md](ESTADO.md) (feito, números medidos com fonte, pendências) e é encerrada.
 
+## Onde roda o quê (regra do Victor de 30/10/2026, 20h17)
+
+O Mac ficou lento com várias sessões, então tudo que exige esforço roda no PC da RTX 4090 (Windows nativo, `ssh rtx4090`, 20 threads, 64 GB, Node 24).
+
+- No Mac: editar, git, `npm test` e, só quando for indispensável, um spec curto com um navegador e um worker (`npx playwright test <spec> --project=<um> --workers=1`).
+- No PC: render e tudo do Blender, IA de imagem, empacotar atlas e converter imagens em lote, os testes de ponta a ponta completos, medição de desempenho em 4K, simulações longas e qualquer laço que segure CPU ou GPU por mais de um ou dois minutos.
+- Testes de ponta a ponta no PC: `scripts/rtx-testes.sh` roda o mesmo que o `npm run e2e` (funcionais, desempenho com a trava da GPU e `rts-determinismo-*`), e `scripts/rtx-testes.sh -- <argumentos do playwright test>` roda só o que você pedir. Ele leva a worktree como está (com o que não foi commitado), sobrevive à queda do SSH (`scripts/rtx-testes.sh acompanhar <execução>` retoma) e traz o log, o resumo e os relatórios para `test-results/rtx/<execução>/`; o código de saída é 0 só se tudo passou. `scripts/rtx-testes.sh estado` mostra as travas e as últimas execuções da sessão.
+- Medição que só faz sentido no Mac (Safari, Metal do M5 Pro, a referência de 60 qps do Mac) não roda por conta própria: entra na lista "Medições que esperam o Mac" do [ESTADO.md](ESTADO.md) e roda quando o Victor pedir, uma por vez.
+- Número de desempenho do PC só vale com o Chrome desenhando na NVIDIA: o executor confere a placa antes de cada passo de desempenho e registra no log (`PLACA ...`).
+
 ## Integração (decisão D30)
 
 A branch `rts/base` é a integração do RTS, com trava própria, e só vai para a `main` nos marcos combinados com o Victor.
 Nada do RTS vai para a `main` nem para a Netlify antes disso; nunca force push, nunca `reset`, e para desfazer, `git revert`.
 
 1. Pegue a trava: `until mkdir /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock 2>/dev/null; do sleep 20; done` e escreva nela quem você é e a hora (`echo "<sessão> $(date)" > /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock/dono`). Esperando a trava, use a ferramenta Monitor com esse laço.
-2. Na sua worktree: `git merge rts/base`, resolva os conflitos preservando o código das outras sessões, e rode `npm test` e `npm run e2e`. Tudo tem que passar.
+2. Na sua worktree: `git merge rts/base`, resolva os conflitos preservando o código das outras sessões, e rode `npm test`; se a entrega mexe em tela, entrada, fluxo ou desempenho, rode também `scripts/rtx-testes.sh` no PC. Tudo tem que passar.
 3. Avance a `rts/base` e mande para o GitHub: `git -C /Users/vhccruz/Dev/salinha fetch . <sua-branch>:rts/base && git -C /Users/vhccruz/Dev/salinha push origin rts/base`. Se o `fetch` recusar por não ser avanço direto, alguém integrou antes: volte ao passo 2.
 4. Solte a trava (`rm /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock/dono && rmdir /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock`) e mande à `rts-qualidade` uma linha com o que entrou e o commit.
+5. Acompanhe o Action do seu push (`gh run list --branch rts/base --limit 3`); vermelho é a sua prioridade. Com vários pushes seguidos, o GitHub mantém só o mais novo na fila e marca os do meio como cancelados; o mais novo cobre os commits deles.
 
-O `npm run e2e` completo roda só com a trava na mão; fora dela, cada sessão roda o `npm test` e só os specs do seu trabalho. Com dois e2e completos ao mesmo tempo a carga do Mac passou de 70 em 30/10/2026 e os testes do Pavio estouraram o tempo sem nada quebrado.
+O `npm run e2e` completo não roda mais no Mac: com dois ao mesmo tempo a carga passou de 70 em 30/10/2026 e os testes do Pavio estouraram o tempo sem nada quebrado. No PC, o executor faz uma execução por vez.
 A `rts/base` nunca fica com checkout em nenhuma worktree, senão o `fetch` do passo 3 é recusado.
 O Action `.github/workflows/testes.yml` roda em cada push da `rts/base`; vermelho na `rts/base` é prioridade de quem integrou por último.
 Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando as outras sessões.
@@ -85,7 +96,8 @@ Um teste de esquema impede que um consumidor velho de contrato passe despercebid
 - Integração do RTS: `/Users/vhccruz/Dev/salinha/.git/rts-integracao.lock` (seção Integração acima).
 - Integração da `main` e publicação: `/Users/vhccruz/Dev/salinha/.git/integracao.lock`, pelos passos do [AGENTS.md](../../AGENTS.md); para o RTS, só nos marcos.
 - GPU da RTX 4090: só a `rts-arte` usa, pela trava `D:\rts\trava-gpu`, criada com `New-Item -ItemType Directory -ErrorAction Stop` e com um arquivo `dono`; o `rtx.sh` a solta por `trap` mesmo em erro. Outra frente que precise da GPU pede à `rts-arte`.
-- Disco D: do PC: só a F3 grava, dentro do teto combinado para `D:\rts`.
+- Testes no PC: `D:\rts\trava-testes`, pasta criada pelo executor com um arquivo `dono` (`<sessão> <execução> pid=<pid> <hora>`); uma execução por vez, e uma trava cujo processo dono sumiu (o PC reiniciou) é retomada pela próxima. Os passos de desempenho pegam também a `D:\rts\trava-gpu`, no mesmo formato do `rtx.sh`, esperando até 60 minutos e soltando só a própria.
+- Disco D: do PC: a F3 grava em `D:\rts`, dentro do teto combinado; o executor de testes grava só em `D:\rts\testes\<sessão>` (árvore, `node_modules` e as cinco últimas execuções), `D:\rts\playwright` (navegadores do Playwright), `D:\rts\npm-cache` e `D:\rts\cache\tmp-testes`.
 - WSL do PC: nada de `wsl --shutdown`, reinício ou mudança de `.wslconfig` sem o Victor.
 - Nenhum runner próprio do GitHub Actions no repositório público.
 
