@@ -1,7 +1,7 @@
 // Turns the match events (from the rules on the host, or from snapshots on the members) into visual effects
 // for the painter and sounds placed where they happened on the arena.
 
-import { COLUNAS, PONTOS } from './regras.js';
+import { COLUNAS, PONTOS, ITEM } from './regras.js';
 
 export const MAX_EFEITOS = 90;
 
@@ -39,6 +39,8 @@ export function tratarEventos(eventos, { efeitos, som, eu, escalacao, mostrarFai
       case 'item':
         som.tocar('item', { item: evento.item, pan });
         efeito('item', evento.x, evento.y, { item: evento.item });
+        if (evento.j === eu && evento.item === ITEM.DETONADOR) mostrarFaixa('🎯 Detonador: bombas esperam até 10 s; aperte de novo para detonar.');
+        if (evento.j === eu && evento.item === ITEM.MOLOTOV) mostrarFaixa('🍾 Molotov: pressione Q ou toque no botão para usar.');
         break;
       case 'escudo':
         som.tocar('escudo', { pan });

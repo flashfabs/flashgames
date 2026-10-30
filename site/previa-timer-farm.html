@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prévia do timer · Pimp My Farm</title>
+  <link rel="stylesheet" href="css/farm.css">
+  <style>
+    body{margin:0;padding:32px;font:16px system-ui;background:#152d22;color:#f8f0d4}
+    main{max-width:700px;margin:auto}h1{color:#ffe5a5}.painel{margin:24px 0;padding:20px;background:#243d31;border:1px solid #9ab28366;border-radius:16px}.controles{display:flex;gap:10px;flex-wrap:wrap}.controles button{cursor:pointer;padding:10px 14px;border-radius:9px;border:1px solid #d0b976;background:#304d38;color:white;font:700 15px system-ui}.dica-previa{color:#e4d9b8}
+  </style>
+</head>
+<body>
+<main>
+  <h1>⏱️ Prévia do timer</h1>
+  <p class="dica-previa">Veja como o timer aparece durante a partida e como ele avisa quando faltam 10 segundos.</p>
+  <section class="painel" aria-label="Exemplo do turno">
+    <div class="turno"><strong>🌱 Vez de Ana</strong><span>🎲 3 + 4 = 7</span><span class="contador-turno" aria-label="Tempo restante do turno">⏱ 60s</span></div>
+    <p class="dica">Construa, negocie ou encerre o turno.</p>
+  </section>
+  <div class="controles"><button id="normal" type="button">Ver timer normal</button><button id="urgencia" type="button">Ver últimos 15 segundos 🔊</button><button id="reiniciar" type="button">Reiniciar contagem</button></div>
+  <p class="dica-previa">O aviso sonoro toca quando faltam 15 segundos e novamente quando faltam 5. A pulsação respeita a preferência de movimento reduzido do dispositivo.</p>
+</main>
+<script type="module">
+import { tocarSom } from './js/farm/sons.js';
+const contador=document.querySelector('.contador-turno');
+let segundos=60, timer;
+function desenhar(){contador.textContent=`⏱ ${segundos}s`;contador.classList.toggle('urgente',segundos>0 && segundos<=15);document.body.classList.toggle('tempo-urgente',segundos>0 && segundos<=15);}
+function iniciar(valor){clearInterval(timer);segundos=valor;desenhar();if(segundos===15)tocarSom('urgencia');timer=setInterval(()=>{if(segundos<=0){clearInterval(timer);return;}segundos--;desenhar();if(segundos===15 || segundos===5)tocarSom('urgencia');},1000);}
+document.querySelector('#normal').addEventListener('click',()=>iniciar(60));
+document.querySelector('#urgencia').addEventListener('click',()=>iniciar(15));
+document.querySelector('#reiniciar').addEventListener('click',()=>iniciar(60));
+iniciar(60);
+</script>
+</body>
+</html>

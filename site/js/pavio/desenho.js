@@ -21,42 +21,56 @@ export const CORES = [
 
 // Every color also has a shape (SVG path in a 24x24 box), so players can be told apart without color.
 export const SIMBOLOS = [
-  { nome: 'círculo', d: 'M12 5A7 7 0 1 1 11.99 5Z' },
-  { nome: 'triângulo', d: 'M12 3L21.5 20H2.5Z' },
-  { nome: 'quadrado', d: 'M4.5 4.5H19.5V19.5H4.5Z' },
-  { nome: 'losango', d: 'M12 2L22 12L12 22L2 12Z' },
-  { nome: 'estrela', d: 'M12 2.5L14.47 9.1L21.51 9.41L16 13.8L17.88 20.59L12 16.7L6.12 20.59L8 13.8L2.49 9.41L9.53 9.1Z' },
-  { nome: 'cruz', d: 'M8.5 3H15.5V8.5H21V15.5H15.5V21H8.5V15.5H3V8.5H8.5Z' },
-  { nome: 'hexágono', d: 'M12 2.5L20.23 7.25V16.75L12 21.5L3.77 16.75V7.25Z' },
+  { nome: 'raio', d: 'M13 2L4 13H10L8 22L20 9H14L16 2Z' },
+  { nome: 'estrela', d: 'M12 2L14.8 8.6L22 9.2L16.5 14L18.2 21L12 17.2L5.8 21L7.5 14L2 9.2L9.2 8.6Z' },
   { nome: 'coração', d: 'M12 21C5 15.5 2.5 12.5 2.5 8.5A4.75 4.75 0 0 1 12 6.6A4.75 4.75 0 0 1 21.5 8.5C21.5 12.5 19 15.5 12 21Z' },
+  { nome: 'losango', d: 'M12 2L22 12L12 22L2 12Z' },
+  { nome: 'lua', d: 'M18 3A9.5 9.5 0 1 0 21 17A8 8 0 0 1 18 3Z' },
+  { nome: 'cruz', d: 'M8.5 3H15.5V8.5H21V15.5H15.5V21H8.5V15.5H3V8.5H8.5Z' },
+  { nome: 'coroa', d: 'M3 6L8 10L12 3L16 10L21 6L19 19H5Z' },
+  { nome: 'flor', d: 'M12 3C14 0 17 2 16.5 5C19 3 22 6 20 8.5C23 9 23 13 20 14C22 17 19 20 16 18.5C16 22 12.5 23 11.5 20C9 22.5 6 20 7 17.5C3 19 1 15.5 4 13.5C1 12 2 8 5 8C3 5 6 2 9 4C9 1 11 1 12 3Z' },
 ];
 
 export const VISUAL_ITEM = {
-  [ITEM.BOMBA]: { fundo: '#364fc7', emoji: '💣', nome: 'Mais bombas', rotulo: '+1 bomba' },
-  [ITEM.FOGO]: { fundo: '#d9480f', emoji: '🔥', nome: 'Mais alcance', rotulo: '+1 fogo' },
-  [ITEM.TENIS]: { fundo: '#2b8a3e', emoji: '👟', nome: 'Tênis', rotulo: '+velocidade' },
-  [ITEM.ESCUDO]: { fundo: '#0b7285', emoji: '🛡️', nome: 'Escudo', rotulo: 'escudo' },
-  [ITEM.PERFURANTE]: { fundo: '#a61e4d', emoji: '💥', nome: 'Fogo perfurante', rotulo: 'perfurante' },
-  [ITEM.FANTASMA]: { fundo: '#5f3dc4', emoji: '👻', nome: 'Fantasma', rotulo: 'fantasma' },
-  [ITEM.CHUTE]: { fundo: '#e67700', emoji: '🦶', nome: 'Chute', rotulo: 'chute' },
-  [ITEM.DETONADOR]: { fundo: '#c92a2a', emoji: '🎯', nome: 'Detonador', rotulo: 'detonador' },
-  [ITEM.IMA]: { fundo: '#1971c2', emoji: '🧲', nome: 'Ímã', rotulo: 'ímã' },
-  [ITEM.GELO]: { fundo: '#0c8599', emoji: '❄️', nome: 'Gelo', rotulo: '+3 gelo' },
-  [ITEM.ATALHO]: { fundo: '#862e9c', emoji: '🌀', nome: 'Atalho', rotulo: '+1 atalho' },
+  [ITEM.BOMBA]: { fundo: '#dc374c', emoji: '💣', nome: 'Mais bombas', rotulo: '+1 bomba', incremento: '+1' },
+  [ITEM.BOMBA2]: { fundo: '#8e35b7', emoji: '💣', nome: 'Mais bombas', rotulo: '+2 bombas', incremento: '+2' },
+  [ITEM.FOGO]: { fundo: '#101018', emoji: '🔥', nome: 'Mais alcance', rotulo: '+1 fogo', incremento: '+1' },
+  [ITEM.FOGO2]: { fundo: '#101018', emoji: '🔥', nome: 'Mais alcance', rotulo: '+2 fogo', incremento: '+2' },
+  [ITEM.FOGO3]: { fundo: '#101018', emoji: '🔥', nome: 'Mais alcance', rotulo: '+3 fogo', incremento: '+3' },
+  [ITEM.FOGO5]: { fundo: '#b82b16', emoji: '🔥', nome: 'Fogo especial', rotulo: '+5 fogo', incremento: '+5' },
+  [ITEM.TENIS]: { fundo: '#65a624', emoji: '⚡', nome: 'Velocidade', rotulo: '+velocidade' },
+  [ITEM.ESCUDO]: { fundo: '#ffffff', emoji: '🛡️', nome: 'Escudo', rotulo: '+1 escudo', incremento: '+1' },
+  [ITEM.ESCUDO2]: { fundo: '#ffffff', emoji: '🛡️', nome: 'Escudo', rotulo: '+2 escudos', incremento: '+2' },
+  [ITEM.PERFURANTE]: { fundo: '#101018', emoji: '💥', nome: 'Fogo perfurante', rotulo: 'perfurante' },
+  [ITEM.FANTASMA]: { fundo: '#8e35b7', emoji: '👻', nome: 'Fantasma', rotulo: 'fantasma' },
+  [ITEM.CHUTE]: { fundo: '#101018', emoji: '🦶', nome: 'Chute', rotulo: 'chute' },
+  [ITEM.DETONADOR]: { fundo: '#bd3330', emoji: '🎯', nome: 'Detonador', rotulo: 'detonador' },
+  [ITEM.IMA]: { fundo: '#e04a82', emoji: '🧲', nome: 'Ímã', rotulo: 'ímã' },
+  [ITEM.GELO]: { fundo: '#208dc6', emoji: '❄️', nome: 'Gelo', rotulo: '+3 gelo' },
+  [ITEM.MOLOTOV]: { fundo: '#b82b16', emoji: '🍾', nome: 'Molotov', rotulo: '+1 molotov' },
+  [ITEM.BANANA]: { fundo: '#101018', emoji: '🍌', nome: 'Casca de banana', rotulo: 'escorregão' },
+  [ITEM.ATALHO]: { fundo: '#d43191', emoji: '🚪', nome: 'Portal', rotulo: '+1 portal' },
 };
 
 export const DESCRICAO_ITEM = {
-  [ITEM.BOMBA]: 'solta mais bombas de uma vez',
-  [ITEM.FOGO]: 'explosão vai mais longe',
+  [ITEM.BOMBA]: 'solta mais uma bomba de uma vez por 35 segundos',
+  [ITEM.BOMBA2]: 'solta mais duas bombas de uma vez por 35 segundos',
+  [ITEM.FOGO]: 'aumenta o alcance por 35 segundos; cada fogo tem seu próprio tempo',
+  [ITEM.FOGO2]: 'aumenta o raio da explosão em 2 casas por 35 segundos',
+  [ITEM.FOGO3]: 'aumenta o raio da explosão em 3 casas por 35 segundos',
+  [ITEM.FOGO5]: 'aumenta o raio da explosão em 5 casas por 35 segundos',
   [ITEM.TENIS]: 'anda mais rápido',
-  [ITEM.ESCUDO]: 'aguenta uma explosão',
-  [ITEM.PERFURANTE]: 'o fogo atravessa caixas e quebra todas no caminho',
+  [ITEM.ESCUDO]: 'protege de uma explosão',
+  [ITEM.ESCUDO2]: 'protege de duas explosões',
+  [ITEM.PERFURANTE]: 'o fogo atravessa caixas por 35 segundos',
   [ITEM.FANTASMA]: 'atravessa caixas e bombas por 8 segundos',
-  [ITEM.CHUTE]: 'ande contra uma bomba e ela sai deslizando até bater em algo',
-  [ITEM.DETONADOR]: 'sem bomba sobrando, apertar de novo explode a mais antiga',
+  [ITEM.CHUTE]: 'por 50 segundos, ande contra uma bomba ou banana para chutá-la; outro chute reinicia o tempo',
+  [ITEM.DETONADOR]: 'bombas esperam até 10 segundos; sem bomba sobrando, aperte de novo para detonar a mais antiga',
   [ITEM.IMA]: 'por 8 segundos, itens a até 3 casas voam até você',
-  [ITEM.GELO]: 'jogue gelo (E, ou o botão ❄️) e a primeira bomba à frente congela por 3 segundos',
-  [ITEM.ATALHO]: 'empurre uma caixa e apareça do outro lado; cada caixa gasta um atalho',
+  [ITEM.GELO]: 'jogue gelo (F, ou o botão ❄️) e a primeira bomba à frente congela por 3 segundos',
+  [ITEM.MOLOTOV]: 'Q ou o botão 🍾 deixa uma garrafa que incendeia uma área por 3 segundos',
+  [ITEM.BANANA]: 'quem pisar fica atordoado por 2,4 segundos',
+  [ITEM.ATALHO]: 'aperte E e uma direção para atravessar obstáculos ou ir à borda oposta; se não houver destino livre, não gasta carga',
 };
 
 const PALETA = {
@@ -175,27 +189,135 @@ function faisca(ctx, x, y, agora, tamanho = 3.5) {
 }
 
 // A power-up tile with some depth: a darker base, a glossy top half and a bright rim.
-function desenharSpriteItem(ctx, item) {
+export function desenharSpriteItem(ctx, item) {
   const visual = VISUAL_ITEM[item];
   ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-  retangulo(ctx, 7, 9, TAM - 14, TAM - 14, 9);
+  retangulo(ctx, 5, 8, TAM - 10, TAM - 10, 9);
   ctx.fill();
   ctx.fillStyle = visual.fundo;
-  retangulo(ctx, 7, 6, TAM - 14, TAM - 14, 9);
+  retangulo(ctx, 5, 5, TAM - 10, TAM - 10, 9);
   ctx.fill();
   ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
-  retangulo(ctx, 9, 8, TAM - 18, (TAM - 18) * 0.45, 7);
+  retangulo(ctx, 7, 7, TAM - 14, (TAM - 14) * 0.45, 7);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
   ctx.lineWidth = 2;
-  retangulo(ctx, 7, 6, TAM - 14, TAM - 14, 9);
+  retangulo(ctx, 5, 5, TAM - 10, TAM - 10, 9);
   ctx.stroke();
   // Color emoji take the alpha of the fill style, so it must be opaque.
   ctx.fillStyle = '#ffffff';
-  ctx.font = `${Math.round(TAM * 0.42)}px ${FONTE_EMOJI}`;
+  ctx.font = `${Math.round(TAM * 0.48)}px ${FONTE_EMOJI}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(visual.emoji, TAM / 2, TAM / 2);
+  if (item === ITEM.MOLOTOV) { desenharMolotov(ctx, [0, 0], 0, true); return; }
+  if (item === ITEM.ATALHO) { desenharPortalItem(ctx); return; }
+  if (item === ITEM.ESCUDO || item === ITEM.ESCUDO2) desenharEscudoItem(ctx);
+  else if (item === ITEM.PERFURANTE) desenharPerfuranteItem(ctx);
+  else if (item === ITEM.GELO) desenharGeloItem(ctx);
+  else if (item === ITEM.TENIS) desenharBotaVelocidade(ctx);
+  else if ([ITEM.FOGO, ITEM.FOGO2, ITEM.FOGO3, ITEM.FOGO5].includes(item)) desenharFogoItem(ctx, item === ITEM.FOGO5);
+  else ctx.fillText(visual.emoji, TAM / 2, visual.incremento ? TAM * 0.4 : TAM / 2);
+  if (visual.incremento) {
+    ctx.font = `bold ${Math.round(TAM * 0.24)}px sans-serif`;
+    ctx.lineWidth = 3;
+    const escudo = item === ITEM.ESCUDO || item === ITEM.ESCUDO2;
+    ctx.strokeStyle = escudo ? '#ffffff' : '#661c00';
+    ctx.fillStyle = escudo ? '#082856' : '#ffffff';
+    ctx.strokeText(visual.incremento, TAM / 2, TAM * 0.72);
+    ctx.fillText(visual.incremento, TAM / 2, TAM * 0.72);
+  }
+}
+
+// A glowing doorway makes the portal distinct from the old spiral symbol.
+function desenharPortalItem(ctx) {
+  ctx.save();
+  ctx.fillStyle = '#073e91';
+  retangulo(ctx, TAM * 0.28, TAM * 0.16, TAM * 0.44, TAM * 0.7, TAM * 0.19);
+  ctx.fill();
+  ctx.fillStyle = '#72d8ff';
+  retangulo(ctx, TAM * 0.32, TAM * 0.19, TAM * 0.36, TAM * 0.64, TAM * 0.16);
+  ctx.fill();
+  ctx.fillStyle = '#126bd0';
+  retangulo(ctx, TAM * 0.37, TAM * 0.25, TAM * 0.26, TAM * 0.53, TAM * 0.12);
+  ctx.fill();
+  ctx.fillStyle = '#c8f4ff';
+  ctx.fillRect(TAM * 0.45, TAM * 0.32, TAM * 0.06, TAM * 0.37);
+  ctx.restore();
+}
+
+// A solid shield silhouette stays readable even on a small tile.
+function desenharEscudoItem(ctx) {
+  ctx.save();
+  ctx.strokeStyle = '#082856';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(TAM * 0.5, TAM * 0.12);
+  ctx.lineTo(TAM * 0.74, TAM * 0.21);
+  ctx.lineTo(TAM * 0.72, TAM * 0.39);
+  ctx.quadraticCurveTo(TAM * 0.70, TAM * 0.53, TAM * 0.5, TAM * 0.62);
+  ctx.quadraticCurveTo(TAM * 0.30, TAM * 0.53, TAM * 0.28, TAM * 0.39);
+  ctx.lineTo(TAM * 0.26, TAM * 0.21);
+  ctx.closePath();
+  ctx.fillStyle = '#c5cbd2';
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(TAM * 0.5, TAM * 0.19); ctx.lineTo(TAM * 0.5, TAM * 0.53);
+  ctx.moveTo(TAM * 0.42, TAM * 0.43); ctx.lineTo(TAM * 0.58, TAM * 0.43);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function desenharPerfuranteItem(ctx) {
+  ctx.save();
+  ctx.translate(TAM / 2, TAM / 2);
+  ctx.rotate(-Math.PI / 4);
+  ctx.fillStyle = '#ffbd2e';
+  ctx.beginPath();
+  ctx.moveTo(0, -17); ctx.lineTo(8, -5); ctx.lineTo(4, -5); ctx.lineTo(4, 13);
+  ctx.lineTo(-4, 13); ctx.lineTo(-4, -5); ctx.lineTo(-8, -5); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#ff5830'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-11, 3); ctx.lineTo(-7, 3); ctx.moveTo(7, 3); ctx.lineTo(11, 3); ctx.stroke();
+  ctx.restore();
+}
+
+function desenharGeloItem(ctx) {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.round(TAM * 0.51)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('❄︎', TAM / 2, TAM / 2);
+  ctx.restore();
+}
+
+function desenharBotaVelocidade(ctx) {
+  ctx.save();
+  ctx.translate(TAM / 2, TAM / 2);
+  ctx.beginPath();
+  ctx.moveTo(-10, -14); ctx.lineTo(4, -14); ctx.lineTo(4, 3);
+  ctx.lineTo(13, 8); ctx.quadraticCurveTo(16, 10, 14, 13);
+  ctx.lineTo(-10, 13); ctx.closePath();
+  ctx.fillStyle = '#d52027'; ctx.fill();
+  ctx.strokeStyle = '#fff4d1'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-1, -12); ctx.lineTo(-7, -2); ctx.lineTo(-2, -2);
+  ctx.lineTo(-5, 7); ctx.lineTo(5, -5); ctx.lineTo(0, -5); ctx.closePath();
+  ctx.fillStyle = '#ffdf35'; ctx.fill();
+  ctx.restore();
+}
+
+function desenharFogoItem(ctx, especial) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(TAM * 0.5, TAM * 0.62);
+  ctx.bezierCurveTo(TAM * 0.25, TAM * 0.61, TAM * 0.28, TAM * 0.38, TAM * 0.42, TAM * 0.29);
+  ctx.bezierCurveTo(TAM * 0.41, TAM * 0.40, TAM * 0.51, TAM * 0.39, TAM * 0.50, TAM * 0.12);
+  ctx.bezierCurveTo(TAM * 0.76, TAM * 0.31, TAM * 0.79, TAM * 0.58, TAM * 0.5, TAM * 0.62);
+  ctx.fillStyle = '#ff7925'; ctx.fill();
+  if (especial) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke(); }
+  ctx.beginPath(); ctx.ellipse(TAM * 0.5, TAM * 0.50, TAM * 0.09, TAM * 0.12, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffe058'; ctx.fill(); ctx.restore();
 }
 
 // A frozen bomb sits inside a block of ice.
@@ -473,8 +595,8 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
     sx += pisada * 0.05;
     sy -= pisada * 0.05;
   }
-  const largura = TAM * 0.62 * sx;
-  const altura = TAM * 0.64 * sy;
+  const largura = TAM * 0.68 * sx;
+  const altura = TAM * 0.68 * sy;
   const topo = -6 - Math.abs(passo) * 3 - altura;
   let inclinacao = 0;
   if (andando && b.o === DIRECAO.ESQUERDA) inclinacao = -0.08 * amplitude;
@@ -501,37 +623,49 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
     ctx.translate(0, -(topo + altura / 2));
   }
 
-  ctx.fillStyle = extra.carvao ? contorno : cor.escura;
-  elipse(ctx, -8 + passo * 3, -3 - Math.max(0, passo) * 2.5, 6, 4);
-  ctx.fill();
-  elipse(ctx, 8 - passo * 3, -3 - Math.max(0, -passo) * 2.5, 6, 4);
-  ctx.fill();
+  // Bright sneakers, shaded at their soles, match the playful bomb characters in the cover art.
+  for (const lado of [-1, 1]) {
+    const px = lado * 8 - lado * passo * 3;
+    const py = -3 - Math.max(0, lado < 0 ? passo : -passo) * 2.5;
+    ctx.fillStyle = '#fff8e8';
+    ctx.strokeStyle = extra.carvao ? '#282321' : cor.escura;
+    ctx.lineWidth = 1.8;
+    elipse(ctx, px, py, 6.5, 4.5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(85, 54, 50, .38)';
+    elipse(ctx, px, py + 2.1, 5.2, 1.1); ctx.fill();
+  }
 
-  ctx.fillStyle = pele;
-  retangulo(ctx, -largura / 2, topo, largura, altura, largura * 0.46);
+  // A spherical shell with a soft highlight and a darker lower edge.
+  const gradiente = ctx.createRadialGradient(-largura * 0.23, topo + altura * 0.20, 1, 0, topo + altura * 0.48, largura * 0.7);
+  gradiente.addColorStop(0, extra.carvao ? '#817770' : extra.branco ? '#ffffff' : '#ffffff');
+  gradiente.addColorStop(0.2, pele);
+  gradiente.addColorStop(1, contorno);
+  ctx.fillStyle = gradiente;
+  elipse(ctx, 0, topo + altura / 2, largura / 2, altura / 2);
   ctx.fill();
   ctx.strokeStyle = contorno;
-  ctx.lineWidth = b.p ? 3.5 : 2.5;
+  ctx.lineWidth = b.p ? 3.5 : 2;
   ctx.stroke();
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-  elipse(ctx, -largura * 0.2, topo + altura * 0.25, largura * 0.14, altura * 0.1);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+  elipse(ctx, -largura * 0.21, topo + altura * 0.22, largura * 0.11, altura * 0.07);
   ctx.fill();
 
-  // Little round hands: they swing while walking, go up when celebrating and when picking an item.
+  // White gloves swing while walking and lift for celebrations.
   const bracosAcima = festa || surpreso;
   const maoX = largura / 2 + (bracosAcima ? 4 : 0.5);
   const maoY = bracosAcima ? topo + 3 + (reduzido ? 0 : Math.sin(agora * 14) * 2.5) : topo + altura * 0.64;
-  ctx.fillStyle = pele;
+  ctx.fillStyle = extra.carvao ? '#aaa09a' : '#fffaf0';
   ctx.strokeStyle = contorno;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.8;
   for (const lado of [-1, 1]) {
-    circulo(ctx, lado * maoX, maoY + passo * lado * 2, 4.2);
-    ctx.fill();
-    ctx.stroke();
+    circulo(ctx, lado * maoX, maoY + passo * lado * 2, 4.8);
+    ctx.fill(); ctx.stroke();
   }
 
   // Every character carries a little lit fuse on its head; it lags behind when running.
   const balanco = anim && !reduzido ? limitar(-anim.vx * 1.4, -6, 6) : 0;
+  ctx.fillStyle = cor.escura;
+  retangulo(ctx, -3, topo - 3, 10, 5, 2); ctx.fill();
   ctx.strokeStyle = '#3b2f2f';
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
@@ -606,7 +740,22 @@ function desenharBoneco(ctx, cx, chao, b, pose, agora, reduzido, extra = {}) {
       ctx.fillStyle = PALETA.tinta;
       circulo(ctx, olhoX + olhar[0] * 0.6, olhoY + olhar[1], 3);
       ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      circulo(ctx, olhoX + olhar[0] * 0.6 - 0.8, olhoY + olhar[1] - 1, 1); ctx.fill();
     }
+    // Bold inward-slanting brows give the bombs the determined look of the cover art.
+    ctx.strokeStyle = PALETA.tinta; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-12 + olhar[0] * 0.7, olhoY - 8.5);
+    ctx.lineTo(-4 + olhar[0] * 0.7, olhoY - 6.5);
+    ctx.moveTo(4 + olhar[0] * 0.7, olhoY - 6.5);
+    ctx.lineTo(12 + olhar[0] * 0.7, olhoY - 8.5);
+    ctx.stroke();
+    // A lively grin balances the competitive expression.
+    ctx.fillStyle = PALETA.tinta;
+    ctx.beginPath(); ctx.ellipse(olhar[0] * 0.6, olhoY + 8, 4.2, 2.3, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#fff9ed';
+    ctx.fillRect(olhar[0] * 0.6 - 2.4, olhoY + 8, 4.8, 0.9);
   }
   ctx.restore();
   if (surpreso) {
@@ -635,8 +784,24 @@ function desenharJogador(ctx, jogador, agora, reduzido, anim) {
   if (jogador.g) ctx.globalAlpha = 0.55 + (reduzido ? 0 : Math.sin(agora * 8) * 0.15);
   if (jogador.i && (reduzido || Math.floor(agora * 12) % 2)) ctx.globalAlpha = reduzido ? 0.6 : 0.4;
   const pose = jogador.festa ? 'festa' : jogador.pronto ? 'pronto' : 'jogo';
+  if (jogador.st && !reduzido) {
+    ctx.translate(cx, chao);
+    ctx.rotate(Math.sin(agora * 14) * 0.18);
+    ctx.translate(-cx, -chao);
+  }
   const topo = desenharBoneco(ctx, cx, chao, jogador, pose, agora, reduzido, { anim });
   ctx.restore();
+  if (jogador.st) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.round(TAM * 0.25)}px ${FONTE_EMOJI}`;
+    for (let n = 0; n < 3; n++) {
+      const angulo = n * Math.PI * 2 / 3 + (reduzido ? 0 : agora * 5);
+      ctx.fillText('⭐', cx + Math.cos(angulo) * TAM * 0.25, topo - 4 + Math.sin(angulo) * TAM * 0.07);
+    }
+    ctx.restore();
+  }
   if (jogador.e) {
     ctx.strokeStyle = 'rgba(102, 217, 232, 0.95)';
     ctx.fillStyle = 'rgba(102, 217, 232, 0.14)';
@@ -646,6 +811,36 @@ function desenharJogador(ctx, jogador, agora, reduzido, anim) {
     ctx.stroke();
   }
   return topo;
+}
+
+// A bottle with a smoking wick pulses without exposing its fuse as a number.
+function desenharMolotov(ctx, [x, y], agora, reduzido) {
+  const cx = (x + 0.5) * TAM, cy = (y + 0.55) * TAM;
+  const pulso = reduzido ? 1 : 1 + Math.sin(agora * 9) * 0.1;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(pulso, pulso);
+  ctx.rotate(0.18);
+  // Bottle and neck share a fine white outline, like the special fire item.
+  ctx.beginPath();
+  ctx.moveTo(-3, -16); ctx.lineTo(3, -16); ctx.lineTo(3, -10);
+  ctx.quadraticCurveTo(8, -8, 8, -4); ctx.lineTo(8, 10);
+  ctx.quadraticCurveTo(8, 13, 5, 13); ctx.lineTo(-5, 13);
+  ctx.quadraticCurveTo(-8, 13, -8, 10); ctx.lineTo(-8, -4);
+  ctx.quadraticCurveTo(-8, -8, -3, -10); ctx.closePath();
+  ctx.fillStyle = '#17743c'; ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#98542c';
+  retangulo(ctx, -7, -1, 14, 8, 1.5); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.32)';
+  ctx.fillRect(-5.5, -7, 2, 5);
+  ctx.strokeStyle = '#f6e2be'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(4, -21); ctx.stroke();
+  ctx.fillStyle = '#ffb23d';
+  circulo(ctx, 4, -21, 2.5); ctx.fill();
+  ctx.fillStyle = 'rgba(215, 218, 219, 0.65)';
+  circulo(ctx, 6 + Math.sin(agora * 3) * 2, -TAM * 0.51, 2.5); ctx.fill();
+  ctx.restore();
 }
 
 // Name tag over the head: a badge with the player's color and shape, then the name. On small screens
@@ -703,6 +898,36 @@ function desenharRotulo(ctx, cx, y, chao, jogador, larguraNome, escala, comNome,
     ctx.strokeText('VOCÊ', 0, base - 9 * sentido);
     ctx.fillText('VOCÊ', 0, base - 9 * sentido);
   }
+  ctx.restore();
+}
+
+// Active powers above the name: seconds for temporary effects and charges where applicable.
+function desenharPoderes(ctx, jogador, cx, y, escala) {
+  const poderes = [
+    ...(jogador.bt ?? []).map(([valor, tempo]) => `💣${valor > 1 ? `+${valor} ` : ' '}${tempo}s`),
+    ...(jogador.ft ?? []).map(([valor, tempo]) => `🔥${valor > 1 ? `+${valor} ` : ' '}${tempo}s`),
+    ...(jogador.gt > 0 ? [`👻 ${jogador.gt}s`] : []), ...(jogador.mt > 0 ? [`🧲 ${jogador.mt}s`] : []),
+    ...(jogador.es > 0 ? [`🛡️ ${jogador.es}`] : []), ...(jogador.t > 0 ? [`⚡ ${jogador.t}`] : []),
+    ...(jogador.pt ?? []).map(tempo => `💥 ${tempo}s`), ...(jogador.kt > 0 ? [`🦶 ${jogador.kt}s`] : []), ...(jogador.r ? ['🎯'] : []),
+    ...(jogador.gl > 0 ? [`❄️ ${jogador.gl}`] : []), ...(jogador.mo > 0 ? [`🍾 ${jogador.mo}`] : []), ...(jogador.at > 0 ? [`🚪 ${jogador.at}`] : []),
+  ];
+  if (!poderes.length) return;
+  ctx.save();
+  ctx.font = `bold 10px ${FONTE_TEXTO}`;
+  const linhas = [];
+  for (let n = 0; n < poderes.length; n += 3) linhas.push(poderes.slice(n, n + 3).join('  '));
+  const largura = Math.max(...linhas.map(linha => ctx.measureText(linha).width)) + 10;
+  const altura = linhas.length * 13 + 4;
+  const acima = y - (altura + 11) * escala >= 0;
+  ctx.translate(cx, acima ? y - (altura + 11) * escala : (jogador.y + 1) * TAM + 5);
+  ctx.scale(escala, escala);
+  ctx.fillStyle = 'rgba(10, 14, 20, 0.8)';
+  retangulo(ctx, -largura / 2, 0, largura, altura, 6);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  linhas.forEach((linha, n) => ctx.fillText(linha, 0, 9 + n * 13));
   ctx.restore();
 }
 
@@ -1602,6 +1827,7 @@ export function criarPintor(canvas) {
     for (const chama of cena.c) desenharChama(ctx, chama, agora, reduzido);
     for (const efeito of cena.efeitos) if (EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     for (const bomba of cena.b) desenharBomba(ctx, bomba, agora, reduzido);
+    for (const molotov of cena.ml ?? []) desenharMolotov(ctx, molotov, agora, reduzido);
     for (const tiro of cena.gl ?? []) desenharTiroGelo(ctx, tiro, agora);
     // Items flying to a magnet are drawn a bit smaller, above walls and crates.
     for (const [x, y, item] of cena.iv ?? []) {
@@ -1623,7 +1849,7 @@ export function criarPintor(canvas) {
     // Tags go after every body, so a character walking below never covers someone's name.
     const escalaTela = (canvas.clientWidth || LARGURA) / LARGURA;
     const escalaRotulo = limitar(0.6 / escalaTela, 1, 2);
-    const comNome = escalaTela >= 0.45;
+    const comNome = false;
     // Tags that would overlap (players bunched together) are stacked upwards, lowest character first.
     const rotulos = vivos.map(({ jogador }, n) => ({
       jogador,
@@ -1643,6 +1869,7 @@ export function criarPintor(canvas) {
     for (const { jogador, cx, y } of rotulos) {
       const chao = (jogador.y + 0.5) * TAM + TAM * 0.36;
       desenharRotulo(ctx, cx, y, chao, jogador, larguraNome(jogador.nome), escalaRotulo, comNome, cena.contagem && jogador.eu, agora, reduzido);
+      desenharPoderes(ctx, jogador, cx, y, escalaRotulo);
     }
     for (const efeito of cena.efeitos) if (!EFEITOS_DO_CHAO.has(efeito.tipo)) desenharEfeito(ctx, efeito, agora, reduzido, tema);
     if (cena.subita) desenharAlertaSubita(agora, reduzido);

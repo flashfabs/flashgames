@@ -3,7 +3,7 @@
 // delay), reports the position, and renders everyone else slightly in the past, blended between snapshots.
 
 import {
-  Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, ITEM, AJUSTES,
+  Partida, MAX_JOGADORES, DIRECAO, SPAWNS, MAPAS, PONTOS, COLUNAS, LINHAS, PAREDE, CAIXA, CAIXA_MISTERIO, ehCaixa, ITEM, AJUSTES,
   indice, gradeVazia, moverComColisao, celulaAFrente, destinoAtalho, preverBomba, preverItemVoando, preverGelo,
   somarEstatisticasRodada, bloqueiaPrevisto, layoutDoMapa,
 } from './regras.js';
@@ -45,8 +45,8 @@ function murosDaPartida(mapa, variante) {
 }
 const GRADE_LOBBY = gradeVazia().join('');
 const BITS = { v: 1, a: 2, e: 4, i: 8, g: 16, p: 32, k: 64, r: 128, m: 256 };
-const PARA_BOMBA = new Set([PAREDE, CAIXA, ...Object.values(ITEM)]);
-const PARA_GELO = new Set([PAREDE, CAIXA]);
+const PARA_BOMBA = new Set([PAREDE, CAIXA, CAIXA_MISTERIO, ...Object.values(ITEM)]);
+const PARA_GELO = new Set([PAREDE, CAIXA, CAIXA_MISTERIO]);
 const MUSICA_DA_FASE = { lobby: 'lobby', contagem: 'jogo', jogo: 'jogo', resultado: 'resultado', final: 'resultado' };
 
 function embaralhar(lista) {
@@ -67,12 +67,12 @@ function reiniciarAnimacao(elemento, classe) {
 function compactarJogador(j) {
   let marcas = 0;
   for (const [chave, bit] of Object.entries(BITS)) if (j[chave]) marcas |= bit;
-  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el, j.gl, j.at];
+  return [j.x, j.y, marcas, j.o, j.b, j.f, j.t, j.cx, j.el, j.gl, j.at, j.es, j.bt, j.ft, j.gt, j.mt, j.st, j.pt, j.mo, j.kt];
 }
 
 function expandirJogador(dados) {
-  const [x, y, marcas, o, b, f, t, cx, el, gl, at] = Array.isArray(dados) ? dados : [];
-  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0, gl: Number(gl) || 0, at: Number(at) || 0 };
+  const [x, y, marcas, o, b, f, t, cx, el, gl, at, es, bt, ft, gt, mt, st, pt, mo, kt] = Array.isArray(dados) ? dados : [];
+  const jogador = { x: Number(x) || 0, y: Number(y) || 0, o, b, f, t, cx: cx ?? 0, el: el ?? 0, gl: Number(gl) || 0, at: Number(at) || 0, es: Number(es) || 0, bt: Array.isArray(bt) ? bt : [], ft: Array.isArray(ft) ? ft : [], gt: Number(gt) || 0, mt: Number(mt) || 0, st: Number(st) || 0, pt: Array.isArray(pt) ? pt : [], mo: Number(mo) || 0, kt: Number(kt) || 0 };
   for (const [chave, bit] of Object.entries(BITS)) jogador[chave] = marcas & bit ? 1 : 0;
   return jogador;
 }
@@ -85,18 +85,21 @@ function montarPalco(palco) {
     faixa: h('div', { class: 'pavio-faixa', hidden: true }),
     hud: h('div', { class: 'pavio-hud' }),
     hudItens: h('div', { class: 'pavio-hud-itens' }),
+    hudDetalhes: h('div', { class: 'pavio-hud-detalhes', 'aria-label': 'Tempos dos poderes ativos', hidden: true }),
     hudPontos: h('div', { class: 'pavio-hud-pontos' }),
     hudTempo: h('div', { class: 'pavio-hud-tempo' }),
     base: h('div', { class: 'pavio-base' }),
     manete: h('div', { class: 'pavio-manete' }),
     dicaBomba: h('div', { class: 'pavio-dica-bomba' }, '💣'),
     dicaGelo: h('div', { class: 'pavio-dica-gelo', hidden: true }, '❄️'),
+    dicaMolotov: h('div', { class: 'pavio-dica-molotov', hidden: true }, '🍾'),
+    dicaPortal: h('div', { class: 'pavio-dica-portal', hidden: true }, '🚪'),
   };
   el.arena = h('div', { class: 'pavio-arena' }, el.canvas, el.faixa, el.aviso);
-  el.toque = h('div', { class: 'pavio-toque', hidden: true, 'aria-hidden': 'true' }, el.base, el.manete, el.dicaBomba, el.dicaGelo);
+  el.toque = h('div', { class: 'pavio-toque', hidden: true, 'aria-hidden': 'true' }, el.base, el.manete, el.dicaBomba, el.dicaGelo, el.dicaMolotov, el.dicaPortal);
   el.hud.append(el.hudItens, el.hudPontos, el.hudTempo);
   // Full screens (lobby, results) cover the whole stage; the countdown and notices sit on the arena.
-  el.raiz = h('div', { class: 'pavio' }, el.hud, el.arena, el.toque);
+  el.raiz = h('div', { class: 'pavio' }, el.hud, el.hudDetalhes, el.arena, el.toque);
   palco.replaceChildren(el.raiz);
   return el;
 }
@@ -110,7 +113,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   // Phase changes said out loud for screen readers (the cards themselves are not live regions).
   const anuncio = h('div', { class: 'so-leitor', 'aria-live': 'polite' });
   el.raiz.append(anuncio);
-  const hud = criarHud({ raiz: el.hud, itens: el.hudItens, pontos: el.hudPontos, tempo: el.hudTempo });
+  const hud = criarHud({ raiz: el.hud, itens: el.hudItens, detalhes: el.hudDetalhes, pontos: el.hudPontos, tempo: el.hudTempo });
   const telas = criarTelas({ pintor });
   const toqueDisponivel = temToque();
   const estado = {
@@ -156,7 +159,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
   let atrasoInterpolacao = 100;
   const eventosVistos = new Set();
   const local = {
-    ativo: false, x: 0, y: 0, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: false, fantasma: false, chute: false, atalhos: 0, empurrao: 0,
+    ativo: false, x: 0, y: 0, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: false, fantasma: false, chute: false, atalhos: 0, empurrao: 0, atordoado: false,
   };
   let atalhoLiberadoEm = 0;
   let bombasVisiveis = []; // newest snapshot's bombs, kicked ones moved ahead to now
@@ -188,6 +191,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     manete: el.manete,
     dicaBomba: el.dicaBomba,
     dicaGelo: el.dicaGelo,
+    dicaMolotov: el.dicaMolotov,
+    dicaPortal: el.dicaPortal,
     aoEntrada: nova => {
       entrada = nova;
       som.destravar();
@@ -203,10 +208,15 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       som.destravar();
       jogarGelo();
     },
+    aoMolotov: () => { som.destravar(); usarMolotov(); },
+    aoPrepararPortal: prepararPortal,
+    aoCancelarPortal: () => mostrarFaixa('🚪 Portal cancelado.'),
+    aoPortal: usarPortal,
   });
 
   const observador = new ResizeObserver(() => ajustarArena());
   observador.observe(palco);
+  observador.observe(el.hudDetalhes);
 
   const desligar = [
     sala.on('mensagem', (de, mensagem) => (sala.souAnfitriao ? noAnfitriao(de, mensagem) : noMembro(mensagem))),
@@ -246,11 +256,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     const estilo = getComputedStyle(el.raiz);
     const reserva = (parseFloat(estilo.paddingTop) || 0) + (parseFloat(estilo.paddingBottom) || 0);
     const largura = palco.clientWidth;
-    const altura = palco.clientHeight - reserva - el.hud.offsetHeight - 8;
+    const altura = palco.clientHeight - reserva - el.hud.offsetHeight - (el.hudDetalhes.hidden ? 0 : el.hudDetalhes.offsetHeight + 8) - 8;
     if (largura <= 0 || altura <= 0) return;
     const tamanho = Math.floor(Math.max(160, Math.min(largura, altura * (COLUNAS / LINHAS))));
     el.arena.style.width = `${tamanho}px`;
     el.hud.style.width = `${tamanho}px`;
+    el.hudDetalhes.style.width = `${tamanho}px`;
   }
 
   function meuIndice() {
@@ -263,9 +274,25 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       partida?.pedirBomba(sala.meuId);
       return;
     }
-    if (!local.ativo || !local.vivo || !sala.conectada) return;
+    if (!local.ativo || !local.vivo || local.atordoado || !sala.conectada) return;
     // The bomb travels on the reliable channel together with the position it was dropped at.
     sala.enviarAoAnfitriao({ t: 'bomba', ...posicaoLocal() });
+  }
+
+  function usarMolotov() {
+    if (estado.fase !== 'jogo') return;
+    if (sala.souAnfitriao) {
+      const eu = partida?.jogadores.find(j => j.id === sala.meuId);
+      if (!partida?.usarMolotov(sala.meuId) && eu?.vivo && !eu.atordoado && eu.molotov > 0) mostrarFaixa('🍾 Escolha uma casa sem bomba ou fogo para usar o molotov.');
+      return;
+    }
+    if (!local.ativo || !local.vivo || local.atordoado || !sala.conectada) return;
+    const x = Math.round(local.x), y = Math.round(local.y);
+    const ocupada = bombasVisiveis.some(([bx, by]) => Math.round(bx) === x && Math.round(by) === y)
+      || ultimoRetrato?.ml.some(([mx, my]) => mx === x && my === y)
+      || ultimoRetrato?.c.some(([i]) => i === indice(x, y));
+    if (ocupada) { mostrarFaixa('🍾 Escolha uma casa sem bomba ou fogo para usar o molotov.'); return; }
+    sala.enviarAoAnfitriao({ t: 'molotov', ...posicaoLocal() });
   }
 
   function meuGelo() {
@@ -409,6 +436,12 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
         if (partida && estado.fase === 'jogo') {
           partida.aplicarPosicao(de, mensagem);
           partida.pedirBomba(de);
+        }
+        break;
+      case 'molotov':
+        if (partida && estado.fase === 'jogo') {
+          partida.aplicarPosicao(de, mensagem);
+          partida.usarMolotov(de);
         }
         break;
       case 'chute':
@@ -594,6 +627,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       c: vista.c,
       iv: vista.iv,
       gl: vista.gl,
+      ml: vista.ml,
       tm: vista.tm,
       ms: vista.ms,
       ev: eventosPendentes.map(({ id, ev }) => [id, ev]),
@@ -679,7 +713,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     local.ativo = Boolean(eu) && estado.fase !== 'lobby';
     if (!eu) return;
     const [x, y] = SPAWNS[eu.slot] ?? SPAWNS[0];
-    Object.assign(local, { x, y, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: true, fantasma: false, chute: false, atalhos: 0, empurrao: 0 });
+    Object.assign(local, { x, y, olhar: DIRECAO.BAIXO, andando: false, tenis: 0, vivo: true, fantasma: false, chute: false, atalhos: 0, empurrao: 0, atordoado: false });
   }
 
   function receberRetrato(mensagem) {
@@ -707,6 +741,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       c: mensagem.c,
       iv: Array.isArray(mensagem.iv) ? mensagem.iv : [],
       gl: Array.isArray(mensagem.gl) ? mensagem.gl : [],
+      ml: Array.isArray(mensagem.ml) ? mensagem.ml : [],
       tm: Number(mensagem.tm) || 0,
       ms: Number(mensagem.ms) || 120,
     };
@@ -733,6 +768,14 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     local.chute = Boolean(servidor.k);
     local.atalhos = servidor.at ?? 0;
     local.vivo = Boolean(servidor.v);
+    local.atordoado = Boolean(servidor.st);
+    if (local.atordoado) {
+      local.x = servidor.x;
+      local.y = servidor.y;
+      local.andando = false;
+      historico = [];
+      return;
+    }
     if (estado.fase !== 'jogo') {
       local.x = servidor.x;
       local.y = servidor.y;
@@ -772,7 +815,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
 
   // Pushing against a still bomb asks the host for a kick; the bomb starts sliding in the next snapshots.
   function pedirChute(agora) {
-    const parada = (x, y) => bombasVisiveis.some(([bx, by, , deslize]) => !deslize && bx === x && by === y);
+    const parada = (x, y) => gradeAtual.g[indice(x, y)] === ITEM.BANANA || bombasVisiveis.some(([bx, by, , deslize]) => !deslize && bx === x && by === y);
     const alvo = celulaAFrente(local, entrada.d, parada);
     if (!alvo) return;
     const chave = `${alvo}|${entrada.d}`;
@@ -781,19 +824,32 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     sala.enviarAoAnfitriao({ t: 'chute', d: entrada.d, ...posicaoLocal() });
   }
 
-  // Pushing against crates with shortcut charges: jump past them right away and tell the host, which checks it.
-  function empurrarCaixaLocal(dt, agora) {
-    const caixa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && gradeAtual.g[indice(x, y)] === CAIXA;
-    const livre = (x, y) => !bloqueiaLocal(x, y);
-    const pode = entrada.d && !local.fantasma && agora >= atalhoLiberadoEm;
-    const destino = pode ? destinoAtalho(local, entrada.d, local.atalhos, caixa, livre) : null;
-    local.empurrao = destino ? local.empurrao + dt : 0;
-    if (!destino || local.empurrao < AJUSTES.empurrarAtalhoS) return;
-    sala.enviarAoAnfitriao({ t: 'atalho', d: entrada.d, ...posicaoLocal() });
+  function prepararPortal() {
+    if (estado.fase !== 'jogo') return false;
+    const eu = sala.souAnfitriao ? partida?.jogadores.find(j => j.id === sala.meuId) : local;
+    if (!eu?.vivo || eu.atordoado || !(eu.atalhos > 0)) return false;
+    mostrarFaixa('🚪 Portal pronto: escolha uma direção.');
+    return true;
+  }
+
+  function usarPortal(direcao) {
+    if (estado.fase !== 'jogo') return;
+    el.faixa.hidden = true;
+    clearTimeout(timerFaixa);
+    if (sala.souAnfitriao) {
+      if (!partida?.atravessar(sala.meuId, direcao)) mostrarFaixa('🚪 Nenhum portal possível nessa direção.');
+      return;
+    }
+    if (!local.ativo || !local.vivo || local.atordoado || !sala.conectada) return;
+    const caixa = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && ehCaixa(gradeAtual.g[indice(x, y)]);
+    const parede = (x, y) => x >= 0 && y >= 0 && x < COLUNAS && y < LINHAS && gradeAtual.g[indice(x, y)] === PAREDE;
+    const destino = !local.fantasma && performance.now() >= atalhoLiberadoEm
+      ? destinoAtalho(local, direcao, local.atalhos, caixa, (x, y) => !bloqueiaLocal(x, y), undefined, parede) : null;
+    if (!destino) { mostrarFaixa('🚪 Nenhum portal possível nessa direção.'); return; }
+    sala.enviarAoAnfitriao({ t: 'atalho', d: direcao, ...posicaoLocal() });
     local.x = destino.x;
     local.y = destino.y;
-    local.empurrao = 0;
-    atalhoLiberadoEm = agora + ATALHO_ESPERA_MS;
+    atalhoLiberadoEm = performance.now() + ATALHO_ESPERA_MS;
   }
 
   function passoLocal(dt, agora) {
@@ -801,9 +857,9 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       local.andando = false;
       return;
     }
+    if (local.atordoado) { local.andando = false; return; }
     moverComColisao(local, entrada, dt, bloqueiaLocal);
     if (local.chute && entrada.d) pedirChute(agora);
-    if (local.atalhos > 0) empurrarCaixaLocal(dt, agora);
     historico.push({ t: agora, x: local.x, y: local.y });
     while (historico.length && agora - historico[0].t > HISTORICO_MS) historico.shift();
   }
@@ -844,7 +900,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
     const iv = ultimoRetrato.iv.map(voo => preverItemVoando(voo, jogadores[voo[3]], segundos));
     const gl = ultimoRetrato.gl.map(tiro => preverGelo(tiro, segundos, paraNaGrade(PARA_GELO)));
     // Grid, bombs and flames come from the newest snapshot: they matter more than smoothness.
-    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, iv, gl, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
+    return { g: gradeAtual.g, j: jogadores, b: bombasVisiveis, c: ultimoRetrato.c, iv, gl, ml: ultimoRetrato.ml, tm: ultimoRetrato.tm, ms: ultimoRetrato.ms };
   }
 
   // ---- Shared ----
@@ -1068,6 +1124,8 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       total = pontosDe(placar) + (aoVivo && eu ? (eu.cx ?? 0) * PONTOS.caixa + (eu.el ?? 0) * PONTOS.eliminacao : 0);
     }
     el.dicaGelo.hidden = !(eu?.v && eu.gl > 0);
+    el.dicaMolotov.hidden = !(eu?.v && eu.mo > 0);
+    el.dicaPortal.hidden = !(eu?.v && eu.at > 0);
     hud.atualizar({ jogador: eu, pontos: total, paraSubita: (vista.ms ?? 120) - (Number(vista.tm) || 0), fase: estado.fase, qualidade: pintor.qualidade });
   }
 
@@ -1129,6 +1187,7 @@ export function criarPavio({ sala, palco, som, aoMudarInfo, aoTerminarPartida = 
       c: vista?.c ?? [],
       iv: vista?.iv ?? [],
       gl: vista?.gl ?? [],
+      ml: vista?.ml ?? [],
       agora,
       efeitos,
       fase: estado.fase,

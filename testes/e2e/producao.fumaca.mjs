@@ -71,7 +71,7 @@ test('two players start a round in production and see each other move', async ({
   await mesa.todosProntos([host, convidado]);
   await host.esperarFase('jogo');
   await convidado.esperarFase('jogo');
-  expect(await host.posicaoDe(convidado)).toMatchObject({ x: 19, y: 13, v: 1 });
-  await convidado.andarAte([17, 13]);
-  await expect.poll(async () => Math.round((await host.posicaoDe(convidado)).x), { message: 'the host sees the guest move' }).toBe(17);
+  expect(await host.posicaoDe(convidado)).toMatchObject({ x: 38, y: 28, v: 1 });
+  await convidado.andarAte([36, 28]);
+  await expect.poll(async () => Math.round((await host.posicaoDe(convidado)).x), { message: 'the host sees the guest move' }).toBe(36);
 });

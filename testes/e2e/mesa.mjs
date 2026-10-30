@@ -6,8 +6,8 @@ import { test as base, expect } from '@playwright/test';
 
 export { expect };
 
-export const COLUNAS = 21;
-export const LINHAS = 15;
+export const COLUNAS = 40;
+export const LINHAS = 30;
 export const VIEWPORT_PADRAO = { width: 1280, height: 800 };
 const TECLAS = { direita: 'ArrowRight', esquerda: 'ArrowLeft', baixo: 'ArrowDown', cima: 'ArrowUp' };
 const PASSOS = [[1, 0, 'direita'], [-1, 0, 'esquerda'], [0, 1, 'baixo'], [0, -1, 'cima']];
@@ -159,7 +159,7 @@ export function buscarCaminho(grade, bombas, [ox, oy], [ax, ay]) {
   const livre = (x, y) => {
     if (x < 0 || y < 0 || x >= COLUNAS || y >= LINHAS) return false;
     const celula = grade[y * COLUNAS + x];
-    if (celula === '#' || celula === '+') return false;
+    if (celula === '#' || celula === '+' || celula === '?') return false;
     return !bombas.some(([bx, by]) => bx === x && by === y);
   };
   const chave = (x, y, d) => `${x},${y},${d}`;

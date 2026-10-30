@@ -9,13 +9,13 @@ test('a guest bomb eliminates the host and the result screen shows the right sco
   await host.esperarFase('jogo');
   await iris.esperarFase('jogo');
 
-  // Crate-free arena, slots in join order: Hugo starts at (1, 1) and Íris at (19, 13). They meet on the top row.
+  // Crate-free arena, slots in join order: Hugo starts at (1, 1) and Íris at (38, 28). They meet on the top row.
   expect(await host.posicaoDe(host)).toMatchObject({ x: 1, y: 1 });
-  expect(await host.posicaoDe(iris)).toMatchObject({ x: 19, y: 13 });
-  await Promise.all([host.andarAte([9, 1]), iris.andarAte([11, 1])]);
+  expect(await host.posicaoDe(iris)).toMatchObject({ x: 38, y: 28 });
+  await Promise.all([host.andarAte([10, 1]), iris.andarAte([11, 1])]);
   await expect.poll(async () => Math.round((await host.posicaoDe(iris)).x), { message: 'the host sees Íris arrive' }).toBe(11);
 
-  // Range 2 from (11, 1) reaches (9, 1), where Hugo stays; Íris runs to (15, 1), out of reach.
+  // Range 1 from (11, 1) reaches (10, 1), where Hugo stays; Íris runs to (15, 1), out of reach.
   await iris.soltarBomba();
   await expect.poll(async () => (await host.bombas()).length, { message: 'the bomb reaches the host' }).toBe(1);
   await iris.andarAte([15, 1]);
@@ -55,7 +55,7 @@ test('a guest bomb eliminates the host and the result screen shows the right sco
 
   // The next match of the round starts by itself after the result screen.
   for (const jogador of [host, iris]) {
-    await expect(jogador.pagina.locator('.pavio-sobretitulo')).toHaveText('Partida 2 de 5', { timeout: 12_000 });
-    await expect(jogador.pagina.locator('.pavio-mapa')).toHaveText('Depósito');
+    await expect.poll(async () => (await jogador.jogo()).numero, { timeout: 12_000 }).toBe(2);
+    expect((await jogador.jogo()).mapa).toBe(1);
   }
 });

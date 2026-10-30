@@ -20,17 +20,20 @@ export function criarTique(intervaloMs, aoTique) {
   }
 }
 
-// Calls aoPasso(dt) at a fixed rate, catching up on late ticks (capped so a long stall does not explode).
-export function criarPassoFixo(hz, aoPasso) {
+// Calls aoPasso(dt) at a fixed rate. Work is capped per wakeup, but elapsed time is retained for later wakeups.
+export function criarPassoFixo(hz, aoPasso, { agora = () => performance.now(), criarTimer = criarTique } = {}) {
   const passo = 1 / hz;
-  let ultimo = performance.now();
+  const maxPassosPorTique = 15;
+  let ultimo = agora();
   let acumulado = 0;
-  return criarTique(500 / hz, () => {
-    const agora = performance.now();
-    acumulado += Math.min((agora - ultimo) / 1000, 0.25);
-    ultimo = agora;
-    while (acumulado >= passo) {
+  return criarTimer(500 / hz, () => {
+    const instante = agora();
+    acumulado += Math.max(0, (instante - ultimo) / 1000);
+    ultimo = instante;
+    let passos = 0;
+    while (acumulado + 1e-9 >= passo && passos < maxPassosPorTique) {
       acumulado -= passo;
+      passos++;
       aoPasso(passo);
     }
   });

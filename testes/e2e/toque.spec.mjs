@@ -66,18 +66,18 @@ for (const [aparelho, TELA] of Object.entries(APARELHOS)) {
     await expect(host.pagina.locator('.pavio-toque'), 'no touch layer on a desktop').toBeHidden();
     await tocador.esperarFase('jogo');
 
-    // The stick appears where the finger lands on the left half; dragging left walks left from (19, 13).
-    expect(await host.posicaoDe(tocador)).toMatchObject({ x: 19, y: 13 });
+    // The stick appears where the finger lands on the left half; dragging left walks left from (38, 28).
+    expect(await host.posicaoDe(tocador)).toMatchObject({ x: 38, y: 28 });
     await dedo.arrastar([largura * 0.3, altura * 0.6], [largura * 0.3 - Math.min(90, largura * 0.2), altura * 0.6], 700);
     const depois = await tocador.minhaPosicao();
-    expect(depois.x, 'the stick moved the player left').toBeLessThan(18);
-    expect(depois.y).toBe(13);
+    expect(depois.x, 'the stick moved the player left').toBeLessThan(37);
+    expect(depois.y).toBe(28);
     await expect.poll(async () => (await host.posicaoDe(tocador)).x, { message: 'the host sees the move' }).toBeCloseTo(depois.x, 1);
 
     // A tap on the right half drops a bomb where the player stands.
     await tocador.pagina.touchscreen.tap(largura * 0.8, altura * 0.5);
     await expect.poll(async () => (await host.bombas()).map(([x, y]) => `${x},${y}`), { message: 'the tap dropped a bomb' })
-      .toEqual([`${Math.round(depois.x)},13`]);
+      .toEqual([`${Math.round(depois.x)},28`]);
 
     // Neither a swipe nor a pinch on the game moves or zooms the page.
     await dedo.rolar(largura * 0.75, altura * 0.5);

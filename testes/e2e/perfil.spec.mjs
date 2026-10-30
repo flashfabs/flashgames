@@ -7,15 +7,15 @@ test('the profile keeps name and color, the room uses the color, and a match add
   const ana = await mesa.novoJogador('Ana');
   const pagina = ana.pagina;
   await pagina.goto('/?teste=1');
-  await expect(pagina.locator('#perfil-numeros')).toContainText('Jogue uma partida');
+  await expect(pagina.locator('#perfil-numeros [aria-label="Partidas: 0"]')).toBeVisible();
   await expect(pagina.locator('.perfil-cores-dica')).toHaveText('automática: a sala escolhe uma livre');
 
-  await pagina.getByRole('radio', { name: 'losango' }).click();
+  await pagina.getByRole('radio', { name: 'amarelo' }).click();
   await pagina.locator('#campo-nome').fill('Ana Lúcia');
   await pagina.locator('#campo-nome').blur();
   await pagina.reload();
   await expect(pagina.locator('#campo-nome')).toHaveValue('Ana Lúcia');
-  await expect(pagina.getByRole('radio', { name: 'losango' })).toHaveAttribute('aria-checked', 'true');
+  await expect(pagina.getByRole('radio', { name: 'amarelo' })).toHaveAttribute('aria-checked', 'true');
 
   // The room gives Ana her color, then a guest that also wants it gets another one.
   await pagina.getByRole('button', { name: 'Criar sala' }).click();
@@ -26,7 +26,7 @@ test('the profile keeps name and color, the room uses the color, and a match add
   const endereco = new URL(link);
   endereco.search = '?teste=1';
   await gil.pagina.goto(endereco.toString());
-  await gil.pagina.getByRole('radio', { name: 'losango' }).click();
+  await gil.pagina.getByRole('radio', { name: 'amarelo' }).click();
   await gil.pagina.locator('#campo-nome').fill('Gil');
   await gil.pagina.getByRole('button', { name: 'Entrar na sala' }).click();
   await expect(pagina.locator('#contagem-membros')).toHaveText('2/8');
@@ -46,12 +46,12 @@ test('the profile keeps name and color, the room uses the color, and a match add
   await ana.esperarFase('resultado', 20_000);
   await pagina.getByRole('button', { name: 'Sair' }).click();
   await expect(pagina.locator('#inicio')).toBeVisible();
-  await expect(pagina.locator('#perfil-numeros')).toContainText('1 partida · 0 vitórias · 0 pontos');
+  await expect(pagina.locator('#perfil-numeros [aria-label="Partidas: 1"]')).toBeVisible();
   // The latest matches list the one just played.
-  await pagina.getByText('Suas últimas partidas').click();
-  await expect(pagina.locator('#perfil-historico-lista li')).toHaveText([/Pátio · 0 pontos\s*contra 1 robô · agora/]);
+  await pagina.getByText('Últimas partidas').click();
+  await expect(pagina.locator('#perfil-historico-lista li')).toHaveText([/🎮 Pátio · ⭐ 0 pontos\s*👥 contra 1 robô · 🕒 agora/]);
   // Locally there is no ranking server: the list says so instead of failing.
-  await pagina.getByText('Ranking das partidas com amigos').click();
+  await pagina.getByText('Partidas com amigos').click();
   await expect(pagina.locator('#perfil-ranking-lista li')).toHaveCount(1);
   await expect(pagina.locator('#perfil-ranking-lista li')).not.toHaveText('Carregando…');
 });
