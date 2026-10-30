@@ -4,7 +4,7 @@ Estado vivo do RTS original da Salinha: o que cada frente fez, o que foi medido 
 Quem divide o trabalho e como integrar está em [frentes.md](frentes.md); o plano completo, com a pesquisa, fica fora do repositório, na base de conhecimento privada do Victor.
 Cada sessão atualiza a sua seção no fim da onda; a `rts-qualidade` mantém as medições e os critérios.
 
-Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a carga guardada em baterias velhas virou o recurso; os Religadores (jogador) enfrentam os Desligados (atravessadores e freteiros), e a Antena entra depois.
+Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a carga guardada em baterias velhas virou o recurso; os Religadores (jogador) enfrentam os Desligados (atravessadores e freteiros), e a terceira facção (codinome Facção 3, a comunidade da emissora) entra depois.
 
 ## Onde estamos
 
@@ -157,7 +157,25 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 
 ### F5 Design, mundo e fase 1 (`rts-design`)
 
-Onda 1 aberta em 30/10/2026, só para os briefs; nada integrado ainda.
+Onda 1 aberta em 30/10/2026, só para os briefs.
+
+- 30/10/2026: 34 briefs em [arte/briefs/](../../arte/briefs/README.md) (os 33 do plano e o Poste Avançado, que a missão usa), com formato, convenções de render, máscara de time e checklist de originalidade no README; [faccoes.md](../../arte/briefs/faccoes.md) com as três facções e o bloco de originalidade de facção. Os 4 do portão de estilo (Cesto Blindado, Turma de Linha, Carro-Vela e Escritório Regional) foram mandados à `rts-arte` em 30/10/2026.
+- Premissa dos Desligados reescrita como atravessadores e freteiros, sem ideologia contra a tecnologia; o conflito da fase 1 é de mercado (dono da rede contra atravessador). O checklist ganhou o bloco de facção, com a pergunta "a dupla jogador contra inimigo reproduz a dupla de algum jogo conhecido?".
+- Propostas de troca, aguardando o Victor, já escritas nos briefs: a infantaria básica dos Desligados virou o Chapa (carabina de ar, alcance 4, a tocaia ficou); o batedor de bicicleta virou o Rolimã (carrinho de rolimã com estilingue, os estrepes ficaram); a artilharia que arma e desarma virou o Canhão de Caldeira (morteiro a vapor com apito de aviso). As duas primeiras ficavam perto de unidades de uma facção conhecida; a terceira tinha o nome, a função e a mecânica de uma máquina de cerco de outra série famosa nas versões em português.
+- Mudanças de dados que as trocas pedem, para a onda 2: alcance da infantaria básica dos Desligados de 3 para 4 células, sem o bônus de dano de perto; valor da rajada do Cata-vento a definir (o vento virou rajadas anunciadas).
+- Pendente: aprovação das três trocas pelo Victor; revisão por alguém que jogou o jogo que inspirou o projeto ("isso te lembra algo específico?"); teste de combinação por alguém que não é fã; teste de 5 segundos no portão (`rts-arte`); briefs dos nós de recurso, do terreno e dos retratos.
+
+#### Busca simples de nomes das facções (30/10/2026)
+
+Busca na web, sem consulta ao INPI, ao USPTO nem ao EUIPO, que fica para a decisão D20 junto com o nome do jogo.
+
+| Nome | Busca | Resultado | Decisão |
+| --- | --- | --- | --- |
+| Religadores | "Religadores" com jogo, game e marca | nenhum jogo, facção ou marca com esse nome; "religador" é o nome técnico de um equipamento de rede elétrica | mantido |
+| Desligados | "Desligados" com facção, jogo, game e faction | nenhuma facção ou jogo com esse nome | mantido |
+| nome provisório anterior da terceira facção | o nome com faction, video game, marca e rádio Brasil | coincide com o nome de uma rede de rádio real e muito ouvida no Brasil, e a facção é uma rádio; nenhum uso como facção de jogo | em dúvida: virou o codinome neutro Facção 3 até a D20 |
+
+Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026, sem uso encontrado como unidade de jogo para os nomes novos; os termos comuns de dicionário (garagem, poste, torre de vigia, paliçada) passam pela combinação, e os pontos de atenção estão no checklist de cada brief.
 
 ### F7 Interface e controles (`rts-interface`)
 

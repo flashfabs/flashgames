@@ -5,6 +5,50 @@ As facções, a premissa do mundo e o bloco de originalidade de cada facção fi
 
 Os números de jogo citados aqui (custo, vida, alcance, tempos) são hipóteses da tabela de partida do plano e servem só para dar contexto ao papel; os valores de verdade passam a morar em `site/rts/dados/` quando a etapa de dados chegar, e o teste de jogo vai mudá-los.
 
+## Índice da fase 1
+
+34 briefs: os 33 do plano (8 unidades e 8 construções dos Religadores, 7 unidades e 6 construções dos Desligados, 4 estruturas neutras) e o Poste Avançado, que a missão usa.
+Os quatro marcados com "portão" são os do portão de estilo; os três marcados com "troca" são propostas de troca de unidade que aguardam o Victor.
+
+| Brief | Papel | Nota |
+| --- | --- | --- |
+| [Guincho de Células](religadores-unidade-guincho-de-celulas.md) | Religadores, coletor | |
+| [Turma de Linha](religadores-unidade-turma-de-linha.md) | Religadores, infantaria básica | portão |
+| [Soldador](religadores-unidade-soldador.md) | Religadores, anti-blindagem | |
+| [Leiturista](religadores-unidade-leiturista.md) | Religadores, batedor | |
+| [Cesto Blindado](religadores-unidade-cesto-blindado.md) | Religadores, linha pesada | portão |
+| [Lança-Bobinas](religadores-unidade-lanca-bobinas.md) | Religadores, artilharia | |
+| [Equipe de Manutenção](religadores-unidade-equipe-de-manutencao.md) | Religadores, suporte | |
+| [Religador](religadores-unidade-religador.md) | Religadores, especial | |
+| [Escritório Regional](religadores-construcao-escritorio-regional.md) | Religadores, QG | portão |
+| [Acumulador](religadores-construcao-acumulador.md) | Religadores, depósito | |
+| [Poste](religadores-construcao-poste.md) | Religadores, extensão de rede | |
+| [Poste Avançado](religadores-construcao-poste-avancado.md) | Religadores, posto avançado | extra |
+| [Alojamento da Turma](religadores-construcao-alojamento-da-turma.md) | Religadores, quartel | |
+| [Garagem](religadores-construcao-garagem.md) | Religadores, oficina | |
+| [Cata-vento](religadores-construcao-cata-vento.md) | Religadores, renda pelo vento | |
+| [Torre de Holofote](religadores-construcao-torre-de-holofote.md) | Religadores, defesa leve | |
+| [Almoxarifado Técnico](religadores-construcao-almoxarifado-tecnico.md) | Religadores, prédio técnico | |
+| [Carroça de Pedal](desligados-unidade-carroca-de-pedal.md) | Desligados, coletor | |
+| [Chapa](desligados-unidade-chapa.md) | Desligados, infantaria básica | troca |
+| [Arpoador](desligados-unidade-arpoador.md) | Desligados, anti-blindagem | |
+| [Rolimã](desligados-unidade-rolima.md) | Desligados, batedor | troca |
+| [Carro-Vela](desligados-unidade-carro-vela.md) | Desligados, assédio rápido | portão |
+| [Locomóvel](desligados-unidade-locomovel.md) | Desligados, linha pesada | |
+| [Canhão de Caldeira](desligados-unidade-canhao-de-caldeira.md) | Desligados, artilharia | troca |
+| [Carroção-Mãe](desligados-construcao-carrocao-mae.md) | Desligados, QG | |
+| [Paiol](desligados-construcao-paiol.md) | Desligados, depósito | |
+| [Barracão](desligados-construcao-barracao.md) | Desligados, quartel | |
+| [Ferraria a Vapor](desligados-construcao-ferraria-a-vapor.md) | Desligados, oficina | |
+| [Torre de Vigia](desligados-construcao-torre-de-vigia.md) | Desligados, defesa leve | |
+| [Paliçada](desligados-construcao-palicada.md) | Desligados, muro | |
+| [Torre Antiga](neutro-estrutura-torre-antiga.md) | neutra religável, defesa | |
+| [Holofote de Estrada](neutro-estrutura-holofote-de-estrada.md) | neutra religável, visão | |
+| [Ponte Basculante](neutro-estrutura-ponte-basculante.md) | neutra religável, passagem | |
+| [Subestação](neutro-estrutura-subestacao.md) | neutra religável, objetivo final | |
+
+Ainda sem brief, para a próxima rodada: os nós de recurso do mapa (Cemitério de Baterias, Pilha de Entulho, Ferro-Velho Leste), as faíscas da carga derramada, a Ponte Velha e o resto do terreno, e os retratos da Supervisora e do Locutor.
+
 ## Nome dos arquivos
 
 - `<faccao>-<categoria>-<nome>.md`, tudo em minúsculas, sem acento, com hífen.
