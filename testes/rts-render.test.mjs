@@ -290,3 +290,17 @@ test('the radix ordering is stable for equal keys', () => {
   const indices = Array.from(o.ordenar(chaves.length).subarray(0, chaves.length));
   assert.deepEqual(indices, [5, 1, 3, 0, 2, 4, 6]);
 });
+
+// ---------- canvas size ----------
+
+import { tamanhoNativo, TETO_PIXELS } from '../site/rts/js/render/resolucao.js';
+
+test('the canvas follows CSS size times DPR, capped at the pixel count of 4K keeping the aspect', () => {
+  assert.deepEqual(tamanhoNativo(1920, 1080, 2), [3840, 2160]);
+  assert.deepEqual(tamanhoNativo(1512, 982, 2), [3024, 1964], 'a MacBook screen is under the cap');
+  const [l, a] = tamanhoNativo(2560, 1440, 2);
+  assert.ok(l * a <= TETO_PIXELS && Math.abs(l / a - 16 / 9) < 0.002, `5K is brought down to 4K: ${l}x${a}`);
+  const [lu, au] = tamanhoNativo(2560, 1080, 2);
+  assert.ok(lu * au <= TETO_PIXELS && lu > 3840, `an ultrawide keeps more width than 3840: ${lu}x${au}`);
+  assert.deepEqual(tamanhoNativo(800, 600, 1), [800, 600]);
+});
