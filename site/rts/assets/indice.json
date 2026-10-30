@@ -10,8 +10,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 3055906,
-        "hd": 973296
+        "uhd": 2710802,
+        "hd": 932370
       }
     },
     "efeito-explosao-media": {
@@ -23,8 +23,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 37734,
-        "hd": 18156
+        "uhd": 52792,
+        "hd": 21028
       }
     },
     "interface-icone-escritorio-regional": {
@@ -36,8 +36,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 3654,
-        "hd": 1450
+        "uhd": 12708,
+        "hd": 3776
       }
     },
     "interface-retrato-turma-de-linha": {
@@ -49,8 +49,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 53898,
-        "hd": 21880
+        "uhd": 67114,
+        "hd": 25906
       }
     },
     "religadores-construcao-escritorio-regional": {
@@ -62,8 +62,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 457610,
-        "hd": 126554
+        "uhd": 552966,
+        "hd": 140734
       }
     },
     "religadores-infantaria-turma-de-linha": {
@@ -88,8 +88,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 5078594,
-        "hd": 1617402
+        "uhd": 4717982,
+        "hd": 1564812
       }
     },
     "religadores-veiculo-cesto-blindado-e45": {
@@ -101,8 +101,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 4904562,
-        "hd": 1555220
+        "uhd": 4651686,
+        "hd": 1534066
       }
     },
     "religadores-veiculo-cesto-blindado-e65": {
@@ -114,8 +114,8 @@
         "fase-1"
       ],
       "bytes": {
-        "uhd": 5202198,
-        "hd": 1634848
+        "uhd": 4900592,
+        "hd": 1578432
       }
     },
     "terreno-terra-batida": {
@@ -139,8 +139,8 @@
         "teste"
       ],
       "bytes": {
-        "uhd": 646286,
-        "hd": 203040
+        "uhd": 666166,
+        "hd": 211480
       }
     }
   },

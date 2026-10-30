@@ -5,7 +5,7 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/interface_retrato_turma_de_linha.py",
-  "commit": "19ffcaa",
+  "commit": "6616030",
   "ferramentas": [
     {
       "nome": "Blender",

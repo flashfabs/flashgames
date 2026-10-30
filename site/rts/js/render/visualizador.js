@@ -1,8 +1,9 @@
 // Atlas viewer for the style gate (site/rts/ferramentas/visualizador.html): shows a sprite sheet with the game's own
 // renderer, projection, team tint and shadow, over the procedural terrain with a cell ruler and the attachment
 // points, and compares two versions side by side under the same controls (animation, direction, level, team, zoom).
-// URL parameters mirror the controls: a, b (built-in id or manifest URL), anim, torre, dir, modo, nivel, time, zoom
-// and sombra (alfa, camada, comparar or nenhuma; comparar puts the alpha-derived shadow on A and the rendered layer on B).
+// URL parameters mirror the controls: a, b (built-in id or manifest URL), anim, torre, dir, modo, nivel, time, zoom,
+// sombra (alfa, camada, comparar or nenhuma; comparar puts the alpha-derived shadow on A and the rendered layer on B)
+// and chao (a terrain manifest URL, or procedural). Light layers (camada "luzes") are added over the body.
 import { carregarProjecao, mundoParaTela } from './projecao.js';
 import { criarRenderizador } from './renderizador.js';
 import { tamanhoNativo } from './resolucao.js';
@@ -20,6 +21,9 @@ const EMBUTIDAS = [
 const CORES_PONTOS = { encaixe_torre: '#6dff8a', boca: '#ffcf7a', escape: '#9ab0ff', topo: '#ff7ae0' };
 const COR_OUTROS_PONTOS = '#ffffff';
 const ehTorre = a => a.camada.startsWith('torre');
+const ehLuz = a => a.camada === 'luzes';
+// non-looping animations restart after this pause, so explosions and deaths keep playing
+const PAUSA_SEM_LACO_S = 0.6;
 
 const $ = id => document.getElementById(id);
 const parametros = new URLSearchParams(location.search);
@@ -36,11 +40,14 @@ const controles = {
   girar: false,
   regua: true,
   pontos: true,
+  luzes: true,
+  chao: parametros.get('chao'),
   sombra: parametros.get('sombra') ?? 'alfa',
 };
 
 function criarLista(capacidade) {
-  return { dados: new Float32Array(capacidade * FLOATS_INSTANCIA), n: 0 };
+  // chaves: depth of each instance (the unit's ground y), so a turret or a light keeps its body's place
+  return { dados: new Float32Array(capacidade * FLOATS_INSTANCIA), n: 0, chaves: [] };
 }
 
 function criarLado(elemento) {
@@ -84,7 +91,10 @@ async function lerIndice() {
       if (Array.isArray(valor)) valor.forEach(visitar);
       else if (valor && typeof valor === 'object') {
         const caminho = valor.manifesto ?? valor.url ?? valor.caminho;
-        if (typeof caminho === 'string' && caminho.endsWith('.json')) entradas.push({ id: new URL(caminho, url).href, nome: valor.asset ?? caminho });
+        if (typeof caminho === 'string' && caminho.endsWith('.json')) {
+          const id = new URL(caminho, url).href;
+          entradas.push({ id, nome: valor.asset ?? caminho.split('/').pop().replace(/\.json$/, ''), tipo: valor.tipo ?? '' });
+        }
         else Object.values(valor).forEach(visitar);
       }
     };
@@ -124,7 +134,7 @@ async function carregarFonte(lado, fonte) {
 // ---------- controls ----------
 
 function animacoesDoCorpo(folha) {
-  return folha ? [...folha.animacoes.values()].filter(a => !ehTorre(a)) : [];
+  return folha ? [...folha.animacoes.values()].filter(a => !ehTorre(a) && !ehLuz(a)) : [];
 }
 
 function animacoesDaTorre(folha) {
@@ -135,7 +145,9 @@ function atualizarAnimacoes() {
   const nomes = new Set(lados.flatMap(l => animacoesDoCorpo(l.folha).map(a => a.nome)));
   const select = $('animacao');
   select.replaceChildren(...[...nomes].map(n => new Option(n, n)));
-  if (!nomes.has(controles.animacao)) controles.animacao = nomes.values().next().value ?? '';
+  // the requested animation survives until every side has loaded (a side may bring it later)
+  const prontos = lados.every(l => !l.fonte || l.folha || l.erro);
+  if (!nomes.has(controles.animacao) && (prontos || !controles.animacao)) controles.animacao = nomes.values().next().value ?? '';
   select.value = controles.animacao;
   const torres = new Set(lados.flatMap(l => animacoesDaTorre(l.folha).map(a => a.nome)));
   const selectTorre = $('animacao-torre');
@@ -184,7 +196,8 @@ function ligarControles() {
   $('zoom').addEventListener('change', e => (controles.zoom = Number(e.target.value)));
   $('sombra').value = controles.sombra;
   $('sombra').addEventListener('change', e => (controles.sombra = e.target.value));
-  for (const nome of ['girar', 'regua', 'pontos']) {
+  $('chao').addEventListener('change', e => trocarChao(e.target.value));
+  for (const nome of ['girar', 'regua', 'pontos', 'luzes']) {
     $(nome).checked = controles[nome];
     $(nome).addEventListener('change', e => (controles[nome] = e.target.checked));
   }
@@ -229,15 +242,26 @@ function redimensionar() {
   }
 }
 
-function escreverSprite(lista, x, y, z, quadro, sombraMetros) {
+function escreverSprite(lista, x, y, z, quadro, sombraMetros, alfa = 1) {
   const o = lista.n++ * FLOATS_INSTANCIA;
-  lista.dados.set([x, y, z, 1, quadro, controles.time, sombraMetros, 1], o);
+  lista.dados.set([x, y, z, 1, quadro, controles.time, sombraMetros, alfa], o);
+}
+
+function tempoDe(anim, tempoS) {
+  if (anim.laco || anim.fps <= 0) return tempoS;
+  return tempoS % (anim.quadros / anim.fps + PAUSA_SEM_LACO_S);
+}
+
+async function trocarChao(url) {
+  controles.chao = url;
+  await Promise.all(lados.map(l => l.render.carregarTerreno(url || null).catch(erro => console.error(erro))));
 }
 
 // Units to show: one at the centre, or one per direction on a ring sized by the frame.
 function montarLado(lado, tempoS, direcaoMostrada) {
   const { folha, listas } = lado;
   listas.sprites.n = listas.sombras.n = listas.barras.n = 0;
+  listas.sprites.chaves.length = 0;
   lado.unidades.length = 0;
   if (!folha) return;
   const anim = folha.animacoes.get(controles.animacao) ?? animacoesDoCorpo(folha)[0];
@@ -246,16 +270,17 @@ function montarLado(lado, tempoS, direcaoMostrada) {
   const animTorre = anim.camada === 'completo' || !controles.animacaoTorre ? null : (lado.torre?.animacoes.get(controles.animacaoTorre) ?? null);
   const camada = controles.sombra === 'camada' || (controles.sombra === 'comparar' && lado === lados[1]);
   const sombraMetros = camada && folha.temSombra ? -1 : 1.2;
+  const animLuzes = controles.luzes ? ([...folha.animacoes.values()].find(ehLuz) ?? null) : null;
   const total = controles.modo === 'todas' ? anim.direcoes : 1;
   // ring wide enough for one unit of about 1.7 cells per direction
-  const raio = Math.max(2.6, (anim.direcoes * 1.7) / (2 * Math.PI));
+  const raio = anim.direcoes === 1 ? 0 : Math.max(2.6, (anim.direcoes * 1.7) / (2 * Math.PI));
   const encaixe = new Float64Array(3);
   for (let k = 0; k < total; k++) {
     const direcao = controles.modo === 'todas' ? k : direcaoMostrada % anim.direcoes;
     const angulo = (direcao * 256) / anim.direcoes;
     const x = controles.modo === 'todas' ? CENTRO + Math.cos((angulo / 256) * 2 * Math.PI) * raio : CENTRO;
     const y = controles.modo === 'todas' ? CENTRO + Math.sin((angulo / 256) * 2 * Math.PI) * raio : CENTRO;
-    const quadro = quadroGlobal(folha, anim, angulo, tempoS);
+    const quadro = quadroGlobal(folha, anim, angulo, tempoDe(anim, tempoS));
     const local = quadro - folha.primeiroQuadro;
     lado.unidades.push({ x, y, local });
     const partes = [[x, y, 0, quadro]];
@@ -263,11 +288,17 @@ function montarLado(lado, tempoS, direcaoMostrada) {
       const anguloTorre = (angulo + controles.torre * 8) % 256;
       let [tx, ty, tz] = [x, y, 0];
       if (pontoDeEncaixe(folha, 'encaixe_torre', local, projecao, encaixe)) [tx, ty, tz] = [x + encaixe[0], y + encaixe[1], encaixe[2]];
-      partes.push([tx, ty, tz, quadroGlobal(lado.torre, animTorre, anguloTorre, tempoS)]);
+      partes.push([tx, ty, tz, quadroGlobal(lado.torre, animTorre, anguloTorre, tempoDe(animTorre, tempoS))]);
     }
     for (const [px, py, pz, q] of partes) {
+      listas.sprites.chaves.push(y);
       escreverSprite(listas.sprites, px, py, pz, q, sombraMetros);
       if (controles.sombra !== 'nenhuma') escreverSprite(listas.sombras, px, py, pz, q, sombraMetros);
+    }
+    // lights go after the body with the same depth, added over it (negative alpha), and cast no shadow
+    if (animLuzes && anim.camada === 'corpo') {
+      listas.sprites.chaves.push(y);
+      escreverSprite(listas.sprites, x, y, 0, quadroGlobal(folha, animLuzes, angulo, tempoDe(animLuzes, tempoS)), sombraMetros, -1);
     }
     if (controles.pontos) {
       const o = listas.barras.n++ * FLOATS_INSTANCIA;
@@ -278,11 +309,11 @@ function montarLado(lado, tempoS, direcaoMostrada) {
 }
 
 function ordenarPorY(lista) {
-  const n = lista.n;
   const linhas = [];
-  for (let i = 0; i < n; i++) linhas.push(lista.dados.slice(i * FLOATS_INSTANCIA, (i + 1) * FLOATS_INSTANCIA));
-  linhas.sort((a, b) => a[1] - b[1]);
-  linhas.forEach((linha, i) => lista.dados.set(linha, i * FLOATS_INSTANCIA));
+  for (let i = 0; i < lista.n; i++) linhas.push({ chave: lista.chaves[i], dados: lista.dados.slice(i * FLOATS_INSTANCIA, (i + 1) * FLOATS_INSTANCIA) });
+  // Array.prototype.sort is stable, so parts of one unit keep their emission order
+  linhas.sort((a, b) => a.chave - b.chave);
+  linhas.forEach((linha, i) => lista.dados.set(linha.dados, i * FLOATS_INSTANCIA));
 }
 
 function desenharRegua(lado) {
@@ -392,15 +423,20 @@ function quadro(agora) {
   requestAnimationFrame(quadro);
 }
 
-const entradas = [...EMBUTIDAS, ...(await lerIndice())];
+const indice = await lerIndice();
+const entradas = [...EMBUTIDAS, ...indice.filter(e => e.tipo !== 'terreno')];
+const chaos = indice.filter(e => e.tipo === 'terreno');
 preencherFontes($('fonte-a'), entradas, false);
 preencherFontes($('fonte-b'), entradas, true);
+$('chao').replaceChildren(...chaos.map(e => new Option(e.nome, e.id)), new Option('procedural', ''));
+controles.chao = controles.chao === null ? (chaos[0]?.id ?? '') : controles.chao && new URL(controles.chao, location.href).href;
+$('chao').value = controles.chao;
 ligarControles();
 const fonteA = valorInicial($('fonte-a'), $('url-a'), parametros.get('a') ?? 'prototipo');
 const fonteB = valorInicial($('fonte-b'), $('url-b'), parametros.get('b') ?? '');
 $('lados').classList.toggle('so-a', !fonteB);
 new ResizeObserver(redimensionar).observe($('lados'));
 redimensionar();
-await Promise.all([carregarFonte(lados[0], fonteA), carregarFonte(lados[1], fonteB)]);
+await Promise.all([carregarFonte(lados[0], fonteA), carregarFonte(lados[1], fonteB), trocarChao(controles.chao)]);
 window.__visualizador = { lados, controles, projecao };
 requestAnimationFrame(quadro);
