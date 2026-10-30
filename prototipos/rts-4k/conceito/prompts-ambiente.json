@@ -1,0 +1,7 @@
+[
+  {"nome": "ermo-vista", "semente": 101, "prompt": "concept art, vast sun-bleached desert wasteland at golden hour, rusted pipelines and toppled wind turbines half buried in dunes, distant dust storm, muted ochre and teal palette, painterly digital matte painting, wide establishing shot"},
+  {"nome": "fortaleza-sucata", "semente": 202, "prompt": "concept art, fortified outpost built from welded scrap metal, stacked shipping containers and salvaged girders on a rocky mesa, watchtowers with floodlights, smoke from chimneys, dusk light, painterly, high three-quarter aerial view"},
+  {"nome": "campo-de-batalha", "semente": 303, "prompt": "high three-quarter aerial view of a desert battlefield, small armored scrap vehicles trading fire, craters, tire tracks in sand, explosions and drifting smoke, clear readable silhouettes, strategy game concept art, painterly, warm sunlight"},
+  {"nome": "veiculo-conceito", "semente": 404, "prompt": "concept art sheet of a tracked tank assembled from scrap, mismatched welded armor plates, twin exhaust stacks, spare tire on the back, rust brown with teal painted stripes, side view and three-quarter view, plain light grey background, clean industrial design sketch"},
+  {"nome": "solo-desertico", "semente": 505, "largura": 1024, "altura": 1024, "prompt": "seamless tileable texture, cracked dry desert ground with small pebbles and fine sand, straight top-down view, flat even lighting, no shadows, high detail"}
+]
