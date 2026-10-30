@@ -12,6 +12,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8811", "--directory", "prototipos/rts-4k"],
       "port": 8811
+    },
+    {
+      "name": "rts-interface",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8823", "--bind", "127.0.0.1"],
+      "port": 8823
     }
   ]
 }

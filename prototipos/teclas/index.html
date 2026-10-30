@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Nothing leaves this page: every request is blocked, and results go out only through the copy buttons. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'">
+<title>Bateria de teclas</title>
+<style>
+:root {
+  color-scheme: dark;
+  --fundo: #15171a;
+  --painel: #1f2226;
+  --borda: #353a41;
+  --texto: #e8e6e1;
+  --fraco: #9ba1a8;
+  --destaque: #5aa9e6;
+  --chegou: #3fae6a;
+  --agiu: #e0a31a;
+  --tomado: #e0554b;
+  --nao-chegou: #b98a84;
+  --nao-existe: #727981;
+  --pulado: #50565d;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { overflow-anchor: none; }
+body { margin: 0; background: var(--fundo); color: var(--texto); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+h1 { font-size: 22px; margin: 20px 0 4px; }
+h2 { font-size: 17px; margin: 28px 0 6px; }
+p { margin: 6px 0; }
+.fraco { color: var(--fraco); }
+button { font: inherit; font-size: 14px; color: var(--texto); background: #2b2f35; border: 1px solid var(--borda); border-radius: 6px; padding: 5px 12px; min-height: 32px; cursor: pointer; }
+button:hover { border-color: var(--destaque); }
+button.principal { background: #22507a; border-color: #2f6da3; }
+#agora { position: sticky; top: 0; z-index: 5; margin: 0 -16px; padding: 10px 16px 12px; background: var(--painel); border-bottom: 1px solid var(--borda); }
+#agora-cabeca { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+#agora-titulo { font-size: 18px; }
+#agora-instrucao { min-height: 22px; }
+.acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#ultimo { margin-top: 6px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--fraco); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sem-foco { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: #4a2b28; }
+#pad { height: 220px; margin-top: 10px; display: grid; place-items: center; border: 2px dashed var(--destaque); border-radius: 10px; color: var(--fraco); background: #181c20; user-select: none; -webkit-user-select: none; touch-action: none; cursor: crosshair; }
+#pad:focus { outline: none; border-style: solid; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 3px; min-width: 30px; height: 26px; padding: 0 8px; justify-content: center; border: 1px dashed var(--borda); border-radius: 13px; font-size: 13px; color: var(--fraco); white-space: nowrap; }
+.chips.grandes .chip { min-width: 40px; height: 34px; padding: 0 10px; border-radius: 17px; font-size: 16px; }
+.chip[data-status="chegou"] { background: var(--chegou); color: #07140b; border: 0; }
+.chip[data-status="agiu"] { background: var(--agiu); color: #1d1402; border: 0; }
+.chip[data-status="tomado"] { background: var(--tomado); color: #1d0705; border: 0; }
+.chip[data-status="nao-chegou"] { background: var(--nao-chegou); color: #1d0f0d; border: 0; }
+.chip[data-status="nao-existe"] { background: var(--nao-existe); color: #0f1113; border: 0; }
+.chip[data-status="pulado"] { background: var(--pulado); color: var(--texto); border: 0; }
+.chip[data-status="chegou"]::after { content: "✓"; }
+.chip[data-status="agiu"]::after { content: "!"; font-weight: 700; }
+.chip[data-status="tomado"]::after { content: "✕"; }
+.chip[data-status="nao-chegou"]::after { content: "–"; }
+.chip[data-status="nao-existe"]::after { content: "∅"; }
+.chip[data-status="pulado"]::after { content: "»"; }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; color: var(--fraco); }
+.respostas { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 16px; }
+label { display: grid; gap: 4px; font-size: 14px; color: var(--fraco); }
+input, select, textarea { font: inherit; font-size: 14px; color: var(--texto); background: #121417; border: 1px solid var(--borda); border-radius: 6px; padding: 6px 8px; }
+.secao-cabeca { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.itens { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.item { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, auto) minmax(0, 2fr) auto; gap: 10px; align-items: center; padding: 8px 10px; background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; }
+.item.armado { border-color: var(--destaque); box-shadow: inset 0 0 0 1px var(--destaque); }
+.item-modo { margin-left: 6px; font-size: 12px; color: var(--fraco); }
+.item-resumo { font-size: 13px; color: var(--fraco); overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .item { grid-template-columns: 1fr auto; }
+  .item .chips, .item-resumo { grid-column: 1 / -1; }
+}
+#saida { width: 100%; min-height: 240px; margin-top: 8px; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; white-space: pre; overflow: auto; }
+.tabela { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+th, td { padding: 3px 8px; border-bottom: 1px solid var(--borda); text-align: left; white-space: nowrap; }
+th { color: var(--fraco); font-weight: 500; }
+#aviso-armazenamento { padding: 6px 10px; border-radius: 6px; background: #4a3b17; }
+.folga { height: 100vh; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bateria de teclas e gestos</h1>
+  <p>Mostra quais teclas, cliques e gestos chegam a uma página e quais o navegador ou o sistema tomam para si. Cada teste aparece na faixa de cima: faça o que ela pede e a página anota sozinha; o que ela não tiver como perceber, marque com os botões. Nada sai do navegador: o resultado fica aqui até você copiar.</p>
+  <p class="fraco" id="ambiente-curto"></p>
+  <p id="aviso-armazenamento" hidden>O navegador não deixou guardar os resultados: não recarregue a página antes de copiar.</p>
+
+  <section id="agora" aria-label="Teste atual">
+    <div id="agora-cabeca"><strong id="agora-titulo"></strong><span class="fraco" id="agora-progresso"></span></div>
+    <p id="agora-instrucao"></p>
+    <div class="chips grandes" id="agora-chips"></div>
+    <div class="acoes" id="agora-acoes"></div>
+    <div id="pad" tabindex="-1" hidden>Área de teste</div>
+    <div id="ultimo">Último evento: nenhum ainda</div>
+    <div id="sem-foco" hidden>A página está sem foco do teclado. Clique em qualquer lugar dela para continuar.</div>
+  </section>
+
+  <h2>Antes de começar</h2>
+  <p class="fraco">Deixe outras duas abas abertas nesta janela, para dar para ver quando o navegador troca de aba. Se um teste levar você para outra aba, Mesa ou página, volte para esta e continue: os resultados ficam guardados.</p>
+  <div class="respostas" id="respostas"></div>
+
+  <div id="secoes"></div>
+
+  <h2>Resultado</h2>
+  <div class="legenda" id="legenda"></div>
+  <p class="fraco" id="contagem"></p>
+  <div class="acoes">
+    <button type="button" class="principal" data-acao="copiar-resumo">Copiar resultado</button>
+    <button type="button" data-acao="copiar-json">Copiar tudo em JSON</button>
+    <button type="button" data-acao="limpar">Começar de novo</button>
+    <span class="fraco" id="aviso-copia" role="status"></span>
+  </div>
+  <textarea id="saida" readonly aria-label="Resultado em texto" spellcheck="false"></textarea>
+
+  <h2>Registro</h2>
+  <p class="fraco">Os últimos eventos que chegaram à página, do mais novo para o mais velho. Rajadas de roda e de gesto aparecem somadas.</p>
+  <div class="tabela"><table><thead><tr><th>hora</th><th>modo</th><th>evento</th><th>code</th><th>key</th><th>modificadores</th><th>detalhe</th></tr></thead><tbody id="registro"></tbody></table></div>
+  <div class="folga"></div>
+</main>
+<script>
+'use strict';
+
+// Key and gesture battery for the RTS: records which combinations reach the page, which the page can cancel and which the
+// browser or the operating system keeps. It decides the control-group modifier and the menu and pause keys per browser.
+
+const CHAVE_GUARDADA = 'salinha-rts-teclas-v1';
+const UNICO = 'unico';
+// After a combination arrives, whatever the browser does within this window (blur, hidden tab, scroll, leaving full
+// screen) means it acted on that combination too.
+const JANELA_EFEITO_MS = 1200;
+// Losing focus blames the armed test only if its modifier (or, for plain keys, any key) reached the page this recently,
+// so clicking the address bar or switching apps does not count as a taken shortcut.
+const JANELA_TECLA_ANTES_MS = 3000;
+// One shortcut taken by the browser often fires blur and visibilitychange together: count it once.
+const PAUSA_ENTRE_PERDAS_MS = 1500;
+const FIM_DE_RAJADA_MS = 600;
+const ESPERA_ENTRE_TESTES_MS = 700;
+const MAXIMO_NO_REGISTRO = 400;
+const LINHAS_NA_TABELA = 80;
+const PERDAS = new Set(['blur', 'oculta', 'saiu-tela-cheia', 'pagehide']);
+
+const STATUS = {
+  pendente: { rotulo: 'aguardando', longo: 'ainda não testado' },
+  chegou: { rotulo: 'chegou', longo: 'chegou e a página cancelou o padrão' },
+  agiu: { rotulo: 'chegou + agiu', longo: 'chegou, mas o navegador ou o sistema também agiu' },
+  tomado: { rotulo: 'tomado', longo: 'o navegador ou o sistema ficou com ela' },
+  'nao-chegou': { rotulo: 'não chegou', longo: 'nada chegou à página e nada aconteceu' },
+  'nao-existe': { rotulo: 'não existe', longo: 'não existe neste navegador' },
+  pulado: { rotulo: 'pulado', longo: 'pulado' },
+};
+const MODOS = { normal: 'normal', 'tela-cheia': 'tela cheia', bloqueio: 'tela cheia com bloqueio' };
+
+const ambiente = detectarAmbiente();
+const eMac = ambiente.sistema === 'macOS' || ambiente.sistema === 'iPadOS';
+const CTRL = eMac ? 'Control' : 'Ctrl';
+const ALT = eMac ? 'Option' : 'Alt';
+
+// ---------- the tests ----------
+
+const DIGITOS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const SETAS = { ArrowLeft: '←', ArrowUp: '↑', ArrowRight: '→', ArrowDown: '↓' };
+const TECLA_DO_MODIFICADOR = { ctrl: 'Control', meta: 'Meta', alt: 'Alt', shift: 'Shift' };
+
+function modificadores(e) {
+  return [e.ctrlKey && 'ctrl', e.metaKey && 'meta', e.altKey && 'alt', e.shiftKey && 'shift'].filter(Boolean).join('+');
+}
+
+// Groups follow the physical key (code): Option and Shift change e.key on the Mac (Option+1 is "¡").
+function digitoCom(mods, so = null) {
+  return (e) => {
+    if (modificadores(e) !== mods || !/^Digit[1-9]$/.test(e.code)) return null;
+    const digito = e.code.slice(5);
+    if (so) return digito === so ? UNICO : null;
+    return digito;
+  };
+}
+
+function teclaSo(code) {
+  return (e) => (e.code === code && modificadores(e) === '' ? UNICO : null);
+}
+
+function setaCom(mods) {
+  return (e) => (modificadores(e) === mods ? SETAS[e.code] ?? null : null);
+}
+
+function maisOuMenos(e) {
+  const mods = modificadores(e);
+  if (mods !== '' && mods !== 'shift') return null;
+  if (e.code === 'Equal' || e.code === 'NumpadAdd') return '+';
+  if (e.code === 'Minus' || e.code === 'NumpadSubtract') return '−';
+  return null;
+}
+
+const SECOES = [
+  { id: 'numeros', titulo: 'Números com modificadores', texto: 'Decide a tecla que guarda, chama e soma grupos de unidades.' },
+  { id: 'teclas', titulo: 'Teclas soltas', texto: 'Câmera, zoom, menu e pausa.' },
+  { id: 'ponteiro', titulo: 'Trackpad e mouse', texto: 'Estes testes usam a área de teste, que aparece na faixa de cima quando o teste é armado.' },
+  { id: 'tela-cheia', titulo: 'Tela cheia', texto: 'Os mesmos atalhos de novo, agora com a página em tela cheia.', botao: { acao: 'tela-cheia', rotulo: 'Entrar em tela cheia' } },
+  { id: 'bloqueio', titulo: 'Tela cheia com bloqueio de teclas', texto: 'O Keyboard Lock existe no Chrome e no Edge; no Safari e no Firefox o teste só anota que ele não existe.', botao: { acao: 'bloqueio', rotulo: 'Tela cheia com bloqueio de teclas' } },
+];
+
+const ITENS = [
+  { secao: 'numeros', id: 'digitos', titulo: '1 a 9 sozinhos', chips: DIGITOS, tecla: digitoCom(''), instrucao: 'Aperte os números de 1 a 9 da fileira de cima, um de cada vez.' },
+  { secao: 'numeros', id: 'shift-digitos', titulo: 'Shift + 1 a 9', chips: DIGITOS, modificador: 'Shift', tecla: digitoCom('shift'), instrucao: 'Segure Shift e aperte de 1 a 9.' },
+  {
+    secao: 'numeros', id: 'ctrl-digitos', titulo: `${CTRL} + 1 a 9`, chips: DIGITOS, modificador: 'Control', tecla: digitoCom('ctrl'),
+    instrucao: eMac
+      ? 'Segure Control (⌃) e aperte de 1 a 9. Se o Mac trocar de Mesa, volte para esta janela e siga para o próximo número.'
+      : 'Segure Ctrl e aperte de 1 a 9. Se o navegador trocar de aba, volte para esta aba e siga para o próximo número.',
+  },
+  { secao: 'numeros', id: 'alt-digitos', titulo: `${ALT} + 1 a 9`, chips: DIGITOS, modificador: 'Alt', tecla: digitoCom('alt'), instrucao: `Segure ${ALT}${eMac ? ' (⌥)' : ''} e aperte de 1 a 9. Se o navegador trocar de aba ou abrir um menu, volte para esta aba e siga.` },
+  {
+    secao: 'numeros', id: 'cmd-digitos', so: 'mac', titulo: 'Cmd + 1 a 9', chips: DIGITOS, modificador: 'Meta', tecla: digitoCom('meta'),
+    instrucao: 'Segure Command (⌘) e aperte de 1 a 9. O navegador costuma trocar de aba: volte para esta aba a cada número, ou use “Os que faltam: igual ao último” depois de dois ou três. Se abrir um favorito, volte com ⌘[.',
+  },
+
+  { secao: 'teclas', id: 'espaco', titulo: 'Espaço', tecla: teclaSo('Space'), instrucao: 'Toque Espaço uma vez. A página não deve rolar.' },
+  { secao: 'teclas', id: 'setas', titulo: 'Setas', chips: Object.values(SETAS), tecla: setaCom(''), instrucao: 'Aperte ←, ↑, → e ↓. A página não deve rolar.' },
+  {
+    secao: 'teclas', id: 'ctrl-setas', so: 'mac', titulo: 'Control + setas', chips: Object.values(SETAS), modificador: 'Control', tecla: setaCom('ctrl'),
+    instrucao: 'Segure Control e aperte ←, ↑, → e ↓. No Mac elas costumam trocar de Mesa ou abrir o Mission Control: volte para esta janela a cada vez.',
+  },
+  { secao: 'teclas', id: 'mais-menos', titulo: '+ e −', chips: ['+', '−'], tecla: maisOuMenos, instrucao: 'Aperte a tecla do + (a mesma do =) e a do −, sem Cmd nem Ctrl.' },
+  {
+    secao: 'teclas', id: 'f10', titulo: 'F10', tecla: teclaSo('F10'), semTeclaAntes: true,
+    instrucao: eMac ? 'Aperte F10. Se as teclas F do Mac estiverem como teclas de mídia, use Fn + F10 (sem o Fn o Mac tira o som e nada chega à página; se foi o que aconteceu, toque em “Não chegou nada”).' : 'Aperte F10.',
+  },
+  { secao: 'teclas', id: 'p', titulo: 'P', tecla: teclaSo('KeyP'), instrucao: 'Aperte P.' },
+  { secao: 'teclas', id: 'pausa', so: 'naoMac', opcional: true, titulo: 'Pause', tecla: teclaSo('Pause'), instrucao: 'Se o teclado tiver a tecla Pause (ou Pause/Break), aperte; se não tiver, pule.' },
+  { secao: 'teclas', id: 'esc', titulo: 'Esc', tecla: teclaSo('Escape'), instrucao: 'Aperte Esc, fora da tela cheia.' },
+
+  { secao: 'ponteiro', id: 'contexto', ponteiro: 'contexto', titulo: 'Clique com dois dedos', instrucao: 'Na área de teste, clique com dois dedos no trackpad (ou com o botão direito do mouse). Se aparecer o menu do navegador, toque em “O navegador ou o sistema agiu”.' },
+  { secao: 'ponteiro', id: 'ctrl-clique', ponteiro: 'ctrl-clique', titulo: `${CTRL} + clique`, instrucao: `Na área de teste, segure ${CTRL} e clique com um dedo (ou com o botão esquerdo).` },
+  { secao: 'ponteiro', id: 'pinca', ponteiro: 'pinca', titulo: 'Pinça', chips: ['roda com ctrlKey', 'GestureEvent'], instrucao: 'Na área de teste, faça a pinça no trackpad (afaste e aproxime dois dedos) e solte. A página não deve dar zoom.' },
+  { secao: 'ponteiro', id: 'rolar', ponteiro: 'rolar', titulo: 'Arrastar com dois dedos', chips: ['vertical', 'lados'], instrucao: 'Na área de teste, arraste dois dedos para cima e para baixo e solte; depois arraste para os lados. A página não deve rolar nem voltar de página.' },
+  { secao: 'ponteiro', id: 'espaco-arrastar', ponteiro: 'espaco-arrastar', titulo: 'Espaço + arrastar', instrucao: 'Segure Espaço e, sem soltar, clique e arraste na área de teste.' },
+  { secao: 'ponteiro', id: 'roda-mouse', ponteiro: 'roda-mouse', opcional: true, titulo: 'Roda do mouse', instrucao: 'Gire a roda de um mouse na área de teste. Sem mouse, pule.' },
+  { secao: 'ponteiro', id: 'meio', ponteiro: 'meio', opcional: true, titulo: 'Botão do meio do mouse', instrucao: 'Clique com a roda do mouse na área de teste. Se aparecer o ícone de rolagem automática, toque em “O navegador ou o sistema agiu”. Sem mouse, pule.' },
+
+  { secao: 'tela-cheia', id: 'tela-cheia', acao: 'tela-cheia', titulo: 'Entrar em tela cheia', instrucao: 'Toque em “Entrar em tela cheia”. Para sair, o último teste desta parte usa o Esc.' },
+  { secao: 'tela-cheia', id: 'tc-ctrl-1', modo: 'tela-cheia', titulo: `${CTRL} + 1`, modificador: 'Control', tecla: digitoCom('ctrl', '1'), instrucao: `Segure ${CTRL} e aperte 1.` },
+  { secao: 'tela-cheia', id: 'tc-cmd-1', so: 'mac', modo: 'tela-cheia', titulo: 'Cmd + 1', modificador: 'Meta', tecla: digitoCom('meta', '1'), instrucao: 'Segure Command e aperte 1. Se a tela cheia acabar, toque de novo em “Entrar em tela cheia”.' },
+  { secao: 'tela-cheia', id: 'tc-alt-1', modo: 'tela-cheia', titulo: `${ALT} + 1`, modificador: 'Alt', tecla: digitoCom('alt', '1'), instrucao: `Segure ${ALT} e aperte 1.` },
+  { secao: 'tela-cheia', id: 'tc-f10', modo: 'tela-cheia', titulo: 'F10', tecla: teclaSo('F10'), semTeclaAntes: true, instrucao: eMac ? 'Aperte F10 (ou Fn + F10).' : 'Aperte F10.' },
+  { secao: 'tela-cheia', id: 'tc-esc', modo: 'tela-cheia', titulo: 'Esc', tecla: teclaSo('Escape'), semTeclaAntes: true, saiDaTelaCheia: true, instrucao: 'Aperte Esc. Ele deve tirar da tela cheia; a página anota se viu a tecla antes.' },
+
+  { secao: 'bloqueio', id: 'bloqueio', acao: 'bloqueio', titulo: 'Pedir o bloqueio de teclas', instrucao: 'Toque em “Tela cheia com bloqueio de teclas”: a página entra em tela cheia e pede o Keyboard Lock (o Chrome pode pedir permissão).' },
+  { secao: 'bloqueio', id: 'tb-ctrl-1', modo: 'bloqueio', titulo: `${CTRL} + 1`, modificador: 'Control', tecla: digitoCom('ctrl', '1'), instrucao: `Segure ${CTRL} e aperte 1.` },
+  { secao: 'bloqueio', id: 'tb-cmd-1', so: 'mac', modo: 'bloqueio', titulo: 'Cmd + 1', modificador: 'Meta', tecla: digitoCom('meta', '1'), instrucao: 'Segure Command e aperte 1.' },
+  { secao: 'bloqueio', id: 'tb-alt-1', modo: 'bloqueio', titulo: `${ALT} + 1`, modificador: 'Alt', tecla: digitoCom('alt', '1'), instrucao: `Segure ${ALT} e aperte 1.` },
+  { secao: 'bloqueio', id: 'tb-f10', modo: 'bloqueio', titulo: 'F10', tecla: teclaSo('F10'), semTeclaAntes: true, instrucao: eMac ? 'Aperte F10 (ou Fn + F10).' : 'Aperte F10.' },
+  { secao: 'bloqueio', id: 'tb-esc', modo: 'bloqueio', titulo: 'Esc', tecla: teclaSo('Escape'), semTeclaAntes: true, saiDaTelaCheia: true, instrucao: 'Toque Esc rápido uma vez: com o bloqueio, a página deve receber sem sair da tela cheia. Depois, segure Esc por dois segundos para sair.' },
+].map((item) => ({ modo: 'normal', chips: [UNICO], ...item }));
+
+const ITENS_POR_ID = Object.fromEntries(ITENS.map((item) => [item.id, item]));
+
+function visivel(item) {
+  if (item.so === 'mac') return eMac;
+  if (item.so === 'naoMac') return !eMac;
+  return true;
+}
+
+const ITENS_VISIVEIS = ITENS.filter(visivel);
+
+// ---------- state ----------
+
+let armazenamentoFalhou = false;
+const estado = carregar();
+let janelas = [];
+let ultimaPerda = -Infinity;
+let ultimaRolagemPagina = -Infinity;
+let ultimoRegistroDeRolagem = -Infinity;
+let ultimoZoom = -Infinity;
+let espacoSegurado = false;
+let bloqueioAtivo = false;
+let pedindoBloqueio = false;
+let arrasto = null;
+let ultimoToque = null;
+let desenhoPedido = false;
+const ultimaTeclaPorKey = new Map();
+const keydownPorCode = new Map();
+const rajadas = {};
+let pinca = {};
+
+function estadoVazio() {
+  return { versao: 1, resultados: {}, respostas: {}, armado: null, registro: [] };
+}
+
+function carregar() {
+  let texto = null;
+  try {
+    texto = localStorage.getItem(CHAVE_GUARDADA);
+  } catch (erro) {
+    console.warn('localStorage is unavailable; results live only in this page', erro);
+    armazenamentoFalhou = true;
+    return estadoVazio();
+  }
+  if (!texto) return estadoVazio();
+  try {
+    return { ...estadoVazio(), ...JSON.parse(texto) };
+  } catch (erro) {
+    console.warn('discarding unreadable saved results', erro);
+    return estadoVazio();
+  }
+}
+
+function salvar() {
+  try {
+    localStorage.setItem(CHAVE_GUARDADA, JSON.stringify({ ...estado, registro: estado.registro.slice(-200) }));
+  } catch (erro) {
+    if (!armazenamentoFalhou) console.warn('could not save the results', erro);
+    armazenamentoFalhou = true;
+  }
+}
+
+function resultadosDe(id) {
+  return (estado.resultados[id] ??= {});
+}
+
+function itemCompleto(item) {
+  const r = estado.resultados[item.id] ?? {};
+  return item.chips.every((chip) => r[chip]);
+}
+
+function proximoChip(item) {
+  const r = estado.resultados[item.id] ?? {};
+  return item.chips.find((chip) => !r[chip]) ?? null;
+}
+
+function ultimoChipResolvido(item) {
+  const r = estado.resultados[item.id] ?? {};
+  return item.chips.filter((chip) => r[chip]).sort((a, b) => r[b].t - r[a].t)[0] ?? null;
+}
+
+// New evidence replaces old, except that a clean arrival does not hide that the browser acted on an earlier try.
+function marcar(id, chip, status, dados = {}) {
+  if (!chip) return;
+  const item = ITENS_POR_ID[id];
+  const r = resultadosDe(id);
+  const anterior = r[chip];
+  const tentativas = (anterior?.tentativas ?? 0) + 1;
+  if (anterior?.status === 'agiu' && status === 'chegou') {
+    anterior.tentativas = tentativas;
+  } else {
+    r[chip] = { status, modo: modoAtual(), tentativas, t: Date.now(), ...dados };
+  }
+  if (estado.armado === id && itemCompleto(item)) agendarProximo(id);
+  salvarEDesenhar();
+}
+
+function promover(id, chip, motivo) {
+  const r = estado.resultados[id]?.[chip];
+  if (!r || r.status !== 'chegou') return;
+  r.status = 'agiu';
+  r.motivo = motivo;
+  salvarEDesenhar();
+}
+
+function armar(id) {
+  estado.armado = id;
+  salvarEDesenhar();
+}
+
+// The next unfinished test of the current mode, after the given one, wrapping around the list.
+function armarProximo(aPartirDe = estado.armado) {
+  const modo = modoAtual();
+  const inicio = ITENS_VISIVEIS.findIndex((item) => item.id === aPartirDe);
+  const ordem = [...ITENS_VISIVEIS.slice(inicio + 1), ...ITENS_VISIVEIS.slice(0, inicio + 1)];
+  estado.armado = ordem.find((item) => item.modo === modo && !itemCompleto(item))?.id ?? null;
+  salvarEDesenhar();
+}
+
+function agendarProximo(id) {
+  setTimeout(() => {
+    const item = ITENS_POR_ID[id];
+    if (estado.armado === id && itemCompleto(item)) armarProximo(id);
+  }, ESPERA_ENTRE_TESTES_MS);
+}
+
+function salvarEDesenhar() {
+  salvar();
+  pedirDesenho();
+}
+
+function registrar(entrada) {
+  const agora = new Date();
+  const hora = `${agora.toLocaleTimeString('pt-BR', { hour12: false })}.${String(agora.getMilliseconds()).padStart(3, '0')}`;
+  estado.registro.push({ hora, modo: modoAtual(), ...entrada });
+  if (estado.registro.length > MAXIMO_NO_REGISTRO) estado.registro.splice(0, estado.registro.length - MAXIMO_NO_REGISTRO);
+  pedirDesenho();
+}
+
+// ---------- environment ----------
+
+function detectarAmbiente() {
+  const ua = navigator.userAgent;
+  const plataforma = navigator.userAgentData?.platform || navigator.platform || '';
+  let sistema = /mac/i.test(plataforma) ? 'macOS' : /win/i.test(plataforma) ? 'Windows' : /linux/i.test(plataforma) ? 'Linux' : plataforma || 'desconhecido';
+  if (sistema === 'macOS' && navigator.maxTouchPoints > 1) sistema = 'iPadOS';
+  const regras = [['Edge', /Edg\/([\d.]+)/], ['Opera', /OPR\/([\d.]+)/], ['Firefox', /Firefox\/([\d.]+)/], ['Chrome', /Chrome\/([\d.]+)/], ['Safari', /Version\/([\d.]+).*Safari/]];
+  const [navegador, versao] = regras.map(([nome, regra]) => [nome, ua.match(regra)?.[1]]).find(([, achado]) => achado) ?? ['desconhecido', ''];
+  return { ua, sistema, navegador, versao, versaoSistema: '', mapaDeTeclas: '', inicio: new Date().toLocaleString('pt-BR') };
+}
+
+// Chromium hides the exact versions behind high-entropy hints, and only it exposes the keyboard layout map.
+async function completarAmbiente() {
+  try {
+    const dados = await navigator.userAgentData?.getHighEntropyValues?.(['platformVersion', 'fullVersionList']);
+    if (dados) {
+      ambiente.versaoSistema = dados.platformVersion ?? '';
+      const marca = dados.fullVersionList?.find((item) => /Chrome|Edge/.test(item.brand) && !/Chromium/.test(item.brand));
+      if (marca) ambiente.versao = marca.version;
+    }
+  } catch (erro) {
+    console.warn('high-entropy user agent hints refused', erro);
+  }
+  try {
+    const mapa = await navigator.keyboard?.getLayoutMap?.();
+    if (mapa) {
+      ambiente.mapaDeTeclas = ['KeyQ', 'KeyA', 'KeyZ', 'KeyM', 'Semicolon', 'Quote', 'BracketLeft', 'Digit2'].map((code) => `${code}→${mapa.get(code) ?? '?'}`).join(' ');
+    }
+  } catch (erro) {
+    console.warn('keyboard layout map refused', erro);
+  }
+  pedirDesenho();
+}
+
+// ---------- full screen and keyboard lock ----------
+
+function elementoTelaCheia() {
+  return document.fullscreenElement ?? document.webkitFullscreenElement ?? null;
+}
+
+function modoAtual() {
+  if (!elementoTelaCheia()) return 'normal';
+  return bloqueioAtivo ? 'bloqueio' : 'tela-cheia';
+}
+
+async function pedirTelaCheia() {
+  const raiz = document.documentElement;
+  if (raiz.requestFullscreen) {
+    await raiz.requestFullscreen({ navigationUI: 'hide' });
+    return 'requestFullscreen';
+  }
+  if (raiz.webkitRequestFullscreen) {
+    raiz.webkitRequestFullscreen();
+    return 'webkitRequestFullscreen';
+  }
+  return null;
+}
+
+function sairDaTelaCheia() {
+  const sair = document.exitFullscreen ?? document.webkitExitFullscreen;
+  if (elementoTelaCheia() && sair) Promise.resolve(sair.call(document)).catch((erro) => console.warn('could not leave full screen', erro));
+}
+
+function pularModo(modo, motivo) {
+  for (const item of ITENS_VISIVEIS.filter((i) => i.modo === modo)) {
+    for (const chip of item.chips) if (!resultadosDe(item.id)[chip]) resultadosDe(item.id)[chip] = { status: 'pulado', motivo, modo: 'normal', tentativas: 0, t: Date.now() };
+  }
+  salvarEDesenhar();
+}
+
+async function entrarTelaCheia() {
+  armar('tela-cheia');
+  let api;
+  try {
+    api = await pedirTelaCheia();
+  } catch (erro) {
+    marcar('tela-cheia', UNICO, 'nao-chegou', { motivo: `recusou: ${erro.name}` });
+    return;
+  }
+  if (!api) {
+    marcar('tela-cheia', UNICO, 'nao-existe', { motivo: 'sem a Fullscreen API' });
+    pularModo('tela-cheia', 'sem tela cheia neste navegador');
+    return;
+  }
+  marcar('tela-cheia', UNICO, 'chegou', { detalhe: `entrou por ${api}` });
+}
+
+async function entrarComBloqueio() {
+  armar('bloqueio');
+  if (!navigator.keyboard?.lock) {
+    marcar('bloqueio', UNICO, 'nao-existe', { motivo: 'navigator.keyboard.lock não existe' });
+    pularModo('bloqueio', 'sem bloqueio de teclas neste navegador');
+    return;
+  }
+  pedindoBloqueio = true;
+  try {
+    const api = await pedirTelaCheia();
+    if (!api) throw new Error('sem a Fullscreen API');
+    await navigator.keyboard.lock();
+    bloqueioAtivo = true;
+    marcar('bloqueio', UNICO, 'chegou', { detalhe: 'bloqueio concedido' });
+  } catch (erro) {
+    marcar('bloqueio', UNICO, 'nao-chegou', { motivo: `recusado: ${erro.name}${erro.message ? ` (${erro.message})` : ''}` });
+    pularModo('bloqueio', 'o bloqueio de teclas foi recusado');
+    sairDaTelaCheia();
+  } finally {
+    pedindoBloqueio = false;
+  }
+  if (ITENS_POR_ID[estado.armado]?.modo !== modoAtual()) armarProximo('bloqueio');
+}
+
+function aoMudarTelaCheia() {
+  const dentro = Boolean(elementoTelaCheia());
+  registrar({ evento: dentro ? 'entrou em tela cheia' : 'saiu da tela cheia' });
+  if (!dentro) {
+    if (bloqueioAtivo) navigator.keyboard?.unlock?.();
+    bloqueioAtivo = false;
+    aoSinal('saiu-tela-cheia', 'saiu da tela cheia');
+  }
+  if (pedindoBloqueio) return;
+  if (ITENS_POR_ID[estado.armado]?.modo !== modoAtual()) armarProximo();
+  pedirDesenho();
+}
+
+// ---------- signals that the browser or the system acted ----------
+
+function aoSinal(tipo, descricao) {
+  const agora = performance.now();
+  if (tipo === 'rolagem') {
+    ultimaRolagemPagina = agora;
+    if (agora - ultimoRegistroDeRolagem > 500) registrar({ evento: 'a página rolou', detalhe: `scrollY ${Math.round(scrollY)}` });
+    ultimoRegistroDeRolagem = agora;
+  } else {
+    registrar({ evento: descricao });
+  }
+  for (const rajada of Object.values(rajadas)) if (rajada.item && (tipo === 'pagehide' || tipo === 'zoom')) rajada.efeito = descricao;
+
+  janelas = janelas.filter((janela) => janela.ate >= agora);
+  if (janelas.length) {
+    for (const janela of janelas) promover(janela.item, janela.chip, descricao);
+    return;
+  }
+  if (!PERDAS.has(tipo) || agora - ultimaPerda < PAUSA_ENTRE_PERDAS_MS) return;
+  const item = ITENS_POR_ID[estado.armado];
+  if (!item?.tecla || itemCompleto(item)) return;
+  if (tipo === 'saiu-tela-cheia' && !item.saiDaTelaCheia) return;
+  const ultimaTecla = item.modificador ? ultimaTeclaPorKey.get(item.modificador) : Math.max(-Infinity, ...ultimaTeclaPorKey.values());
+  if (!item.semTeclaAntes && !(agora - (ultimaTecla ?? -Infinity) <= JANELA_TECLA_ANTES_MS)) return;
+  ultimaPerda = agora;
+  marcar(item.id, proximoChip(item), 'tomado', { motivo: descricao });
+}
+
+// ---------- keyboard ----------
+
+function eCampoDeTexto(alvo) {
+  return alvo instanceof HTMLElement && alvo.matches('input, textarea, select, [contenteditable]');
+}
+
+function acharTecla(e) {
+  const modo = modoAtual();
+  for (const item of ITENS_VISIVEIS) {
+    if (item.modo !== modo || !item.tecla) continue;
+    const chip = item.tecla(e);
+    if (chip) return { item, chip };
+  }
+  return null;
+}
+
+function descreverTecla(e) {
+  return { code: e.code, key: e.key, mods: modificadores(e), detalhe: e.repeat ? 'repetição' : '' };
+}
+
+function aoApertar(e) {
+  if (eCampoDeTexto(e.target)) return;
+  ultimaTeclaPorKey.set(e.key, performance.now());
+  if (e.code === 'Space') espacoSegurado = true;
+  // A bare Alt focuses the menu bar in some Windows browsers.
+  if (e.key === 'Alt') e.preventDefault();
+  const achado = acharTecla(e);
+  registrar({ evento: 'keydown', ...descreverTecla(e), item: achado?.item.id });
+  mostrarUltimo(`keydown ${rotuloDaTecla(e)} · code ${e.code} · key ${JSON.stringify(e.key)}${achado ? ` · ${achado.item.titulo}` : ''}`);
+  if (!achado) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  const { item, chip } = achado;
+  keydownPorCode.set(e.code, { id: item.id, chip });
+  marcar(item.id, chip, 'chegou', { key: e.key, code: e.code, mods: modificadores(e) });
+  janelas.push({ item: item.id, chip, ate: performance.now() + JANELA_EFEITO_MS });
+}
+
+function aoSoltar(e) {
+  if (eCampoDeTexto(e.target)) return;
+  if (e.code === 'Space') espacoSegurado = false;
+  if (e.key === 'Alt') e.preventDefault();
+  registrar({ evento: 'keyup', ...descreverTecla(e) });
+  const anterior = keydownPorCode.get(e.code);
+  if (anterior) {
+    keydownPorCode.delete(e.code);
+    e.preventDefault();
+    const r = estado.resultados[anterior.id]?.[anterior.chip];
+    if (r && !r.keyup) {
+      r.keyup = true;
+      salvarEDesenhar();
+    }
+    return;
+  }
+  // A keyup whose keydown never came means the browser kept the keydown. Only with a modifier still held: a bare
+  // digit released after letting go of Cmd would otherwise blame the plain-digit test.
+  const achado = modificadores(e) ? acharTecla(e) : null;
+  if (!achado) return;
+  e.preventDefault();
+  if (!estado.resultados[achado.item.id]?.[achado.chip]) {
+    marcar(achado.item.id, achado.chip, 'tomado', { motivo: 'só o keyup chegou; o navegador ficou com o keydown', key: e.key, code: e.code });
+  }
+}
+
+function rotuloDaTecla(e) {
+  const nomes = { ctrl: CTRL, meta: 'Cmd', alt: ALT, shift: 'Shift' };
+  const mods = modificadores(e).split('+').filter(Boolean).map((mod) => nomes[mod]);
+  const tecla = /^(Control|Meta|Alt|Shift)$/.test(e.key) ? [] : [e.code.replace(/^(Key|Digit)/, '')];
+  return [...mods, ...tecla].join('+') || e.key;
+}
+
+// ---------- pointer, wheel and gestures on the test pad ----------
+
+const pad = document.getElementById('pad');
+
+function itemDoPad(tipo) {
+  const item = ITENS_POR_ID[estado.armado];
+  return item?.ponteiro === tipo ? item : null;
+}
+
+pad.addEventListener('pointerdown', (e) => {
+  ultimoToque = { button: e.button, ctrl: e.ctrlKey, t: performance.now() };
+  registrar({ evento: 'pointerdown', mods: modificadores(e), detalhe: `botão ${e.button}, ${e.pointerType}` });
+  mostrarUltimo(`pointerdown botão ${e.button} · ${e.pointerType}${e.ctrlKey ? ' · com Ctrl' : ''}`);
+  pad.focus({ preventScroll: true });
+  if (e.button === 1) e.preventDefault();
+  if (e.ctrlKey && itemDoPad('ctrl-clique')) marcar('ctrl-clique', UNICO, 'chegou', { detalhe: `pointerdown com botão ${e.button}` });
+  if (e.button === 1 && itemDoPad('meio')) marcar('meio', UNICO, 'chegou', { detalhe: 'pointerdown com botão 1 (cancelado)' });
+  if (e.button === 0 && espacoSegurado && itemDoPad('espaco-arrastar')) {
+    arrasto = { x: e.clientX, y: e.clientY };
+    pad.setPointerCapture(e.pointerId);
+  }
+});
+
+pad.addEventListener('pointermove', (e) => {
+  if (!arrasto) return;
+  const distancia = Math.hypot(e.clientX - arrasto.x, e.clientY - arrasto.y);
+  if (distancia < 40) return;
+  arrasto = null;
+  const rolou = ultimaRolagemPagina > (ultimaTeclaPorKey.get(' ') ?? Infinity);
+  marcar('espaco-arrastar', UNICO, rolou ? 'agiu' : 'chegou', { detalhe: 'arrastou com Espaço segurado', motivo: rolou ? 'a página rolou' : undefined });
+});
+
+pad.addEventListener('pointerup', () => { arrasto = null; });
+pad.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+pad.addEventListener('auxclick', (e) => e.preventDefault());
+
+pad.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const comCtrl = e.ctrlKey || (ultimoToque?.ctrl && performance.now() - ultimoToque.t < 600);
+  registrar({ evento: 'contextmenu', mods: modificadores(e), detalhe: `botão ${e.button}` });
+  mostrarUltimo(`contextmenu${comCtrl ? ' depois de Ctrl + clique' : ''} · menu cancelado`);
+  if (comCtrl && itemDoPad('ctrl-clique')) {
+    const antes = estado.resultados['ctrl-clique']?.[UNICO]?.detalhe ?? 'clique';
+    marcar('ctrl-clique', UNICO, 'chegou', { detalhe: `${antes}, seguido de contextmenu (virou clique direito)` });
+  } else if (!comCtrl && itemDoPad('contexto')) {
+    marcar('contexto', UNICO, 'chegou', { detalhe: `contextmenu depois de pointerdown com botão ${ultimoToque?.button ?? '?'}` });
+  }
+});
+
+pad.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const item = e.ctrlKey ? itemDoPad('pinca') : itemDoPad('roda-mouse') ?? itemDoPad('rolar');
+  somarRajada(e.ctrlKey ? 'roda-ctrl' : 'roda', item, (rajada) => {
+    rajada.dx += e.deltaX;
+    rajada.dy += e.deltaY;
+    rajada.maior = Math.max(rajada.maior, Math.abs(e.deltaX), Math.abs(e.deltaY));
+    rajada.modoDelta = e.deltaMode;
+    rajada.fracionario ||= !Number.isInteger(e.deltaX) || !Number.isInteger(e.deltaY);
+  });
+}, { passive: false });
+
+for (const tipo of ['gesturestart', 'gesturechange', 'gestureend']) {
+  pad.addEventListener(tipo, (e) => {
+    e.preventDefault();
+    somarRajada('gesto', itemDoPad('pinca'), (rajada) => {
+      rajada.tipos.add(tipo);
+      if (typeof e.scale === 'number') {
+        rajada.escalaMin = Math.min(rajada.escalaMin, e.scale);
+        rajada.escalaMax = Math.max(rajada.escalaMax, e.scale);
+      }
+    });
+  }, { passive: false });
+}
+
+// Wheel and gesture events come in bursts of dozens: sum each burst and judge it when it stops.
+function somarRajada(tipo, item, somar) {
+  let rajada = rajadas[tipo];
+  if (!rajada) {
+    rajada = rajadas[tipo] = { tipo, item: item?.id ?? null, inicio: performance.now(), n: 0, dx: 0, dy: 0, maior: 0, modoDelta: 0, fracionario: false, tipos: new Set(), escalaMin: Infinity, escalaMax: -Infinity, efeito: null };
+  }
+  rajada.n += 1;
+  somar(rajada);
+  clearTimeout(rajada.relogio);
+  rajada.relogio = setTimeout(() => fecharRajada(tipo), FIM_DE_RAJADA_MS);
+  if (rajada.n === 1) mostrarUltimo(tipo === 'gesto' ? 'gesto do Safari (GestureEvent)…' : `wheel${tipo === 'roda-ctrl' ? ' com ctrlKey' : ''}…`);
+}
+
+function descreverRajada(rajada) {
+  if (rajada.tipo === 'gesto') {
+    const escala = Number.isFinite(rajada.escalaMin) ? `, escala de ${rajada.escalaMin.toFixed(2)} a ${rajada.escalaMax.toFixed(2)}` : '';
+    return `${rajada.n} eventos (${[...rajada.tipos].join(', ')})${escala}`;
+  }
+  return `${rajada.n} wheel${rajada.tipo === 'roda-ctrl' ? ' com ctrlKey' : ''}, deltaMode ${rajada.modoDelta}, soma Δx ${Math.round(rajada.dx)} Δy ${Math.round(rajada.dy)}, maior passo ${Math.round(rajada.maior)}, ${rajada.fracionario ? 'com' : 'sem'} frações`;
+}
+
+function fecharRajada(tipo) {
+  const rajada = rajadas[tipo];
+  delete rajadas[tipo];
+  const detalhe = descreverRajada(rajada);
+  registrar({ evento: tipo === 'gesto' ? 'gesto (rajada)' : 'wheel (rajada)', detalhe });
+  mostrarUltimo(detalhe);
+  if (!rajada.item) return;
+  if (rajada.item === 'pinca') {
+    fecharPinca(rajada);
+    return;
+  }
+  const chip = rajada.item === 'rolar' ? (Math.abs(rajada.dx) > Math.abs(rajada.dy) ? 'lados' : 'vertical') : UNICO;
+  const efeito = rajada.efeito ?? (ultimaRolagemPagina >= rajada.inicio ? 'a página rolou' : null);
+  marcar(rajada.item, chip, efeito ? 'agiu' : 'chegou', { detalhe, motivo: efeito ?? undefined });
+}
+
+// A pinch may arrive as ctrlKey wheels, as Safari gestures, or both: wait for both bursts before judging it.
+function fecharPinca(rajada) {
+  pinca[rajada.tipo === 'gesto' ? 'gesto' : 'roda'] = rajada;
+  if (rajadas['roda-ctrl']?.item === 'pinca' || rajadas.gesto?.item === 'pinca') return;
+  const { roda, gesto } = pinca;
+  pinca = {};
+  const inicio = Math.min(roda?.inicio ?? Infinity, gesto?.inicio ?? Infinity);
+  const deuZoom = (window.visualViewport?.scale ?? 1) !== 1 || ultimoZoom >= inicio;
+  const efeito = deuZoom ? 'a página também deu zoom' : undefined;
+  marcar('pinca', 'roda com ctrlKey', roda ? (efeito ? 'agiu' : 'chegou') : 'nao-chegou', { detalhe: roda ? descreverRajada(roda) : 'nenhum wheel com ctrlKey', motivo: efeito });
+  const semGesto = 'GestureEvent' in window ? 'nao-chegou' : 'nao-existe';
+  marcar('pinca', 'GestureEvent', gesto ? (efeito ? 'agiu' : 'chegou') : semGesto, { detalhe: gesto ? descreverRajada(gesto) : 'nenhum gesturechange', motivo: efeito });
+}
+
+// ---------- manual marks ----------
+
+function naoChegou(item) {
+  marcar(item.id, proximoChip(item), 'nao-chegou', { motivo: 'marcado à mão' });
+}
+
+function navegadorAgiu(item) {
+  const ultimo = ultimoChipResolvido(item);
+  const r = estado.resultados[item.id]?.[ultimo];
+  if (r?.status === 'chegou') {
+    promover(item.id, ultimo, 'marcado à mão');
+    return;
+  }
+  marcar(item.id, proximoChip(item), 'tomado', { motivo: 'marcado à mão: o navegador ou o sistema agiu e a página não viu nada' });
+}
+
+function repetirUltimo(item) {
+  const ultimo = ultimoChipResolvido(item);
+  if (!ultimo) return;
+  const base = estado.resultados[item.id][ultimo];
+  for (const chip of item.chips) {
+    if (estado.resultados[item.id][chip]) continue;
+    estado.resultados[item.id][chip] = { status: base.status, modo: base.modo, tentativas: 0, t: Date.now(), motivo: [base.motivo, 'repetido à mão'].filter(Boolean).join('; ') };
+  }
+  if (estado.armado === item.id) agendarProximo(item.id);
+  salvarEDesenhar();
+}
+
+function pular(item) {
+  for (const chip of item.chips) if (!resultadosDe(item.id)[chip]) resultadosDe(item.id)[chip] = { status: 'pulado', modo: modoAtual(), tentativas: 0, t: Date.now() };
+  if (estado.armado === item.id) armarProximo(item.id);
+  salvarEDesenhar();
+}
+
+function refazer(item) {
+  delete estado.resultados[item.id];
+  armar(item.id);
+}
+
+// ---------- text output ----------
+
+function rotuloDoChip(chip, status) {
+  return chip === UNICO ? STATUS[status].rotulo : chip;
+}
+
+function resumoDoItem(item) {
+  const r = estado.resultados[item.id] ?? {};
+  if (item.chips.length === 1) {
+    const unico = r[UNICO];
+    return unico ? [STATUS[unico.status].rotulo, unico.motivo].filter(Boolean).join(': ') : 'falta testar';
+  }
+  const grupos = new Map();
+  for (const chip of item.chips) {
+    const chave = r[chip]?.status ?? 'falta';
+    if (!grupos.has(chave)) grupos.set(chave, { chips: [], motivos: new Set() });
+    grupos.get(chave).chips.push(chip);
+    if (r[chip]?.motivo) grupos.get(chave).motivos.add(r[chip].motivo);
+  }
+  const motivos = (grupo) => (grupo.motivos.size ? ` (${[...grupo.motivos].join('; ')})` : '');
+  if (grupos.size === 1 && !grupos.has('falta')) {
+    const [[status, grupo]] = grupos;
+    return `${STATUS[status].rotulo} em todos${motivos(grupo)}`;
+  }
+  return [...grupos].sort(([a], [b]) => (a === 'falta') - (b === 'falta')).map(([status, grupo]) => `${status === 'falta' ? 'falta' : STATUS[status].rotulo}: ${grupo.chips.join(' ')}${motivos(grupo)}`).join(' · ');
+}
+
+function detalheDoItem(item) {
+  const r = estado.resultados[item.id] ?? {};
+  const lista = item.chips.map((chip) => r[chip]).filter(Boolean);
+  const partes = [];
+  const keys = [...new Set(lista.map((res) => res.key).filter((key) => key !== undefined))];
+  if (keys.length) partes.push(`key ${keys.map((key) => JSON.stringify(key)).join(' ')}`);
+  const chegaram = lista.filter((res) => res.key !== undefined && (res.status === 'chegou' || res.status === 'agiu'));
+  if (chegaram.length) partes.push(`keyup ${chegaram.every((res) => res.keyup) ? 'chegou' : chegaram.some((res) => res.keyup) ? 'chegou em parte' : 'não chegou'}`);
+  for (const detalhe of new Set(lista.map((res) => res.detalhe).filter(Boolean))) partes.push(detalhe);
+  return partes.join('; ');
+}
+
+function contarItem(id) {
+  const item = ITENS_POR_ID[id];
+  if (!item || !visivel(item) || !itemCompleto(item)) return null;
+  const r = estado.resultados[id];
+  const status = item.chips.map((chip) => r[chip].status);
+  return { item, status, limpos: status.filter((s) => s === 'chegou').length, total: status.length };
+}
+
+function conclusoes() {
+  const linhas = [];
+  const frase = (id, sim, nao) => {
+    const conta = contarItem(id);
+    if (!conta || conta.status.every((s) => s === 'pulado')) return;
+    linhas.push(`- ${conta.item.titulo}: ${conta.limpos === conta.total ? sim : nao} (${conta.limpos} de ${conta.total} chegaram limpos).`);
+  };
+  frase('digitos', 'serve para chamar grupo', 'não serve para chamar grupo');
+  frase('ctrl-digitos', 'serve para guardar grupo neste navegador', 'não serve sozinho para guardar grupo; precisa de alternativa');
+  frase('alt-digitos', 'serve como alternativa para guardar grupo', 'não serve como alternativa para guardar grupo');
+  frase('shift-digitos', 'serve para somar ao grupo', 'não serve para somar ao grupo');
+  frase('cmd-digitos', 'a página recebe e cancela (inesperado: conferir se o navegador não trocou de aba)', 'fica com o navegador, como esperado; o jogo nunca usa');
+  frase('espaco', 'serve (a página não rolou)', 'não serve como está');
+  frase('setas', 'servem para a câmera', 'não servem para a câmera como estão');
+  frase('ctrl-setas', 'chegam à página', 'ficam com o sistema; o jogo não usa Control com setas');
+  frase('mais-menos', 'servem para o zoom', 'não servem para o zoom');
+  frase('f10', 'serve para o menu', 'não serve como única tecla do menu (o botão na tela cobre)');
+  frase('p', 'serve', 'não serve');
+  frase('esc', 'chega à página fora da tela cheia', 'não chega fora da tela cheia');
+  frase('contexto', 'serve para dar ordem (o menu do navegador foi cancelado)', 'não serve como está');
+  const ctrlClique = contarItem('ctrl-clique');
+  if (ctrlClique && ctrlClique.status[0] !== 'pulado') {
+    const virou = /contextmenu/.test(estado.resultados['ctrl-clique'][UNICO].detalhe ?? '');
+    linhas.push(`- ${ctrlClique.item.titulo}: ${virou ? 'vira clique direito; o jogo não usa para outra coisa' : 'chega como clique comum com Ctrl'}.`);
+  }
+  const pincaContada = contarItem('pinca');
+  if (pincaContada) {
+    const [roda, gesto] = pincaContada.status;
+    const caminhos = [['chegou', 'agiu'].includes(roda) && 'roda com ctrlKey', ['chegou', 'agiu'].includes(gesto) && 'GestureEvent'].filter(Boolean);
+    const zoom = roda === 'agiu' || gesto === 'agiu';
+    linhas.push(`- Pinça: chega como ${caminhos.join(' e ') || 'nada'}${zoom ? ', mas a página também deu zoom' : ''}.`);
+  }
+  for (const id of ['tc-esc', 'tb-esc']) {
+    const conta = contarItem(id);
+    if (!conta) continue;
+    const textos = {
+      agiu: 'a página vê o Esc e o navegador sai da tela cheia',
+      tomado: 'o navegador sai da tela cheia sem a página ver o Esc',
+      chegou: 'a página recebe o Esc e continua em tela cheia',
+      'nao-chegou': 'nada chegou',
+      pulado: 'pulado',
+    };
+    linhas.push(`- Esc em ${MODOS[conta.item.modo]}: ${textos[conta.status[0]] ?? conta.status[0]}.`);
+  }
+  const bloqueio = contarItem('bloqueio');
+  if (bloqueio) {
+    const textos = { chegou: 'concedido', 'nao-chegou': 'recusado', 'nao-existe': 'não existe neste navegador', pulado: 'pulado' };
+    linhas.push(`- Keyboard Lock: ${textos[bloqueio.status[0]] ?? bloqueio.status[0]}.`);
+  }
+  return linhas;
+}
+
+function celula(texto) {
+  return String(texto ?? '').replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim() || '—';
+}
+
+function textoDasRespostas() {
+  const resposta = (nome, padrao = 'não informado') => estado.respostas[nome]?.trim() || padrao;
+  const linhas = [];
+  if (eMac) linhas.push(`- Atalhos "Ir para a Mesa N" do Mission Control: ${resposta('mesas')}; Mesas abertas: ${resposta('quantasMesas')}.`);
+  linhas.push(`- Outras abas abertas na janela: ${resposta('abas')}; ponteiro: ${resposta('ponteiro')}; teclado: ${resposta('teclado')}.`);
+  return linhas;
+}
+
+function gerarResumo() {
+  const sistema = [ambiente.sistema, ambiente.versaoSistema].filter(Boolean).join(' ');
+  const linhas = [
+    `### Bateria de teclas: ${ambiente.navegador} ${ambiente.versao} no ${sistema}`,
+    '',
+    `- Começou em ${ambiente.inicio}; página aberta por ${location.protocol.replace(':', '')} (contexto seguro: ${window.isSecureContext ? 'sim' : 'não'}).`,
+    `- Tela ${screen.width}×${screen.height} a ${window.devicePixelRatio}x; janela ${innerWidth}×${innerHeight}; pontos de toque: ${navigator.maxTouchPoints}.`,
+    ...textoDasRespostas(),
+  ];
+  if (ambiente.mapaDeTeclas) linhas.push(`- Mapa de teclas do navegador: ${ambiente.mapaDeTeclas}.`);
+  linhas.push(`- Navegador completo: ${ambiente.ua}`);
+  linhas.push('- Legenda: chegou = a página recebeu e cancelou; chegou + agiu = a página recebeu, mas o navegador ou o sistema também agiu; tomado = o navegador ou o sistema ficou com ela; não chegou = nada chegou e nada aconteceu.');
+  linhas.push('', '| Teste | Modo | Resultado | O que chegou |', '| --- | --- | --- | --- |');
+  for (const item of ITENS_VISIVEIS) linhas.push(`| ${celula(item.titulo)} | ${MODOS[item.modo]} | ${celula(resumoDoItem(item))} | ${celula(detalheDoItem(item))} |`);
+  const finais = conclusoes();
+  if (finais.length) linhas.push('', 'Leitura automática:', ...finais);
+  const observacoes = estado.respostas.observacoes?.trim();
+  if (observacoes) linhas.push('', `Observações: ${observacoes.replace(/\s*\n+\s*/g, ' ')}`);
+  return linhas.join('\n');
+}
+
+function gerarJson() {
+  return JSON.stringify({ versao: 1, ambiente, respostas: estado.respostas, resultados: estado.resultados, registro: estado.registro }, null, 2);
+}
+
+async function copiar(texto) {
+  const aviso = document.getElementById('aviso-copia');
+  try {
+    await navigator.clipboard.writeText(texto);
+    aviso.textContent = 'Copiado.';
+    return;
+  } catch (erro) {
+    console.warn('clipboard API refused, trying the old way', erro);
+  }
+  const saida = document.getElementById('saida');
+  saida.value = texto;
+  saida.focus();
+  saida.select();
+  const copiou = document.execCommand('copy');
+  aviso.textContent = copiou ? 'Copiado.' : 'O navegador não deixou copiar: o texto está selecionado na caixa abaixo, copie com o teclado.';
+}
+
+// ---------- drawing ----------
+
+function esc(texto) {
+  return String(texto ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+function htmlChips(item) {
+  const r = estado.resultados[item.id] ?? {};
+  return item.chips.map((chip) => {
+    const res = r[chip];
+    const status = res?.status ?? 'pendente';
+    const dica = `${STATUS[status].longo}${res?.motivo ? `: ${res.motivo}` : ''}`;
+    return `<span class="chip" data-chip="${esc(chip)}" data-status="${status}" title="${esc(dica)}">${esc(rotuloDoChip(chip, status))}</span>`;
+  }).join('');
+}
+
+function pedirDesenho() {
+  if (desenhoPedido) return;
+  desenhoPedido = true;
+  requestAnimationFrame(() => {
+    desenhoPedido = false;
+    desenhar();
+  });
+}
+
+function desenhar() {
+  desenharAgora();
+  desenharSecoes();
+  desenharContagem();
+  desenharRegistro();
+  document.getElementById('ambiente-curto').textContent = `${ambiente.navegador} ${ambiente.versao} no ${[ambiente.sistema, ambiente.versaoSistema].filter(Boolean).join(' ')} · modo: ${MODOS[modoAtual()]}`;
+  document.getElementById('aviso-armazenamento').hidden = !armazenamentoFalhou;
+  const saida = document.getElementById('saida');
+  if (document.activeElement !== saida) saida.value = gerarResumo();
+}
+
+function botao(acao, rotulo, extra = '') {
+  return `<button type="button" data-acao="${acao}" ${extra}>${esc(rotulo)}</button>`;
+}
+
+function desenharAgora() {
+  const item = ITENS_POR_ID[estado.armado];
+  const feitos = ITENS_VISIVEIS.filter(itemCompleto).length;
+  document.getElementById('agora-progresso').textContent = `${feitos} de ${ITENS_VISIVEIS.length} testes feitos`;
+  const titulo = document.getElementById('agora-titulo');
+  const instrucao = document.getElementById('agora-instrucao');
+  const chips = document.getElementById('agora-chips');
+  const acoes = document.getElementById('agora-acoes');
+  pad.hidden = !item?.ponteiro;
+  if (!item) {
+    titulo.textContent = `Nada armado no modo ${MODOS[modoAtual()]}`;
+    instrucao.textContent = feitos === ITENS_VISIVEIS.length ? 'Tudo feito. Copie o resultado lá embaixo.' : 'Escolha um teste na lista (botão Testar) ou siga para a tela cheia.';
+    chips.innerHTML = '';
+    acoes.innerHTML = feitos === ITENS_VISIVEIS.length ? botao('copiar-resumo', 'Copiar resultado', 'class="principal"') : '';
+    return;
+  }
+  titulo.textContent = `Agora: ${item.titulo}${item.modo === 'normal' ? '' : ` (${MODOS[item.modo]})`}`;
+  instrucao.textContent = item.instrucao;
+  chips.innerHTML = htmlChips(item);
+  const lista = [];
+  if (item.acao === 'tela-cheia') lista.push(botao('tela-cheia', 'Entrar em tela cheia', 'class="principal"'));
+  else if (item.acao === 'bloqueio') lista.push(botao('bloqueio', 'Tela cheia com bloqueio de teclas', 'class="principal"'));
+  else if (item.modo !== modoAtual()) {
+    instrucao.textContent = `Este teste é em ${MODOS[item.modo]}. ${item.instrucao}`;
+    lista.push(item.modo === 'bloqueio' ? botao('bloqueio', 'Tela cheia com bloqueio de teclas', 'class="principal"') : botao('tela-cheia', 'Entrar em tela cheia', 'class="principal"'));
+  } else {
+    lista.push(botao('nao-chegou', 'Não chegou nada'), botao('agiu', 'O navegador ou o sistema agiu'));
+    if (item.chips.length > 1 && ultimoChipResolvido(item) && proximoChip(item)) lista.push(botao('repetir', 'Os que faltam: igual ao último'));
+  }
+  lista.push(botao('pular', 'Pular'), botao('refazer', 'Refazer'));
+  acoes.innerHTML = lista.join('');
+}
+
+function desenharSecoes() {
+  const html = SECOES.map((secao) => {
+    const itens = ITENS_VISIVEIS.filter((item) => item.secao === secao.id);
+    const linhas = itens.map((item) => `
+      <li class="item${estado.armado === item.id ? ' armado' : ''}" data-item="${item.id}">
+        <div><strong>${esc(item.titulo)}</strong>${item.modo === 'normal' ? '' : `<span class="item-modo">${MODOS[item.modo]}</span>`}${item.opcional ? '<span class="item-modo">opcional</span>' : ''}</div>
+        <div class="chips">${htmlChips(item)}</div>
+        <div class="item-resumo">${esc(resumoDoItem(item))}${detalheDoItem(item) ? ` · ${esc(detalheDoItem(item))}` : ''}</div>
+        ${botao('armar', itemCompleto(item) ? 'Refazer' : 'Testar', `data-id="${item.id}"`)}
+      </li>`).join('');
+    const extra = secao.botao ? botao(secao.botao.acao, secao.botao.rotulo) : '';
+    return `<section><div class="secao-cabeca"><h2>${esc(secao.titulo)}</h2>${extra}</div><p class="fraco">${esc(secao.texto)}</p><ul class="itens">${linhas}</ul></section>`;
+  }).join('');
+  document.getElementById('secoes').innerHTML = html;
+}
+
+function desenharContagem() {
+  const contagem = Object.fromEntries(Object.keys(STATUS).map((status) => [status, 0]));
+  for (const item of ITENS_VISIVEIS) for (const chip of item.chips) contagem[estado.resultados[item.id]?.[chip]?.status ?? 'pendente'] += 1;
+  document.getElementById('contagem').textContent = Object.entries(contagem).filter(([, n]) => n).map(([status, n]) => `${STATUS[status].rotulo}: ${n}`).join(' · ');
+}
+
+function desenharRegistro() {
+  const linhas = estado.registro.slice(-LINHAS_NA_TABELA).reverse().map((entrada) => `<tr><td>${esc(entrada.hora)}</td><td>${esc(MODOS[entrada.modo] ?? entrada.modo)}</td><td>${esc(entrada.evento)}</td><td>${esc(entrada.code)}</td><td>${esc(entrada.key === undefined ? '' : JSON.stringify(entrada.key))}</td><td>${esc(entrada.mods)}</td><td>${esc(entrada.detalhe)}</td></tr>`);
+  document.getElementById('registro').innerHTML = linhas.join('');
+}
+
+function mostrarUltimo(texto) {
+  document.getElementById('ultimo').textContent = `Último evento: ${texto}`;
+}
+
+function desenharRespostas() {
+  const campos = [
+    eMac && `<label>Atalhos “Ir para a Mesa N” do Mission Control<select data-resposta="mesas"><option value="">escolha</option><option>ligados</option><option>desligados</option><option>não sei</option></select></label>`,
+    eMac && '<label>Quantas Mesas estão abertas<input data-resposta="quantasMesas" inputmode="numeric" placeholder="por exemplo: 3"></label>',
+    '<label>Outras abas abertas nesta janela<input data-resposta="abas" inputmode="numeric" placeholder="por exemplo: 2"></label>',
+    '<label>Ponteiro<select data-resposta="ponteiro"><option value="">escolha</option><option>só trackpad</option><option>trackpad e mouse</option><option>só mouse</option></select></label>',
+    '<label>Teclado<input data-resposta="teclado" placeholder="por exemplo: embutido do MacBook, ABNT2"></label>',
+    '<label>Observações<textarea data-resposta="observacoes" rows="2" placeholder="o que mais você viu"></textarea></label>',
+  ].filter(Boolean);
+  const caixa = document.getElementById('respostas');
+  caixa.innerHTML = campos.join('');
+  for (const campo of caixa.querySelectorAll('[data-resposta]')) campo.value = estado.respostas[campo.dataset.resposta] ?? '';
+}
+
+function desenharLegenda() {
+  document.getElementById('legenda').innerHTML = Object.entries(STATUS).map(([status, { longo }]) => `<span><span class="chip" data-status="${status}"></span> ${esc(longo)}</span>`).join('');
+}
+
+// ---------- wiring ----------
+
+document.addEventListener('click', (e) => {
+  const alvo = e.target instanceof Element ? e.target.closest('[data-acao]') : null;
+  if (!alvo) return;
+  const item = ITENS_POR_ID[alvo.dataset.id ?? estado.armado];
+  const acoes = {
+    armar: () => (itemCompleto(item) ? refazer(item) : armar(item.id)),
+    'nao-chegou': () => naoChegou(item),
+    agiu: () => navegadorAgiu(item),
+    repetir: () => repetirUltimo(item),
+    pular: () => pular(item),
+    refazer: () => refazer(item),
+    'tela-cheia': () => entrarTelaCheia(),
+    bloqueio: () => entrarComBloqueio(),
+    'copiar-resumo': () => copiar(gerarResumo()),
+    'copiar-json': () => copiar(gerarJson()),
+    limpar: () => {
+      if (!confirm('Apagar todos os resultados desta bateria? As respostas de “Antes de começar” ficam.')) return;
+      estado.resultados = {};
+      estado.registro = [];
+      armarProximo(null);
+    },
+  };
+  // Buttons keep focus after a click, and Space or Enter would press them again during a key test.
+  alvo.blur();
+  if (item || !['armar', 'nao-chegou', 'agiu', 'repetir', 'pular', 'refazer'].includes(alvo.dataset.acao)) acoes[alvo.dataset.acao]?.();
+});
+
+document.getElementById('respostas').addEventListener('input', (e) => {
+  const campo = e.target.closest('[data-resposta]');
+  if (!campo) return;
+  estado.respostas[campo.dataset.resposta] = campo.value;
+  salvarEDesenhar();
+});
+
+addEventListener('keydown', aoApertar, { capture: true });
+addEventListener('keyup', aoSoltar, { capture: true });
+addEventListener('blur', () => {
+  aoSinal('blur', 'a janela perdeu o foco');
+  document.getElementById('sem-foco').hidden = false;
+});
+addEventListener('focus', () => {
+  registrar({ evento: 'a janela voltou a ter foco' });
+  document.getElementById('sem-foco').hidden = true;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) aoSinal('oculta', 'a aba ficou oculta');
+  else registrar({ evento: 'a aba voltou a aparecer' });
+});
+document.addEventListener('fullscreenchange', aoMudarTelaCheia);
+document.addEventListener('webkitfullscreenchange', aoMudarTelaCheia);
+addEventListener('scroll', () => aoSinal('rolagem', 'a página rolou'), { passive: true });
+addEventListener('pagehide', () => {
+  aoSinal('pagehide', 'a página foi trocada ou recarregada');
+  salvar();
+});
+addEventListener('pageshow', (e) => {
+  if (e.persisted) registrar({ evento: 'a página voltou do histórico' });
+});
+window.visualViewport?.addEventListener('resize', () => {
+  if (window.visualViewport.scale === 1) return;
+  ultimoZoom = performance.now();
+  aoSinal('zoom', 'a página deu zoom');
+});
+
+if (!estado.armado && !ITENS_VISIVEIS.some(itemCompleto)) armarProximo(null);
+if (ITENS_POR_ID[estado.armado]?.modo !== modoAtual()) armarProximo();
+document.getElementById('sem-foco').hidden = document.hasFocus();
+desenharRespostas();
+desenharLegenda();
+desenhar();
+completarAmbiente();
+</script>
+</body>
+</html>
