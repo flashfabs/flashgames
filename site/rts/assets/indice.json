@@ -1,0 +1,176 @@
+{
+  "versao": 1,
+  "assets": {
+    "desligados-veiculo-carro-vela": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 3055906,
+        "hd": 973296
+      }
+    },
+    "efeito-explosao-media": {
+      "manifesto": "sprites/efeito/efeito-explosao-media.json",
+      "tipo": "efeito",
+      "categoria": "efeito",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 37734,
+        "hd": 18156
+      }
+    },
+    "interface-icone-escritorio-regional": {
+      "manifesto": "interface/interface-icone-escritorio-regional.json",
+      "tipo": "interface",
+      "categoria": "icone",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 3654,
+        "hd": 1450
+      }
+    },
+    "interface-retrato-turma-de-linha": {
+      "manifesto": "interface/interface-retrato-turma-de-linha.json",
+      "tipo": "interface",
+      "categoria": "retrato",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 53898,
+        "hd": 21880
+      }
+    },
+    "religadores-construcao-escritorio-regional": {
+      "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 457610,
+        "hd": 126554
+      }
+    },
+    "religadores-infantaria-turma-de-linha": {
+      "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha.json",
+      "tipo": "unidade",
+      "categoria": "infantaria",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 768422,
+        "hd": 290294
+      }
+    },
+    "religadores-veiculo-cesto-blindado": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 5078594,
+        "hd": 1617402
+      }
+    },
+    "religadores-veiculo-cesto-blindado-e45": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-e45.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 4904562,
+        "hd": 1555220
+      }
+    },
+    "religadores-veiculo-cesto-blindado-e65": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-e65.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 5202198,
+        "hd": 1634848
+      }
+    },
+    "terreno-terra-batida": {
+      "manifesto": "terreno/terreno-terra-batida.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "fases": [
+        "portao",
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 51996,
+        "hd": 18860
+      }
+    },
+    "teste-veiculo-tanque": {
+      "manifesto": "sprites/veiculo/teste-veiculo-tanque.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "fases": [
+        "teste"
+      ],
+      "bytes": {
+        "uhd": 646286,
+        "hd": 203040
+      }
+    }
+  },
+  "fases": {
+    "portao": [
+      "desligados-veiculo-carro-vela",
+      "efeito-explosao-media",
+      "interface-icone-escritorio-regional",
+      "interface-retrato-turma-de-linha",
+      "religadores-construcao-escritorio-regional",
+      "religadores-infantaria-turma-de-linha",
+      "religadores-veiculo-cesto-blindado",
+      "religadores-veiculo-cesto-blindado-e45",
+      "religadores-veiculo-cesto-blindado-e65",
+      "terreno-terra-batida"
+    ],
+    "fase-1": [
+      "desligados-veiculo-carro-vela",
+      "efeito-explosao-media",
+      "interface-icone-escritorio-regional",
+      "interface-retrato-turma-de-linha",
+      "religadores-construcao-escritorio-regional",
+      "religadores-infantaria-turma-de-linha",
+      "religadores-veiculo-cesto-blindado",
+      "religadores-veiculo-cesto-blindado-e45",
+      "religadores-veiculo-cesto-blindado-e65",
+      "terreno-terra-batida"
+    ],
+    "teste": [
+      "teste-veiculo-tanque"
+    ]
+  }
+}
