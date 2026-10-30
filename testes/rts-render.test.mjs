@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { criarProjecao, validarProjecao, pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from '../site/rts/js/render/projecao.js';
 import { criarControleDeEscala, DEGRAUS } from '../site/rts/js/render/escala.js';
 import { lerManifesto, direcaoDoAngulo, quadroDaAnimacao } from '../site/rts/js/ativos/manifesto.js';
+import { pontoDeEncaixe } from '../site/rts/js/render/sprites.js';
 
 const projecaoJson = JSON.parse(readFileSync(new URL('../site/rts/dados/projecao.json', import.meta.url), 'utf8'));
 const copia = () => structuredClone(projecaoJson);
@@ -310,4 +311,29 @@ test('the canvas follows CSS size times DPR, capped at the pixel count of 4K kee
   const [lu, au] = tamanhoNativo(2560, 1080, 2);
   assert.ok(lu * au <= TETO_PIXELS && lu > 3840, `an ultrawide keeps more width than 3840: ${lu}x${au}`);
   assert.deepEqual(tamanhoNativo(800, 600, 1), [800, 600]);
+});
+
+test('the manifest reader keeps every point name, halves uhd points for hd and reads the shadow page', () => {
+  const m = manifestoExemplo();
+  m.paginas.uhd[0].sombra = 'p0.sombra.webp';
+  m.paginas.hd = [{ cor: 'h0.cor.webp', time: 'h0.time.webp', largura: 256, altura: 128 }];
+  m.quadros.hd = m.quadros.uhd.map(([p, x, y, l, a, dx, dy]) => [p, x / 2, y / 2, l / 2, a / 2, dx / 2, dy / 2]);
+  m.pontos.uhd.giroflex = m.pontos.uhd.topo.map(p => (p ? [p[0] + 1, p[1] - 10] : null));
+  const lido = lerManifesto(m, 'https://exemplo.test/s/m.json');
+  assert.equal(lido.niveis.uhd.paginas[0].sombra, 'https://exemplo.test/s/p0.sombra.webp');
+  assert.equal(lido.niveis.hd.paginas[0].sombra, null);
+  assert.deepEqual(Object.keys(lido.niveis.hd.pontos).sort(), ['giroflex', 'topo']);
+  assert.equal(lido.niveis.hd.pontos.giroflex[3 * 2], 2, 'hd point is half of the uhd one');
+});
+
+test('the turret anchor is a ground point; other points are heights over the anchor', () => {
+  const projecao = criarProjecao(copia());
+  const folha = { pxNivel: 128, pontos: { encaixe_torre: Float32Array.from([-64, -26.2]), topo: Float32Array.from([0, -73.4]) } };
+  const saida = new Float64Array(3);
+  assert.ok(pontoDeEncaixe(folha, 'encaixe_torre', 0, projecao, saida));
+  assert.equal(saida[0], -0.5);
+  assert.ok(Math.abs(saida[1] - -26.2 / (128 * projecao.seno)) < 1e-6 && saida[2] === 0, 'north of the anchor on the ground');
+  assert.ok(pontoDeEncaixe(folha, 'topo', 0, projecao, saida));
+  assert.ok(saida[1] === 0 && Math.abs(saida[2] - (73.4 / 128) * (4 / projecao.cosseno)) < 1e-6, 'a height in metres');
+  assert.equal(pontoDeEncaixe(folha, 'boca', 0, projecao, saida), false);
 });

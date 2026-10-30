@@ -6,12 +6,13 @@
 // Frame index: base(animation) + direction * frames + frame, animations in the order they are listed.
 
 export const NIVEIS = Object.freeze(['hd', 'uhd']);
+// Points the renderer uses by name; the reader keeps every name the art exports (giroflex, lanterna...).
 export const PONTOS = Object.freeze(['encaixe_torre', 'boca', 'escape', 'topo']);
 const CAMPOS_QUADRO = 7;
 
 /**
  * @typedef {{ nome: string, camada: string, quadros: number, fps: number, laco: boolean, direcoes: number, base: number }} Animacao
- * @typedef {{ paginas: { cor: string, time: string | null, largura: number, altura: number }[], quadros: Float32Array, pontos: Record<string, Float32Array>, pxPorCelula: number | null }} Nivel
+ * @typedef {{ paginas: { cor: string, time: string | null, sombra: string | null, largura: number, altura: number }[], quadros: Float32Array, pontos: Record<string, Float32Array>, pxPorCelula: number | null }} Nivel
  */
 
 /**
@@ -63,7 +64,7 @@ export function lerManifesto(m, base) {
     niveis[nivel] = {
       paginas: paginas.map((p, i) => {
         if (typeof p.cor !== 'string' || !(p.largura > 0) || !(p.altura > 0)) falha(`${nivel}: página ${i} malformada`);
-        return { cor: resolver(p.cor), time: resolver(p.time), largura: p.largura, altura: p.altura };
+        return { cor: resolver(p.cor), time: resolver(p.time), sombra: resolver(p.sombra), largura: p.largura, altura: p.altura };
       }),
       quadros: tabela,
       pontos: lerPontos(m, nivel, total, falha),
@@ -93,9 +94,8 @@ function lerPontos(m, nivel, total, falha) {
   const pontos = {};
   const fonte = m.pontos?.[nivel];
   const fonteUhd = nivel === 'hd' && !fonte ? m.pontos?.uhd : null;
-  for (const nome of PONTOS) {
-    const lista = fonte?.[nome] ?? fonteUhd?.[nome];
-    if (!lista) continue;
+  for (const nome of Object.keys(fonte ?? fonteUhd ?? {})) {
+    const lista = (fonte ?? fonteUhd)[nome];
     if (!Array.isArray(lista) || lista.length !== total) falha(`${nivel}: pontos.${nome} precisa de um par por quadro`);
     const escala = fonteUhd ? 0.5 : 1;
     // NaN marks a frame without the point (the part is hidden in that frame)

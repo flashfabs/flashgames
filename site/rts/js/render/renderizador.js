@@ -148,6 +148,11 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
 
     folhas,
 
+    /** Shadows from the sprite alpha ('alfa', the default until the style gate decides) or the rendered layer ('camada'). */
+    definirModoSombra(modo) {
+      unidades.definirModoSombra(modo);
+    },
+
     /**
      * Draws one frame.
      * @param {{ agora: number, dt: number, estado: any, selecionadas: Set<number> }} p

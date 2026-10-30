@@ -142,23 +142,31 @@ void main() {
   cor = vec4(tingido, c.a) * vAlfa;
 }`;
 
-// Shadow derived from the sprite's alpha, slid along the ground away from the sun by the shadow height.
+// Shadow of a sprite. With a shadow height (aDados.z >= 0) it is derived from the sprite's alpha, slid along the
+// ground away from the sun by that height; with aDados.z < 0 it is the rendered shadow layer of the sheet, drawn
+// in place (the art renders it from the same camera, so it already lies on the ground).
 export const VERT_SOMBRA = `${CABECALHO}${SPRITE_VERT_COMUM}
+flat out float vCamada;
 void main() {
-  vec2 longeDoSol = -normalize(uSol.xy) * (aDados.z / uRes.w) * length(uSol.xy) / max(uSol.z, 0.2);
+  float altura = max(aDados.z, 0.0);
+  vec2 longeDoSol = -normalize(uSol.xy) * (altura / uRes.w) * length(uSol.xy) / max(uSol.z, 0.2);
   vec2 tela;
   quadroDoSprite(longeDoSol, tela);
   gl_Position = paraClip(tela);
+  vCamada = aDados.z < 0.0 ? 1.0 : 0.0;
 }`;
 
 export const FRAG_SOMBRA = `${CABECALHO}
 uniform sampler2DArray uCor;
+uniform sampler2DArray uSombra;
 in vec3 vUV;
 flat in int vTime;
 flat in float vAlfa;
+flat in float vCamada;
 out vec4 cor;
 void main() {
-  cor = vec4(0.0, 0.0, 0.0, texture(uCor, vUV).a * 0.32 * vAlfa);
+  float a = vCamada > 0.5 ? texture(uSombra, vUV).r * 0.6 : texture(uCor, vUV).a * 0.32;
+  cor = vec4(0.0, 0.0, 0.0, a * vAlfa);
 }`;
 
 // Ground ring under a unit: aPosicao = (x, y, radius in cells, line width in px), aDados = rgba.

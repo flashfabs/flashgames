@@ -18,7 +18,7 @@ const FICHA_PX_NIVEL = 96;
  * @typedef {{
  *   asset: string, primeiroQuadro: number, direcoes: number, pxNivel: number,
  *   animacoes: Map<string, import('../ativos/manifesto.js').Animacao>,
- *   pontos: Record<string, Float32Array>, alturaBarraMetros: number,
+ *   pontos: Record<string, Float32Array>, alturaBarraMetros: number, temSombra: boolean,
  * }} Folha
  */
 
@@ -47,11 +47,16 @@ export function criarFolhas(backend, projecao, quadroComum) {
     return primeiro;
   }
 
-  // Height of the health bar in metres, from the "topo" point of the first frame when the art provides it.
-  function alturaDaBarra(pontos, pxNivel, padrao) {
+  // Height of the health bar in metres: the highest "topo" point over the frames of the idle body animation, so the
+  // bar stays put while the unit turns; without the point, a default.
+  function alturaDaBarra(pontos, animacao, pxNivel, padrao) {
     const topo = pontos.topo;
-    if (!topo || Number.isNaN(topo[1])) return padrao;
-    return (-topo[1] / pxNivel) * (projecao.metrosPorCelula / projecao.cosseno);
+    if (!topo || !animacao) return padrao;
+    let maior = -Infinity;
+    for (let i = animacao.base; i < animacao.base + animacao.direcoes * animacao.quadros; i++) {
+      if (!Number.isNaN(topo[i * 2 + 1])) maior = Math.max(maior, -topo[i * 2 + 1]);
+    }
+    return maior > -Infinity ? (maior / pxNivel) * (projecao.metrosPorCelula / projecao.cosseno) : padrao;
   }
 
   function publicar(folha) {
@@ -70,16 +75,19 @@ export function criarFolhas(backend, projecao, quadroComum) {
     async adicionarManifesto(manifesto, nivelDesejado) {
       const nivel = nivelDisponivel(manifesto, nivelDesejado);
       const n = manifesto.niveis[nivel];
-      const imagens = await Promise.all(n.paginas.map(p => Promise.all([carregarImagem(p.cor, true), p.time ? carregarImagem(p.time, false) : null])));
+      const imagens = await Promise.all(
+        n.paginas.map(p => Promise.all([carregarImagem(p.cor, true), p.time ? carregarImagem(p.time, false) : null, p.sombra ? carregarImagem(p.sombra, false) : null])),
+      );
       const largura = Math.max(...n.paginas.map(p => p.largura));
       const altura = Math.max(...n.paginas.map(p => p.altura));
       const camadaBase = proximaCamada;
       proximaCamada += n.paginas.length;
       backend.garantirCamadas(largura, altura, proximaCamada);
-      imagens.forEach(([cor, time], i) => {
-        backend.enviarPagina(camadaBase + i, cor, time, n.paginas[i].largura, n.paginas[i].altura);
+      imagens.forEach(([cor, time, sombra], i) => {
+        backend.enviarPagina(camadaBase + i, cor, time, sombra, n.paginas[i].largura, n.paginas[i].altura);
         cor.close();
         time?.close();
+        sombra?.close();
       });
       const pxNivel = n.pxPorCelula ?? projecao.pxNivel[nivel];
       const primeiro = reservarQuadros(manifesto.totalQuadros);
@@ -98,7 +106,8 @@ export function criarFolhas(backend, projecao, quadroComum) {
         nivel,
         animacoes: new Map(manifesto.animacoes.map(a => [a.nome, a])),
         pontos: n.pontos,
-        alturaBarraMetros: alturaDaBarra(n.pontos, pxNivel, 3),
+        alturaBarraMetros: alturaDaBarra(n.pontos, manifesto.animacao('parado') ?? manifesto.animacoes[0], pxNivel, 3),
+        temSombra: n.paginas.some(p => p.sombra),
       });
     },
 
@@ -138,6 +147,7 @@ export function criarFolhas(backend, projecao, quadroComum) {
           ]),
           pontos: {},
           alturaBarraMetros: 2.2,
+          temSombra: false,
         });
       }
       backend.definirQuadros(tabela, totalQuadros);
@@ -166,10 +176,13 @@ export function quadroGlobal(folha, animacao, angulo256, tempoS) {
   return folha.primeiroQuadro + quadroDaAnimacao(animacao, direcaoDoAngulo(angulo256, animacao.direcoes), tempoS);
 }
 
+// Points that lie on the ground (the turret axis meets the hull there); every other point is read as a height
+// above the anchor, which lands on the same screen pixel.
+const PONTOS_NO_CHAO = new Set(['encaixe_torre']);
+
 /**
- * Attachment point of a frame in map cells relative to the anchor, as a ground offset plus a height,
- * written into saida as [dx cells, dy cells, height metres]; false when the frame has no such point.
- * Screen offsets are taken as height (the point is above the anchor on the model's vertical axis).
+ * Attachment point of a frame relative to the anchor, written into saida as [dx cells, dy cells, height metres];
+ * false when the frame has no such point.
  * @param {Folha} folha
  * @param {string} nome
  * @param {number} quadroLocal frame index within the sheet
@@ -183,7 +196,12 @@ export function pontoDeEncaixe(folha, nome, quadroLocal, projecao, saida) {
   const py = tabela[quadroLocal * 2 + 1];
   if (Number.isNaN(px)) return false;
   saida[0] = px / folha.pxNivel;
-  saida[1] = 0;
-  saida[2] = (-py / folha.pxNivel) * (projecao.metrosPorCelula / projecao.cosseno);
+  if (PONTOS_NO_CHAO.has(nome)) {
+    saida[1] = py / (folha.pxNivel * projecao.seno);
+    saida[2] = 0;
+  } else {
+    saida[1] = 0;
+    saida[2] = (-py / folha.pxNivel) * (projecao.metrosPorCelula / projecao.cosseno);
+  }
   return true;
 }

@@ -1,7 +1,8 @@
 // Atlas viewer for the style gate (site/rts/ferramentas/visualizador.html): shows a sprite sheet with the game's own
 // renderer, projection, team tint and shadow, over the procedural terrain with a cell ruler and the attachment
 // points, and compares two versions side by side under the same controls (animation, direction, level, team, zoom).
-// URL parameters mirror the controls: a, b (built-in id or manifest URL), anim, dir, modo, nivel, time, zoom.
+// URL parameters mirror the controls: a, b (built-in id or manifest URL), anim, torre, dir, modo, nivel, time, zoom
+// and sombra (alfa, camada, comparar or nenhuma; comparar puts the alpha-derived shadow on A and the rendered layer on B).
 import { carregarProjecao, mundoParaTela } from './projecao.js';
 import { criarRenderizador } from './renderizador.js';
 import { tamanhoNativo } from './resolucao.js';
@@ -17,12 +18,15 @@ const EMBUTIDAS = [
   { id: 'ficha-veiculo-leve', nome: 'Ficha: veículo leve' },
 ];
 const CORES_PONTOS = { encaixe_torre: '#6dff8a', boca: '#ffcf7a', escape: '#9ab0ff', topo: '#ff7ae0' };
+const COR_OUTROS_PONTOS = '#ffffff';
+const ehTorre = a => a.camada.startsWith('torre');
 
 const $ = id => document.getElementById(id);
 const parametros = new URLSearchParams(location.search);
 const projecao = await carregarProjecao();
 const controles = {
   animacao: parametros.get('anim') ?? '',
+  animacaoTorre: parametros.get('torre') ?? 'torre',
   direcao: Number(parametros.get('dir') ?? 0),
   torre: 0,
   modo: parametros.get('modo') ?? 'uma',
@@ -32,7 +36,7 @@ const controles = {
   girar: false,
   regua: true,
   pontos: true,
-  sombra: true,
+  sombra: parametros.get('sombra') ?? 'alfa',
 };
 
 function criarLista(capacidade) {
@@ -107,13 +111,8 @@ async function carregarFonte(lado, fonte) {
   if (!fonte) return;
   try {
     if (fonte === 'prototipo') lado.folha = await lado.render.carregarPrototipo();
-    else if (fonte.startsWith('ficha-')) {
-      lado.folha = lado.render.folhas.folha(fonte);
-      lado.torre = lado.folha;
-    } else {
-      lado.folha = await lado.render.carregarManifesto(fonte, controles.nivel);
-      lado.torre = lado.folha.animacoes.has('torre') ? lado.folha : null;
-    }
+    else lado.folha = fonte.startsWith('ficha-') ? lado.render.folhas.folha(fonte) : await lado.render.carregarManifesto(fonte, controles.nivel);
+    lado.torre = lado.folha && [...lado.folha.animacoes.values()].some(ehTorre) ? lado.folha : null;
     if (!lado.folha) throw new Error('asset não encontrado');
   } catch (erro) {
     lado.erro = erro.message;
@@ -125,7 +124,11 @@ async function carregarFonte(lado, fonte) {
 // ---------- controls ----------
 
 function animacoesDoCorpo(folha) {
-  return folha ? [...folha.animacoes.values()].filter(a => a.camada !== 'torre') : [];
+  return folha ? [...folha.animacoes.values()].filter(a => !ehTorre(a)) : [];
+}
+
+function animacoesDaTorre(folha) {
+  return folha ? [...folha.animacoes.values()].filter(ehTorre) : [];
 }
 
 function atualizarAnimacoes() {
@@ -134,6 +137,11 @@ function atualizarAnimacoes() {
   select.replaceChildren(...[...nomes].map(n => new Option(n, n)));
   if (!nomes.has(controles.animacao)) controles.animacao = nomes.values().next().value ?? '';
   select.value = controles.animacao;
+  const torres = new Set(lados.flatMap(l => animacoesDaTorre(l.folha).map(a => a.nome)));
+  const selectTorre = $('animacao-torre');
+  selectTorre.replaceChildren(new Option('nenhuma', ''), ...[...torres].map(n => new Option(n, n)));
+  if (controles.animacaoTorre && !torres.has(controles.animacaoTorre)) controles.animacaoTorre = torres.has('torre') ? 'torre' : '';
+  selectTorre.value = controles.animacaoTorre;
   const direcoes = Math.max(1, ...lados.map(l => l.folha?.animacoes.get(controles.animacao)?.direcoes ?? l.folha?.direcoes ?? 1));
   $('direcao').max = String(direcoes - 1);
   controles.direcao = Math.min(controles.direcao, direcoes - 1);
@@ -164,6 +172,7 @@ function ligarControles() {
     $('direcao-valor').value = e.target.value;
   });
   $('torre').addEventListener('input', e => (controles.torre = Number(e.target.value)));
+  $('animacao-torre').addEventListener('change', e => (controles.animacaoTorre = e.target.value));
   $('modo').value = controles.modo;
   $('modo').addEventListener('change', e => (controles.modo = e.target.value));
   $('nivel').value = controles.nivel;
@@ -173,7 +182,9 @@ function ligarControles() {
   });
   $('zoom').value = String(controles.zoom);
   $('zoom').addEventListener('change', e => (controles.zoom = Number(e.target.value)));
-  for (const nome of ['girar', 'regua', 'pontos', 'sombra']) {
+  $('sombra').value = controles.sombra;
+  $('sombra').addEventListener('change', e => (controles.sombra = e.target.value));
+  for (const nome of ['girar', 'regua', 'pontos']) {
     $(nome).checked = controles[nome];
     $(nome).addEventListener('change', e => (controles[nome] = e.target.checked));
   }
@@ -231,7 +242,10 @@ function montarLado(lado, tempoS, direcaoMostrada) {
   if (!folha) return;
   const anim = folha.animacoes.get(controles.animacao) ?? animacoesDoCorpo(folha)[0];
   if (!anim) return;
-  const animTorre = lado.torre?.animacoes.get('torre') ?? null;
+  // a body animation of the combined layer already contains the turret
+  const animTorre = anim.camada === 'completo' || !controles.animacaoTorre ? null : (lado.torre?.animacoes.get(controles.animacaoTorre) ?? null);
+  const camada = controles.sombra === 'camada' || (controles.sombra === 'comparar' && lado === lados[1]);
+  const sombraMetros = camada && folha.temSombra ? -1 : 1.2;
   const total = controles.modo === 'todas' ? anim.direcoes : 1;
   // ring wide enough for one unit of about 1.7 cells per direction
   const raio = Math.max(2.6, (anim.direcoes * 1.7) / (2 * Math.PI));
@@ -252,8 +266,8 @@ function montarLado(lado, tempoS, direcaoMostrada) {
       partes.push([tx, ty, tz, quadroGlobal(lado.torre, animTorre, anguloTorre, tempoS)]);
     }
     for (const [px, py, pz, q] of partes) {
-      escreverSprite(listas.sprites, px, py, pz, q, 1.2);
-      if (controles.sombra) escreverSprite(listas.sombras, px, py, pz, q, 1.2);
+      escreverSprite(listas.sprites, px, py, pz, q, sombraMetros);
+      if (controles.sombra !== 'nenhuma') escreverSprite(listas.sombras, px, py, pz, q, sombraMetros);
     }
     if (controles.pontos) {
       const o = listas.barras.n++ * FLOATS_INSTANCIA;
@@ -312,16 +326,23 @@ function desenharRegua(lado) {
       c.moveTo(ax, ay - 6 * dpr);
       c.lineTo(ax, ay + 6 * dpr);
       c.stroke();
-      for (const [nome, cor] of Object.entries(CORES_PONTOS)) {
+      for (const nome of Object.keys(lado.folha.pontos)) {
         if (!pontoDeEncaixe(lado.folha, nome, u.local, projecao, ponto)) continue;
         const [x, y] = tela(u.x + ponto[0], u.y + ponto[1], ponto[2]);
-        c.fillStyle = cor;
+        c.fillStyle = CORES_PONTOS[nome] ?? COR_OUTROS_PONTOS;
         c.beginPath();
         c.arc(x, y, 4 * dpr, 0, 2 * Math.PI);
         c.fill();
       }
     }
   }
+}
+
+function descreverSombra(lado) {
+  if (controles.sombra === 'nenhuma') return 'nenhuma';
+  const camada = controles.sombra === 'camada' || (controles.sombra === 'comparar' && lado === lados[1]);
+  if (!camada) return 'derivada do alfa';
+  return lado.folha.temSombra ? 'camada renderizada' : 'derivada do alfa (o asset não tem camada)';
 }
 
 function escreverLegenda(lado) {
@@ -341,8 +362,8 @@ function escreverLegenda(lado) {
   lado.legenda.innerHTML =
     `<b>${f.asset}</b> · nível ${f.nivel} · ${direcoes} direções · ${anim ? `${anim.quadros} quadros a ${anim.fps} q/s` : ''}\n` +
     `${px.toFixed(1)} px por célula na tela, ${f.pxNivel.toFixed(1)} no atlas (${(px / f.pxNivel).toFixed(2)}×) · zoom ${controles.zoom}\n` +
-    `1 célula = ${projecao.metrosPorCelula} m · elevação ${projecao.dados.camera.elevacaoGraus}° · pontos: ` +
-    (Object.keys(CORES_PONTOS).filter(n => f.pontos[n]).join(', ') || 'nenhum');
+    `1 célula = ${projecao.metrosPorCelula} m · elevação ${projecao.dados.camera.elevacaoGraus}° · sombra: ${descreverSombra(lado)}\n` +
+    `pontos: ${Object.keys(f.pontos).join(', ') || 'nenhum'} (verde encaixe_torre, amarelo boca, azul escape, rosa topo, branco outros)`;
 }
 
 let ultimoGiro = 0;
