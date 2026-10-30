@@ -42,5 +42,6 @@ Se algo quebrar em produção depois da sua publicação, corrigir é a sua prio
 - Os identificadores do código ficam em português neste projeto, por decisão do Victor em 27/10/2026 (exceção à regra global de nomes em inglês). Código novo segue o mesmo padrão.
 - Nunca usar hard wrap em texto (uma frase por linha), inclusive em Markdown e commits.
 - Rodar `npm test` antes de cada commit; teste novo para regra nova. Mudou fluxo de sala, rede, controles ou tela? Rodar também `npm run e2e`.
+- No GitHub, o Action `.github/workflows/testes.yml` roda `npm test` e os testes de ponta a ponta funcionais em cada pull request e em cada push na `main`, e não publica nada; pull request com essa checagem vermelha não entra na `main`. Os testes de desempenho ficam fora do Action (medem a GPU do Mac pelo Metal, e o servidor do GitHub não tem GPU), então continuam sendo rodados no Mac com `npm run e2e`.
 - Nada de conta nova, serviço pago ou credencial sem o Victor aprovar antes.
 - Para ver o site local no navegador do app, `.claude/launch.json` tem a configuração `salinha` (porta 8792, pasta `site/`).
