@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { ACAO, ATALHOS_PADRAO, RESERVADAS_DO_NAVEGADOR, acaoDaTecla, rotuloDoAtalho } from '../site/rts/js/entrada/teclas.js';
 import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao } from '../site/rts/js/entrada/selecao.js';
 import { criarGrupos, INTERVALO_DUPLO_MS } from '../site/rts/js/entrada/grupos.js';
-import { criarFilaVisual, TOLERANCIA_TICKS } from '../site/rts/js/entrada/fila.js';
+import { criarFilaVisual, TOLERANCIA_TICKS, MAXIMO_NA_FILA } from '../site/rts/js/entrada/fila.js';
 
 const tecla = (code, mods = {}) => ({ code, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
 
@@ -151,4 +151,17 @@ test('click latency closes every pending input at the end of the frame that draw
   medidor.aoDesenhar(5000);
   assert.deepEqual(medidor.amostras().map(amostra => amostra.ms), [30, 20, META_LATENCIA_MS + 20]);
   assert.deepEqual(medidor.resumo(), { n: 3, p50: 30, p95: META_LATENCIA_MS + 20, maximo: META_LATENCIA_MS + 20, acimaDaMeta: 1 });
+});
+
+test('the queue keeps as many points as the simulation keeps orders, and a patrol point stays while patrolling', () => {
+  const PATRULHAR = 6;
+  const fila = criarFilaVisual({ repetem: new Set([PATRULHAR]) });
+  fila.ordenar([1], { x: 0, y: 0 }, 1, false, 0);
+  for (let i = 1; i < MAXIMO_NA_FILA + 3; i++) fila.ordenar([1], { x: i * 10, y: 0 }, 1, true, 0);
+  assert.equal(fila.pontosDe(1).length, MAXIMO_NA_FILA);
+
+  fila.ordenar([2], { x: 5, y: 5 }, PATRULHAR, false, 0);
+  const naPatrulha = (id, saida) => Object.assign(saida, { x: 5, y: 5 }) && true;
+  fila.atualizar(1, naPatrulha, () => false);
+  assert.deepEqual(fila.pontosDe(2), [{ x: 5, y: 5, tipo: PATRULHAR }]);
 });
