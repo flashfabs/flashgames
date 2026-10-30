@@ -22,6 +22,8 @@ const PORTA = Number(process.env.SALINHA_PORTA);
 // A second server on the repository root, for the RTS determinism barrier, which loads prototipos/, site/rts/ and testes/ modules in a Worker.
 process.env.SALINHA_PORTA_RAIZ ??= String(await portaLivre());
 const PORTA_RAIZ = Number(process.env.SALINHA_PORTA_RAIZ);
+// On Windows, python3 is usually the Microsoft Store stub; the PC test runner sets SALINHA_PYTHON=python.
+const PYTHON = process.env.SALINHA_PYTHON ?? 'python3';
 
 const ARGUMENTOS = [
   // Real local IPs instead of mDNS names, so pages of the same browser find each other quickly.
@@ -33,8 +35,10 @@ const ARGUMENTOS = [
   '--autoplay-policy=no-user-gesture-required',
 ];
 // Without these, headless Chromium draws canvases in software (SwiftShader), which costs nothing like a tablet's GPU
-// and grows with the pixel count; with them it uses the Mac's GPU through Metal, like Safari on an iPad would.
-const COM_GPU = ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
+// and grows with the pixel count; with them it uses the GPU, through Metal on the Mac, like Safari on an iPad would.
+// On the Windows PC the ANGLE backend comes from SALINHA_ANGLE, chosen by scripts/rtx-testes.sh after checking which one reaches the NVIDIA card.
+const ANGLE = process.env.SALINHA_ANGLE ?? (process.platform === 'win32' ? 'd3d11' : 'metal');
+const COM_GPU = [`--use-angle=${ANGLE}`, '--enable-gpu', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
 
 export default defineConfig({
   testDir: 'testes/e2e',
@@ -67,14 +71,14 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `python3 -m http.server ${PORTA} --bind 127.0.0.1 --directory site`,
+      command: `${PYTHON} -m http.server ${PORTA} --bind 127.0.0.1 --directory site`,
       url: `http://127.0.0.1:${PORTA}/`,
       reuseExistingServer: false,
       stdout: 'ignore',
       stderr: 'ignore',
     },
     {
-      command: `python3 -m http.server ${PORTA_RAIZ} --bind 127.0.0.1 --directory .`,
+      command: `${PYTHON} -m http.server ${PORTA_RAIZ} --bind 127.0.0.1 --directory .`,
       url: `http://127.0.0.1:${PORTA_RAIZ}/testes/e2e/`,
       reuseExistingServer: false,
       stdout: 'ignore',

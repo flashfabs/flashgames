@@ -19,8 +19,8 @@ const VIZINHO_CUSTO = Int32Array.from([10, 10, 10, 10, 14, 14, 14, 14]);
 const OPOSTO = Int32Array.from([1, 0, 3, 2, 7, 6, 5, 4]);
 // extra cost to enter a cell that touches rock, and one that is two cells from it: paths keep off the walls, so groups
 // go round a spur in a wide arc instead of queueing on its tip
-const PEDAGIO_PAREDE = 6;
-const PEDAGIO_PERTO = 3;
+const PEDAGIO_PAREDE = 24;
+const PEDAGIO_PERTO = 6;
 
 /** Path finding state for one map. */
 export function criarCaminhos(mapa, capacidade = CAPACIDADE_CAMPOS) {
