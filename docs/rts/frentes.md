@@ -26,6 +26,7 @@ Nada do RTS vai para a `main` nem para a Netlify antes disso; nunca force push, 
 3. Avance a `rts/base` e mande para o GitHub: `git -C /Users/vhccruz/Dev/salinha fetch . <sua-branch>:rts/base && git -C /Users/vhccruz/Dev/salinha push origin rts/base`. Se o `fetch` recusar por não ser avanço direto, alguém integrou antes: volte ao passo 2.
 4. Solte a trava (`rm /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock/dono && rmdir /Users/vhccruz/Dev/salinha/.git/rts-integracao.lock`) e mande à `rts-qualidade` uma linha com o que entrou e o commit.
 
+O `npm run e2e` completo roda só com a trava na mão; fora dela, cada sessão roda o `npm test` e só os specs do seu trabalho. Com dois e2e completos ao mesmo tempo a carga do Mac passou de 70 em 30/10/2026 e os testes do Pavio estouraram o tempo sem nada quebrado.
 A `rts/base` nunca fica com checkout em nenhuma worktree, senão o `fetch` do passo 3 é recusado.
 O Action `.github/workflows/testes.yml` roda em cada push da `rts/base`; vermelho na `rts/base` é prioridade de quem integrou por último.
 Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando as outras sessões.

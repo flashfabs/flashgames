@@ -50,9 +50,9 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | `decodeAudioData` de Opus em Ogg e de AAC em MP4 | Playwright no Mac | Opus decodifica no Chromium 153, no Firefox 153 e no WebKit 26.5; AAC decodifica no Chromium e no Firefox e falha no WebKit do Playwright, que vem sem os codecs proprietários (não vale pelo Safari) | `prototipos/diagnostico/`, 30/10/2026 |
 | `decodeAudioData` de Opus e de AAC | Safari 26 | pendente (Victor, roteiro) | — |
 | Bateria de teclas (Ctrl, Option e Shift com 1 a 9, Ctrl e clique, dois dedos, pinça, Espaço, setas, F10, P, atalhos de Mesa do Mission Control) | Safari e Chrome do Mac, Chrome do Windows | pendente (Victor, `prototipos/teclas/` da `rts-interface` pelo roteiro) | — |
-| Log do EEVEE pelo SSH mostra a NVIDIA | PC da RTX 4090 | pendente (`rts-arte`) | — |
-| `rtx.sh renderizar tanque` com trava, código 0 e `relatorio.json` | Mac para o PC da RTX 4090 | pendente (`rts-arte`) | — |
-| Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | pendente (`rts-arte`) | — |
+| EEVEE pelo SSH na GPU | PC da RTX 4090 | usa a NVIDIA: `gpu.platform` depois de `gpu.init()` deu OPENGL, "NVIDIA GeForce RTX 4090/PCIe/SSE2", "4.6.0 NVIDIA 591.86"; o `nvidia-smi` listou o `blender.exe` a 50%; 266 quadros de 256 px em 25 s (94 ms por quadro) | `rts-arte`, 30/10/2026 |
+| `ferramentas/arte/rtx.sh renderizar teste-veiculo-tanque` com trava, código 0 e `relatorio.json` | Mac para o PC da RTX 4090 | código 0; checagem antes do lote com C: 23,1 GB, D: 58,7 GB e 22.924 MiB de VRAM livres; trava pega e solta; OPTIX; 192 renders em 6,95 s, empacotar 2,6 s, lote de 10,4 s; atlas, manifesto, procedência e `indice.json` no repositório | `rts-arte`, 30/10/2026 |
+| Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | sobrevive: com o cliente morto aos 25 s de um lote de 192 quadros, o Blender terminou sozinho; como o `Start-Process` morre quando a sessão SSH termina normalmente, o `rtx.sh` lança o lote pelo WMI (`Win32_Process.Create`) e o próprio PC solta a trava, sem `schtasks`. Queda de rede sem FIN não foi testada (exigiria derrubar o Tailscale) | `rts-arte`, 30/10/2026 |
 | Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados antes do protótipo; 23,98 MiB soltos e 5,44 MiB empacotados com o protótipo e o passo zero (os atlas do protótipo e de `site/rts/assets/prototipo/` são os mesmos objetos) | 30/10/2026 |
 
 Navegadores do Playwright: o 1.63 do projeto pede Firefox 155 e WebKit 26.6, que não estão no cache desta máquina; o Firefox 153 e o WebKit 26.5 do playwright-core 1.62.1 serviram para as medições de 30/10/2026.
@@ -71,8 +71,8 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 | A branch antiga nunca foi ao GitHub | 0 refs com termo proibido em `git ls-remote origin` | 0 de 13 em 30/10/2026 |
 | `npm test` e `npm run e2e` verdes na `rts/base`, sem mexer no Pavio nem no Farm | tudo verde | verde em 30/10/2026 na primeira integração: `npm test` 182 de 182; e2e com 32 funcionais (2 pulados por condição do próprio teste) e 2 de desempenho |
 | Tabela de medições preenchida | toda linha com número ou "não deu, motivo" | em andamento |
-| `rtx.sh` confere espaço em C: e D:, VRAM livre e alcance antes de cada lote | código 0 e `relatorio.json` | pendente (`rts-arte`) |
-| EEVEE pelo SSH na GPU | log com a NVIDIA; senão, flipbooks no Cycles | pendente (`rts-arte`) |
+| `rtx.sh` confere espaço em C: e D:, VRAM livre e alcance antes de cada lote | código 0 e `relatorio.json` | feito em 30/10/2026 (`rts-arte`; números na tabela de medições) |
+| EEVEE pelo SSH na GPU | log com a NVIDIA; senão, flipbooks no Cycles | feito em 30/10/2026: NVIDIA GeForce RTX 4090 no `gpu.platform` (`rts-arte`) |
 | Medições no Windows feitas pelo Victor no PC | string da placa registrada | pendente |
 | D01 a D07, D30 e D31 marcadas | 9 decisões | 9 de 9 em 30/10/2026 |
 
@@ -94,7 +94,7 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 | Critério | Meta | Estado |
 | --- | --- | --- |
 | `rtx.sh renderizar <asset>` | atlas, manifesto e procedência sem passo manual, testes verdes | pendente |
-| Veículo de 32 direções com todos os passes | até 10 minutos de GPU (medido: cerca de 100 s) e até 1 GB de disco | pendente |
+| Veículo de 32 direções com todos os passes | até 10 minutos de GPU e até 1 GB de disco | medido em 30/10/2026 pela `rts-arte`: Cesto Blindado com cor, time, normal e sombra, 1.920 renders em 129 s de GPU e 222 s de lote, 123 MB no D:; sem o denoiser na CPU, 0,03 a 0,06 s por quadro de 256 px |
 | Memória de textura | estimada dentro de 20% da medida no navegador | pendente |
 | Teste de leitura de 5 segundos | pelo menos 80% de acerto em 4K, 1080p e com filtro de daltonismo, com 5 pessoas | pendente |
 | Escolhas do Victor | elevação, escala, direções e acabamento escolhidos; `projecao.json` v1 congelado | pendente |
