@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const script = new URL('../scripts/preparar-publicacao.sh', import.meta.url).pathname;
+const gerador = new URL('../scripts/gerar-versao.mjs', import.meta.url).pathname;
 const ambiente = { ...process.env, GIT_AUTHOR_NAME: 'teste', GIT_AUTHOR_EMAIL: 'teste@exemplo.invalid', GIT_COMMITTER_NAME: 'teste', GIT_COMMITTER_EMAIL: 'teste@exemplo.invalid' };
 
 const git = (pasta, ...argumentos) => execFileSync('git', ['-C', pasta, ...argumentos], { env: ambiente, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -29,6 +30,7 @@ function montarRepositorios(t) {
   mkdirSync(join(atrasado, 'scripts'));
   mkdirSync(join(atrasado, 'site'));
   copyFileSync(script, join(atrasado, 'scripts', 'preparar-publicacao.sh'));
+  copyFileSync(gerador, join(atrasado, 'scripts', 'gerar-versao.mjs'));
   salvar(atrasado, 'first');
   const antigo = git(atrasado, 'rev-parse', 'HEAD');
   execFileSync('git', ['clone', '--quiet', origem, outro], { stdio: 'ignore' });
@@ -62,4 +64,21 @@ test('an explicit REF commit is prepared even when main is behind, for rollbacks
   const resultado = preparar(repositorios, repositorios.antigo);
   assert.equal(resultado.status, 0, resultado.stderr);
   assert.equal(commitPublicado(resultado), repositorios.antigo);
+});
+
+// The Netlify build command: COMMIT_REF wins; without it a prepared folder keeps its versao.json, even with no .git.
+test('the build writes versao.json from COMMIT_REF and keeps the one of a prepared folder', (t) => {
+  const repositorios = montarRepositorios(t);
+  const gerar = (cwd, env) => spawnSync('node', [join(repositorios.atrasado, 'scripts', 'gerar-versao.mjs')], { cwd, env: { ...ambiente, ...env }, encoding: 'utf8' });
+  const versao = (pasta) => JSON.parse(readFileSync(join(pasta, 'site', 'versao.json'), 'utf8'));
+
+  const netlify = gerar(repositorios.atrasado, { COMMIT_REF: repositorios.antigo, HEAD: 'main' });
+  assert.equal(netlify.status, 0, netlify.stderr);
+  assert.deepEqual({ ...versao(repositorios.atrasado), hora: '' }, { commit: repositorios.antigo, curto: repositorios.antigo.slice(0, 7), hora: '', ref: 'main', mensagem: 'first' });
+
+  git(repositorios.atrasado, 'pull', '--quiet', '--ff-only', 'origin', 'main');
+  const pasta = preparar(repositorios).stdout.trim().split('\n').at(-1);
+  const mantido = gerar(pasta, { COMMIT_REF: '' });
+  assert.equal(mantido.status, 0, mantido.stderr);
+  assert.equal(versao(pasta).commit, repositorios.novo);
 });

@@ -1,4 +1,12 @@
-# Static site with no build step; netlify/functions holds the TURN credentials function (/api/ice).
+# Static site: the build only writes site/versao.json with the deployed commit (scripts/gerar-versao.mjs).
+# netlify/functions holds the TURN credentials function (/api/ice) and the profile and room APIs.
+# The project is linked to GitHub (flashfabs/flashgames): every push to main publishes, and each pull request gets a preview.
 [build]
+  command = "node scripts/gerar-versao.mjs"
   publish = "site"
   functions = "netlify/functions"
+
+# The functions only need the runtime "dependencies"; dev tools such as Playwright stay out of the build.
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--omit=dev"
