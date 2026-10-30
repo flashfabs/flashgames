@@ -1,0 +1,39 @@
+{
+  "versao": 1,
+  "asset": "terreno-terra-batida",
+  "brief": null,
+  "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
+  "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
+  "script": "arte/blender/assets/terreno_terra_batida.py",
+  "commit": "19ffcaa",
+  "ferramentas": [
+    {
+      "nome": "Blender",
+      "versao": "5.2.3 LTS",
+      "licenca": "GPL-3.0-or-later",
+      "uso": "modelagem, render Cycles e empacotamento"
+    }
+  ],
+  "ia": [],
+  "fontesExternas": [],
+  "render": {
+    "dispositivo": "OPTIX",
+    "gpus": [
+      "NVIDIA GeForce RTX 4090"
+    ],
+    "projecao": {
+      "origem": "padrao-embutido-v0",
+      "versao": 0,
+      "elevacaoGraus": 55.0,
+      "metrosPorCelula": 4.0,
+      "pxPorCelula": {
+        "hd": 64,
+        "uhd": 128
+      }
+    },
+    "segundosPorQuadro": {
+      "cor": 1.4162
+    }
+  },
+  "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"
+}

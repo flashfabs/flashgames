@@ -76,7 +76,6 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   // Frame plan shared by the game and the atlas viewer; listas holds sprites, sombras, aneis and barras.
   function desenharCena(agora, dt, listas) {
     const s = escala.registrar(agora, dt);
-    escala.informarGpu(backend.tempoDeGpuMs);
     const { nD, nF, nB } = efeitos.contagem;
     const tempo = agora / 1000;
     backend.comecarCena(s, alvo);
@@ -147,6 +146,11 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     },
 
     folhas,
+
+    /** Shadows from the sprite alpha ('alfa', the default until the style gate decides) or the rendered layer ('camada'). */
+    definirModoSombra(modo) {
+      unidades.definirModoSombra(modo);
+    },
 
     /**
      * Draws one frame.

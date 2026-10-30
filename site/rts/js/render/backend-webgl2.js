@@ -2,8 +2,8 @@
 // this narrow interface, so another backend (or a headless one for tests) can replace it without touching
 // interpolation, ordering or the frame plan.
 //
-// Sprites live in two texture arrays (premultiplied colour RGBA8 and team mask R8) whose layers all share one
-// size, so every sprite of the scene goes in a single draw sorted back to front, whatever page it came from.
+// Sprites live in texture arrays (premultiplied colour RGBA8, team mask R8 and rendered shadow R8) whose layers all
+// share one size, so every sprite of the scene goes in a single draw sorted back to front, whatever page it came from.
 import * as F from './shaders.js';
 
 export const FLOATS_INSTANCIA = 8;
@@ -96,7 +96,7 @@ export function criarBackendWebGL2(canvas) {
 
   const terreno = programa(gl, F.VERT_TELA, F.FRAG_TERRENO, { uMapa: 0, uNeblina: 1 });
   const sprite = programa(gl, F.VERT_SPRITE, F.FRAG_SPRITE, { uQuadros: 2, uCor: 3, uTime: 4 });
-  const sombra = programa(gl, F.VERT_SOMBRA, F.FRAG_SOMBRA, { uQuadros: 2, uCor: 3 });
+  const sombra = programa(gl, F.VERT_SOMBRA, F.FRAG_SOMBRA, { uQuadros: 2, uCor: 3, uSombra: 6 });
   const anel = programa(gl, F.VERT_ANEL, F.FRAG_ANEL);
   const barra = programa(gl, F.VERT_BARRA, F.FRAG_BARRA);
   const efeito = programa(gl, F.VERT_EFEITO, F.FRAG_EFEITO);
@@ -123,7 +123,7 @@ export function criarBackendWebGL2(canvas) {
   let mapaLargura = 1;
   let mapaAltura = 1;
 
-  const camadas = { cor: null, time: null, largura: 0, altura: 0, quantidade: 0 };
+  const camadas = { cor: null, time: null, sombra: null, largura: 0, altura: 0, quantidade: 0 };
   const leitura = gl.createFramebuffer();
   const escrita = gl.createFramebuffer();
 
@@ -145,20 +145,23 @@ export function criarBackendWebGL2(canvas) {
     const time = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, time);
     gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R8, largura, altura, quantidade, 0, gl.RED, gl.UNSIGNED_BYTE, null);
-    for (const t of [cor, time]) {
+    const sombra = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, sombra);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.R8, largura, altura, quantidade, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    for (const t of [cor, time, sombra]) {
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
-    return { cor, time };
+    return { cor, time, sombra };
   }
 
   // Copies every layer of the old arrays into the new ones (same corner), so pixel coordinates stay valid.
   function copiarCamadas(antigas, novas) {
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, leitura);
-    for (const nome of ['cor', 'time']) {
+    for (const nome of ['cor', 'time', 'sombra']) {
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, novas[nome]);
       for (let c = 0; c < camadas.quantidade; c++) {
         gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, antigas[nome], 0, c);
@@ -200,6 +203,8 @@ export function criarBackendWebGL2(canvas) {
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, camadas.cor);
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, camadas.time);
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, camadas.sombra);
   }
 
   function lerConsultas() {
@@ -253,8 +258,9 @@ export function criarBackendWebGL2(canvas) {
         copiarCamadas(camadas, novas);
         gl.deleteTexture(camadas.cor);
         gl.deleteTexture(camadas.time);
+        gl.deleteTexture(camadas.sombra);
       }
-      Object.assign(camadas, { cor: novas.cor, time: novas.time, largura: l, altura: a, quantidade: q });
+      Object.assign(camadas, { cor: novas.cor, time: novas.time, sombra: novas.sombra, largura: l, altura: a, quantidade: q });
     },
 
     get camadas() {
@@ -263,15 +269,18 @@ export function criarBackendWebGL2(canvas) {
 
     /**
      * Uploads one atlas page into a layer at (0, 0). The colour must already be premultiplied
-     * (ImageBitmap with premultiplyAlpha: 'premultiply'); a missing mask clears the team channel.
+     * (ImageBitmap with premultiplyAlpha: 'premultiply'); the team mask and the shadow take the red channel of
+     * their images, and a missing one clears its channel.
      */
-    enviarPagina(camada, cor, time, largura, altura) {
+    enviarPagina(camada, cor, time, sombraImagem, largura, altura) {
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, camadas.cor);
       gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, camada, largura, altura, 1, gl.RGBA, gl.UNSIGNED_BYTE, cor);
+      const vazio = time && sombraImagem ? null : new Uint8Array(largura * altura);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, camadas.time);
-      if (time) gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, camada, largura, altura, 1, gl.RED, gl.UNSIGNED_BYTE, time);
-      else gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, camada, largura, altura, 1, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(largura * altura));
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, camada, largura, altura, 1, gl.RED, gl.UNSIGNED_BYTE, time ?? vazio);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, camadas.sombra);
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, camada, largura, altura, 1, gl.RED, gl.UNSIGNED_BYTE, sombraImagem ?? vazio);
     },
 
     /**
@@ -309,7 +318,7 @@ export function criarBackendWebGL2(canvas) {
 
     /** Rebuilds the mipmaps of the sprite layers after uploads. */
     terminarCamadas() {
-      for (const t of [camadas.cor, camadas.time]) {
+      for (const t of [camadas.cor, camadas.time, camadas.sombra]) {
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
         gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
         gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);

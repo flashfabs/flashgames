@@ -8,7 +8,7 @@ Os números de jogo citados aqui (custo, vida, alcance, tempos) são hipóteses 
 ## Índice da fase 1
 
 34 briefs: os 33 do plano (8 unidades e 8 construções dos Religadores, 7 unidades e 6 construções dos Desligados, 4 estruturas neutras) e o Poste Avançado, que a missão usa.
-Os quatro marcados com "portão" são os do portão de estilo; os três marcados com "troca" são propostas de troca de unidade que aguardam o Victor.
+Os quatro marcados com "portão" são os do portão de estilo; os três marcados com "troca" substituem unidades da primeira versão, trocas aprovadas pelo Victor em 30/10/2026.
 
 | Brief | Papel | Nota |
 | --- | --- | --- |

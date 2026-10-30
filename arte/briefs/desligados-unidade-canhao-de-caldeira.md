@@ -3,7 +3,7 @@
 - id: `desligados/canhao-de-caldeira`
 - Facção: Desligados (inimigo na fase 1) · Categoria: unidade, artilharia · Lote: fase 1 (fixo e móvel)
 - Versão: 1, de 30/10/2026
-- Estado: proposta de troca da artilharia, aguardando o Victor (ver o checklist).
+- Estado: troca da artilharia aprovada pelo Victor em 30/10/2026 (motivo no checklist).
 
 ## Papel na matriz
 
@@ -76,6 +76,6 @@ O que distingue das outras da facção: o Locomóvel tem caldeira horizontal, ch
 - [x] Números da nossa tabela de partida.
 - [ ] Falas: pendente, etapa de som e falas.
 - [ ] Ficha de origem: pendente, `rts-arte`, junto com o asset.
-- [ ] Aprovação da troca pelo Victor: pendente.
+- [x] Troca aprovada pelo Victor em 30/10/2026.
 - [ ] Revisão por quem jogou o jogo que inspirou o projeto: pendente, pedida ao Victor.
 - [ ] Teste de combinação por alguém que não é fã: pendente, pedido ao Victor.
