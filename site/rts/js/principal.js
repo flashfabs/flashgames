@@ -21,6 +21,7 @@ import { criarBarraDeComandos } from './interface/comandos.js';
 import { criarSobreposicao } from './interface/sobreposicao.js';
 import { criarSomProvisorio } from './interface/som-provisorio.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
+import { TIPO_COMANDO } from './sim/contratos.js';
 
 const parametros = new URLSearchParams(location.search);
 const opcoes = {
@@ -58,7 +59,7 @@ const medicao = criarMedicao({ ativa: opcoes.bench, segundos: opcoes.segundos, e
 
 const indice = criarIndice();
 const grupos = criarGrupos();
-const fila = criarFilaVisual();
+const fila = criarFilaVisual({ repetem: new Set([TIPO_COMANDO.PATRULHAR]) });
 const latencia = criarMedidorDeLatencia();
 const som = criarSomProvisorio();
 const { afastado, padrao, aproximado } = projecao.zooms;

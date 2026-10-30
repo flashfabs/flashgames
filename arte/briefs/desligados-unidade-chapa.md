@@ -3,7 +3,7 @@
 - id: `desligados/chapa`
 - Facção: Desligados (inimigo na fase 1) · Categoria: unidade, infantaria · Lote: fase 1
 - Versão: 1, de 30/10/2026
-- Estado: proposta de troca da infantaria básica, aguardando o Victor (ver o checklist).
+- Estado: troca da infantaria básica aprovada pelo Victor em 30/10/2026 (motivo no checklist).
 
 ## Papel na matriz
 
@@ -75,6 +75,6 @@ O que distingue das outras da facção: o Arpoador não tem chapéu, usa lenço 
 - [x] Números da nossa tabela de partida (alcance passou de 3 para 4 células e saiu o bônus de dano de perto; a confirmar nos dados).
 - [ ] Falas: pendente, etapa de som e falas.
 - [ ] Ficha de origem: pendente, `rts-arte`, junto com o asset.
-- [ ] Aprovação da troca pelo Victor: pendente.
+- [x] Troca aprovada pelo Victor em 30/10/2026.
 - [ ] Revisão por quem jogou o jogo que inspirou o projeto: pendente, pedida ao Victor.
 - [ ] Teste de combinação por alguém que não é fã: pendente, pedido ao Victor.

@@ -5,7 +5,7 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/teste_veiculo_tanque.py",
-  "commit": "19ffcaa",
+  "commit": "6616030",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -32,9 +32,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0331,
-      "time": 0.0221,
-      "normal": 0.0332
+      "cor": 0.0376,
+      "time": 0.0248,
+      "normal": 0.0409
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"
