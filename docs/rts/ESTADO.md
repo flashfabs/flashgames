@@ -37,21 +37,26 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | Bench 4K, 2.000 e 6.000 unidades | MacBook Pro M5 Pro, Firefox 153 (Playwright 1.62.1) | 120 e 117 qps, p99 9,5 e 16,8 ms, 0 acima de 20 ms | `medir.mjs`, 30/10/2026 |
 | Bench 4K, 2.000 e 6.000 unidades | MacBook Pro M5 Pro, WebKit 26.5 (Playwright 1.62.1) | 60 qps, p99 18 ms (o relógio do WebKit arredonda para ms inteiros), 0 acima de 20 ms | `medir.mjs`, 30/10/2026 |
 | Determinismo, 3.600 passos com 2.000 unidades | Node 22, Chromium 151 e Firefox 153 e WebKit 26.5 na página, `jsc` do macOS 26 | soma final `897f4ba5` igual nos cinco | `prototipos/rts-4k/verificar-determinismo.mjs`, 30/10/2026 |
-| Determinismo dentro do Worker | Chromium, Firefox e WebKit do Playwright | pendente (`rts-qualidade`, nesta onda) | — |
-| Safari 26 de verdade: bench em 4K | MacBook Pro M5 Pro | pendente (Victor, [roteiro de 15 minutos](#roteiro-de-15-minutos-para-o-victor)) | — |
+| Determinismo dentro do Worker, mesmo roteiro | Chromium 153 (Playwright 1.63), Firefox 153 e WebKit 26.5 (playwright-core 1.62.1) | soma final `897f4ba5` e as seis somas iguais à referência nos três; 1,50, 2,81 e 1,36 ms por passo | `prototipos/diagnostico/` e `testes/e2e/rts-determinismo.spec.mjs`, 30/10/2026 |
+| Bench 4K pela página de diagnóstico, 2.000 unidades | MacBook Pro M5 Pro: Chromium 153 com Metal, Firefox 153, WebKit 26.5 (Playwright) | Chromium 60 qps, p99 16,8 ms, 0 de 600 quadros acima de 20 ms; Firefox 110,5 qps, p99 18,1 ms, 4 de 1.105; WebKit 59,9 qps, p99 20 ms, 3 de 600 | `prototipos/diagnostico/`, 30/10/2026 |
+| Safari 26 de verdade: bench em 4K | MacBook Pro M5 Pro | pendente (Victor, [roteiro](roteiro-medicoes.md)) | — |
 | Safari 26 de verdade: soma no Worker | MacBook Pro M5 Pro | pendente (Victor, roteiro) | — |
-| Chrome, Edge e Firefox no Windows: bench em 4K, soma e a string da placa | PC da RTX 4090, com o Victor no PC (pelo SSH os navegadores podem rodar sem GPU) | pendente (Victor, roteiro) | — |
+| Chrome e Edge no Windows: bench em 4K, soma e a string da placa | PC da RTX 4090, com o Victor no PC (pelo SSH os navegadores podem rodar sem GPU) | pendente (Victor, roteiro); servir as páginas em localhost pelo Python do Blender foi testado pelo SSH em 30/10/2026 | — |
+| Firefox no Windows | PC da RTX 4090 | não deu: o Firefox não está instalado no PC (conferido em 30/10/2026), e instalar depende do Victor | — |
 | Notebook comum com GPU integrada | máquina de um amigo | pendente (página de diagnóstico) | — |
-| Extensões de textura (BC7, S3TC, ASTC, ETC2) | cada máquina | pendente (página de diagnóstico e roteiro) | — |
-| `decodeAudioData` de Ogg Opus | Safari 26 | pendente (Victor, roteiro) | — |
-| Bateria de teclas (Ctrl, Option e Shift com 1 a 9, Ctrl e clique, dois dedos, pinça, Espaço, setas, F10, P, atalhos de Mesa do Mission Control) | Safari e Chrome do Mac, Chrome do Windows | pendente (página da `rts-interface` e roteiro) | — |
+| Extensões de textura e MAX_TEXTURE_SIZE | MacBook Pro M5 Pro, Playwright | Chromium 153 (ANGLE Metal, Apple M5 Pro): S3TC, RGTC, BPTC (BC7), ETC2, ASTC e PVRTC, 16384; Firefox 153 ("Apple M1, or similar"): só S3TC e RGTC, 8192; WebKit 26.5: todas, 16384 | `prototipos/diagnostico/`, 30/10/2026 |
+| Extensões de textura | Safari 26, Chrome e Edge do Windows, notebook comum | pendente ([roteiro](roteiro-medicoes.md) e página de diagnóstico) | — |
+| `decodeAudioData` de Opus em Ogg e de AAC em MP4 | Playwright no Mac | Opus decodifica no Chromium 153, no Firefox 153 e no WebKit 26.5; AAC decodifica no Chromium e no Firefox e falha no WebKit do Playwright, que vem sem os codecs proprietários (não vale pelo Safari) | `prototipos/diagnostico/`, 30/10/2026 |
+| `decodeAudioData` de Opus e de AAC | Safari 26 | pendente (Victor, roteiro) | — |
+| Bateria de teclas (Ctrl, Option e Shift com 1 a 9, Ctrl e clique, dois dedos, pinça, Espaço, setas, F10, P, atalhos de Mesa do Mission Control) | Safari e Chrome do Mac, Chrome do Windows | pendente (Victor, `prototipos/teclas/` da `rts-interface` pelo roteiro) | — |
 | Log do EEVEE pelo SSH mostra a NVIDIA | PC da RTX 4090 | pendente (`rts-arte`) | — |
 | `rtx.sh renderizar tanque` com trava, código 0 e `relatorio.json` | Mac para o PC da RTX 4090 | pendente (`rts-arte`) | — |
 | Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | pendente (`rts-arte`) | — |
 | Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados, antes do protótipo | 30/10/2026 |
 
-Navegadores do Playwright: o 1.63 do projeto só tem o Chromium no cache desta máquina; Firefox 153 e WebKit 26.5 estão no cache do playwright-core 1.62.1, que serviu para as medições de 30/10/2026.
-Instalar os do 1.63 (`npx playwright install firefox webkit`) depende de aprovação do Victor (decisão D16).
+Navegadores do Playwright: o 1.63 do projeto pede Firefox 155 e WebKit 26.6, que não estão no cache desta máquina; o Firefox 153 e o WebKit 26.5 do playwright-core 1.62.1 serviram para as medições de 30/10/2026.
+Sem eles, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
+Instalar no Mac (`npx playwright install firefox webkit`) depende de aprovação do Victor (decisão D16).
 
 ## Critérios por etapa
 
@@ -137,9 +142,9 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 
 E7 (escaramuça), E8 (multiplayer) e E9 (campanha) têm os critérios no plano e entram aqui quando a etapa abrir.
 
-## Roteiro de 15 minutos para o Victor
+## Roteiro para o Victor
 
-Pendente nesta onda (`rts-qualidade`).
+O [roteiro de medições](roteiro-medicoes.md) cobre o Safari 26, o Chrome e o Edge no PC da RTX 4090 e a bateria de teclas: cerca de 15 minutos no Mac e 10 no PC. As respostas entram na tabela de medições acima.
 
 ## Frentes
 
