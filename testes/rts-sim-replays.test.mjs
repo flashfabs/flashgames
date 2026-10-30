@@ -23,7 +23,7 @@ for (const nome of nomes) {
   test(`replay ${nome} reproduces its checksums`, () => {
     const replay = JSON.parse(readFileSync(new URL(nome, pasta), 'utf8'));
     const resultado = executarReplay(replay);
-    assert.deepEqual(resultado.somas, replay.esperado.somas);
-    assert.equal(resultado.final, replay.esperado.final);
+    assert.deepEqual(resultado.somas, replay.somas);
+    assert.equal(resultado.final, replay.final);
   });
 }

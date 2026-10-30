@@ -21,9 +21,9 @@ let falhas = 0;
 for (const nome of NOMES) {
   const replay = JSON.parse(await ler(nome));
   const resultado = executarReplay(replay);
-  const igual = resultado.final === replay.esperado.final && resultado.somas.join() === replay.esperado.somas.join();
+  const igual = resultado.final === replay.final && resultado.somas.join() === replay.somas.join();
   if (!igual) falhas++;
-  escrever(JSON.stringify({ motor, replay: nome, final: resultado.final, esperado: replay.esperado.final, igual }));
+  escrever(JSON.stringify({ motor, replay: nome, final: resultado.final, esperado: replay.final, igual }));
 }
 if (falhas > 0) {
   if (globalThis.process) globalThis.process.exitCode = 1;

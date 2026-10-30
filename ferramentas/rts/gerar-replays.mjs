@@ -147,7 +147,8 @@ for (const cenario of CENARIOS) {
   const esperado = executarReplay(JSON.parse(JSON.stringify(replay)));
   const original = somaDeVerificacao(sim).toString(16).padStart(8, '0');
   if (esperado.final !== original) throw new Error(`${cenario.nome}: o replay deu ${esperado.final}, a partida original ${original}`);
-  replay.esperado = esperado;
+  replay.somas = esperado.somas;
+  replay.final = esperado.final;
   writeFileSync(`${destino}${cenario.nome}.json`, `${JSON.stringify(replay)}\n`);
   console.log(`${cenario.nome}: ${replay.comandos.length} comandos, final ${esperado.final}, ${((Date.now() - inicio) / 1000).toFixed(1)} s`);
 }

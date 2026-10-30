@@ -1,6 +1,7 @@
 // Replays: a match is its options (seed, map, units, rules) plus every command with its tick, so playing the commands
-// back reproduces it exactly. The golden replays in testes/rts-replays/ carry the checksums they must give, and the
-// same function checks them in Node and in a Worker of each browser engine. No DOM, no fetch: callers pass the JSON.
+// back reproduces it exactly. The golden replays in testes/rts-replays/ carry the checksums they must give (somas and
+// final), and the same function checks them in Node and in a Worker of each browser engine. No DOM, no fetch: callers
+// pass the JSON.
 import { VERSAO_SIMULACAO, comandoParaArray, comandoDeArray } from './contratos.js';
 import { criarSimulacao, passo, agendarComando } from './simulacao.js';
 import { somaDeVerificacao, somasPorSubsistema } from './soma.js';
