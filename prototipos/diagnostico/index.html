@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diagnóstico do RTS</title>
+  <style>
+    :root { color-scheme: dark; --fundo: #0b0a09; --painel: #15130f; --borda: rgba(255, 255, 255, 0.14); --texto: #e9e2d6; --fraco: #a59c8f; --destaque: #ffcf7a; --bom: #6dff8a; --ruim: #ff7a6d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { margin: 0 0 4px; font-size: 26px; }
+    h2 { margin: 28px 0 8px; font-size: 18px; color: var(--destaque); }
+    p { margin: 6px 0; }
+    .fraco { color: var(--fraco); }
+    .aviso { padding: 10px 12px; border: 1px solid var(--ruim); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; overflow: hidden; }
+    th, td { padding: 6px 10px; border-bottom: 1px solid var(--borda); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    th { width: 38%; font-weight: 500; color: var(--fraco); }
+    tr:last-child th, tr:last-child td { border-bottom: 0; }
+    .sim { color: var(--bom); }
+    .nao { color: var(--ruim); }
+    .acoes { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0; }
+    button, select { font: inherit; color: var(--texto); background: #241f18; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 14px; }
+    button { cursor: pointer; }
+    button.principal { background: #4a3611; border-color: var(--destaque); }
+    button:disabled { opacity: 0.5; cursor: progress; }
+    pre { margin: 0; padding: 12px; max-height: 420px; overflow: auto; background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+    details summary { cursor: pointer; color: var(--fraco); margin: 8px 0; }
+    #palco-bench { position: fixed; inset: 0; z-index: 10; background: #000; }
+    #palco-bench iframe { width: 100%; height: 100%; border: 0; display: block; }
+    #palco-bench button { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Diagnóstico do RTS</h1>
+    <p class="fraco">Mostra o que este navegador e esta placa de vídeo oferecem ao jogo e mede o protótipo. Nada sai desta página: o resultado só vai para a área de transferência quando você aperta Copiar, e aí você manda para o Victor.</p>
+    <p id="aviso-arquivo" class="aviso" hidden>Esta página precisa ser aberta por um endereço http, não como arquivo: os módulos e o Worker não carregam de file://.</p>
+
+    <div class="acoes">
+      <button id="copiar" class="principal" type="button">Copiar o resultado</button>
+      <span id="estado-copia" class="fraco" role="status"></span>
+    </div>
+
+    <h2>Tela</h2>
+    <table id="tabela-tela"></table>
+
+    <h2>Placa de vídeo e WebGL2</h2>
+    <table id="tabela-webgl"></table>
+    <details><summary>Todas as extensões do WebGL2</summary><pre id="extensoes"></pre></details>
+
+    <h2>WebGPU</h2>
+    <table id="tabela-webgpu"></table>
+
+    <h2>Áudio</h2>
+    <table id="tabela-audio"></table>
+
+    <h2>Navegador e máquina</h2>
+    <table id="tabela-navegador"></table>
+
+    <h2>Desempenho do protótipo</h2>
+    <p class="fraco">Abre o protótipo em tela inteira com o campo de visão de sempre, adianta a partida e mede 10 segundos de combate (cerca de 20 segundos no total). Não troque de aba nem de janela enquanto mede: o navegador para de desenhar o que não está na frente.</p>
+    <div class="acoes">
+      <label>Unidades <select id="unidades"><option>2000</option><option>6000</option><option>10000</option></select></label>
+      <label>Resolução <select id="resolucao"><option value="4k">4K (3840×2160)</option><option value="nativa">a da tela</option><option value="1080p">1080p</option></select></label>
+      <button id="medir" type="button">Medir</button>
+      <span id="estado-bench" class="fraco" role="status"></span>
+    </div>
+    <table id="tabela-bench"></table>
+
+    <h2>Mesmo resultado em todo navegador</h2>
+    <p class="fraco">Roda num Worker a mesma partida roteirizada (2.000 unidades, 3.600 passos) e compara as somas de verificação com as de referência. O multiplayer só funciona se elas forem iguais.</p>
+    <div class="acoes">
+      <button id="determinismo" type="button">Conferir</button>
+      <span id="estado-determinismo" class="fraco" role="status"></span>
+    </div>
+    <table id="tabela-determinismo"></table>
+
+    <h2>Resultado completo</h2>
+    <pre id="json"></pre>
+  </main>
+  <script type="module" src="diagnostico.js"></script>
+</body>
+</html>
