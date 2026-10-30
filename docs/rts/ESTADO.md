@@ -27,7 +27,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | D30 | `rts/base` como integração do RTS, com trava própria, juntada à `main` só nos marcos | aceita em 30/10/2026 |
 | D31 | Se ninguém do grupo modelar à mão, tudo por script | aceita em 30/10/2026 |
 | D08 a D12 | Jogo comercial desde já, fontes de arte, 2D pré-renderizado, IA só para conceito, câmera e escala | abertas; D12 se decide no M2, vendo em 4K |
-| D16 | Ferramentas a instalar (Tiled, Pillow, Firefox e WebKit do Playwright) | aberta; ver Medições |
+| D16 | Ferramentas a instalar (Tiled, Pillow, Firefox e WebKit do Playwright) | Firefox e WebKit do Playwright aprovados e instalados no Mac em 30/10/2026; Tiled e Pillow seguem abertos |
 
 ## Medições da E0
 
@@ -55,9 +55,8 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | sobrevive: com o cliente morto aos 25 s de um lote de 192 quadros, o Blender terminou sozinho; como o `Start-Process` morre quando a sessão SSH termina normalmente, o `rtx.sh` lança o lote pelo WMI (`Win32_Process.Create`) e o próprio PC solta a trava, sem `schtasks`. Queda de rede sem FIN não foi testada (exigiria derrubar o Tailscale) | `rts-arte`, 30/10/2026 |
 | Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados antes do protótipo; 23,98 MiB soltos e 5,44 MiB empacotados com o protótipo e o passo zero (os atlas do protótipo e de `site/rts/assets/prototipo/` são os mesmos objetos) | 30/10/2026 |
 
-Navegadores do Playwright: o 1.63 do projeto pede Firefox 155 e WebKit 26.6, que não estão no cache desta máquina; o Firefox 153 e o WebKit 26.5 do playwright-core 1.62.1 serviram para as medições de 30/10/2026.
-Sem eles, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
-Instalar no Mac (`npx playwright install firefox webkit`) depende de aprovação do Victor (decisão D16).
+Navegadores do Playwright: o Firefox 155 e o WebKit 26.6 do Playwright 1.63 foram instalados no Mac em 30/10/2026, com aprovação do Victor (D16), e o `rts-determinismo` passou nos três motores localmente; as medições anteriores do Firefox 153 e do WebKit 26.5 vieram do playwright-core 1.62.1.
+Numa máquina sem esses navegadores, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
 
 ## Critérios por etapa
 
@@ -80,12 +79,12 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 
 | Critério | Meta | Estado |
 | --- | --- | --- |
-| Mesmo hash entre motores | Node, Chromium, Firefox e WebKit iguais em 3 cenários de 18.000 passos com combate, ordens e neblina; Safari conferido à mão | pendente |
-| Passo da simulação com 2.000 unidades | p99 até 10 ms, máximo até 20 ms; nenhum campo de fluxo acima de 3 ms num passo | pendente |
-| Ponte de 2 células | 20 unidades atravessam em até 1,5 vez o tempo de uma sozinha mais 8 s | pendente |
-| 20 ordens simultâneas | ninguém preso por mais de 5 s | pendente |
-| Neblina com 2.000 unidades e 4 times | até 1 ms por passo | pendente |
-| Salvar, carregar e replay | mesmo hash depois de carregar; replay reproduz as somas | pendente |
+| Mesmo hash entre motores | Node, Chromium, Firefox e WebKit iguais em 3 cenários de 18.000 passos com combate, ordens e neblina; Safari conferido à mão | feito em 30/10/2026 (seção F1): os 3 replays de `testes/rts-replays/` dão o mesmo final no Node 22 do Mac e no Node 24 do PC; a versão anterior deles bateu também no `jsc` do macOS, no Chromium 153, no Firefox 155 e no WebKit 26.6; a versão atual nos navegadores fica com o `rts-determinismo` do Action; Safari de verdade pendente (Victor) |
+| Passo da simulação com 2.000 unidades | p99 até 10 ms, máximo até 20 ms; nenhum campo de fluxo acima de 3 ms num passo | no PC da RTX 4090 sem carga: p99 4,4 ms, máximo 9,6 ms, pior fatia de campo 2,5 ms (seção F1); no M5 Pro, medida limpa pendente (o Mac estava com carga acima de 20) |
+| Ponte de 2 células | 20 unidades atravessam em até 1,5 vez o tempo de uma sozinha mais 8 s | feito: 20 tanques em 1.211 passos, um sozinho em 1.128, limite 1.932 (`testes/rts-sim-movimento.test.mjs`) |
+| 20 ordens simultâneas | ninguém preso por mais de 5 s | parcial: no cenário do teste (semente 7) o pior caso é 74 passos (2,5 s); em 6 sementes do mesmo cenário, 4 passam e 2 não (8,5 s e 6,9 s), por filas em passagens de 1 célula e fluxo contrário em corredores diagonais estreitos do mapa de ruído |
+| Neblina com 2.000 unidades e 4 times | até 1 ms por passo | feito: média 0,16 ms, p99 0,62 ms, máximo 2,0 ms no PC (`ferramentas/rts/medir-neblina.mjs`) |
+| Salvar, carregar e replay | mesmo hash depois de carregar; replay reproduz as somas | feito: carregar no meio do cálculo de um campo e com comandos pendentes continua com as mesmas somas por subsistema; os replays dourados reproduzem as somas (`testes/rts-sim.test.mjs`, `testes/rts-sim-replays.test.mjs`) |
 | Render em 4K com 2.000 unidades, Chrome e Safari | menos de 1% dos quadros acima de 20 ms, CPU por quadro medida e a tela dita | Chromium com Metal: 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,3 ms, canvas 3840×2160 (seção F2); Safari pendente (Victor) |
 | Clique até a marca no chão | abaixo de 100 ms | pendente |
 
@@ -93,7 +92,7 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 
 | Critério | Meta | Estado |
 | --- | --- | --- |
-| `rtx.sh renderizar <asset>` | atlas, manifesto e procedência sem passo manual, testes verdes | pendente |
+| `rtx.sh renderizar <asset>` | atlas, manifesto e procedência sem passo manual, testes verdes | feito em 30/10/2026 (`rts-arte`): os 11 assets do portão saíram assim do commit `19ffcaa`, código 0 em todos, com `npm test` verde |
 | Veículo de 32 direções com todos os passes | até 10 minutos de GPU e até 1 GB de disco | medido em 30/10/2026 pela `rts-arte`: Cesto Blindado com cor, time, normal e sombra, 1.920 renders em 129 s de GPU e 222 s de lote, 123 MB no D:; sem o denoiser na CPU, 0,03 a 0,06 s por quadro de 256 px |
 | Memória de textura | estimada dentro de 20% da medida no navegador | pendente |
 | Teste de leitura de 5 segundos | pelo menos 80% de acerto em 4K, 1080p e com filtro de daltonismo, com 5 pessoas | pendente |
@@ -151,7 +150,29 @@ O [roteiro de medições](roteiro-medicoes.md) cobre o Safari 26, o Chrome e o E
 
 ### F1 Motor e simulação (`rts-motor`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
+- 30/10/2026, passo zero: o protótipo foi para `site/rts/` dividido pelos donos (simulação em `js/sim/`, worker em `js/trabalhador.js`, render em `js/render/` e `js/ativos/`, entrada e interface em `js/entrada/` e `js/interface/`, `js/principal.js` só com a montagem e o laço de quadro, `js/ponte-simulacao.js` como lado da página do protocolo do worker), sem mudar comportamento; `prototipos/rts-4k/` ficou congelado.
+- 30/10/2026: `site/rts/js/sim/contratos.js` com o comando (C1, `TIPO_COMANDO`, validação, ordem total e forma compacta), ids com geração (slot nos 16 bits baixos), o retrato por passo (C2, arrays por entidade viva em ordem de slot), os eventos (C3, registros de 9 inteiros com posições), a forma da `VistaDoTime` (C4) e as mensagens do worker; `VERSAO_COMANDOS` 0 e `VERSAO_SIMULACAO` 1.
+- 30/10/2026, onda 1 integrada: simulação dividida por subsistema (`estado`, `entidades`, `dados` com esquema e validador de inteiros, `mapa` com morros nos níveis 0 a 2, `caminhos`, `ordens`, `movimento`, `combate`, `neblina`, `vista`, `soma`, `persistencia`, `replay`), tabelas trigonométricas inteiras geradas por `ferramentas/rts/tabelas/gerar-tabelas.mjs`.
+- Caminhos: campo de fluxo por destino com cache LRU de 40 campos compartilhado pelas ordens, calculado em fatias de 12.000 expansões por passo (contagem, não relógio, para fatiar igual em toda máquina), com pedágio perto da rocha (24 na célula encostada, 6 a duas células) para os grupos não colarem nas paredes.
+- Movimento: formação na chegada (fileiras perpendiculares à aproximação, mais largas que fundas, mantendo a ordem da esquerda para a direita), mira numa célula adiante no campo ou em linha reta quando a visada está livre, detecção de unidade presa com desvio para o lado e chegada aceita perto da vaga ou encostada no próprio grupo parado, prioridades na separação (quem está parado cede, quem segura posição não é empurrado, grupos que se cruzam se empurram pouco e mantêm a direita, unidade travada atravessa grupos em movimento de outras ordens, coletores do mesmo tipo passam um pelo outro).
+- Comandos obedecidos: MOVER, ATACAR_MOVENDO, ATACAR, PATRULHAR, PARAR, SEGURAR_POSICAO e a fila do Shift (até 8); o resto do `TIPO_COMANDO` é descartado até a onda 2.
+- Neblina incremental por time (contagem de observadores por célula, só quem muda de célula custa) com altura: de baixo se vê a borda de um morro, não o que está atrás.
+- Worker com relógio fixo a 75, 100 ou 125% de 30 passos por segundo, recuperação de até 4 passos, pausa por motivo (jogador ou aba oculta), salvar e carregar e gravação do replay da partida.
+- Testes: `testes/rts-sim.test.mjs` (contratos, matemática, dados, mapas, campos fatiados, neblina, vista, comandos, salvar e carregar), `testes/rts-sim-barreira.test.mjs` (barreira de determinismo sobre `site/rts/js/sim/`), `testes/rts-sim-replays.test.mjs` com os 3 replays dourados de `testes/rts-replays/` (gerados por `ferramentas/rts/gerar-replays.mjs`) e `testes/rts-sim-movimento.test.mjs` (ponte e 20 ordens).
+
+| Medição | Máquina | Resultado | Fonte |
+| --- | --- | --- | --- |
+| Replays dourados, 3 de 18.000 passos | Mac (Node 22, V8 12.4) e PC (Node 24, V8 13.6) | finais `22d9d9dd`, `0d7f99a8` e `d5574fea` iguais nos dois; gerados no PC e conferidos no Mac | `ferramentas/rts/verificar-replays.mjs`, 30/10/2026 |
+| Mesmos replays antes do pedágio 24/6 | Mac: `jsc` do macOS, Chromium 153, Firefox 155, WebKit 26.6 | os 3 finais iguais ao Node em todos | 30/10/2026 |
+| Passo com 2.000 unidades, 9.000 passos com rajadas de 20 ordens | PC, i7-12700KF, Node 24, sem carga | p50 2,7 ms, p99 4,4 ms, máximo 9,6 ms; pior fatia de campo 2,5 ms; neblina média 0,41 ms | `ferramentas/rts/medir-passo.mjs`, 30/10/2026 |
+| O mesmo com a CPU do PC em 69% por outros processos | PC | p99 6,5 a 10,3 ms, máximo 15 a 39 ms, pior fatia de campo 5 a 7 ms; pedágio antigo e novo iguais dentro do ruído | idem |
+| Passo com 2.000 unidades | MacBook Pro M5 Pro, Node 22, carga do Mac em torno de 20 | p50 1,7 ms, p99 2,8 ms, máximo 10,4 ms (só o primeiro passo) | 30/10/2026 |
+| Neblina, 4 times de 500 unidades vivas patrulhando | PC | média 0,16 ms, p99 0,62 ms, máximo 2,0 ms | `ferramentas/rts/medir-neblina.mjs` |
+| Ponte de 2 células | Node | 20 tanques 1.211 passos, um sozinho 1.128 | `testes/rts-sim-movimento.test.mjs` |
+| 20 ordens simultâneas, cerca de 1.900 unidades, 6 sementes | PC | pior unidade sem avançar: 74, 133, 140, 140, 206 e 256 passos (sementes 7, 11, 5, 99, 42 e 23) | `testes/rts-sim-cenarios.mjs` |
+
+Pendências da F1: as 20 ordens simultâneas em mapas com passagens de 1 célula e corredores diagonais estreitos (próximo passo: campo por classe de movimento com folga, para veículo não entrar em fresta, e custo por congestionamento); a medida limpa do passo no M5 Pro e o Safari de verdade (Victor); `VERSAO_COMANDOS` só congela depois do spike S7 da `rts-rede`; os fantasmas de prédios na `vistaDoTime` entram com as construções; os números de unidades saem de `DADOS_PROTOTIPO` quando a `rts-design` entregar os dados.
+Na onda 2: economia, construção, produção, lotação, combate com a matriz, veterania, pesquisas, religar estruturas e o avaliador de gatilhos.
 
 ### F2 Renderização e 4K (`rts-render`)
 
@@ -163,17 +184,26 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 
 | Medição | Máquina, navegador e tela | Resultado | Fonte |
 | --- | --- | --- | --- |
-| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média, GPU cerca de 10 ms pela consulta de tempo | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
-| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela, GPU cerca de 13 ms | idem |
+| Render em 4K, 2.000 unidades, zoom padrão, escala fixa em 100% | MacBook Pro M5 Pro, Chromium 153 headless com Metal, janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms, quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,1/0,3/0,4 ms, 1.323 sprites na tela em média | `testes/e2e/rts-desempenho.spec.mjs`, e2e da integração de 30/10/2026 |
+| Render em 4K, 2.000 unidades, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, CPU p95 0,3 ms, 1.508 sprites na tela | idem |
+| Escala dinâmica no laço real, com quadros forçados a 28 ms por 3 s | idem | desce 100, 85, 75 e 67% (um degrau a cada 2 s) e volta a 100% por provas aos 9,7 s, 14,9 s e 20,4 s | script com `requestAnimationFrame` ocupado, 30/10/2026 |
+| Tempo de GPU pela consulta de tempo (`EXT_disjoint_timer_query_webgl2`) | idem | cerca de 10 ms com 2 ou 2.000 unidades e também com a cena a 50% (1920×1080): na ANGLE sobre Metal o número não acompanha os pixels, então não serve para medir nem para guiar a escala | script de amostragem, 30/10/2026 |
 | Alocação por quadro no caminho do render | idem, amostragem do HeapProfiler por 6 s depois de 15 s de partida | antes: cerca de 33 KB por quadro no laço das unidades (números empacotados); depois: o laço some da lista, e o render inteiro fica em poucos KB por segundo, fora do código otimizado; o que mais aloca no quadro é a chegada do retrato do Worker, que é o contrato C2 | script de amostragem, 30/10/2026 |
 | Render em 4K no Safari 26 | MacBook Pro M5 Pro | pendente (Victor): abrir `/rts/?bench=1&res=4k&seg=20&avancar=600` em tela cheia e copiar o JSON que aparece no canto | — |
 
-Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o tempo de GPU em 4K (10 a 13 ms) deixa pouca folga para 120 Hz, e o terreno procedural em tela cheia é o primeiro suspeito, a confirmar antes do splatting da onda 2.
+Pendências da F2: a medição no Safari (Victor); a sombra (camada renderizada ou alfa) e os pontos de encaixe reais entram com o portão de estilo, e a próxima integração lê o passe de sombra da `rts-arte`; níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o custo de GPU por passe ainda não tem medida confiável no Mac (a consulta de tempo da ANGLE não acompanha os pixels), e para 120 Hz em 4K vale medir o terreno procedural contra o splatting da onda 2 por tempo de quadro, com a escala fixa.
 
 ### F3 Arte e Blender (`rts-arte`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
 O Blender 5.2.3 LTS foi instalado no PC da RTX 4090 pelo winget em 30/10/2026, pela sessão que fez o plano, para o teste do pipeline; fica nessa versão durante a fase 1.
+
+- 30/10/2026, onda 0: no PC, `D:\rts\{scripts,config,fonte,saida,cache,logs}` e a trava `D:\rts\trava-gpu` (pasta criada de forma atômica, com arquivo `dono`); `ferramentas/arte/rtx.sh` com `checar`, `enviar`, `renderizar`, `acompanhar`, `buscar`, `reempacotar`, `limpar` e `trava`, que antes de cada lote confere o alcance pelo SSH, o espaço em C: e D:, o tamanho de `D:\rts` (teto de 12 GB) e a VRAM livre (mínimo de 6.000 MiB), lança o lote pelo WMI e deixa o próprio PC soltar a trava; os temporários do Blender vão para `D:\rts\cache`.
+- 30/10/2026, onda 0: EEVEE pelo SSH na GPU, lote que sobrevive à queda do SSH e custo por quadro medidos (tabela de medições acima e `arte/blender/MEDICOES.md`); o cerca de 1 s por quadro do teste anterior era o denoiser na CPU, e a fábrica usa 256 amostras sem denoiser (0,056 s por quadro de 256 px, sem tremor entre quadros).
+- 30/10/2026, onda 1: fábrica em `arte/blender/` (GPL-3.0-or-later): `comum/compat.py` com o que mudou na API 5.x conferido no 5.2.3 (motor EEVEE, actions com slots, compositor em node group, `media_type` antes do formato, `use_nodes`, `gpu.init()`), leitura do `projecao.json`, câmera ortográfica e luz canônica, passes `cor`, `time`, `normal` e `sombra` por troca de material, pontos de encaixe por direção e quadro, camadas que reusam (`usa`) ou recortam (`recorte`) outras, e o empacotador dentro do próprio Blender (recorte, âncora par, `hd` por redução 2×2 ponderada pela cobertura, MaxRects até 4096, WebP sem bloco de metadados e conferido byte a byte quando sem perda, hash no nome, manifesto C9, procedência e `site/rts/assets/indice.json`).
+- 30/10/2026, onda 1: portão de estilo, tudo por script, sem modelagem à mão e sem IA generativa: `religadores-veiculo-cesto-blindado` (32 direções, camadas corpo, torre, torre-erguida e completo, 8 animações, também a 45° e 65° como `-e45` e `-e65`), `religadores-infantaria-turma-de-linha` (esqueleto comum da infantaria e as 4 ações em actions com slots: a prova do personagem 100% por script da D31), `desligados-veiculo-carro-vela` (vela de malha refeita a cada quadro, faixa de time na lona), `religadores-construcao-escritorio-regional` (atividade em laço, porta de enrolar, danificada e camada `luzes` separada), `efeito-explosao-media`, `terreno-terra-batida` (ladrilho de 8 células sem emenda), `interface-retrato-turma-de-linha` e `interface-icone-escritorio-regional`; o tanque do protótipo ficou só como `teste-veiculo-tanque`. Os 32 atlas de direção trazem as 16 direções como uma sim, outra não.
+- Números: lote do Cesto de 32 direções com cor, time e sombra em 140 s (90 s de GPU), 74 MB no D:; 5,1 MB de WebP no `uhd` e 1,6 MB no `hd`; todos os assets do portão somam 26 MB no repositório, nenhum arquivo acima de 2 MB.
+- Pendente para o M2 (Victor, no visualizador da `rts-render`): elevação (45, 55 ou 65), 16 ou 32 direções, acabamento e a sombra; a sombra renderizada sai mais bonita, mas corta na borda do quadro e pesa 1 byte por pixel, e a recomendação é sombra derivada do alfa nas unidades e camada renderizada só nas construções, com quadro maior.
+- Pendente: o Cesto com 32 direções e todas as animações estima cerca de 150 MB de textura no `uhd` (páginas inteiras), acima do que cabe no orçamento de 256 MB da fase toda; as alavancas são 16 direções, menos quadros na transição e página menor; o teste de 5 segundos com 5 pessoas; destruído, carcaça, abalroar, construindo e o busto falante ficam para o kit da onda 2.
 
 ### F5 Design, mundo e fase 1 (`rts-design`)
 
@@ -199,7 +229,11 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 
 ### F7 Interface e controles (`rts-interface`)
 
-Onda 1 aberta em 30/10/2026; nada integrado ainda.
+- 30/10/2026: bateria de teclas e gestos em `prototipos/teclas/index.html` (um arquivo, sem nenhuma requisição), com `testes/e2e/rts-teclas.spec.mjs`; ela entra no roteiro de 15 minutos, e o "Copiar resultado" dela traz uma leitura automática de quais teclas servem em cada navegador.
+- 30/10/2026: entrada da E1 ligada à página: seleção por clique, caixa, Shift (soma na caixa, alterna no clique) e duplo clique (todos do tipo na tela); ordem de contexto pelo botão direito, clique com dois dedos ou Control e clique no Mac (ataca o inimigo visível sob o ponteiro, senão move); A, M e R armam atacar-mover, mover e patrulhar para o próximo clique, Shift mantém armado para enfileirar, Esc ou botão direito cancelam; S para, H segura, P pausa; fila com os pontos no chão (`interface/sobreposicao.js`); grupos de 1 a 9; câmera por setas, bordas, botão do meio ou Espaço e arrasto, e dois dedos no trackpad; três zooms (0,75, 1 e 1,25) pela roda, pela pinça (roda com `ctrlKey` e `GestureEvent`) e por + e −; marca no chão, som provisório e latência do clique medida no painel; todo comando tem botão na barra de baixo.
+- Decisões provisórias, a confirmar com a bateria no Safari 26, no Chrome do Mac e no Chrome do Windows: P é pausa e patrulha fica no R (no Mac, sem Fn, o F10 tira o som, então ele não serve de pausa); guardar grupo aceita Ctrl e Option/Alt com o número, porque cada sistema pode tomar um deles (abas no Windows, Mesas no Mac); WASD saiu da câmera porque A e S são comandos; a tecla do painel de medição (H) e a da tela cheia (F) saíram, e a tela cheia ficou no botão.
+- Medido: clique até a marca no chão com p50 de 22 ms e p95 de 28 ms em 4 cliques, no navegador do app do Claude (Chromium 152) no MacBook Pro M5 Pro, pelo painel do jogo (30/10/2026); o `rts-entrada.spec.mjs` reprova p50 acima de 100 ms. A medida vai até o fim do quadro que desenha a marca; o navegador ainda leva até uma atualização de tela para mostrar.
+- Pendente: a simulação obedecer ATACAR_MOVENDO, PARAR, SEGURAR_POSICAO, PATRULHAR e a fila (`rts-motor`, a interface já envia); a projeção com elevação no `entrada/camera.js` (`rts-render`); calibrar pela bateria a regra que separa a roda do mouse da rolagem do trackpad (hoje: evento isolado com Δy de 40 ou mais é roda; `?roda=zoom` ou `?roda=arrastar` forçam); conferir a pinça por `GestureEvent` no Safari de verdade; aviso na tela quando a ponte pausar por aba oculta; os e2e só rodam no Chromium até a decisão D16; o M1 com o Victor.
 
 ### F8 Qualidade e coordenação (`rts-qualidade`)
 
@@ -207,7 +241,8 @@ Onda 1 aberta em 30/10/2026; nada integrado ainda.
 - 30/10/2026: o Action roda em cada push da `rts/base`, com histórico completo e o texto do pull request no teste de originalidade; o primeiro run passou em 5m55s.
 - 30/10/2026: página de diagnóstico em `prototipos/diagnostico/` (configuração `diagnostico-rts`, porta 8820), conferida no Chromium, no Firefox e no WebKit; [roteiro de medições](roteiro-medicoes.md) com o caminho do PC testado pelo SSH.
 - 30/10/2026: projetos Playwright `rts-determinismo-chromium`, `-firefox` e `-webkit` (`testes/e2e/rts-determinismo.spec.mjs`) com o roteiro do protótipo num Worker, prontos para os replays dourados da `rts-motor` em `testes/rts-replays/` (formato combinado: `executarReplay(replay)` devolve `{ somas, final }`, e o arquivo traz `somas` e `final` esperados); a barreira de lint fica com a `rts-motor` em `testes/rts-sim-barreira.test.mjs`.
-- Pendente: Firefox e WebKit do Playwright 1.63 no Mac (decisão D16), endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro, os replays dourados no `rts-determinismo`.
+- 30/10/2026: primeiro Action com os três motores na `rts/base` (`c51ffb0`) verde em 6,5 minutos: 35 funcionais e `rts-determinismo` no Chromium, no Firefox e no WebKit; Firefox 155 e WebKit 26.6 instalados no Mac (D16).
+- Pendente: endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro, os replays dourados no `rts-determinismo`.
 
 ### F4, F6 e F9
 

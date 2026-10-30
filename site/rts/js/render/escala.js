@@ -4,8 +4,8 @@
 // controller steps down after 2 s in which more than 10% of the frames blew the budget, and probes one step
 // up after a calm stretch (5 s at first). A probe that fails within its 2 s window steps back down and
 // doubles the wait before the next probe, up to 80 s; a probe that survives resets the wait to 5 s.
-// When the GPU time of a frame is known (timer queries), it also has to fit in 70% of the budget, scaled
-// by the pixel count of the next step, before a probe is tried.
+// The GPU time from timer queries is not used: on the M5 Pro through ANGLE and Metal it stayed near 10 ms at
+// 3840x2160 and at 1920x1080 alike (30/10/2026), so it does not tell whether the next step fits.
 
 export const DEGRAUS = Object.freeze([1, 0.85, 0.75, 0.67, 0.5]);
 
@@ -32,7 +32,6 @@ export function criarControleDeEscala(opcoes = {}) {
   let ultimaMudanca = -Infinity;
   let calma = CALMA_INICIAL_MS;
   let provando = false;
-  let gpuMs = -1;
 
   function limparJanela() {
     inicio = 0;
@@ -82,25 +81,15 @@ export function criarControleDeEscala(opcoes = {}) {
       provando = false;
       calma = CALMA_INICIAL_MS;
     }
-    if (!provando && degrau > 0 && desdeMudanca >= calma && cabeNoProximo()) {
+    if (!provando && degrau > 0 && desdeMudanca >= calma) {
       provando = true;
       mudar(degrau - 1, agora);
     }
     return DEGRAUS[degrau];
   }
 
-  function cabeNoProximo() {
-    if (gpuMs < 0) return true;
-    const razaoPixels = (DEGRAUS[degrau - 1] / DEGRAUS[degrau]) ** 2;
-    return gpuMs * razaoPixels < orcamento * 0.7;
-  }
-
   return {
     registrar,
-    /** Latest GPU time of a frame in ms, when timer queries exist; negative means unknown. */
-    informarGpu(ms) {
-      gpuMs = ms;
-    },
     definirOrcamento(ms) {
       orcamento = ms;
     },

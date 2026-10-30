@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/rts.css">
 </head>
 <body>
-  <div id="palco"><canvas id="tela"></canvas><div id="caixa-selecao" hidden></div></div>
+  <div id="palco"><canvas id="tela" tabindex="0" aria-label="Campo de batalha"></canvas><svg id="sobreposicao" aria-hidden="true"></svg><div id="caixa-selecao" hidden></div></div>
   <aside id="painel">
     <div><b>Protótipo RTS 4K</b> · WebGL2 · simulação em worker</div>
     <div data-campo="fps">…</div>
@@ -17,9 +17,11 @@
     <div data-campo="res">…</div>
     <div data-campo="unidades">…</div>
     <div data-campo="soma">…</div>
+    <div data-campo="clique">clique até a marca: …</div>
     <div data-campo="placa">…</div>
-    <div class="ajuda">arrastar: selecionar · botão direito: mover · WASD: câmera · roda: zoom · F: tela cheia · H: painel · P: pausa</div>
+    <div class="ajuda">arrastar: selecionar · duplo clique: todos do tipo · botão direito ou dois dedos: ordem · A, M, R e clique: atacar-mover, mover, patrulhar · S parar · H segurar · Shift: enfileirar · Ctrl ou Option e número: guardar grupo · setas, bordas, Espaço e arrastar: câmera · pinça, roda, + e −: zoom · P: pausa</div>
   </aside>
+  <nav id="comandos" aria-label="Comandos"></nav>
   <canvas id="minimapa" width="440" height="440"></canvas>
   <pre id="resultado" hidden></pre>
   <script type="module" src="js/principal.js"></script>

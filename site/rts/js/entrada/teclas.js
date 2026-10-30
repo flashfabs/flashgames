@@ -19,6 +19,9 @@ export const ACAO = Object.freeze({
   ZOOM_MENOS: 'zoomMenos',
 });
 
+/** Whether this is a Mac (or an iPad with a keyboard): Option instead of Alt, and Control and click is a right click. */
+export const E_MAC = /Mac|iPhone|iPad/.test(globalThis.navigator?.userAgentData?.platform ?? globalThis.navigator?.platform ?? '');
+
 /** Actions that wait for a click on the map; Shift held on that click appends to the order queue. */
 export const ACOES_COM_ALVO = new Set([ACAO.ATACAR_MOVENDO, ACAO.MOVER, ACAO.PATRULHAR]);
 
