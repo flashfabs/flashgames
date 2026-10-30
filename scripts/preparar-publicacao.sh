@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds a clean folder ready for Netlify's deploy-site from a commit of the repository (main by default):
-# only netlify.toml, site/ and netlify/ come from git, plus site/versao.json with the commit and the time.
+# only netlify.toml, site/, netlify/ and the netlify.toml build command (scripts/gerar-versao.mjs) come from git,
+# plus site/versao.json with the commit and the time. Since 29/10/2026 Netlify builds main by itself after each
+# push; this folder is the fallback for publishing by hand.
 # When package.json has "dependencies" (runtime packages of the Netlify Functions), they are installed with
 # npm ci --omit=dev, so the functions bundle with them; dev tools such as Playwright never go along.
 #
@@ -37,7 +39,7 @@ mkdir -p "$pai"
 pasta="$(mktemp -d "${pai%/}/salinha-publicacao-${curto}-XXXXXX")"
 
 caminhos=()
-for caminho in netlify.toml site netlify package.json package-lock.json; do
+for caminho in netlify.toml site netlify scripts/gerar-versao.mjs package.json package-lock.json; do
   if git -C "$repositorio" cat-file -e "${commit}:${caminho}" 2>/dev/null; then caminhos+=("$caminho"); fi
 done
 git -C "$repositorio" archive "$commit" "${caminhos[@]}" | tar -x -C "$pasta"
@@ -47,10 +49,7 @@ if [[ ! -f "$pasta/site/index.html" ]]; then
   exit 1
 fi
 
-COMMIT="$commit" CURTO="$curto" HORA="$hora" MENSAGEM="$mensagem" REF_NOME="$ref" node -e '
-const { COMMIT: commit, CURTO: curto, HORA: hora, MENSAGEM: mensagem, REF_NOME: ref } = process.env;
-process.stdout.write(JSON.stringify({ commit, curto, hora, ref, mensagem }, null, 2) + "\n");
-' > "$pasta/site/versao.json"
+(cd "$repositorio" && COMMIT_REF="$commit" HEAD="$ref" node "$aqui/gerar-versao.mjs" "$pasta/site/versao.json" >&2)
 
 # Runtime dependencies of the functions, if any; otherwise package.json stays out of the published folder.
 if [[ -f "$pasta/package.json" ]] && node -e 'process.exit(Object.keys(require(process.argv[1]).dependencies ?? {}).length ? 0 : 1)' "$pasta/package.json"; then

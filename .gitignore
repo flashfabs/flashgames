@@ -4,3 +4,4 @@ node_modules/
 .claude/worktrees/
 test-results/
 playwright-report/
+site/versao.json
