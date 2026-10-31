@@ -107,7 +107,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
     for (const [dono, ids] of luta.lados) lados[dono] = { unidades: ids.size, mortes: luta.mortes.get(dono) ?? 0 };
     const resumo = { luta: luta.id, inicioPasso: luta.inicio, fimPasso: luta.ultimo, duracaoPassos: luta.ultimo - luta.inicio, x: Math.trunc(luta.sx / luta.n / FP), y: Math.trunc(luta.sy / luta.n / FP), lados };
     lutas.push(resumo);
-    anotar('lutaFim', { passo: luta.ultimo, luta: luta.id, x: resumo.x, y: resumo.y, lados });
+    anotar('lutaFim', { passo: luta.ultimo, luta: luta.id, duracaoPassos: resumo.duracaoPassos, x: resumo.x, y: resumo.y, lados });
   }
 
   function fecharLutasParadas(agoraPasso) {
@@ -160,7 +160,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
   function morte(t, id, tipo, x, y) {
     const dono = donoDe(id);
     const coletor = ehColetor(tipo) ? 1 : 0;
-    anotar('morte', { passo: t, tipo: nomeTipo(tipo), dono, coletor, x: Math.trunc(x / FP), y: Math.trunc(y / FP) });
+    anotar('morte', { passo: t, tipoUnidade: nomeTipo(tipo), dono, coletor, x: Math.trunc(x / FP), y: Math.trunc(y / FP) });
     if (coletor && dono === jogadorLocal) coletoresPerdidos++;
     for (const luta of lutasAbertas) {
       if (luta.lados.get(dono)?.has(id)) luta.mortes.set(dono, (luta.mortes.get(dono) ?? 0) + 1);
