@@ -87,6 +87,7 @@ Rodam só quando o Victor pedir, uma por vez, com o Mac sem outras sessões pesa
 - Bateria de teclas no Safari e no Chrome do Mac ([roteiro](roteiro-medicoes.md), Partes 1 e 2).
 - Referência de 60 qps no Metal do M5 Pro: `rts-desempenho` em 4K com 2.000 unidades no Chrome e o passo da simulação limpo, sem outras sessões rodando (critérios da E1).
 - Pavio com 8 jogadores (`npx playwright test testes/e2e/desempenho.spec.mjs --project=desempenho --workers=1`), cujos limites são do Mac.
+- Render da fatia cinza no M5 Pro (`rts-render`): `rts-desempenho` em 4K com 2.000 unidades e 60 prédios no Chrome com Metal (`npx playwright test testes/e2e/rts-desempenho.spec.mjs --project=desempenho --workers=1`), e no Safari 26 `/rts/?bench=1&res=4k&seg=20&avancar=600&predios=60` em tela cheia, uma vez com `&terreno=procedural` e outra sem, copiando o JSON do canto.
 
 ## Critérios por etapa
 
@@ -241,7 +242,19 @@ Na onda 2: economia, construção, produção, lotação, combate com a matriz, 
 | Passo da simulação na página: 4K contra 1080p | PC da RTX 4090, Chromium com ANGLE D3D11 na NVIDIA (string da placa conferida), 2.000 unidades, escala fixa | 4K: passo p50/p95 1,7/3,0 ms, 0 de 600 quadros acima de 20 ms, GPU 2,7 ms; 1080p: passo 1,8/3,3 ms, GPU 0,75 ms; o passo não muda com os pixels, então não há disputa com o render (os 22 ms medidos antes eram de antes da soma de verificação passar a uma por segundo); no D3D11 a consulta de tempo de GPU acompanha os pixels, ao contrário do Metal | `scripts/rtx-testes.sh -- --project=desempenho testes/e2e/rts-desempenho.spec.mjs`, execução 20261030-205938 |
 | Render em 4K no Safari 26 | MacBook Pro M5 Pro | pendente (Victor): abrir `/rts/?bench=1&res=4k&seg=20&avancar=600` em tela cheia e copiar o JSON que aparece no canto | — |
 
-Pendências da F2: a medição no Safari (Victor); a escolha da sombra é do Victor no portão (a camada renderizada dos veículos sai cortada na borda do quadro de 256 px, e a `rts-arte` aumenta o quadro de quem precisar se ela for a escolhida); níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o custo de GPU por passe ainda não tem medida confiável no Mac (a consulta de tempo da ANGLE não acompanha os pixels), e para 120 Hz em 4K vale medir o terreno procedural contra o splatting da onda 2 por tempo de quadro, com a escala fixa.
+Onda 2 (E3, fatia cinza), 31/10/2026:
+
+- Relevo (`render/relevo.js`): níveis 0 a 3 do mapa a 4 m por nível (`metrosPorNivel` e `nivelMaximo` no `projecao.json`, C8 v0 com campo novo), encosta suave entre células abertas de níveis diferentes, penhasco de 1/4 de célula onde há célula bloqueada entre níveis (a regra combinada com a `rts-design` para a caixa de areia), região bloqueada subindo ao nível mais alto que toca, água bloqueada no próprio nível e decoração que bloqueia (muro em ruína, carcaça de ônibus) como bloco de 2,5 m. O terreno marcha o raio de cada pixel até o chão só onde há relevo à frente, ilumina encostas e faces, sombreia o que o terreno mais alto esconde do sol e amostra a neblina no ponto atingido (neblina com altura). A câmera leva o relevo, então `paraMundo` e `paraTela` da interface acertam o clique num platô sem mudar nada do lado dela.
+- Profundidade: o terreno escreve no buffer de profundidade quão perto da câmera está cada ponto, e sprites, sombras, anéis, efeitos e cabos testam contra ele, então unidade atrás de morro some atrás dele; unidades, barras e anéis ficam na altura do chão.
+- Construções (C2 v3 da `rts-motor-economia`): tipos do mapa estático com a arte do índice (C9) ou forma provisória desenhada na GPU pela pegada (prédio, poste, cata-vento, torre, pilha de baterias, soldado, faísca), âncora no centro da pegada, ordem pela borda da frente junto com as unidades, obra subindo do chão com andaime pela máscara do shader, `produzindo`, `danificada` (ou fuligem sem arte) e `luzes` quando energizado, contorno da pegada na seleção, memória cinza dos prédios vistos sob a neblina (`fantasmas` do retrato), fantasma de colocação (`render.definirFantasma`, costura da `rts-interface`) e área de construção sombreada (`render.definirAreaDeConstrucao`).
+- Cabos da rede de postes de cada prédio ao seu nó (`ligacao`), com flecha, acesos quando `ENERGIZADO`.
+- Terreno por splatting (`render/solos.js`): solo por célula da camada do mapa (C6) com os nomes da tabela `solos`, ladrilho próprio `terreno-<solo>` quando o índice da arte tiver e o `terreno-terra-batida` tingido por solo até lá; `?terreno=procedural` volta ao terreno procedural para comparar.
+- Sombra: a recomendação da onda 1 virou o padrão `recomendado` (derivada do alfa nas unidades, camada renderizada nas construções que a têm) até o Victor escolher no portão.
+- Bench: `&predios=N` cerca a batalha com prédios de uma partida (escritório da arte, garagens, almoxarifados, torres, postes com cabos, um em cinco em obra); o resultado traz o modo do terreno e o tempo de GPU por quadro (p50 e p95).
+
+MEDICOES_ONDA2
+
+Pendências da F2: a medição no Safari e a referência no Metal do M5 Pro com o relevo e os prédios (Victor, em "Medições que esperam o Mac"); a escolha da sombra é do Victor no portão; entardecer na onda 3; decorações que não bloqueiam (pedra, árvore seca, poste caído, pneus) e a ponte como peça; silhueta de unidade escondida atrás de morro (hoje some inteira); cabos desenhados depois dos sprites passam por cima de unidade na frente deles; os ladrilhos dos outros solos dependem da `rts-arte`.
 
 ### F3 Arte e Blender (`rts-arte`)
 
