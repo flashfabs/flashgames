@@ -18,19 +18,20 @@ def construir(ctx):
     estragos = cinza.Estragos(raiz, 3)
     cinza.laje("patio", *PEGADA, pal["concreto"], raiz)
     # battery racks in three rows, with a row of small lamps each
-    racks = estragos.grupo("racks", (0, 0.4, 0.12), "parede")
-    for fila, y in enumerate((2.2, 0.4, -1.4)):
+    racks = estragos.grupo("racks", (0, 0, 0.12), "parede")
+    for fila, y in enumerate((2.6, 0.8, -1.0)):
         for k, x in enumerate((-3.6, -1.2, 1.2, 3.6)):
             m.caixa(f"rack{fila}{k}", (x, y, 0.85), (2.1, 0.8, 1.7), pal["cobalto" if (fila + k) % 2 else "concreto"], racks, 0.03)
             m.caixa(f"rack{fila}{k}_luzes", (x, y - 0.41, 1.3), (1.6, 0.02, 0.08), pal["luz"], racks, 0.0)
-    # light roof on posts
-    postes = estragos.grupo("postes_cobertura", (0, 0, 0.12), "parede")
-    for x in (-5.0, 0.0, 5.0):
-        for y in (-2.4, 3.2):
-            m.barra(f"poste_cobertura{x:+.0f}{y:+.0f}", (x, y, 0), (x, y, 3.1), 0.09, pal["metal"], postes, 8)
-    cobertura = estragos.grupo("cobertura", (0, 0.4, 3.2), "telhado")
-    m.caixa("telha", (0, 0, 0.06), (10.8, 6.2, 0.12), pal["aluminio"], cobertura, 0.02, (math.radians(4), 0, 0))
-    m.caixa("faixa_cobertura", (0, -3.1, -0.04), (10.8, 0.08, 0.3), pal["time"], cobertura, 0.0)
+    # a narrow light roof over each row of racks, with gaps between them, so the racks show from above
+    for fila, y in enumerate((2.6, 0.8, -1.0)):
+        postes = estragos.grupo(f"postes_cobertura{fila}", (0, y, 0.12), "parede")
+        for x in (-4.9, 0.0, 4.9):
+            m.barra(f"poste_cobertura{fila}{x:+.0f}", (x, -0.55, 0), (x, -0.55, 2.75), 0.07, pal["metal"], postes, 8)
+        cobertura = estragos.grupo(f"cobertura{fila}", (0, y, 2.85), "telhado")
+        m.caixa(f"telha{fila}", (0, 0, 0.05), (10.6, 1.35, 0.08), pal["aluminio"], cobertura, 0.01, (math.radians(-8), 0, 0))
+        if fila == 2:
+            m.caixa("faixa_cobertura", (0, -0.7, -0.06), (10.6, 0.06, 0.22), pal["time"], cobertura, 0.0)
     # chain-link fence on three sides: posts and three wires
     for lado, (a, b) in enumerate((((-5.8, -3.8), (-5.8, 3.8)), ((-5.8, 3.8), (5.8, 3.8)), ((5.8, 3.8), (5.8, -3.8)))):
         cerca = estragos.grupo(f"cerca{lado}", (a[0], a[1], 0.12), "detalhe")
@@ -62,6 +63,7 @@ def construir(ctx):
     m.caixa("poste_cruzeta", (0, 0, 5.7), (0.15, 1.8, 0.15), pal["concreto"], poste, 0.02)
     for y in (-0.75, 0, 0.75):
         m.cilindro(f"isolador{y:+.2f}", (0, y, 5.92), 0.07, 0.3, pal["branco"], poste, vertices=10)
+    m.ponto("cabo", (0, 0, 5.95), poste)
     estragos.detritos(pal, *PEGADA, 18)
     m.ponto("topo", (0, 0, 6.5), raiz)
     m.ponto("doca", (-3.0, -4.4, 0.0), raiz)

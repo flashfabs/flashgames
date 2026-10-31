@@ -115,6 +115,12 @@ def acinzentar(raiz, faccao):
             if bsdf.inputs["Emission Strength"].default_value > 0:
                 bsdf.inputs["Emission Color"].default_value = (*(_linear(c) for c in LUZ), 1.0)
                 bsdf.inputs["Emission Strength"].default_value = min(2.0, bsdf.inputs["Emission Strength"].default_value)
+            # other shaders fed by the same colour (the translucent sail canvas) take the grey as well
+            for no in mat.node_tree.nodes:
+                if no.type == "BSDF_TRANSLUCENT":
+                    for ligacao in list(no.inputs["Color"].links):
+                        mat.node_tree.links.remove(ligacao)
+                    no.inputs["Color"].default_value = entrada.default_value
 
 
 # Descriptions ----------------------------------------------------------------------------------------------
@@ -123,8 +129,9 @@ def anim(nome, camada, quadros, fps=0, laco=True, **extras):
     return {"nome": nome, "camada": camada, "quadros": quadros, "fps": fps, "laco": laco, **extras}
 
 
-def descricao_infantaria(asset, brief, quadro=(128, 128), ancora=(64, 84), extras=()):
+def descricao_infantaria(asset, brief, quadro=(128, 128), ancora=(64, 84), extras=(), arma=True):
     """16 directions: idle, walking (6), shot (2, the second is the idle pose) and dying (6 frames in 8 directions)."""
+    atirando = [anim("atirando", "corpo", 2, 8, False, quadrosIguais={"1": ["parado", 0]})] if arma else []
     return {
         "asset": asset, "brief": brief, "tipo": "unidade", "categoria": "infantaria", "fases": FASES, "acabamento": "cinza",
         "direcoes": 16, "passes": ["cor", "time"],
@@ -132,7 +139,7 @@ def descricao_infantaria(asset, brief, quadro=(128, 128), ancora=(64, 84), extra
         "animacoes": [
             anim("parado", "corpo", 1),
             anim("andando", "corpo", 6, 10),
-            anim("atirando", "corpo", 2, 8, False, quadrosIguais={"1": ["parado", 0]}),
+            *atirando,
             anim("morrendo", "corpo", 6, 8, False, direcoes=8),
             *extras,
         ],

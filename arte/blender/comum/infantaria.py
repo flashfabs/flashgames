@@ -30,7 +30,8 @@ OSSOS = [
 ]
 OSSO = {nome: (cabeca, cauda) for nome, _pai, cabeca, cauda in OSSOS}
 
-# Positive turns about Y tilt the top of a bone forward (+X) and the bottom of a bone backward.
+# Positive turns about Y tilt the top of a bone forward (+X) and the bottom of a bone backward: knees and elbows
+# (the tails of thighs and upper arms) go forward with negative turns.
 Y = (0, 1, 0)
 X = (1, 0, 0)
 Z = (0, 0, 1)
@@ -131,15 +132,15 @@ def morrendo(q, n):
 def sentado(q, n):
     """Seated rider or driver, hands forward on the handlebar or wheel."""
     return [
-        ("coxa_e", Y, 80), ("coxa_d", Y, 80), ("canela_e", Y, -75), ("canela_d", Y, -75),
-        ("braco_e", Y, 35), ("braco_d", Y, 35), ("tronco", Y, 6),
+        ("coxa_e", Y, -80), ("coxa_d", Y, -80), ("canela_e", Y, 75), ("canela_d", Y, 75),
+        ("braco_e", Y, -35), ("braco_d", Y, -35), ("tronco", Y, 6),
     ], -0.42, -0.1
 
 
 def empurrando(q, n):
     """Leaning forward with both arms out, walking: crews pushing a cart."""
     angulos, z, x = andando(q, max(n, 2))
-    return angulos + [("tronco", Y, 22), ("braco_e", Y, 55), ("braco_d", Y, 55)], z - 0.04, x
+    return angulos + [("tronco", Y, 22), ("braco_e", Y, -55), ("braco_d", Y, -55)], z - 0.04, x
 
 
 POSES = {"parado": parado, "andando": andando, "atirando": atirando, "morrendo": morrendo, "sentado": sentado, "empurrando": empurrando}
