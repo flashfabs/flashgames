@@ -81,7 +81,8 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
     canvasAlvo.focus({ preventScroll: true });
     controles.marcarBotao();
     if (botao.dataset.slot !== undefined) {
-      controles.executarSlot(cartao().slots[Number(botao.dataset.slot)], { fila: e.shiftKey }, e.timeStamp);
+      // the button shows the drawn card; the slot comes from the card of this moment, by its place
+      controles.executarSlot(controles.slotAgora(Number(botao.dataset.slot)), { fila: e.shiftKey }, e.timeStamp);
     } else if (botao.dataset.acao) {
       controles.executar({ acao: botao.dataset.acao, fila: e.shiftKey }, e.timeStamp);
     } else if (botao.hasAttribute('data-tela-cheia')) {

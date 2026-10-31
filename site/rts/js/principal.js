@@ -276,8 +276,8 @@ controles = ligarControles({
   simulacao,
   visivel,
   catalogo: obterCatalogo,
-  cartao: () => cartaoAtual,
-  producao: leitura.producao,
+  // keys and clicks act on the card of this very moment, not the one drawn up to a quarter second ago
+  cartao: recalcularCartao,
   colocacao,
   acoes: { [ACAO.BASE]: irParaBase, [ACAO.COLETOR_OCIOSO]: irParaColetorOcioso, [ACAO.ULTIMO_ALERTA]: irParaUltimoAlerta },
   aoVirarPagina: virarPagina,

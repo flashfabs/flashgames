@@ -208,8 +208,11 @@ test('the sandbox through the HUD: build, place, train and harvest', async ({ pa
     const c = r.indice.centro([id]);
     let melhor = -1;
     let d2 = Infinity;
+    const { largura } = r.estado.mapa;
     for (let k = 0; k < a.n; k++) {
       if (r.catalogo.categoria(a.tipo[k]) !== 'recurso') continue;
+      // only piles the player has seen can be targeted
+      if (a.visao[Math.floor(a.y[k] / r.FP) * largura + Math.floor(a.x[k] / r.FP)] === 0) continue;
       const d = (a.x[k] / r.FP - c.x) ** 2 + (a.y[k] / r.FP - c.y) ** 2;
       if (d < d2) [melhor, d2] = [a.id[k], d];
     }

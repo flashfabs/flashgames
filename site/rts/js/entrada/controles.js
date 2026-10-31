@@ -579,6 +579,8 @@ export function ligarControles({
     cancelarModo,
     comecarColocacao,
     alternarPausa,
+    /** The card's slot at that place right now (the drawn card can be a quarter second old). */
+    slotAgora: posicao => cartao().slots[posicao],
     /** Marks the next command as given by an on-screen button (for the playtest log). */
     marcarBotao() {
       origem = 'botao';
