@@ -1,6 +1,6 @@
 // Alerts from the presentation events of each snapshot (C3): under attack (base, harvester, any unit), an attack on
 // the way (missions), production and construction finished, a building ready to place, power lost, a gust announced,
-// a unit promoted, a structure brought back, resource exhausted and refused commands. Attacks are grouped by place and time, so a long fight raises one alert, not
+// a unit promoted, a structure brought back, mission messages, resource exhausted and refused commands. Attacks are grouped by place and time, so a long fight raises one alert, not
 // one per shot; the last alert with a place is kept for the "go to last alert" key.
 // Pure: no DOM; the caller answers who owns an entity and what kind of thing a type is.
 import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG, FP } from '../sim/contratos.js';
@@ -19,13 +19,14 @@ export const ALERTA = Object.freeze({
   RAJADA_PAGA: 'rajadaPaga',
   PROMOCAO: 'promocao',
   RELIGADO: 'religado',
+  MENSAGEM: 'mensagem',
   RECURSO_ESGOTADO: 'recursoEsgotado',
   RECUSA: 'recusa',
 });
 
 /** Kinds that mean danger: they ping the minimap and sound the alarm. */
 export const ALERTAS_DE_PERIGO = new Set([ALERTA.SOB_ATAQUE, ALERTA.BASE_SOB_ATAQUE, ALERTA.COLETOR_SOB_ATAQUE, ALERTA.AVISO_ATAQUE]);
-/** Kinds without a place worth going to. */
+/** Kinds without a place worth going to (a mission message has one only when its action names an area). */
 const SEM_LUGAR = new Set([ALERTA.RECUSA, ALERTA.RAJADA]);
 
 /** Attacks closer than this (cells) to an alert still running join it instead of raising a new one. */
@@ -101,6 +102,9 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
         // the harvester is dead by now: its owner comes from the snapshot before
         if (donoDe(entidade) !== jogador) continue;
         novos.push({ tipo: ALERTA.COLETOR_PERDIDO, x: x / FP, y: y / FP, entidade, arg, quando: agora });
+      } else if (tipo === EVENTO.MENSAGEM_MISSAO) {
+        // arg = index in the mission's texts; (x, y) the centre of the action's area, 0 without one
+        novos.push({ tipo: ALERTA.MENSAGEM, x: x / FP, y: y / FP, entidade: -1, arg, semLugar: x === 0 && y === 0, quando: agora });
       } else if (tipo === EVENTO.RAJADA_ANUNCIADA) {
         novos.push({ tipo: ALERTA.RAJADA, x: 0, y: 0, entidade: -1, arg, quando: agora });
       } else if (tipo === EVENTO.RECURSO_ESGOTADO) {
@@ -112,7 +116,7 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
       }
     }
     for (let i = ataques.length - 1; i >= 0; i--) if (ataques[i].ate < agora) ataques.splice(i, 1);
-    for (const alerta of novos) if (!SEM_LUGAR.has(alerta.tipo)) ultimo = alerta;
+    for (const alerta of novos) if (!SEM_LUGAR.has(alerta.tipo) && !alerta.semLugar) ultimo = alerta;
     return novos;
   }
 

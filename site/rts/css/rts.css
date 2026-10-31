@@ -51,6 +51,7 @@ kbd { font: inherit; font-size: 11px; color: var(--apagado); }
 #alertas { position: fixed; top: calc(var(--altura-topo) + 8px); right: 12px; margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; justify-items: end; pointer-events: none; max-width: min(360px, 40vw); }
 #alertas li { pointer-events: auto; cursor: pointer; padding: 6px 10px; background: var(--painel); border: 1px solid var(--borda); border-left: 3px solid var(--destaque); border-radius: 6px; animation: entra 0.18s ease-out; }
 #alertas li[data-perigo="true"] { border-left-color: var(--perigo); }
+#alertas li[data-tipo="mensagem"] { border-left-color: #5ab8ff; max-width: min(420px, 45vw); }
 #alertas li[data-saindo="true"] { opacity: 0; transition: opacity 0.4s; }
 @keyframes entra { from { transform: translateX(16px); opacity: 0; } }
 
