@@ -342,6 +342,7 @@ simulacao.iniciar({
   aoReceberMapa(mapa) {
     catalogo = catalogoDoMapa(mapa, texto);
     comecarRegistro(mapa);
+    menu.marcarPronto();
     render.definirMapa(mapa);
     camera.x = mapa.bases[0].x + 14;
     camera.y = mapa.bases[0].y - 10;
@@ -359,9 +360,9 @@ simulacao.iniciar({
     colocacao.revalidar();
     registro?.anotarRetrato(retrato);
     fim.verificar(retrato.eventos);
-    menu.marcarPronto();
   },
 });
+menu.segurarNoInicio();
 
 if (opcoes.atlas) {
   render.carregarPrototipo().then(folha => {

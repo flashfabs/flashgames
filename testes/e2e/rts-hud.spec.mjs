@@ -14,8 +14,14 @@ async function abrir(page, consulta = '') {
   await page.waitForFunction(() => window.__rts?.estado.atual?.n > 0 && window.__rts.versaoGancho);
 }
 
+// Behind the start screen the match has not run yet: only the static map is there.
+async function abrirNoInicio(page) {
+  await page.goto(`${PAGINA}&inicio=1`);
+  await page.waitForFunction(() => window.__rts?.estado.mapa && window.__rts.versaoGancho);
+}
+
 test('the start screen holds the match until Começar, and the menu stops it while open', async ({ page }) => {
-  await abrir(page, '&inicio=1');
+  await abrirNoInicio(page);
   const comecar = page.getByRole('button', { name: 'Começar' });
   await expect(comecar).toBeEnabled();
   const antes = await tick(page);

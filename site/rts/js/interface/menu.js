@@ -1,5 +1,5 @@
 // Start screen, the F10 menu and the notices in the middle of the screen. The match waits paused (reason 'inicio')
-// until Começar, and that click is the only thing that turns the audio on. F10 opens and closes the menu; Esc only
+// until Começar, which turns ready when the static map arrives, and that click is the only thing that turns the audio on. F10 opens and closes the menu; Esc only
 // closes it, never opens it (Esc belongs to the browser's full screen). The single-player match pauses while the menu
 // is open and, through the simulation bridge, while the tab is hidden; coming back says so for a moment.
 
@@ -23,9 +23,11 @@ export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, 
   copiar.textContent = texto('menu.copiar_registro');
   menu.querySelector('[data-menu="recomecar"]').before(copiar);
 
-  if (mostrarInicio) {
-    inicio.hidden = false;
-    simulacao.pausar(true, 'inicio');
+  if (mostrarInicio) inicio.hidden = false;
+
+  /** Holds the match behind the start screen; call it right after the worker starts (a pause sent before is lost). */
+  function segurarNoInicio() {
+    if (!comecou) simulacao.pausar(true, 'inicio');
   }
 
   function marcarPronto() {
@@ -126,6 +128,7 @@ export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, 
   }
 
   return {
+    segurarNoInicio,
     marcarPronto,
     comecar,
     abrir,
