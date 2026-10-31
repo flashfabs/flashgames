@@ -19,6 +19,8 @@ async function abrirCaixa(page) {
   await page.evaluate(() => window.__rts.pausar(true));
   const temQg = await page.evaluate(() => window.__rts.entidades(e => e.dono === 0 && e.nome === 'escritorio-regional').length > 0);
   test.skip(!temQg, 'a página ainda não abre a caixa de areia (rts-interface e rts-motor-economia)');
+  const cargaInicial = await page.evaluate(() => window.__rts.retrato().recursos[0]);
+  test.skip(cargaInicial === 0, 'a Carga inicial, a vitória e a derrota vêm dos gatilhos da missão, que entram com o avaliador da rts-motor-combate');
 }
 
 const retrato = page => page.evaluate(() => window.__rts.retrato());

@@ -3,7 +3,8 @@
 // exposed), sprites on screen and simulation step times are collected into preallocated arrays; the result, with the
 // screen, canvas, render scale, terrain mode and browser it was measured on, lands in window.__bench and on the page.
 // With &predios=N the battle gets N still buildings of a match around it (offices, garages, poles with cables, some
-// under construction), drawn through the same path as the simulation's buildings.
+// under construction), drawn through the same path as the simulation's buildings; with &kit=<phase> every sprite
+// asset of that phase in the art index is loaded first, so mibTexturas can be checked against the art budget.
 import { FP, PASSOS_POR_SEGUNDO, MAX_SLOTS, BANDEIRA, CATEGORIA, idDe } from '../sim/contratos.js';
 
 // Kinds of the benchmark: the prototype's two units keep kinds 0 and 1, then buildings of a match.
@@ -60,7 +61,11 @@ const AQUECIMENTO_MS = 4000; // armies reach the centre and the JIT settles
 const LIMITE_LENTO_MS = 20;
 
 export function criarMedicao({ ativa, segundos, estado, camera, canvas, render, modo, saida }) {
-  const predios = ativa ? Number(new URLSearchParams(location.search).get('predios') ?? 0) : 0;
+  const parametros = new URLSearchParams(location.search);
+  const predios = ativa ? Number(parametros.get('predios') ?? 0) : 0;
+  const kit = ativa ? parametros.get('kit') : null;
+  let assetsDoKit = 0;
+  if (kit) render.carregarFase(kit).then(n => (assetsDoKit = n));
   // room for 1000 frames per second of measurement (an uncapped frame rate), so collecting never allocates
   const capacidade = Math.ceil(segundos * 1000);
   const quadros = new Float32Array(capacidade);
@@ -157,6 +162,7 @@ export function criarMedicao({ ativa, segundos, estado, camera, canvas, render, 
       gpuP95: nGpu > 0 ? +percentil(g, 95).toFixed(2) : null,
       terreno: render.modoTerreno,
       mibTexturas: +(render.estatisticas.bytesTexturas / 1048576).toFixed(1),
+      kit: kit ? { fase: kit, assets: assetsDoKit } : null,
       predios: estado.extras?.n ?? 0,
       passoSimP50: +percentil(ticks, 50).toFixed(2),
       passoSimP95: +percentil(ticks, 95).toFixed(2),

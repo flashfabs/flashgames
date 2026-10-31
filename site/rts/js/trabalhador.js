@@ -8,6 +8,7 @@ import { montarMapaEstatico, montarRetrato } from './sim/retrato.js';
 import { salvar, carregar } from './sim/persistencia.js';
 import { criarGravador } from './sim/replay.js';
 import { PARA_TRABALHADOR, DO_TRABALHADOR, VELOCIDADES, comandoValido, transferiveisDoRetrato } from './sim/contratos.js';
+import { camadasEmTexto } from './sim/mapa.js';
 
 const MAX_RECUPERACAO = 4;
 // AVANCAR runs at most one hour of game time per message
@@ -36,9 +37,15 @@ self.onmessage = ({ data }) => {
 function tratar(data) {
   switch (data.t) {
     case PARA_TRABALHADOR.INICIAR: {
-      const { avancar = 0, jogadorLocal: local = 0, teste: modoTeste = false, ...opcoes } = data.opcoes;
+      const { avancar = 0, jogadorLocal: local = 0, teste: modoTeste = false, partida, ...opcoes } = data.opcoes;
       jogadorLocal = local;
       teste = Boolean(modoTeste);
+      if (partida) {
+        // the map's layers go as base64, so the options (and the replay that records them) stay plain JSON
+        const camadas = partida.camadas instanceof ArrayBuffer ? new Uint8Array(partida.camadas) : partida.camadas;
+        opcoes.arquivosMapa = { cabecalho: partida.cabecalho, camadas: camadas instanceof Uint8Array ? camadasEmTexto(camadas) : camadas, entidades: partida.entidades };
+        opcoes.missao = partida.missao;
+      }
       sim = criarSimulacao(opcoes);
       gravador = criarGravador(opcoes);
       // ?avancar=<ticks> fast-forwards the match (screenshots, benchmarks of the mid-game)

@@ -37,6 +37,7 @@ import { criarPainelDeSelecao } from './interface/selecao-painel.js';
 import { criarMenu } from './interface/menu.js';
 import { criarSomDaPartida } from './interface/som-da-partida.js';
 import { criarFim } from './interface/fim.js';
+import { criarObjetivos } from './interface/objetivos.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
 import { criarRegistro, nomesDosGrupos } from './telemetria/registro.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
@@ -136,20 +137,20 @@ const fonteDeComandos = {
 };
 const ordens = criarOrdens({ simulacao: fonteDeComandos, estado, efeitos, fila, som, latencia });
 
-// Building placement: the ghost goes to the renderer when it has one, else to the SVG layer; the network area is
-// shaded while placing and follows the snapshots (poles built or cut).
+// Building placement: the renderer draws the ghost and shades the network area while placing, which follows the
+// snapshots (poles built or cut).
 let fantasma = null;
 let areaDeConstrucao = null;
 function atualizarArea() {
   areaDeConstrucao = colocacao.ativa ? areaDaRede(estado.mapa, estado.atual, catalogo, estado.jogadorLocal) : null;
-  render.definirAreaDeConstrucao?.(areaDeConstrucao);
+  render.definirAreaDeConstrucao(areaDeConstrucao);
 }
 const colocacao = criarColocacao({
   validar: (tipo, cx, cy) => regraDaPagina({ mapa: estado.mapa, retrato: estado.atual, catalogo, area: areaDeConstrucao }, tipo, cx, cy),
   desenhar(novo) {
     const comecou = novo && !fantasma;
     fantasma = novo;
-    render.definirFantasma?.(novo);
+    render.definirFantasma(novo);
     if (comecou || !novo) atualizarArea();
   },
 });
@@ -158,8 +159,8 @@ let cartaoAtual = { tipo: 'vazio', slots: new Array(8).fill(null), predios: [], 
 function recalcularCartao() {
   const selecao = [];
   for (const id of selecionadas) {
-    const tipo = indice.tipo(id);
-    if (tipo >= 0) selecao.push({ id, tipo });
+    const k = indice.k(id);
+    if (k >= 0) selecao.push({ id, tipo: estado.atual.tipo[k], bandeiras: estado.atual.bandeiras[k] });
   }
   cartaoAtual = montarCartao({ selecao, catalogo, producao: leitura.producao, carga: leitura.carga, lotacao: leitura.lotacao });
   return cartaoAtual;
@@ -280,7 +281,8 @@ function encontros() {
   }
   return linhas;
 }
-const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, fantasma: () => (render.definirFantasma ? null : fantasma), encontros });
+const objetivos = criarObjetivos({ raiz: document.getElementById('objetivos'), objetivos: arquivosDaPartida?.missao.objetivos ?? [], texto });
+const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, encontros });
 const minimapa = criarMinimapa({
   minimapa: document.getElementById('minimapa'),
   camera,
@@ -319,6 +321,7 @@ const MOTIVOS_DA_RECUSA = {
   [MOTIVO.CELULA_NAO_VENTOSA]: 'celula_nao_ventosa',
   [MOTIVO.FORA_DO_MAPA]: 'fora_da_area',
   [MOTIVO.LIMITE]: 'limite',
+  [MOTIVO.PERTO_DO_RECURSO]: 'perto_das_pilhas',
 };
 
 function tratarAlerta(alerta) {
@@ -341,7 +344,7 @@ simulacao.iniciar({
   // with the simulation front; until the worker reads `partida`, the prototype's armies still play).
   ...(arquivosDaPartida && { dados: arquivosDaPartida.dados, partida: { missao: arquivosDaPartida.missao, ...arquivosDaPartida.mapa }, dificuldade: opcoes.dificuldade }),
   aoReceberMapa(mapa) {
-    catalogo = catalogoDoMapa(mapa, texto);
+    catalogo = catalogoDoMapa(mapa, texto, arquivosDaPartida?.dados.unidades.unidades ?? []);
     comecarRegistro(mapa);
     menu.marcarPronto();
     render.definirMapa(mapa);
@@ -360,6 +363,7 @@ simulacao.iniciar({
     if (colocacao.ativa) atualizarArea();
     colocacao.revalidar();
     registro?.anotarRetrato(retrato);
+    objetivos.registrar(retrato.eventos);
     fim.verificar(retrato.eventos);
   },
 });
@@ -442,6 +446,7 @@ if (opcoes.teste) {
     alertas,
     menu,
     fim,
+    objetivos,
     colocacao,
     /** The playtest log (C15) once it loaded, or null. */
     obterRegistro: () => registro,

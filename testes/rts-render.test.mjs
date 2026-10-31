@@ -518,7 +518,7 @@ const quadrosEmOrdem = m => Array.from({ length: m.sprites.n }, (_, i) => m.spri
 
 test('kinds without art get a placeholder by category; buildings keep their footprint', () => {
   const a = aparenciasDosTipos(TIPOS_TESTE);
-  assert.deepEqual(a[0].variantes.map(v => v.corpo), ['religadores-infantaria-turma-de-linha', 'religadores-infantaria-turma-de-linha-cinza', 'ficha-infantaria']);
+  assert.deepEqual(a[0].variantes.map(v => v.corpo), ['religadores-infantaria-turma-de-linha', 'ficha-infantaria']);
   assert.ok(a[1].predio && a[1].pegada[0] === 4 && a[1].variantes[0].corpo === 'ficha-escritorio');
   assert.equal(formaDoPredio(TIPOS_TESTE[2], CATEGORIA.RECURSO).forma, FORMA_PREDIO.POSTE);
   assert.equal(formaDoPredio(TIPOS_TESTE[3], CATEGORIA.RECURSO).forma, FORMA_PREDIO.PILHA);
@@ -662,4 +662,60 @@ test('wall pieces pick their frame by the walls of the same kind and owner aroun
   assert.equal(porX.get(115 + 10.5), 8);
   assert.equal(porX.get(105 + 11.5), 1);
   assert.equal(porX.get(125 + 10.5), 0);
+});
+
+import { lerIndice } from '../site/rts/js/ativos/indice.js';
+
+test("the art index lists a phase's sprite assets, without interface pieces and ground tiles", () => {
+  const indice = lerIndice(
+    {
+      a: { manifesto: 'sprites/a.json', tipo: 'unidade', fases: ['fase-1'] },
+      b: { manifesto: 'interface/b.json', tipo: 'interface', fases: ['fase-1'] },
+      c: { manifesto: 'terreno/c.json', tipo: 'terreno', fases: ['fase-1'] },
+      d: { manifesto: 'sprites/d.json', tipo: 'unidade', fases: ['portao'] },
+    },
+    'https://exemplo.test/assets/indice.json',
+  );
+  assert.deepEqual(indice.daFase('fase-1'), ['a']);
+  assert.equal(String(indice.urlDo('a')), 'https://exemplo.test/assets/sprites/a.json');
+});
+
+function folhaFalsa(asset, primeiroQuadro, animacoes) {
+  return { asset, primeiroQuadro, direcoes: 1, pxNivel: 96, nivel: 'uhd', animacoes: new Map(animacoes.map(a => [a.nome, { camada: 'corpo', fps: 0, laco: true, direcoes: 1, ...a }])), pontos: {}, alturaBarraMetros: 2, temSombra: false };
+}
+
+test('decorations show on explored cells, a bridge with its parapet on each edge', () => {
+  const projecao = criarProjecao(copia());
+  const pedra = folhaFalsa('neutro-decoracao-pedra', 100, [{ nome: 'parado', quadros: 3, base: 0 }]);
+  const ponte = folhaFalsa('neutro-decoracao-ponte-de-concreto', 200, [{ nome: 'parado', quadros: 4, base: 0 }]);
+  const folhas = { folha: nome => ({ 'neutro-decoracao-pedra': pedra, 'neutro-decoracao-ponte-de-concreto': ponte })[nome] ?? null, totalQuadros: 204 };
+  const m = criarMontagemUnidades({ projecao, folhas });
+  const decoracao = new Uint8Array(LADO_MAPA * LADO_MAPA);
+  decoracao[10 * LADO_MAPA + 10] = 1; // a stone
+  decoracao[20 * LADO_MAPA + 30] = decoracao[20 * LADO_MAPA + 31] = decoracao[20 * LADO_MAPA + 32] = 2; // a bridge 3 cells wide
+  decoracao[50 * LADO_MAPA + 50] = 1; // a stone never seen
+  m.definirDecoracoes({ largura: LADO_MAPA, altura: LADO_MAPA, decoracao, nomes: ['pedra', 'ponte-de-concreto'] });
+  const r = retrato(10, [], (x, y) => !(x === 50 && y === 50));
+  r.visao[50 * LADO_MAPA + 50] = 0;
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  const quadros = Array.from({ length: m.sprites.n }, (_, i) => [m.sprites.dados[i * 8], m.sprites.dados[i * 8 + 4]]);
+  assert.equal(quadros.length, 3, 'the stone and two parapets');
+  const [x, q] = quadros.find(([px]) => px === 10.5);
+  assert.ok(x === 10.5 && q >= 100 && q < 103);
+  const parapeitos = quadros.filter(([, q]) => q >= 200).map(([px, q]) => [px, (q - 200) % 2]);
+  assert.deepEqual(parapeitos.sort(), [[30.5, 0], [32.5, 1]], 'west parapet on the west edge, east on the east edge');
+});
+
+test('a pile shows the step of charge it has left, dark once dry', () => {
+  const projecao = criarProjecao(copia());
+  const nomes = ['apagada', 'carga-25', 'carga-50', 'carga-75', 'carga-100'];
+  const pilha = folhaFalsa('neutro-recurso-pilha-de-baterias', 300, nomes.map((nome, i) => ({ nome, quadros: 1, base: i })));
+  const m = criarMontagemUnidades({ projecao, folhas: { folha: nome => (nome === 'neutro-recurso-pilha-de-baterias' ? pilha : null), totalQuadros: 305 } });
+  m.definirAparencias(aparenciasDosTipos([{ nome: 'pilha', categoria: CATEGORIA.RECURSO, asset: '', pegada: [1, 1] }]));
+  const r = retrato(10, [100, 200, 30, 0].map((carga, k) => ({ id: idDe(k + 1, 1), tipo: 0, x: 10 + k * 3, y: 10, dono: 255 })));
+  r.carga = Uint8Array.of(100, 200, 30, 0);
+  r.bandeiras = new Uint16Array(4);
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  const porX = new Map(Array.from({ length: m.sprites.n }, (_, i) => [m.sprites.dados[i * 8], m.sprites.dados[i * 8 + 4] - 300]));
+  assert.deepEqual([10, 13, 16, 19].map(x => porX.get(x)), [2, 4, 1, 0]);
 });

@@ -5,13 +5,14 @@ import { VERSAO_SIMULACAO, comandoParaArray, comandoDeArray } from './contratos.
 import { montarMapa, NOMES_CAMADAS_EXTRAS } from './mapa.js';
 import { camposDoPrototipo } from './dados.js';
 import { carregarDados } from './simulacao.js';
-import { CAMPOS_ENTIDADE, criarEstado } from './estado.js';
+import { CAMPOS_ENTIDADE, criarEstado, arraysExtras } from './estado.js';
 import { resumoDosCaminhos, refazerCaminhos } from './caminhos.js';
+import { reconstruirGrade } from './pegadas.js';
 
 const FORMATO = 'rts-estado';
 const ASSINATURA = 0x52545345; // "RTSE"
 
-const TIPOS_ARRAY = { Uint8Array, Uint16Array, Int16Array, Int32Array };
+const TIPOS_ARRAY = { Uint8Array, Uint16Array, Int16Array, Int32Array, Uint32Array };
 // every array starts on an 8-byte boundary
 const alinhar = n => (n + 7) & ~7;
 
@@ -29,6 +30,7 @@ function arraysDoEstado(sim) {
     lista.push([`neblina.contagem.${t}`, sim.neblina.contagem[t]]);
     lista.push([`neblina.explorado.${t}`, sim.neblina.explorado[t]]);
   }
+  for (const [nome, array] of arraysExtras(sim)) lista.push([`extras.${nome}`, array]);
   return lista;
 }
 
@@ -55,6 +57,11 @@ export function salvar(sim) {
     altura: sim.mapa.altura,
     bases: sim.mapa.bases,
     nos: sim.mapa.nos,
+    solos: sim.mapa.solos ?? [],
+    decoracoes: sim.mapa.decoracoes ?? [],
+    faccoes: sim.faccoes,
+    etiquetas: sim.etiquetas,
+    entidadesDoMapa: sim.entidadesDoMapa,
     sorteio: sim.sorteio.estado,
     expansoesPorPasso: sim.expansoesPorPasso,
     onda: sim.onda,
@@ -111,6 +118,11 @@ export function carregar(buffer) {
     times: cabecalho.times,
     semente: 0,
   });
+  mapa.solos = cabecalho.solos;
+  mapa.decoracoes = cabecalho.decoracoes;
+  sim.faccoes = cabecalho.faccoes;
+  sim.etiquetas = cabecalho.etiquetas;
+  sim.entidadesDoMapa = cabecalho.entidadesDoMapa;
   sim.tick = cabecalho.tick;
   sim.sorteio.estado = cabecalho.sorteio;
   sim.onda = cabecalho.onda;
@@ -121,6 +133,8 @@ export function carregar(buffer) {
     if (!salvo || salvo.length !== array.length) throw new Error(`carregar: falta ou não confere ${nome}`);
     array.set(salvo);
   }
+  // the grid the fields were computed on: terrain plus every footprint
+  reconstruirGrade(sim);
   refazerCaminhos(sim.caminhos, cabecalho.caminhos);
   return sim;
 }

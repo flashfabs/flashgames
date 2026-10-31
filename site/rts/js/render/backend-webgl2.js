@@ -145,6 +145,7 @@ export function criarBackendWebGL2(canvas) {
   const ladrilhos = { textura: null, tamanho: 0, quantidade: 0 };
   let celulasPorLadrilho = 8;
   let modoSolo = 0;
+  let camadaFace = -1;
   const solos = new Float32Array(F.MAX_SOLOS * 4);
   let mapaLargura = 1;
   let mapaAltura = 1;
@@ -317,10 +318,11 @@ export function criarBackendWebGL2(canvas) {
      * How each soil looks: per soil, a tint (rgb) and its tile layer, MAX_SOLOS entries of 4 floats; the tiles repeat
      * every `celulas` cells. modo 1 splats the tiles by soil, 0 draws the procedural ground.
      */
-    definirSolos(tabela, celulas, modo) {
+    definirSolos(tabela, celulas, modo, face = -1) {
       solos.set(tabela.subarray(0, solos.length));
       celulasPorLadrilho = celulas;
       modoSolo = modo && ladrilhos.textura ? 1 : 0;
+      camadaFace = face;
     },
 
     get modoSolo() {
@@ -557,6 +559,7 @@ export function criarBackendWebGL2(canvas) {
       gl.bindTexture(gl.TEXTURE_2D, texArea);
       gl.uniform1f(terreno.u.uCelulasPorLadrilho, celulasPorLadrilho);
       gl.uniform1i(terreno.u.uModoSolo, modoSolo);
+      gl.uniform1f(terreno.u.uCamadaFace, camadaFace);
       gl.uniform4fv(terreno.u['uSolos[0]'], solos);
       gl.bindVertexArray(vaoTela);
       gl.drawArrays(gl.TRIANGLES, 0, 3);

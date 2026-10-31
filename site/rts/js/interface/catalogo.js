@@ -23,9 +23,35 @@ import { CATEGORIA, ITEM_PESQUISA } from '../sim/contratos.js';
  * @property {boolean} raizRede  powers the network by itself
  * @property {boolean} precisaRede works at half speed without power
  * @property {boolean} exigeVentosa must stand on a windy cell
+ * @property {Habilidade | null} habilidade the player-usable ability of a unit kind
  */
 
-const DESCONHECIDO = Object.freeze({ id: '?', nome: '?', categoria: 'unidade', custo: 0, lotacao: 0, tempo: 0, pegada: [1, 1], produz: [], constroi: [], ergue: [], qg: false, raioRede: 0, raizRede: false, precisaRede: false, exigeVentosa: false });
+/**
+ * An ability as the command card offers it: the HABILIDADE code of the combat front, what it targets ('estrutura' a
+ * neutral structure to bring back, 'predio' an enemy building, null nothing: it toggles), and the C11 label, with
+ * textoAtivo for a toggle that is on.
+ * @typedef {{codigo: number, alvo: 'estrutura' | 'predio' | null, texto: string, textoAtivo?: string}} Habilidade
+ */
+
+/** HABILIDADE codes of the combat front (arg of the command). */
+export const HABILIDADE = Object.freeze({ RELIGAR: 1, CESTO: 2, LEITURA: 3 });
+/** Bit of Retrato.bandeiras set while a basket is raised (combat bits start at 512). */
+export const BANDEIRA_CESTO_ERGUIDO = 512;
+
+const HABILIDADES_DO_C5 = {
+  erguer: { codigo: HABILIDADE.CESTO, alvo: null, texto: 'comando.erguer_cesto', textoAtivo: 'comando.baixar_cesto' },
+  leitura: { codigo: HABILIDADE.LEITURA, alvo: 'predio', texto: 'comando.leitura' },
+};
+const RELIGAR = Object.freeze({ codigo: HABILIDADE.RELIGAR, alvo: 'estrutura', texto: 'comando.religar' });
+
+/** The player-usable ability of a C5 unit entry ("religa": 1, or "habilidade": { "tipo": "erguer" | "leitura" }), or null. */
+export function habilidadeDoC5(unidade) {
+  if (!unidade) return null;
+  if (unidade.religa) return RELIGAR;
+  return HABILIDADES_DO_C5[unidade.habilidade?.tipo] ?? null;
+}
+
+const DESCONHECIDO = Object.freeze({ id: '?', nome: '?', categoria: 'unidade', custo: 0, lotacao: 0, tempo: 0, pegada: [1, 1], produz: [], constroi: [], ergue: [], qg: false, raioRede: 0, raizRede: false, precisaRede: false, exigeVentosa: false, habilidade: null });
 
 const CATEGORIAS = { [CATEGORIA.PREDIO]: 'predio', [CATEGORIA.RECURSO]: 'recurso', [CATEGORIA.FAISCA]: 'faisca', [CATEGORIA.ESTRUTURA]: 'estrutura' };
 const PREFIXO_DO_TEXTO = { predio: 'predio', recurso: 'recurso', faisca: 'recurso', estrutura: 'predio', unidade: 'unidade', coletor: 'unidade' };
@@ -79,8 +105,12 @@ export function criarCatalogo(tipos, texto, pesquisas = []) {
   };
 }
 
-/** Catalog from the static map the worker sends (MapaEstatico.tipos and .pesquisas). */
-export function catalogoDoMapa(mapa, texto) {
+/**
+ * Catalog from the static map the worker sends (MapaEstatico.tipos and .pesquisas); abilities come from the C5 unit
+ * list of the match, by name, while the static map does not carry them.
+ */
+export function catalogoDoMapa(mapa, texto, unidadesDoC5 = []) {
+  const porNome = new Map(unidadesDoC5.map(u => [u.nome, u]));
   const tipos = (mapa.tipos ?? []).map(t => ({
     id: t.nome,
     categoria: t.categoria === CATEGORIA.UNIDADE ? (t.coletor ? 'coletor' : 'unidade') : (CATEGORIAS[t.categoria] ?? 'unidade'),
@@ -96,6 +126,7 @@ export function catalogoDoMapa(mapa, texto) {
     raizRede: t.raizRede === 1,
     precisaRede: t.precisaRede === 1,
     exigeVentosa: t.exigeVentosa === 1,
+    habilidade: t.categoria === CATEGORIA.UNIDADE ? habilidadeDoC5(porNome.get(t.nome)) : null,
   }));
   return criarCatalogo(tipos, texto, mapa.pesquisas ?? []);
 }
