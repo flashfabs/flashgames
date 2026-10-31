@@ -194,7 +194,8 @@ try {
         Rodar-Passo "rts-determinismo" @("--project=rts-determinismo-*") $false
     } else {
         $lista = @($utf8.GetString([Convert]::FromBase64String($Argumentos)) -split "`n" | Where-Object { $_ -ne "" })
-        $usaGpu = ($lista -join " ") -match "desempenho|longo|galeria"
+        # the GPU lock for the performance project or the Pavio performance specs by file name, not for any word "longo" (a -g filter)
+        $usaGpu = ($lista -join " ") -match "desempenho|(longo|galeria)\.spec"
         Rodar-Passo "playwright" $lista $usaGpu
     }
     foreach ($passo in $passos) { if ($passo.codigo -ne 0 -and $codigoGeral -eq 0) { $codigoGeral = $passo.codigo } }
