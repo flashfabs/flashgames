@@ -10,7 +10,7 @@
  */
 export const VERSAO_COMANDOS = 0;
 /** Version of the snapshot, events and static map formats, of the command kinds' rules and of every rule replays depend on. */
-export const VERSAO_SIMULACAO = 3;
+export const VERSAO_SIMULACAO = 4;
 
 // ---------- units of measure ----------
 
