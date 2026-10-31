@@ -4,7 +4,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { criarSimulacao, passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
 import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, E_TICK, E_ENTIDADE, E_ALVO, idDe } from '../site/rts/js/sim/contratos.js';
-import { CLASSE } from '../site/rts/js/sim/dados.js';
 import { validarRegrasCombate, REGRAS_COMBATE_PADRAO, combateDe, decimosParaMundo, msParaPassos, COBERTURA } from '../site/rts/js/sim/armas.js';
 import { calcularDano, danoBaseDe } from '../site/rts/js/sim/combate.js';
 import { ganharExperiencia, definirVeterania, experienciaPorDano } from '../site/rts/js/sim/veterania.js';
@@ -19,37 +18,31 @@ const ARMAS = {
   ],
 };
 
-// world units per tick from cells per second, as the design front will write them
-const celulasPorSegundo = decimos => Math.trunc((decimos * FP) / 300);
-const BASE_TIPO = { giroCorpo: 16, giroTorre: 16, coletor: 0 };
-const TIPOS = [
-  { nome: 'turma', velocidade: celulasPorSegundo(12), vida: 100, alcance: 4 * FP, dano: 10, recarga: 30, raio: 160, visao: 7, classe: CLASSE.INFANTARIA, ...BASE_TIPO },
-  { nome: 'arpoador', velocidade: celulasPorSegundo(10), vida: 90, alcance: 5 * FP, dano: 30, recarga: 60, raio: 160, visao: 7, classe: CLASSE.INFANTARIA, ...BASE_TIPO },
-  { nome: 'canhao', velocidade: celulasPorSegundo(9), vida: 300, alcance: 12 * FP, dano: 60, recarga: 120, raio: 330, visao: 15, classe: CLASSE.VEICULO, ...BASE_TIPO },
-  { nome: 'cesto', velocidade: celulasPorSegundo(11), vida: 900, alcance: 5 * FP, dano: 45, recarga: 66, raio: 440, visao: 8, classe: CLASSE.VEICULO_GRANDE, ...BASE_TIPO },
-];
-// combat fields the unit schema of the design data will carry (arma, blindagem, custo)
-const COMBATE_DOS_TIPOS = [
-  { arma: 'carabina', blindagem: 'pessoal', custo: 100 },
-  { arma: 'arpao', blindagem: 'pessoal', custo: 150 },
-  { arma: 'morteiro', blindagem: 'leve', custo: 700 },
-  { arma: 'canhao', blindagem: 'pesada', custo: 600 },
-];
+// game data in the design front's file formats (C5): speeds in hundredths of a cell per second, radii in tenths
+const comum = { lotacao: 1, giroCorpo: 16, giroTorre: 16, tempoMs: 10000 };
+const DADOS = {
+  unidades: {
+    versao: 1,
+    unidades: [
+      { nome: 'turma', faccao: 'religadores', ...comum, classe: 'infantaria', blindagem: 'pessoal', custo: 100, vida: 100, velocidade: 120, raio: 2, visao: 7, arma: 'carabina' },
+      { nome: 'arpoador', faccao: 'desligados', ...comum, classe: 'infantaria', blindagem: 'pessoal', custo: 150, vida: 90, velocidade: 100, raio: 2, visao: 7, arma: 'arpao' },
+      { nome: 'canhao', faccao: 'desligados', ...comum, classe: 'veiculo', blindagem: 'leve', custo: 700, vida: 300, velocidade: 90, raio: 3, visao: 15, arma: 'morteiro' },
+      { nome: 'cesto', faccao: 'religadores', ...comum, classe: 'veiculoGrande', blindagem: 'pesada', custo: 600, vida: 900, velocidade: 110, raio: 4, visao: 8, arma: 'canhao' },
+    ],
+  },
+  predios: { versao: 1, predios: [] },
+  armas: ARMAS,
+};
 const [TURMA, ARPOADOR, CANHAO, CESTO] = [0, 1, 2, 3];
 
-/**
- * A match on an open map with explicit units (cells), the test weapons and optional height and cover layers.
- * The unit schema does not take the combat fields yet, so they are put on the kinds before the first step.
- */
+/** A match on an open map with explicit units (cells), the test data and optional height and cover layers. */
 function partida({ unidades, largura = 48, altura = 48, nivel, cobertura }) {
   const sim = criarSimulacao({
     mapa: { largura, altura, nivel, bases: [{ x: 4, y: 4 }] },
-    tipos: TIPOS,
-    armas: ARMAS,
+    dados: DADOS,
     regras: REGRAS_LIVRES,
     unidades: unidades.map(u => ({ direcao: 0, ...u, x: Math.trunc(u.x * FP), y: Math.trunc(u.y * FP) })),
   });
-  sim.tipos = Object.freeze(TIPOS.map((tipo, t) => Object.freeze({ ...tipo, ...COMBATE_DOS_TIPOS[t] })));
   if (cobertura) sim.mapa.cobertura = cobertura;
   return sim;
 }
@@ -105,8 +98,10 @@ test('the validator converts design units and rejects what is not an integer rul
 test('kinds name their weapon and armour, and a kind without them fires its own bullets', () => {
   const sim = partida({ unidades: [{ tipo: TURMA, time: 0, x: 10, y: 10 }] });
   const c = combateDe(sim);
-  assert.deepEqual(Array.from(c.armaDoTipo), [0, 1, 2, 3]);
-  assert.deepEqual(Array.from(c.blindagemDoTipo), [0, 0, 1, 2]);
+  // the data compiler ends the kinds with the built-in pile and spark, unarmed and never targets
+  assert.deepEqual(Array.from(c.armaDoTipo), [0, 1, 2, 3, -1, -1]);
+  assert.deepEqual(Array.from(c.blindagemDoTipo).slice(0, 4), [0, 0, 1, 2]);
+  assert.deepEqual(Array.from(c.alvejavel), [1, 1, 1, 1, 0, 0]);
   assert.equal(c.custoDoTipo[CESTO], 600);
   const prototipo = criarSimulacao({ largura: 64, altura: 64, unidadesPorTime: 3 });
   const p = combateDe(prototipo);

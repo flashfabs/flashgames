@@ -7,7 +7,7 @@
 import { EVENTO, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, DONO_NEUTRO } from './contratos.js';
 import * as estado from './estado.js';
 import { slotVivo, emitirEvento } from './entidades.js';
-import { atualizarNeblina } from './neblina.js';
+import { retirarVisao } from './neblina.js';
 import { ordenarGrupo, limparOrdens } from './ordens.js';
 
 // a unit works on a structure within the structure's radius plus this distance
@@ -90,14 +90,12 @@ export function sendoReligada(sim, j, jogador = -1) {
 }
 
 /**
- * Moves entity i to `jogador`: its sight leaves the old team (the fog drops it as if the entity had died), its orders
- * and target are cleared, and the next fog update gives the sight to the new team.
+ * Moves entity i to `jogador`: its sight leaves the old team, its orders and target are cleared, and the next fog
+ * update gives the sight to the new team.
  */
 export function trocarDono(sim, i, jogador) {
   if (!sim.ativo[i] || sim.time[i] === jogador) return;
-  sim.ativo[i] = 0;
-  atualizarNeblina(sim);
-  sim.ativo[i] = 1;
+  retirarVisao(sim, i);
   sim.time[i] = jogador;
   limparOrdens(sim, i);
   sim.alvo[i] = -1;

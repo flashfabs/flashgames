@@ -483,7 +483,7 @@ export function missaoDe(sim) {
   const { mapa } = sim;
   const lugares = sim.opcoes.lugares ?? mapa.lugares ?? { areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas };
   sim.missaoCompilada = missao
-    ? compilarMissao(missao, { tipos: sim.tipos, lugares, dificuldade: sim.opcoes.dificuldade, times: sim.times, largura: mapa.largura, altura: mapa.altura, pesquisas: sim.pesquisas, nos: mapa.nomesNos ?? (mapa.nos ?? []).map(no => no.id) })
+    ? compilarMissao(missao, { tipos: sim.tipos, lugares, dificuldade: sim.opcoes.dificuldade, times: sim.times, largura: mapa.largura, altura: mapa.altura, pesquisas: sim.pesquisas, nos: lugares.nos ?? mapa.nomesNos ?? (mapa.nos ?? []).map(no => no.id) })
     : null;
   return sim.missaoCompilada;
 }
@@ -529,6 +529,15 @@ export function rotular(sim, i, nome) {
   const ex = extrasMissao(sim);
   ex.rotulo[i] = k + 1;
   ex.rotuloGeracao[i] = sim.geracao[i];
+}
+
+/** DESISTIR: the player concedes, and its match ends in defeat. */
+export function desistir(sim, jogador) {
+  if (jogador >= sim.times) return;
+  const ex = extrasMissao(sim);
+  if (ex.resultado[jogador] !== RESULTADO.JOGANDO) return;
+  ex.resultado[jogador] = RESULTADO.DERROTA;
+  emitirSeExiste(sim, EVENTO.DERROTA, 0, 0, jogador);
 }
 
 /** Each player's RESULTADO.* so far. */

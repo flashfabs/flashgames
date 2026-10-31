@@ -176,6 +176,7 @@ const ESQUEMA_PREDIO_ARQUIVO = {
   tempoReligarMs: opcional(['ms', 0, 600000], 0),
   destrutivel: opcional(['int', 0, 1], 1),
   limite: opcional(['int', 0, 100], 0),
+  holofote: opcional(['livre'], null), // read by the combat module
 };
 
 const ESQUEMA_ECONOMIA = {
@@ -190,6 +191,7 @@ const ESQUEMA_ECONOMIA = {
   faiscaCarga: ['int', 1, 10000],
   pilhaCarga: opcional(['int', 1, 1000000], 1500),
   cargaInicial: opcional(['int', 0, 1000000], 0),
+  distanciaMinimaPilha: opcional(['int', 0, 32], 0),
 };
 
 const ESQUEMA_PESQUISA = {
@@ -219,6 +221,7 @@ export const ECONOMIA_PADRAO = Object.freeze({
   faiscaCarga: 25,
   pilhaCarga: 1500,
   cargaInicial: 0,
+  distanciaMinimaPilha: 0,
 });
 
 // ---------- the simulation's kinds ----------
@@ -411,7 +414,7 @@ export function compilarDados(dados) {
       religavel: p.religavel,
       tempoReligar: passosDeMs(p.tempoReligarMs),
       destrutivel: p.destrutivel,
-      extras: { papel: p.papel },
+      extras: { papel: p.papel, holofote: p.holofote },
     });
     if (p.constroi.length > 0 && !p.filaConstrucao) erros.push(`${rotulo}: constrói prédios sem filaConstrucao`);
   }
@@ -446,6 +449,7 @@ export function compilarDados(dados) {
       faiscaCarga: e.faiscaCarga,
       pilhaCarga: e.pilhaCarga,
       cargaInicial: e.cargaInicial,
+      distanciaMinimaPilha: e.distanciaMinimaPilha,
     });
     if (economia.avisoRajada >= economia.intervaloRajada) erros.push('economia.json: o aviso da rajada precisa ser menor que o intervalo');
   }

@@ -2,18 +2,26 @@
 // trigonometry), so every JavaScript engine produces the same state bit for bit; floats live only in the presentation.
 // Commands are the only input, entities are visited in slot order, and the whole state can be saved and loaded.
 // Runs in the worker, in Node and in JavaScriptCore.
-import { FP_BITS, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, EVENTO, compararComandos } from './contratos.js';
+import { FP_BITS, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, EVENTO, CATEGORIA, DONO_NEUTRO, compararComandos } from './contratos.js';
 import { sortear, raizInteira } from './matematica.js';
 import { DADOS_PROTOTIPO, ECONOMIA_PADRAO, validarTiposUnidade, compilarDados } from './dados.js';
-import { gerarMapa, montarMapa } from './mapa.js';
+import { gerarMapa, montarMapa, lerMapaDeArquivos } from './mapa.js';
 import { avancarCaminhos } from './caminhos.js';
 import { atualizarNeblina } from './neblina.js';
 import { criarEstado } from './estado.js';
-import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrupo, ordenarPatrulha } from './ordens.js';
+import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrupo, ordenarPatrulha, classeDoCampo } from './ordens.js';
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
-import { passoDaMissao } from './gatilhos.js';
-import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento } from './entidades.js';
+import { passoDaMissao, rotular, desistir } from './gatilhos.js';
+import { comandoHabilidade } from './habilidades.js';
+import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
+import { centroDaPegada } from './pegadas.js';
+import { avancarEconomia, processarDerrames, comandoColetar, cancelarTarefa } from './economia.js';
+import { atualizarRede, avancarObras, comandoConstruir, comandoReciclar } from './construcao.js';
+import { avancarProducao, comandoProduzir, comandoPesquisar, comandoCancelar, comandoPontoDeEncontro } from './producao.js';
+import { atualizarFantasmas } from './fantasmas.js';
+import { aplicarMudancasDaGrade } from './pegadas.js';
+import { classificarEntidades } from './listas.js';
 
 export { FP_BITS, FP, PASSOS_POR_SEGUNDO };
 
@@ -32,9 +40,15 @@ export const REGRAS_LIVRES = Object.freeze({ renascer: false, esperaRenascer: 0,
  * @param {number} [opcoes.largura] generated map width in cells (ignored with `mapa`)
  * @param {number} [opcoes.altura]
  * @param {object} [opcoes.mapa] explicit layers for montarMapa
+ * @param {{cabecalho: object, camadas: Uint8Array|string, entidades: object}} [opcoes.arquivosMapa] a map in the C6 files
+ *   (mapa.json, camadas.bin as bytes or base64, entidades.json); its entities take the first slots, in file order
  * @param {number} [opcoes.unidadesPorTime] prototype armies placed around each base
  * @param {{tipo: number, time: number, x: number, y: number}[]} [opcoes.unidades] explicit units, world units
- * @param {number} [opcoes.capacidade] entity slots (defaults to the starting units)
+ * @param {number} [opcoes.capacidade] entity slots (defaults to the starting units, plus room to build and produce
+ *   when the match has design data)
+ * @param {number} [opcoes.cargaInicial] Carga each player starts with (defaults to the economy data's)
+ * @param {object} [opcoes.missao] the mission (C7), for the missions module (its start trigger gives the starting Carga)
+ * @param {string} [opcoes.dificuldade] 'facil', 'normal' (default) or 'dificil'
  * @param {object} [opcoes.dados] the design data files (C5: unidades, predios, economia, pesquisas, armas), compiled
  * @param {object[]} [opcoes.tipos] unit kinds in the simulation's units, validated (the prototype's form; without
  *   dados or tipos, the prototype's two vehicles)
@@ -43,15 +57,28 @@ export const REGRAS_LIVRES = Object.freeze({ renascer: false, esperaRenascer: 0,
  */
 export function criarSimulacao(opcoes = {}) {
   const { semente = 1, largura = 192, altura = 192, unidadesPorTime = 1000, unidades = null } = opcoes;
-  const mapa = opcoes.mapa ? montarMapa(opcoes.mapa) : gerarMapa(largura, altura, semente);
   const dados = carregarDados(opcoes);
-  const { tipos } = dados;
-  const regras = { tetoLotacao: dados.economia.lotacaoMaxima, ...(opcoes.regras ?? REGRAS_PROTOTIPO) };
-  const iniciais = unidades ? unidades.length : unidadesPorTime * mapa.bases.length;
-  const capacidade = Math.max(1, opcoes.capacidade ?? iniciais);
+  const arquivo = opcoes.arquivosMapa ? lerMapaDeArquivos(opcoes.arquivosMapa, dados) : null;
+  const mapa = arquivo ? montarMapa(arquivo.camadas) : opcoes.mapa ? montarMapa(opcoes.mapa) : gerarMapa(largura, altura, semente);
+  if (arquivo) {
+    mapa.solos = arquivo.solos;
+    mapa.decoracoes = arquivo.decoracoes;
+  }
+  const doMapa = arquivo ? arquivo.entidades : [];
+  // a match on map files plays by the free rules: no respawn, no prototype waves
+  const regras = { tetoLotacao: dados.economia.lotacaoMaxima, ...(opcoes.regras ?? (arquivo ? REGRAS_LIVRES : REGRAS_PROTOTIPO)) };
+  const explicitas = unidades ? unidades.length : arquivo ? 0 : unidadesPorTime * mapa.bases.length;
+  const iniciais = doMapa.length + explicitas;
+  const capacidade = Math.max(1, opcoes.capacidade ?? iniciais + (opcoes.dados ? FOLGA_DE_SLOTS : 0));
   if (capacidade < iniciais) throw new Error('simulação: capacidade menor que as unidades iniciais');
   const times = Math.max(mapa.bases.length, ...(unidades ?? []).map(u => u.time + 1), 1);
   const sim = criarEstado({ opcoes, mapa, dados, regras, capacidade, times, semente });
+  sim.faccoes = arquivo ? arquivo.faccoes.slice() : [];
+  sim.etiquetas = {};
+  sim.entidadesDoMapa = [];
+  // the map's places and node names go with the saved options, for the mission (gatilhos.js)
+  if (arquivo) sim.opcoes.lugares ??= { areas: arquivo.areas, pontos: arquivo.pontos, rotas: arquivo.rotas, nos: arquivo.nomesNos };
+  doMapa.forEach((e, k) => colocarDoMapa(sim, k, e));
 
   if (regras.ordensPadrao) {
     // orders 0..times-1 are the team defaults: every army heads for the centre
@@ -59,12 +86,16 @@ export function criarSimulacao(opcoes = {}) {
     const centroY = (mapa.altura >> 1) * FP + (FP >> 1);
     // units idle once inside this field distance of the target; it grows with the army
     const raioChegada = 5 * (4 + raizInteira(Math.trunc(iniciais / times)));
-    for (let t = 0; t < times; t++) criarOrdem(sim, TIPO_COMANDO.ATACAR_MOVENDO, centroX, centroY, { fixa: 1, raioChegada });
+    // fields for the classes of the starting kinds
+    let classes = 0;
+    for (const u of unidades ?? [{ tipo: 0 }, { tipo: 1 }]) classes |= 1 << classeDoCampo(dados.tipos[u.tipo].classe);
+    for (let t = 0; t < times; t++) criarOrdem(sim, TIPO_COMANDO.ATACAR_MOVENDO, centroX, centroY, { fixa: 1, raioChegada, classes });
   }
+  const primeiro = doMapa.length;
   if (unidades) {
-    unidades.forEach((u, i) => ocuparSlot(sim, i, u.tipo, u.time, u.x, u.y, u.direcao ?? DIRECAO_INICIAL[u.time] ?? 0));
+    unidades.forEach((u, k) => ocuparSlot(sim, primeiro + k, u.tipo, u.time, u.x, u.y, u.direcao ?? DIRECAO_INICIAL[u.time] ?? 0));
   } else {
-    for (let i = 0; i < iniciais; i++) {
+    for (let i = 0; i < explicitas; i++) {
       const time = Math.trunc(i / unidadesPorTime);
       ocuparSlot(sim, i, i % 10 < 7 ? 0 : 1, time, 0, 0, DIRECAO_INICIAL[time] ?? 0);
       posicionarNaBase(sim, i);
@@ -79,6 +110,25 @@ export function criarSimulacao(opcoes = {}) {
 export function carregarDados(opcoes) {
   if (opcoes.dados) return compilarDados(opcoes.dados);
   return { tipos: opcoes.tipos ? validarTiposUnidade(opcoes.tipos) : DADOS_PROTOTIPO, economia: ECONOMIA_PADRAO, pesquisas: [], armas: null };
+}
+
+// Room for buildings, new units and sparks in a match with design data, beyond its starting entities.
+const FOLGA_DE_SLOTS = 1024;
+
+// Map entity k (lerMapaDeArquivos) in slot k: units at the centre of their cell, the rest centred on their footprint.
+function colocarDoMapa(sim, k, e) {
+  const t = sim.tipos[e.tipo];
+  const [pl, pa] = t.pegada;
+  const dono = e.dono < 0 ? DONO_NEUTRO : e.dono;
+  ocuparSlot(sim, k, e.tipo, dono, centroDaPegada(e.cx, pl), centroDaPegada(e.cy, pa), DIRECAO_INICIAL[dono] ?? 64);
+  if (t.categoria === CATEGORIA.RECURSO) {
+    sim.carga[k] = e.carga;
+    sim.cargaMaxima[k] = e.carga;
+    sim.no[k] = e.no;
+  }
+  if (e.etiqueta) sim.etiquetas[e.etiqueta] = k;
+  if (e.etiqueta) rotular(sim, k, e.etiqueta);
+  sim.entidadesDoMapa.push(idDoSlot(sim, k));
 }
 
 function posicionarNaBase(sim, i) {
@@ -115,44 +165,80 @@ function aplicarComandos(sim) {
 
 // Validates and applies one command; anything invalid is dropped the same way on every machine.
 function aplicarComando(sim, c) {
+  // the player's live entities among the ids, each once, in slot order
   const unidades = [];
   for (const id of c.unidades) {
     const i = slotDoJogador(sim, id, c.jogador);
     if (i >= 0 && !unidades.includes(i)) unidades.push(i);
   }
-  if (unidades.length === 0) return;
   unidades.sort((a, b) => a - b);
+  if (c.jogador < sim.times) sim.extras.economia.ultimoComando[c.jogador] = sim.tick;
+  switch (c.tipo) {
+    case TIPO_COMANDO.PRODUZIR:
+      return comandoProduzir(sim, c, unidades);
+    case TIPO_COMANDO.PESQUISAR:
+      return comandoPesquisar(sim, c, unidades);
+    case TIPO_COMANDO.CANCELAR:
+      return comandoCancelar(sim, c, unidades);
+    case TIPO_COMANDO.PONTO_DE_ENCONTRO:
+      return comandoPontoDeEncontro(sim, c, unidades);
+    case TIPO_COMANDO.CONSTRUIR:
+      return comandoConstruir(sim, c, unidades);
+    case TIPO_COMANDO.RECICLAR:
+      return comandoReciclar(sim, c, unidades);
+    case TIPO_COMANDO.COLETAR:
+      return comandoColetar(sim, c, unidades);
+    case TIPO_COMANDO.DESISTIR:
+      return desistir(sim, c.jogador);
+    default:
+      break;
+  }
+  // the rest moves units: buildings in the selection are left out
+  const moveis = unidades.filter(i => sim.categoriaPorTipo[sim.tipo[i]] === CATEGORIA.UNIDADE);
+  if (moveis.length === 0) return;
   const { largura, altura } = sim.mapa;
   const dentro = c.x >= 0 && c.y >= 0 && c.x < largura * FP && c.y < altura * FP;
   switch (c.tipo) {
     case TIPO_COMANDO.MOVER:
     case TIPO_COMANDO.ATACAR_MOVENDO:
       if (!dentro) return;
-      for (const i of unidades) sim.segurando[i] = 0;
-      ordenarGrupo(sim, unidades, c.tipo, c.x, c.y, { fila: c.fila });
+      for (const i of moveis) {
+        sim.segurando[i] = 0;
+        cancelarTarefa(sim, i);
+      }
+      ordenarGrupo(sim, moveis, c.tipo, c.x, c.y, { fila: c.fila });
       return;
     case TIPO_COMANDO.PATRULHAR:
       if (!dentro) return;
-      for (const i of unidades) sim.segurando[i] = 0;
-      ordenarPatrulha(sim, unidades, c.x, c.y);
+      for (const i of moveis) {
+        sim.segurando[i] = 0;
+        cancelarTarefa(sim, i);
+      }
+      ordenarPatrulha(sim, moveis, c.x, c.y);
       return;
     case TIPO_COMANDO.ATACAR: {
       const alvo = slotVivo(sim, c.alvo);
       if (alvo < 0 || sim.time[alvo] === c.jogador) return;
-      for (const i of unidades) sim.segurando[i] = 0;
-      ordenarGrupo(sim, unidades, TIPO_COMANDO.ATACAR, sim.x[alvo], sim.y[alvo], { fila: c.fila, alvo: c.alvo });
+      for (const i of moveis) {
+        sim.segurando[i] = 0;
+        cancelarTarefa(sim, i);
+      }
+      ordenarGrupo(sim, moveis, TIPO_COMANDO.ATACAR, sim.x[alvo], sim.y[alvo], { fila: c.fila, alvo: c.alvo });
       return;
     }
     case TIPO_COMANDO.PARAR:
     case TIPO_COMANDO.SEGURAR_POSICAO:
-      for (const i of unidades) {
+      for (const i of moveis) {
         limparOrdens(sim, i);
+        cancelarTarefa(sim, i);
         sim.parada[i] = 1;
         sim.segurando[i] = c.tipo === TIPO_COMANDO.SEGURAR_POSICAO ? 1 : 0;
       }
       return;
+    case TIPO_COMANDO.HABILIDADE:
+      return comandoHabilidade(sim, moveis, c.arg, c.alvo);
     default:
-      // construction, production, economy and abilities arrive with the next wave
+      // repair belongs to the combat and missions module
       return;
   }
 }
@@ -179,22 +265,35 @@ function renascer(sim) {
   }
 }
 
-/** Advances the simulation one tick: commands, rules, paths, combat, movement, sight. */
+/**
+ * Advances the simulation one tick: commands, economy, construction and the power network, production, paths, combat,
+ * movement, spilled loads, sight and the ghosts of buildings.
+ */
 export function passo(sim) {
   sim.tick++;
   sim.eventos.length = 0;
+  classificarEntidades(sim);
   aplicarComandos(sim);
   passoDaMissao(sim);
+  avancarEconomia(sim);
+  avancarObras(sim);
+  atualizarRede(sim);
+  avancarProducao(sim);
   conduzirComputador(sim);
   renascer(sim);
+  aplicarMudancasDaGrade(sim);
   avancarCaminhos(sim.caminhos, sim.expansoesPorPasso);
   montarBaldes(sim);
   combater(sim);
   mover(sim);
+  processarDerrames(sim);
+  // footprints that fell in combat: the next tick's fields already know
+  aplicarMudancasDaGrade(sim);
   atualizarNeblina(sim);
+  atualizarFantasmas(sim);
 }
 
 export { TAMANHO_BALDE_BITS };
 /** The rule steps of passo(), for the measurement tool that times each part. */
-export const __internos = Object.freeze({ aplicarComandos, conduzirComputador, renascer });
+export const __internos = Object.freeze({ classificarEntidades, aplicarComandos, avancarEconomia, avancarObras, atualizarRede, avancarProducao, conduzirComputador, renascer, processarDerrames, atualizarFantasmas });
 export { somaDeVerificacao, somasPorSubsistema } from './soma.js';
