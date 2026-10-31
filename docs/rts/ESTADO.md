@@ -10,7 +10,8 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 
 - Etapa: E0 (pré-produção e higiene) junto com a onda 1 (E1 motor de produção e E2 fábrica de arte), por pedido do Victor em 30/10/2026.
 - Integração: branch `rts/base`, criada em 30/10/2026 a partir da `main` em `94d4631`; nada do RTS foi para a `main` nem para a Netlify.
-- Guarda da produção, 30/10/2026: `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404 e a `rts/base` não tem deploy de branch na Netlify.
+- Guarda da produção, conferida de novo no fim da onda 1 (30/10/2026): `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404, a `rts/base` não tem deploy de branch na Netlify e a `main` segue em `94d4631`.
+- Fim da onda 1 (30/10/2026): as seis frentes integraram na `rts/base` e o Action ficou verde em `f609c18` (run 41147192783); o que falta da E0 depende do Victor (roteiro de medições, endereço da página de diagnóstico) e está em "Medições que esperam o Mac".
 - Sessões da onda 1: `rts-qualidade`, `rts-arte`, `rts-design`, `rts-motor`, `rts-render` e `rts-interface`.
 - Regra do Victor de 30/10/2026, 20h17: o que exige esforço roda no PC da RTX 4090 e o Mac fica com editar, git e `npm test`; os testes de ponta a ponta rodam no PC por `scripts/rtx-testes.sh` (detalhes em [frentes.md](frentes.md), seção Onde roda o quê).
 
@@ -41,20 +42,20 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | Determinismo, 3.600 passos com 2.000 unidades | Node 22, Chromium 151 e Firefox 153 e WebKit 26.5 na página, `jsc` do macOS 26 | soma final `897f4ba5` igual nos cinco | `prototipos/rts-4k/verificar-determinismo.mjs`, 30/10/2026 |
 | Determinismo dentro do Worker, mesmo roteiro | Chromium 153 (Playwright 1.63), Firefox 153 e WebKit 26.5 (playwright-core 1.62.1) | soma final `897f4ba5` e as seis somas iguais à referência nos três; 1,50, 2,81 e 1,36 ms por passo | `prototipos/diagnostico/` e `testes/e2e/rts-determinismo.spec.mjs`, 30/10/2026 |
 | Bench 4K pela página de diagnóstico, 2.000 unidades | MacBook Pro M5 Pro: Chromium 153 com Metal, Firefox 153, WebKit 26.5 (Playwright) | Chromium 60 qps, p99 16,8 ms, 0 de 600 quadros acima de 20 ms; Firefox 110,5 qps, p99 18,1 ms, 4 de 1.105; WebKit 59,9 qps, p99 20 ms, 3 de 600 | `prototipos/diagnostico/`, 30/10/2026 |
-| Safari 26 de verdade: bench em 4K | MacBook Pro M5 Pro | pendente (Victor, [roteiro](roteiro-medicoes.md)) | — |
-| Safari 26 de verdade: soma no Worker | MacBook Pro M5 Pro | pendente (Victor, roteiro) | — |
-| Chrome e Edge no Windows: bench em 4K, soma e a string da placa | PC da RTX 4090, com o Victor no PC (pelo SSH os navegadores podem rodar sem GPU) | pendente (Victor, roteiro); servir as páginas em localhost pelo Python do Blender foi testado pelo SSH em 30/10/2026 | — |
+| Safari 26 de verdade: bench em 4K | MacBook Pro M5 Pro | não deu nesta onda: precisa do Victor na frente do Mac; o [roteiro](roteiro-medicoes.md) está pronto e a medição entrou em "Medições que esperam o Mac" | — |
+| Safari 26 de verdade: soma no Worker | MacBook Pro M5 Pro | não deu nesta onda: precisa do Victor na frente do Mac; o [roteiro](roteiro-medicoes.md) está pronto e a medição entrou em "Medições que esperam o Mac" | — |
+| Chrome e Edge no Windows: bench em 4K, soma e a string da placa | PC da RTX 4090, com o Victor no PC (pelo SSH os navegadores podem rodar sem GPU) | não deu nesta onda: precisa do Victor sentado no PC ([roteiro](roteiro-medicoes.md), Parte 3); servir as páginas em localhost pelo Python do Blender foi testado pelo SSH em 30/10/2026 | — |
 | Firefox no Windows | PC da RTX 4090 | não deu: o Firefox não está instalado no PC (conferido em 30/10/2026), e instalar depende do Victor | — |
-| Notebook comum com GPU integrada | máquina de um amigo | pendente (página de diagnóstico) | — |
+| Notebook comum com GPU integrada | máquina de um amigo | não deu nesta onda: a página de diagnóstico está pronta, mas ainda não tem endereço para os amigos abrirem (decisão do Victor; nada do RTS vai à Netlify antes de um marco) | — |
 | Extensões de textura e MAX_TEXTURE_SIZE | MacBook Pro M5 Pro, Playwright | Chromium 153 (ANGLE Metal, Apple M5 Pro): S3TC, RGTC, BPTC (BC7), ETC2, ASTC e PVRTC, 16384; Firefox 153 ("Apple M1, or similar"): só S3TC e RGTC, 8192; WebKit 26.5: todas, 16384 | `prototipos/diagnostico/`, 30/10/2026 |
-| Extensões de textura | Safari 26, Chrome e Edge do Windows, notebook comum | pendente ([roteiro](roteiro-medicoes.md) e página de diagnóstico) | — |
+| Extensões de textura | Safari 26, Chrome e Edge do Windows, notebook comum | não deu nesta onda: sai da página de diagnóstico no [roteiro](roteiro-medicoes.md) (Safari e PC) e no notebook de um amigo, que dependem do Victor | — |
 | `decodeAudioData` de Opus em Ogg e de AAC em MP4 | Playwright no Mac | Opus decodifica no Chromium 153, no Firefox 153 e no WebKit 26.5; AAC decodifica no Chromium e no Firefox e falha no WebKit do Playwright, que vem sem os codecs proprietários (não vale pelo Safari) | `prototipos/diagnostico/`, 30/10/2026 |
-| `decodeAudioData` de Opus e de AAC | Safari 26 | pendente (Victor, roteiro) | — |
-| Bateria de teclas (Ctrl, Option e Shift com 1 a 9, Ctrl e clique, dois dedos, pinça, Espaço, setas, F10, P, atalhos de Mesa do Mission Control) | Safari e Chrome do Mac, Chrome do Windows | pendente (Victor, `prototipos/teclas/` da `rts-interface` pelo roteiro) | — |
+| `decodeAudioData` de Opus e de AAC | Safari 26 | não deu nesta onda: precisa do Victor na frente do Mac; o [roteiro](roteiro-medicoes.md) está pronto e a medição entrou em "Medições que esperam o Mac" | — |
+| Bateria de teclas (Ctrl, Option e Shift com 1 a 9, Ctrl e clique, dois dedos, pinça, Espaço, setas, F10, P, atalhos de Mesa do Mission Control) | Safari e Chrome do Mac, Chrome do Windows | não deu nesta onda: precisa do Victor no Safari e no Chrome do Mac e no Chrome do PC (`prototipos/teclas/` da `rts-interface`, [roteiro](roteiro-medicoes.md)) | — |
 | EEVEE pelo SSH na GPU | PC da RTX 4090 | usa a NVIDIA: `gpu.platform` depois de `gpu.init()` deu OPENGL, "NVIDIA GeForce RTX 4090/PCIe/SSE2", "4.6.0 NVIDIA 591.86"; o `nvidia-smi` listou o `blender.exe` a 50%; 266 quadros de 256 px em 25 s (94 ms por quadro) | `rts-arte`, 30/10/2026 |
 | `ferramentas/arte/rtx.sh renderizar teste-veiculo-tanque` com trava, código 0 e `relatorio.json` | Mac para o PC da RTX 4090 | código 0; checagem antes do lote com C: 23,1 GB, D: 58,7 GB e 22.924 MiB de VRAM livres; trava pega e solta; OPTIX; 192 renders em 6,95 s, empacotar 2,6 s, lote de 10,4 s; atlas, manifesto, procedência e `indice.json` no repositório | `rts-arte`, 30/10/2026 |
 | Lote longo com o SSH derrubado de propósito | PC da RTX 4090 | sobrevive: com o cliente morto aos 25 s de um lote de 192 quadros, o Blender terminou sozinho; como o `Start-Process` morre quando a sessão SSH termina normalmente, o `rtx.sh` lança o lote pelo WMI (`Win32_Process.Create`) e o próprio PC solta a trava, sem `schtasks`. Queda de rede sem FIN não foi testada (exigiria derrubar o Tailscale) | `rts-arte`, 30/10/2026 |
-| Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados antes do protótipo; 23,98 MiB soltos e 5,44 MiB empacotados com o protótipo e o passo zero (os atlas do protótipo e de `site/rts/assets/prototipo/` são os mesmos objetos) | 30/10/2026 |
+| Tamanho do git (`git count-objects -vH`) | clone oficial | 18,89 MiB soltos e 5,44 MiB empacotados antes do protótipo; 23,98 MiB soltos e 5,44 MiB empacotados com o protótipo e o passo zero (os atlas do protótipo e de `site/rts/assets/prototipo/` são os mesmos objetos); no fim da onda 1, com os 11 assets do portão de estilo, 54,26 MiB empacotados e 25,24 MiB soltos, nenhum arquivo acima de 2 MB | 30/10/2026 |
 
 Navegadores do Playwright: o Firefox 155 e o WebKit 26.6 do Playwright 1.63 foram instalados no Mac em 30/10/2026, com aprovação do Victor (D16), e o `rts-determinismo` passou nos três motores localmente; as medições anteriores do Firefox 153 e do WebKit 26.5 vieram do playwright-core 1.62.1.
 Numa máquina sem esses navegadores, `npm run e2e` pula os projetos `rts-determinismo-firefox` e `rts-determinismo-webkit` com um aviso; no Action eles são instalados e rodam.
@@ -96,10 +97,10 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 | Teste de originalidade no `npm test` e verde | 0 achados em arquivos, metadados, commits, refs e texto do pull request | verde em 30/10/2026 (`testes/rts-originalidade.test.mjs`, 6 testes) |
 | A branch antiga nunca foi ao GitHub | 0 refs com termo proibido em `git ls-remote origin` | 0 de 13 em 30/10/2026 |
 | `npm test` e `npm run e2e` verdes na `rts/base`, sem mexer no Pavio nem no Farm | tudo verde | verde em 30/10/2026 na primeira integração: `npm test` 182 de 182; e2e com 32 funcionais (2 pulados por condição do próprio teste) e 2 de desempenho |
-| Tabela de medições preenchida | toda linha com número ou "não deu, motivo" | em andamento |
+| Tabela de medições preenchida | toda linha com número ou "não deu, motivo" | feito no fim da onda 1 (30/10/2026): o que dependia de máquina e Playwright tem número; Safari, Windows com o Victor no PC, notebook e teclas estão como "não deu", com o motivo e o roteiro pronto |
 | `rtx.sh` confere espaço em C: e D:, VRAM livre e alcance antes de cada lote | código 0 e `relatorio.json` | feito em 30/10/2026 (`rts-arte`; números na tabela de medições) |
 | EEVEE pelo SSH na GPU | log com a NVIDIA; senão, flipbooks no Cycles | feito em 30/10/2026: NVIDIA GeForce RTX 4090 no `gpu.platform` (`rts-arte`) |
-| Medições no Windows feitas pelo Victor no PC | string da placa registrada | pendente |
+| Medições no Windows feitas pelo Victor no PC | string da placa registrada | não deu nesta onda: precisa do Victor sentado no PC ([roteiro](roteiro-medicoes.md), Parte 3); pelo SSH a placa já aparece como NVIDIA GeForce RTX 4090 no Chrome do executor de testes |
 | D01 a D07, D30 e D31 marcadas | 9 decisões | 9 de 9 em 30/10/2026 |
 
 ### E1. Motor de produção (plano, E1)
@@ -113,7 +114,7 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 | Neblina com 2.000 unidades e 4 times | até 1 ms por passo | feito: média 0,16 ms, p99 0,62 ms, máximo 2,0 ms no PC (`ferramentas/rts/medir-neblina.mjs`) |
 | Salvar, carregar e replay | mesmo hash depois de carregar; replay reproduz as somas | feito: carregar no meio do cálculo de um campo e com comandos pendentes continua com as mesmas somas por subsistema; os replays dourados reproduzem as somas (`testes/rts-sim.test.mjs`, `testes/rts-sim-replays.test.mjs`) |
 | Render em 4K com 2.000 unidades, Chrome e Safari | menos de 1% dos quadros acima de 20 ms, CPU por quadro medida e a tela dita | Chromium com Metal: 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,3 ms, canvas 3840×2160 (seção F2); Safari pendente (Victor) |
-| Clique até a marca no chão | abaixo de 100 ms | pendente |
+| Clique até a marca no chão | abaixo de 100 ms | p50 de 22 ms e p95 de 28 ms no Chromium 152 do Mac (seção F7); o `rts-entrada.spec.mjs` cobra p50 abaixo de 100 ms onde há GPU e passa no PC da RTX 4090 (execução `20261030-205356` da `rts-interface`) |
 
 ### E2. Fábrica de arte e portão de estilo (plano, E2)
 
