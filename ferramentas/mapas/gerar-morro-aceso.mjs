@@ -288,7 +288,7 @@ function gerarObjetos() {
     'nascedouro-acampamento': [57, 2, 10, 3],
     'saida-acampamento': [56, 28, 13, 4],
     desfiladeiro: [75, 11, 12, 11],
-    'refugio-grota': [85, 2, 11, 9],
+    'refugio-grota': [84, 2, 13, 13],
     varzea: [84, 29, 42, 15],
     'nascedouro-leste': [121, 31, 6, 10],
     basculante: [85, 40, 8, 15],
@@ -314,7 +314,7 @@ function gerarObjetos() {
     'rota-final-desfiladeiro': [[62, 4], [70, 9], [77, 16], [83, 16], [92, 16], [97, 16], [104, 14]],
     'rota-final-varzea': [[123, 36], [112, 34], [104, 30], [101, 26], [104, 18]],
     'rota-patrulha-varzea': [[92, 40], [108, 38], [122, 42]],
-    'rota-fuga': [[62, 15], [72, 15], [80, 16], [86, 12], [90, 6]],
+    'rota-fuga': [[62, 15], [72, 15], [80, 16], [88, 9]],
     'rota-canhao': [[62, 26], [48, 31], [35, 34]],
     // the player's two ways to the Hill, for the radio and the reveal: narrow through the camp and the gorge, open by
     // the scrap yard and the ford
