@@ -189,6 +189,17 @@ Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, o
 
 E7 (escaramuça), E8 (multiplayer) e E9 (campanha) têm os critérios no plano e entram aqui quando a etapa abrir.
 
+## O que depende do Victor (onda 2)
+
+Ninguém espera parado por estes itens; cada sessão segue com o que dá e a `rts-qualidade` mantém a lista.
+
+- Como os amigos abrem a fatia cinza no M3: deploy de rascunho na Netlify com endereço próprio (`--alias fatia-cinza`, sem `--prod`, como a página de diagnóstico) ou o Mac servindo a `rts/base` em casa ([kit do M3](kit-m3.md)).
+- Jogar o M3 com 2 pessoas do grupo pelo [kit do M3](kit-m3.md) e mandar os 3 registros e as respostas para a `rts-qualidade`.
+- Som provisório no M3: a `rts-som` só abre na onda 3; adiantar ou jogar o M3 sem som.
+- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos).
+- Licença comunitária de áudio gerado por IA (Stable Audio): fica fora da lista de licenças permitidas (`testes/rts-licencas.json`) até a decisão dele.
+- As escolhas do portão de estilo (M2) e as medições que esperam o Mac, abaixo.
+
 ## Roteiro para o Victor
 
 O [roteiro de medições](roteiro-medicoes.md) cobre o Safari 26, o Chrome e o Edge no PC da RTX 4090 e a bateria de teclas: cerca de 15 minutos no Mac e 10 no PC. As respostas entram na tabela de medições acima.
@@ -343,6 +354,21 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 - 30/10/2026: executor de testes no PC da RTX 4090 (`scripts/rtx-testes.sh` e `scripts/pc-testes/`), com trava própria `D:\rts\trava-testes`, a trava da GPU nos passos de desempenho, lançamento pelo WMI e conferência da placa; números na seção Testes no PC da RTX 4090.
 - 30/10/2026: página de diagnóstico publicada como rascunho na Netlify para os amigos (seção Onde estamos).
 - Pendente: as respostas dos amigos pela página, as do roteiro e as medições que esperam o Mac.
+
+Onda 2 (E3), a partir de 30/10/2026:
+
+- Divisão do motor em F1a e F1b, porta 8829, critérios da E3 com dono por linha e a lista do que depende do Victor (`b4ffd05`).
+- Gancho de teste `site/rts/js/teste/gancho.js`, carregado pela página só com `?teste=1`: retrato decodificado com o nome de cada tipo e as filas de produção, todos os eventos desde a abertura, comandos como o jogador local, pausa própria e avanço de passos no worker (mensagem `AVANCAR` da F1a, que só vale numa partida começada com `teste`), e o registro C15 (`registro()`); testado em `testes/rts-gancho.test.mjs`.
+- Testes de ponta a ponta da fatia: `testes/e2e/rts-fatia.spec.mjs` (a página normal nunca carrega o gancho; com ele, ler, mandar e avançar, também com a aba oculta) e `testes/e2e/rts-fatia-partida.spec.mjs` (caixa de areia: forças iniciais, coletar, construir e pôr, produzir, lutar, derrota e vitória, com o registro lido pelo conferidor).
+- Conferidor de ritmo em `ferramentas/rts/ritmo/` (`conferir-ritmo.mjs`, uma partida ou a mediana de várias) sobre o registro C15 da `rts-design`: duração e fim, primeiro tiro, 10 contra 10, janelas de 15 s sem comando, primeiro cemitério esgotado, coletores perdidos, diversão, "jogaria de novo?" e aviso de ataque (E4); passa os nove critérios no `testes/rts-registro-exemplo.json`.
+- Testes de manifesto (C9), orçamento (C12, `testes/rts-orcamento.json`) e procedência (C13, `testes/rts-licencas.json` com as licenças permitidas por uso).
+- [Kit do M3](kit-m3.md) para o Victor.
+- Executor do PC: cada execução anota a espera pela trava (`D:\rts\testes\fila.log`), cada sessão usa a própria cópia do `execucao.ps1`, e o modo `rts` roda só os testes do RTS.
+
+| Medição | Resultado | Fonte |
+| --- | --- | --- |
+| Orçamento da fase 1 com os assets de hoje | textura uhd 676 MiB contra 256 (hd 169 contra 96), download uhd 17,9 MiB contra 30 (hd 6,1 contra 12); o Cesto e as variantes de elevação -e45 e -e65 dão 144 MiB cada no uhd e as três estão marcadas para a fase 1; só anotado até a E5 | `testes/rts-orcamento.test.mjs`, 31/10/2026 |
+| Fila do PC com as sessões da onda 2 | uma execução completa segura a trava de 8 a 15 minutos; às 00h35 de 31/10/2026 havia uma rodando e três esperando, com esperas de 5 a 16 minutos | registros das execuções em `D:\rts\testes\*\execucoes`, 31/10/2026 |
 
 ### F9 Rede (`rts-rede`)
 

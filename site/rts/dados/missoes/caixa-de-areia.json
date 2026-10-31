@@ -241,7 +241,7 @@
     },
     {
       "id": "cemiterio-acabando",
-      "quando": {"se": "contagem", "tipos": ["pilha"], "area": "cemiterio-sudoeste", "maximo": 1},
+      "quando": {"se": "recursos", "no": "cemiterio-sudoeste", "maximo": 1500},
       "acoes": [
         {"faz": "mensagem", "texto": "radio.supervisora.caixa_cemiterio_acabando", "area": "ferro-velho-sudeste"},
         {"faz": "objetivo", "objetivo": "abrir-ferro-velho", "estado": "ativo"}

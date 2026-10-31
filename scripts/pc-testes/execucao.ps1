@@ -2,10 +2,11 @@
 # It waits for the test lock D:\rts\trava-testes (one run at a time on the PC), unpacks the session's tree next to its cached node_modules, runs npm ci only when package-lock.json changed, installs the Playwright browsers on D:, and runs the Playwright steps.
 # Performance steps first check which ANGLE backend reaches the NVIDIA card and also hold the GPU lock D:\rts\trava-gpu, so they never measure next to a Blender batch.
 # Everything it learns goes to D:\rts\testes\<session>\execucoes\<run>: testes.log, estado.json, resumo.txt, one JSON report and one output folder per step.
+# Every run also appends one line to D:\rts\testes\fila.log (start, session, run, seconds waiting for the test lock, total seconds, exit code), to measure the queue across sessions.
 param(
     [Parameter(Mandatory)][string]$Sessao,
     [Parameter(Mandatory)][string]$Execucao,
-    [ValidateSet("e2e", "playwright")][string]$Modo = "e2e",
+    [ValidateSet("e2e", "rts", "playwright")][string]$Modo = "e2e",
     [string]$Argumentos = "",
     [int]$Processos = 2
 )
@@ -20,6 +21,7 @@ $log = "$saida\testes.log"
 $resumo = "$saida\resumo.txt"
 $travaTestes = "D:\rts\trava-testes"
 $travaGpu = "D:\rts\trava-gpu"
+$fila = "D:\rts\testes\fila.log"
 New-Item -ItemType Directory -Force -Path $saida, "D:\rts\cache\tmp-testes", "D:\rts\npm-cache", "D:\rts\playwright" | Out-Null
 [IO.File]::WriteAllText($log, "", $utf8)
 
@@ -140,12 +142,15 @@ function Rodar-Passo([string]$nome, [string[]]$argumentosPlaywright, [bool]$usaG
 $inicioGeral = Get-Date
 $codigoGeral = 0
 $comTrava = $false
+$esperaTestes = $null
 try {
     Gravar-Estado ([ordered]@{ estado = "esperando testes"; pid = $PID })
     if (-not (Esperar-Trava $travaTestes "$Sessao $Execucao pid=$PID $(Get-Date -Format o)" "testes" 180 $true)) {
         throw "the test lock stayed busy for 180 min"
     }
     $comTrava = $true
+    $esperaTestes = [math]::Round(((Get-Date) - $inicioGeral).TotalSeconds, 1)
+    Registrar "FILA waited $esperaTestes s for the test lock"
     Gravar-Estado ([ordered]@{ estado = "preparando"; pid = $PID })
 
     # A fresh tree each run, keeping node_modules, which npm ci only rebuilds when the lock file changes.
@@ -179,14 +184,18 @@ try {
     Registrar "PREPARO playwright install chromium firefox webkit"
     if ((Rodar "npx.cmd playwright install chromium firefox webkit") -ne 0) { throw "playwright install failed" }
 
-    if ($Modo -eq "e2e") {
-        Rodar-Passo "funcionais" @("--project=funcionais", "--workers=$Processos") $false
+    if ($Modo -eq "e2e" -or $Modo -eq "rts") {
+        # The rts mode leaves out the Pavio and Farm functional specs, which an RTS-only change cannot reach; the Action still runs them on every push.
+        $funcionais = @("--project=funcionais", "--workers=$Processos")
+        if ($Modo -eq "rts") { $funcionais += "testes/e2e/rts-" }
+        Rodar-Passo "funcionais" $funcionais $false
         # Only the RTS performance spec: the Pavio one measures the Mac GPU as a stand-in for an iPad, and its limits do not hold on this PC (see docs/rts/ESTADO.md).
         Rodar-Passo "desempenho" @("--project=desempenho", "testes/e2e/rts-desempenho.spec.mjs") $true
         Rodar-Passo "rts-determinismo" @("--project=rts-determinismo-*") $false
     } else {
         $lista = @($utf8.GetString([Convert]::FromBase64String($Argumentos)) -split "`n" | Where-Object { $_ -ne "" })
-        $usaGpu = ($lista -join " ") -match "desempenho|longo|galeria"
+        # the GPU lock for the performance project or the Pavio performance specs by file name, not for any word "longo" (a -g filter)
+        $usaGpu = ($lista -join " ") -match "desempenho|(longo|galeria)\.spec"
         Rodar-Passo "playwright" $lista $usaGpu
     }
     foreach ($passo in $passos) { if ($passo.codigo -ne 0 -and $codigoGeral -eq 0) { $codigoGeral = $passo.codigo } }
@@ -203,13 +212,16 @@ try {
         inicio = $inicioGeral.ToString("o")
         fim = $fim.ToString("o")
         segundos = [math]::Round(($fim - $inicioGeral).TotalSeconds, 1)
+        esperaSegundos = $esperaTestes
     }
-    $linhas = @("execucao $Execucao da sessao $($Sessao): $($final.estado), codigo $codigoGeral, $($final.segundos) s")
+    $linhas = @("execucao $Execucao da sessao $($Sessao): $($final.estado), codigo $codigoGeral, $($final.segundos) s, $($esperaTestes) s esperando a trava")
     foreach ($passo in $passos) {
         $linhas += "  $($passo.nome): codigo $($passo.codigo), $($passo.segundos) s, $($passo.esperados) passaram, $($passo.inesperados) falharam, $($passo.instaveis) instaveis, $($passo.pulados) pulados"
     }
     [IO.File]::WriteAllText($resumo, ($linhas -join "`r`n") + "`r`n", $utf8)
     Gravar-Estado $final
+    # A busy file (two runs ending together) only loses this one line.
+    try { [IO.File]::AppendAllText($fila, "$($final.inicio) $Sessao $Execucao espera=$esperaTestes total=$($final.segundos) codigo=$codigoGeral`r`n", $utf8) } catch { Registrar "AVISO could not append to fila.log" }
     # Keep the five newest runs of this session.
     Get-ChildItem "$pasta\execucoes" -Directory | Sort-Object Name -Descending | Select-Object -Skip 5 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }

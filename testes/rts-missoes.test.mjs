@@ -58,6 +58,7 @@ test('every reference of a mission resolves', () => {
     const areas = new Set([...Object.keys(missao.areas ?? {}), ...Object.keys(mapa.areas)]);
     const rotas = new Set([...Object.keys(missao.rotas ?? {}), ...Object.keys(mapa.rotas)]);
     const etiquetas = new Set(mapa.entidades.map(e => e.etiqueta).filter(Boolean));
+    const nos = new Set(mapa.nos.map(n => n.id));
     const objetivos = new Set(missao.objetivos.map(o => o.id));
     const gatilhos = new Set(missao.gatilhos.map(g => g.id));
     assert.equal(gatilhos.size, missao.gatilhos.length, 'gatilho repetido');
@@ -77,6 +78,7 @@ test('every reference of a mission resolves', () => {
         if (c.gatilho) assert.ok(gatilhos.has(c.gatilho), `${g.id}: gatilho ${c.gatilho}`);
         if (c.grupo) assert.ok(grupos.has(c.grupo), `${g.id}: grupo ${c.grupo}`);
         if (c.area) assert.ok(areas.has(c.area), `${g.id}: área ${c.area}`);
+        if (c.no) assert.ok(nos.has(c.no), `${g.id}: nó ${c.no}`);
         for (const t of c.tipos ?? []) assert.ok(tipos.has(t), `${g.id}: tipo ${t}`);
       }
       for (const a of g.acoes) {

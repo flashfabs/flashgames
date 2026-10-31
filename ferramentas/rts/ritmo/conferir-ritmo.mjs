@@ -31,6 +31,8 @@ const formatar = (id, valor) => {
   if (id === 'luta10contra10') return `${valor.toFixed(1)} s`;
   if (id === 'janelasSemComando') return `${(valor * 100).toFixed(1)}%`;
   if (id === 'avisoDeAtaque') return valor < 0 ? 'onda sem aviso' : `pior aviso ${valor.toFixed(1)} s`;
+  if (id === 'diversao') return `${valor} de 5`;
+  if (id === 'jogariaDeNovo') return valor === 1 ? 'sim' : 'não de alguém';
   return String(valor);
 };
 
