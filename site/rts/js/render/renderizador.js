@@ -5,12 +5,13 @@
 // Frame plan: scene at the render scale (terrain with fog, ground decals and order markers, selection rings,
 // shadows, every sprite in one sorted draw, smoke, additive glow), upscale to the canvas, then health bars at
 // native resolution so they stay crisp.
-import { criarBackendWebGL2, FLOATS_QUADRO } from './backend-webgl2.js';
+import { criarBackendWebGL2, FLOATS_QUADRO, INICIO_CORES_QUADRO } from './backend-webgl2.js';
 import { pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from './projecao.js';
 import { criarControleDeEscala, DEGRAUS } from './escala.js';
 import { criarFolhas } from './sprites.js';
 import { criarMontagemUnidades } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
+import { criarRelevo, limitesPorCelula } from './relevo.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
 
@@ -26,10 +27,10 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   const quadro = new Float32Array(FLOATS_QUADRO);
   // team colours are RGB triplets in projecao; the block wants vec4
   for (let t = 0; t < 8; t++) {
-    quadro[16 + t * 4] = projecao.coresTime[t * 3];
-    quadro[17 + t * 4] = projecao.coresTime[t * 3 + 1];
-    quadro[18 + t * 4] = projecao.coresTime[t * 3 + 2];
-    quadro[19 + t * 4] = 1;
+    quadro[INICIO_CORES_QUADRO + t * 4] = projecao.coresTime[t * 3];
+    quadro[INICIO_CORES_QUADRO + 1 + t * 4] = projecao.coresTime[t * 3 + 1];
+    quadro[INICIO_CORES_QUADRO + 2 + t * 4] = projecao.coresTime[t * 3 + 2];
+    quadro[INICIO_CORES_QUADRO + 3 + t * 4] = 1;
   }
   const vista = { largura: canvas.width, altura: canvas.height, px: 1 };
   const area = new Float64Array(4);
@@ -38,12 +39,16 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   const camera0 = { x: 0, y: 0, zoom: 1 };
   let mapaLargura = 1;
   let mapaAltura = 1;
+  /** @type {ReturnType<typeof criarRelevo> | null} */
+  let relevo = null;
+  // cells the view of a raised point can come from south of the visible ground
+  const margemDoRelevo = () => (relevo ? relevo.alturaMaxima * projecao.celulasPorMetroDeAltura : 0);
 
   // drawing on the CPU, the scene starts at the lowest step and probes up only if the frames allow
   const escala = criarControleDeEscala({ degrauInicial: backend.info.software ? DEGRAUS.length - 1 : 0 });
   if (escalaFixa !== null) escala.fixar(escalaFixa);
   const folhas = criarFolhas(backend, projecao, () => preencherQuadro(camera0, 1, vista.largura, vista.altura, 0));
-  const unidades = criarMontagemUnidades({ projecao, folhas });
+  const unidades = criarMontagemUnidades({ projecao, folhas, alturaEm: (x, y) => (relevo ? relevo.alturaEm(x, y) : 0) });
   const efeitos = criarEfeitos({ visivel });
   const estatisticas = { escala: 1, alvoLargura: 0, alvoAltura: 0, sprites: 0, gpuMs: -1, nivel: '' };
 
@@ -63,7 +68,9 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     quadro[12] = mapaLargura;
     quadro[13] = mapaAltura;
     quadro[14] = projecao.fatorTime;
-    quadro[15] = 0;
+    quadro[15] = backend.areaVisivel ? 1 : 0;
+    quadro[16] = relevo ? relevo.alturaMaxima : 0;
+    quadro[17] = projecao.celulasPorMetroDeAltura;
     return quadro;
   }
 
@@ -116,16 +123,34 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       vista.altura = altura;
     },
 
-    /** @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array }} mapa static map */
+    /**
+     * Static map: blocked cells, visual relief and height levels (missing levels are flat). The camera gets the
+     * height field (camera.relevo), so the screen and map conversions of projecao.js follow the terrain.
+     * @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array, nivel?: Uint8Array }} mapa
+     */
     definirMapa(mapa) {
-      const rg = new Uint8Array(mapa.largura * mapa.altura * 2);
-      for (let i = 0; i < mapa.largura * mapa.altura; i++) {
-        rg[i * 2] = mapa.bloqueado[i] ? 255 : 0;
-        rg[i * 2 + 1] = mapa.relevo[i];
+      relevo = criarRelevo(mapa, projecao);
+      const k = projecao.celulasPorMetroDeAltura;
+      const alcanceSol = projecao.sol[2] > 0 ? relevo.alturaMaxima / ((projecao.sol[2] / Math.hypot(projecao.sol[0], projecao.sol[1])) * projecao.metrosPorCelula) : 0;
+      const limites = limitesPorCelula(mapa, relevo.niveis, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
+      const total = mapa.largura * mapa.altura;
+      const rgba = new Uint8Array(total * 4);
+      const escalaNivel = 255 / projecao.nivelMaximo;
+      for (let i = 0; i < total; i++) {
+        rgba[i * 4] = mapa.bloqueado[i] ? 255 : 0;
+        rgba[i * 4 + 1] = mapa.relevo[i];
+        rgba[i * 4 + 2] = Math.round(limites.coluna[i] * escalaNivel);
+        rgba[i * 4 + 3] = Math.round(limites.sol[i] * escalaNivel);
       }
-      backend.definirMapa(mapa.largura, mapa.altura, rg);
+      backend.definirMapa(mapa.largura, mapa.altura, rgba, relevo.fina, relevo.larguraFina, relevo.alturaFina);
       mapaLargura = mapa.largura;
       mapaAltura = mapa.altura;
+      camera.relevo = relevo;
+    },
+
+    /** Height field of the current map (relevo.js), or null before the map arrives. */
+    get relevo() {
+      return relevo;
     },
 
     atualizarNeblina(visao) {
@@ -176,6 +201,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     desenhar({ agora, dt, estado, selecionadas }) {
       vista.px = pxPorCelula(projecao, vista.largura, vista.altura, camera.zoom);
       areaVisivel(projecao, camera, vista, 0, area);
+      area[3] += margemDoRelevo();
       unidades.montar({ estado, area, selecionadas, agora });
       efeitos.montar(agora);
       return desenharCena(agora, dt, unidades);

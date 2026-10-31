@@ -4,11 +4,16 @@
 //
 // Sprites live in texture arrays (premultiplied colour RGBA8, team mask R8 and rendered shadow R8) whose layers all
 // share one size, so every sprite of the scene goes in a single draw sorted back to front, whatever page it came from.
+// The terrain pass fills the depth buffer with how close each terrain point is to the camera; the instanced passes
+// test against it without writing, so the sorted sprites still blend in order but hide behind hills.
 import * as F from './shaders.js';
 
 export const FLOATS_INSTANCIA = 8;
-// per-pass uniform block: 4 vec4 + 8 team colours
-export const FLOATS_QUADRO = 48;
+// per-pass uniform block: 5 vec4 + 8 team colours
+export const FLOATS_QUADRO = 52;
+export const INICIO_CORES_QUADRO = 20;
+const UNIDADE_ALTURA = 8;
+const UNIDADE_AREA = 9;
 const LARGURA_TABELA = 256; // texels per row of the frame table, two per frame
 
 function compilar(gl, tipo, fonte) {
@@ -35,7 +40,7 @@ function programa(gl, vert, frag, amostradores = {}) {
   const bloco = gl.getUniformBlockIndex(p, 'Quadro');
   if (bloco !== gl.INVALID_INDEX) gl.uniformBlockBinding(p, bloco, 0);
   gl.useProgram(p);
-  for (const [nome, unidade] of Object.entries(amostradores)) if (u[nome]) gl.uniform1i(u[nome], unidade);
+  for (const [nome, unidade] of Object.entries({ ...amostradores, uAltura: UNIDADE_ALTURA, uArea: UNIDADE_AREA })) if (u[nome]) gl.uniform1i(u[nome], unidade);
   return { p, u };
 }
 
@@ -78,7 +83,7 @@ export function criarBackendWebGL2(canvas) {
   const gl = canvas.getContext('webgl2', {
     antialias: false,
     alpha: false,
-    depth: false,
+    depth: true,
     stencil: false,
     premultipliedAlpha: true,
     powerPreference: 'high-performance',
@@ -98,6 +103,8 @@ export function criarBackendWebGL2(canvas) {
   };
 
   const terreno = programa(gl, F.VERT_TELA, F.FRAG_TERRENO, { uMapa: 0, uNeblina: 1, uLadrilho: 7 });
+  const pegada = programa(gl, F.VERT_PEGADA, F.FRAG_PEGADA);
+  const cabo = programa(gl, F.VERT_CABO, F.FRAG_CABO);
   const sprite = programa(gl, F.VERT_SPRITE, F.FRAG_SPRITE, { uQuadros: 2, uCor: 3, uTime: 4 });
   const sombra = programa(gl, F.VERT_SOMBRA, F.FRAG_SOMBRA, { uQuadros: 2, uCor: 3, uSombra: 6 });
   const anel = programa(gl, F.VERT_ANEL, F.FRAG_ANEL);
@@ -118,9 +125,18 @@ export function criarBackendWebGL2(canvas) {
     aneis: criarLote(gl, 2048),
     barras: criarLote(gl, 2048),
     efeitos: criarLote(gl, 4096),
+    pegadas: criarLote(gl, 64),
   };
+  // cables are drawn from gl_VertexID alone, so their vertex array has only the per-instance attributes
+  const cabos = criarLote(gl, 1024);
+  gl.bindVertexArray(cabos.vao);
+  gl.disableVertexAttribArray(0);
+  gl.bindVertexArray(null);
 
   const texMapa = textura2D(gl, gl.LINEAR);
+  const texAltura = textura2D(gl, gl.LINEAR);
+  const texArea = textura2D(gl, gl.NEAREST);
+  let areaVisivel = false;
   const texNeblina = textura2D(gl, gl.LINEAR);
   const texQuadros = textura2D(gl, gl.NEAREST);
   const texLadrilho = textura2D(gl, gl.LINEAR);
@@ -132,7 +148,7 @@ export function criarBackendWebGL2(canvas) {
   const leitura = gl.createFramebuffer();
   const escrita = gl.createFramebuffer();
 
-  const cena = { fbo: gl.createFramebuffer(), textura: textura2D(gl, gl.LINEAR), largura: 0, altura: 0, ativa: false };
+  const cena = { fbo: gl.createFramebuffer(), textura: textura2D(gl, gl.LINEAR), profundidade: gl.createRenderbuffer(), largura: 0, altura: 0, ativa: false };
   let saidaLargura = canvas.width;
   let saidaAltura = canvas.height;
 
@@ -191,12 +207,22 @@ export function criarBackendWebGL2(canvas) {
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, dados, 0, quantidade * FLOATS_INSTANCIA);
   }
 
-  function desenharLote(prog, lote, dados, quantidade) {
+  function desenharLote(prog, lote, dados, quantidade, vertices = 4) {
     if (quantidade === 0) return;
     gl.useProgram(prog.p);
     encher(lote, dados, quantidade);
     gl.bindVertexArray(lote.vao);
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, quantidade);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, vertices, quantidade);
+  }
+
+  // Instanced passes of the scene test against the terrain's depth without writing it; passes on the final image
+  // (upscale, health bars) ignore it.
+  function testarProfundidade(sim) {
+    if (sim) {
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      gl.depthMask(false);
+    } else gl.disable(gl.DEPTH_TEST);
   }
 
   function ligarSprites(prog) {
@@ -228,11 +254,20 @@ export function criarBackendWebGL2(canvas) {
     gl,
     info,
 
-    /** Uploads the static map: R = blocked, G = relief, one texel per cell. */
-    definirMapa(largura, altura, rg) {
+    /**
+     * Uploads the static map: per cell RGBA (blocked, relief, highest level a view ray can meet there, highest level
+     * that can shade it, both scaled to 255 at the top level), and the fine height field (relevo.js).
+     */
+    definirMapa(largura, altura, rgba, fina, larguraFina, alturaFina) {
+      if (larguraFina > info.maxTextura || alturaFina > info.maxTextura) throw new Error(`relevo além do limite da GPU: ${larguraFina}x${alturaFina}`);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.bindTexture(gl.TEXTURE_2D, texMapa);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, largura, altura, 0, gl.RG, gl.UNSIGNED_BYTE, rg);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, largura, altura, 0, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+      gl.bindTexture(gl.TEXTURE_2D, texAltura);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, larguraFina, alturaFina, 0, gl.RED, gl.UNSIGNED_BYTE, fina);
+      gl.bindTexture(gl.TEXTURE_2D, texArea);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, largura, altura, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+      areaVisivel = false;
       gl.bindTexture(gl.TEXTURE_2D, texNeblina);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, largura, altura, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(largura * altura));
       mapaLargura = largura;
@@ -255,6 +290,19 @@ export function criarBackendWebGL2(canvas) {
       gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       celulasPorLadrilho = celulas;
+    },
+
+    /** Where the local player may build (one byte per cell, 255 = yes), shaded while placing; null hides it. */
+    definirArea(grade) {
+      areaVisivel = Boolean(grade);
+      if (!grade) return;
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.bindTexture(gl.TEXTURE_2D, texArea);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, mapaLargura, mapaAltura, gl.RED, gl.UNSIGNED_BYTE, grade);
+    },
+
+    get areaVisivel() {
+      return areaVisivel;
     },
 
     /** Fog of war of the local player, one byte per cell. */
@@ -319,6 +367,7 @@ export function criarBackendWebGL2(canvas) {
       gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, camadas.time, 0, camada);
       gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
       gl.disable(gl.BLEND);
+      gl.disable(gl.DEPTH_TEST);
       gl.enable(gl.SCISSOR_TEST);
       gl.useProgram(ficha.p);
       gl.bindVertexArray(vaoTela);
@@ -385,8 +434,11 @@ export function criarBackendWebGL2(canvas) {
         if (largura !== cena.largura || altura !== cena.altura) {
           gl.bindTexture(gl.TEXTURE_2D, cena.textura);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, largura, altura, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+          gl.bindRenderbuffer(gl.RENDERBUFFER, cena.profundidade);
+          gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, largura, altura);
           gl.bindFramebuffer(gl.FRAMEBUFFER, cena.fbo);
           gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, cena.textura, 0);
+          gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, cena.profundidade);
           cena.largura = largura;
           cena.altura = altura;
         }
@@ -402,8 +454,12 @@ export function criarBackendWebGL2(canvas) {
     /** Sets the uniform block for the passes that follow. */
     definirQuadroComum: escreverQuadro,
 
+    /** Terrain over the whole target; it writes every pixel's depth, so nothing needs clearing. */
     desenharTerreno() {
       gl.disable(gl.BLEND);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.ALWAYS);
+      gl.depthMask(true);
       gl.useProgram(terreno.p);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texMapa);
@@ -411,10 +467,27 @@ export function criarBackendWebGL2(canvas) {
       gl.bindTexture(gl.TEXTURE_2D, texNeblina);
       gl.activeTexture(gl.TEXTURE7);
       gl.bindTexture(gl.TEXTURE_2D, texLadrilho);
+      gl.activeTexture(gl.TEXTURE0 + UNIDADE_ALTURA);
+      gl.bindTexture(gl.TEXTURE_2D, texAltura);
+      gl.activeTexture(gl.TEXTURE0 + UNIDADE_AREA);
+      gl.bindTexture(gl.TEXTURE_2D, texArea);
       gl.uniform1f(terreno.u.uCelulasPorLadrilho, celulasPorLadrilho);
       gl.bindVertexArray(vaoTela);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.enable(gl.BLEND);
+      testarProfundidade(true);
+    },
+
+    /** Building footprints on the ground (placement ghost): x, y, width, height in cells, then rgba. */
+    desenharPegadas(dados, quantidade) {
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      desenharLote(pegada, lotes.pegadas, dados, quantidade);
+    },
+
+    /** Power cables between poles: ax, ay, bx, by in cells, then the two end heights, live and team. */
+    desenharCabos(dados, quantidade) {
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      desenharLote(cabo, cabos, dados, quantidade, (F.SEGMENTOS_CABO + 1) * 2);
     },
 
     /** Ground decals and markers (premultiplied alpha), drawn between the terrain and the shadows. */
@@ -445,6 +518,7 @@ export function criarBackendWebGL2(canvas) {
 
     /** Ends the scene pass; with a scaled target, upscales it into the canvas. */
     terminarCena(nitidez) {
+      testarProfundidade(false);
       if (cena.ativa) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.viewport(0, 0, saidaLargura, saidaAltura);

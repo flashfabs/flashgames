@@ -371,3 +371,105 @@ test('a terrain manifest needs square tiles and a tile size in cells', () => {
   assert.throws(() => lerManifestoTerreno({ ...base, celulasPorLadrilho: 0 }), /celulasPorLadrilho/);
   assert.throws(() => lerManifestoTerreno({ ...base, paginas: { uhd: [{ cor: 't.webp', largura: 1024, altura: 512 }] } }), /quadrada/);
 });
+
+// ---------- terrain height: levels, slopes, cliffs and the view ray ----------
+
+import { criarRelevo, niveisDeDesenho, limitesPorCelula, AMOSTRAS_POR_CELULA } from '../site/rts/js/render/relevo.js';
+import { seguirRaio } from '../site/rts/js/render/projecao.js';
+
+// 24 x 24 cells: level 0 to the west, a level-2 plateau from column 12 whose west rim (column 11) is blocked, and an
+// open ramp at rows 18..20 where column 11 is a level-1 open cell joining both sides.
+function mapaDeDegraus() {
+  const largura = 24;
+  const altura = 24;
+  const bloqueado = new Uint8Array(largura * altura);
+  const nivel = new Uint8Array(largura * altura);
+  for (let y = 0; y < altura; y++) {
+    for (let x = 12; x < largura; x++) nivel[y * largura + x] = 2;
+    const rampa = y >= 18 && y <= 20;
+    bloqueado[y * largura + 11] = rampa ? 0 : 1;
+    nivel[y * largura + 11] = rampa ? 1 : 0;
+  }
+  return { largura, altura, bloqueado, nivel };
+}
+
+test('projecao.json gives metres per level and the view ray constant', () => {
+  const p = criarProjecao(copia());
+  assert.equal(p.metrosPorNivel, 4);
+  assert.equal(p.nivelMaximo, 3);
+  assert.ok(Math.abs(p.celulasPorMetroDeAltura - Math.cos((55 * Math.PI) / 180) / (4 * Math.sin((55 * Math.PI) / 180))) < 1e-12);
+  const sem = copia();
+  delete sem.metrosPorNivel;
+  assert.throws(() => validarProjecao(sem), /metrosPorNivel/);
+});
+
+test('a blocked region rises to the highest level it touches; open cells keep theirs', () => {
+  const mapa = mapaDeDegraus();
+  const niveis = niveisDeDesenho(mapa, 3);
+  assert.equal(niveis[5 * 24 + 11], 2, 'the blocked rim at the foot of the plateau stands at the plateau level');
+  assert.equal(niveis[5 * 24 + 10], 0);
+  assert.equal(niveis[19 * 24 + 11], 1, 'the open ramp cell keeps its level');
+  // an isolated rock on flat ground stays flat
+  const plano = { largura: 8, altura: 8, bloqueado: new Uint8Array(64), nivel: new Uint8Array(64) };
+  plano.bloqueado[3 * 8 + 3] = 1;
+  assert.equal(niveisDeDesenho(plano, 3)[3 * 8 + 3], 0);
+});
+
+test('cliffs step within a quarter cell and open ramps slope from centre to centre', () => {
+  const p = criarProjecao(copia());
+  const r = criarRelevo(mapaDeDegraus(), p);
+  assert.equal(r.larguraFina, 24 * AMOSTRAS_POR_CELULA);
+  assert.equal(r.alturaMaxima, 12);
+  assert.ok(Math.abs(r.alturaEm(14.5, 5.5) - 8) < 0.05, 'plateau top at two levels');
+  assert.ok(Math.abs(r.alturaEm(11.5, 5.5) - 8) < 0.05, 'the rim is part of the plateau');
+  assert.ok(r.alturaEm(9.5, 5.5) < 0.05, 'low ground west of the cliff stays flat');
+  // across the cliff (column 11's west edge) the height goes from 0 to 8 m within about half a cell
+  assert.ok(r.alturaEm(10.6, 5.5) < 0.5 && r.alturaEm(11.4, 5.5) > 7.5);
+  // the ramp row climbs smoothly from level 0 through 1 to 2
+  const subida = [9.5, 10.5, 11, 11.5, 12, 12.5].map(x => r.alturaEm(x, 19.5));
+  for (let i = 1; i < subida.length; i++) assert.ok(subida[i] >= subida[i - 1] - 1e-9, `ramp not monotonic at ${i}: ${subida}`);
+  assert.ok(Math.abs(r.alturaEm(11.5, 19.5) - 4) < 0.1, 'ramp cell centre at one level');
+  assert.ok(Math.abs(r.alturaEm(11, 19.5) - 2) < 0.4, 'halfway up between the centres');
+});
+
+test('the view ray lands on the plateau top, the cliff face or the ground in front', () => {
+  const p = criarProjecao(copia());
+  const r = criarRelevo(mapaDeDegraus(), p);
+  const k = p.celulasPorMetroDeAltura;
+  const saida = [0, 0, 0];
+  // ground point well inside the plateau: the ray meets the top 8 m up, 8k cells south of the ground point
+  seguirRaio(p, r, 16.5, 6, saida);
+  assert.ok(Math.abs(saida[2] - 8) < 0.05 && Math.abs(saida[1] - (6 + 8 * k)) < 0.02);
+  // flat ground far west: the ray reaches the ground plane where it started
+  seguirRaio(p, r, 4.5, 6, saida);
+  assert.deepEqual([saida[0], saida[1], saida[2]], [4.5, 6, 0]);
+  // ground point on the low side, just in front of a plateau to the south? there is none: still the ground
+  seguirRaio(p, r, 9.5, 6, saida);
+  assert.ok(saida[2] < 0.05);
+});
+
+test('screen to map follows the terrain, and map to screen lifts points by it', () => {
+  const p = criarProjecao(copia());
+  const relevo = criarRelevo(mapaDeDegraus(), p);
+  const camera = { x: 14, y: 8, zoom: 1, relevo };
+  const vista = { largura: 3840, altura: 2160, px: 128 };
+  for (const [x, y] of [[16.5, 6.5], [9.5, 6.5], [11.5, 19.5], [13.2, 12.7]]) {
+    const tela = mundoParaTela(p, camera, vista, x, y, 0, [0, 0]);
+    const volta = telaParaMundo(p, camera, vista, tela[0], tela[1], [0, 0]);
+    assert.ok(Math.abs(volta[0] - x) < 1e-9, `x at ${x},${y}`);
+    assert.ok(Math.abs(volta[1] - y) < 0.03, `y at ${x},${y}: ${volta[1]}`);
+  }
+  const plano = mundoParaTela(p, { ...camera, relevo: undefined }, vista, 16.5, 6.5, 0, [0, 0]);
+  const alto = mundoParaTela(p, camera, vista, 16.5, 6.5, 0, [0, 0]);
+  assert.ok(Math.abs(plano[1] - alto[1] - 2 * 128 * p.cosseno) < 0.5, 'two levels (8 m) up rise two cells times cos(elevation)');
+});
+
+test('per-cell bounds cover the cells a view ray or a sun ray can meet', () => {
+  const mapa = mapaDeDegraus();
+  const niveis = niveisDeDesenho(mapa, 3);
+  const { coluna, sol } = limitesPorCelula(mapa, niveis, 3, 3);
+  assert.equal(coluna[5 * 24 + 4], 0, 'far from the plateau the ground is flat');
+  assert.equal(coluna[5 * 24 + 10], 2, 'next to the rim the ray may meet the plateau');
+  assert.equal(sol[5 * 24 + 9], 0, 'the sun comes from the north-west, the plateau is to the east');
+  assert.equal(sol[5 * 24 + 14], 2);
+});

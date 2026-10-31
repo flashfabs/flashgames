@@ -177,6 +177,15 @@ export function quadroGlobal(folha, animacao, angulo256, tempoS) {
   return folha.primeiroQuadro + quadroDaAnimacao(animacao, direcaoDoAngulo(angulo256, animacao.direcoes), tempoS);
 }
 
+/**
+ * Second field of a sprite instance (aDados.y): team, build progress (0 finished, 1..255 rising), FLAGS_SPRITE and how
+ * far the object reaches in front of its anchor in quarter cells (0..63), for the depth test against the terrain.
+ * All integers, so the float holds them exactly.
+ */
+export function empacotar(time, progresso, bandeiras, viesQuartos) {
+  return (time & 7) | ((progresso & 255) << 3) | ((bandeiras & 15) << 11) | ((viesQuartos & 63) << 15);
+}
+
 // Points that lie on the ground (the turret axis meets the hull there); every other point is read as a height
 // above the anchor, which lands on the same screen pixel.
 const PONTOS_NO_CHAO = new Set(['encaixe_torre']);

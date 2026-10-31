@@ -3,12 +3,14 @@
 // shadow, selection ring and health bar instances into preallocated buffers. Nothing is allocated per frame.
 import { FLOATS_INSTANCIA } from './backend-webgl2.js';
 import { criarOrdenacao } from './ordenacao.js';
-import { pontoDeEncaixe } from './sprites.js';
+import { pontoDeEncaixe, empacotar } from './sprites.js';
 import { FP, PASSOS_POR_SEGUNDO, VISAO, slotDe } from '../sim/contratos.js';
 
 const PASSO_MS = 1000 / PASSOS_POR_SEGUNDO;
 const MARGEM_CELULAS = 2;
 const VERDE_SELECAO = [0.35, 1.0, 0.45];
+// how far in front of its anchor a unit reaches, in quarter cells, for the depth test against the terrain
+const VIES_UNIDADE = 1;
 
 /**
  * Look of each unit kind: sheet variants in order of preference (the first whose body sheet is loaded wins; a
@@ -45,9 +47,13 @@ class Instancias {
 }
 
 /**
- * @param {{ projecao: ReturnType<typeof import('./projecao.js').criarProjecao>, folhas: ReturnType<typeof import('./sprites.js').criarFolhas> }} deps
+ * @param {{
+ *   projecao: ReturnType<typeof import('./projecao.js').criarProjecao>,
+ *   folhas: ReturnType<typeof import('./sprites.js').criarFolhas>,
+ *   alturaEm?: (x: number, y: number) => number,
+ * }} deps alturaEm gives the terrain height in metres (flat ground without it)
  */
-export function criarMontagemUnidades({ projecao, folhas }) {
+export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) {
   let aparencias = APARENCIAS_PADRAO;
   // 'alfa' derives shadows from the sprite alpha; 'camada' uses the sheet's rendered shadow layer where it has one
   let modoSombra = 'alfa';
@@ -148,16 +154,17 @@ export function criarMontagemUnidades({ projecao, folhas }) {
       const anim = andando && aparencia.animAndando ? aparencia.animAndando : aparencia.animParado;
       const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
       const quadro = quadroDe(aparencia.corpo, anim, Math.round((corpo * anim.direcoes) / 256), passo);
+      const chao = alturaEm(x, y);
       posicao[0] = x;
       posicao[1] = y;
-      posicao[2] = 0;
+      posicao[2] = chao;
       emitirSprite(quadro, time, aparencia, chave);
       const animTorre = aparencia.animTorre;
       if (aparencia.torre && animTorre) {
         if (pontoDeEncaixe(aparencia.corpo, 'encaixe_torre', quadro - aparencia.corpo.primeiroQuadro, projecao, encaixe)) {
           posicao[0] = x + encaixe[0];
           posicao[1] = y + encaixe[1];
-          posicao[2] = encaixe[2];
+          posicao[2] = chao + encaixe[2];
         }
         const passoTorre = animTorre.fps > 0 && tempoS > 0 ? Math.floor(tempoS * animTorre.fps) : 0;
         emitirSprite(quadroDe(aparencia.torre, animTorre, Math.round((torre * animTorre.direcoes) / 256), passoTorre), time, aparencia, chave);
@@ -180,7 +187,7 @@ export function criarMontagemUnidades({ projecao, folhas }) {
         const b = barras.dados;
         b[o] = x;
         b[o + 1] = y;
-        b[o + 2] = aparencia.corpo.alturaBarraMetros;
+        b[o + 2] = chao + aparencia.corpo.alturaBarraMetros;
         b[o + 3] = atual.vida[k] / 255;
         b[o + 4] = aparencia.raio * 1.5;
         b[o + 5] = time;
@@ -208,7 +215,7 @@ export function criarMontagemUnidades({ projecao, folhas }) {
     d[o + 2] = posicao[2];
     d[o + 3] = 1;
     d[o + 4] = quadro;
-    d[o + 5] = time;
+    d[o + 5] = empacotar(time, 0, 0, VIES_UNIDADE);
     d[o + 6] = modoSombra === 'camada' && aparencia.corpo.temSombra ? -1 : aparencia.sombraMetros;
     d[o + 7] = 1;
     ordenacao.garantir(i + 1);
