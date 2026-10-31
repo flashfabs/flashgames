@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { ACAO } from '../site/rts/js/entrada/teclas.js';
 import { montarCartao, TECLAS_DA_GRADE, MAXIMO_DA_FILA } from '../site/rts/js/interface/cartao.js';
-import { criarCatalogo, catalogoDoMapa, nomeDoId } from '../site/rts/js/interface/catalogo.js';
+import { criarCatalogo, catalogoDoMapa, nomeDoId, habilidadeDoC5, HABILIDADE, BANDEIRA_CESTO_ERGUIDO } from '../site/rts/js/interface/catalogo.js';
 import { criarAlertas, ALERTA, RAIO_DO_ATAQUE, SILENCIO_DO_ATAQUE_MS } from '../site/rts/js/interface/alertas.js';
 import { criarTextos, PROVISORIOS, achatar } from '../site/rts/js/interface/textos.js';
 import { criarLeitura, lerFilas, TETO_PADRAO } from '../site/rts/js/interface/leitura.js';
@@ -75,6 +75,21 @@ test('units get the orders in fixed places of the grid, and nothing selected get
 
 const item = (valor, progresso = 0) => ({ item: valor, tipo: valor >= ITEM_PESQUISA ? -1 : valor, pesquisa: valor >= ITEM_PESQUISA ? valor - ITEM_PESQUISA : -1, progresso });
 const semFila = { fila: [], obras: [], obra: null, pronto: -1 };
+
+test('abilities come from the C5 entry and take the free places of the unit card, the toggle showing its state', () => {
+  assert.equal(habilidadeDoC5({ religa: 1 }).codigo, HABILIDADE.RELIGAR);
+  assert.equal(habilidadeDoC5({ habilidade: { tipo: 'erguer' } }).codigo, HABILIDADE.CESTO);
+  assert.equal(habilidadeDoC5({ habilidade: { tipo: 'leitura' } }).alvo, 'predio');
+  assert.equal(habilidadeDoC5({ habilidade: { tipo: 'tocaia' } }), null, 'the enemy\'s abilities are not the player\'s');
+  const mapa = { tipos: [tipoEstatico({ nome: 'cesto-blindado' }), tipoEstatico({ nome: 'religador' }), tipoEstatico({ nome: 'equipe-de-manutencao', ergue: [3] }), tipoEstatico({ nome: 'poste-avancado', categoria: CATEGORIA.PREDIO, custo: 1000 })] };
+  const comHabilidades = catalogoDoMapa(mapa, textoComNomes, [{ nome: 'cesto-blindado', habilidade: { tipo: 'erguer' } }, { nome: 'religador', religa: 1 }]);
+  const selecao = [{ id: 1, tipo: 0, bandeiras: BANDEIRA_CESTO_ERGUIDO }, { id: 2, tipo: 0 }, { id: 3, tipo: 1 }, { id: 4, tipo: 2 }];
+  const cartao = montarCartao({ selecao, catalogo: comHabilidades, producao: () => null, carga: 2000, lotacao: { usada: 0, teto: 60 } });
+  assert.deepEqual([1, 2, 7].map(i => cartao.slots[i] && [cartao.slots[i].modo, cartao.slots[i].habilidade?.codigo ?? cartao.slots[i].tipo]), [['erguer', 3], ['habilidade', HABILIDADE.CESTO], ['habilidade', HABILIDADE.RELIGAR]]);
+  assert.deepEqual(cartao.slots[2].unidades, [1, 2]);
+  assert.equal(cartao.slots[2].texto, 'comando.baixar_cesto', 'the first basket is raised: the button lowers');
+  assert.equal(cartao.slots[7].texto, 'comando.religar');
+});
 
 test('a building card trains and researches in data order, counts its queues and says when Carga or population is short', () => {
   const filas = { 20: { ...semFila, fila: [item(1, 0.5), item(1), item(ITEM_PESQUISA)] }, 21: semFila };

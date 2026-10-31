@@ -159,8 +159,8 @@ let cartaoAtual = { tipo: 'vazio', slots: new Array(8).fill(null), predios: [], 
 function recalcularCartao() {
   const selecao = [];
   for (const id of selecionadas) {
-    const tipo = indice.tipo(id);
-    if (tipo >= 0) selecao.push({ id, tipo });
+    const k = indice.k(id);
+    if (k >= 0) selecao.push({ id, tipo: estado.atual.tipo[k], bandeiras: estado.atual.bandeiras[k] });
   }
   cartaoAtual = montarCartao({ selecao, catalogo, producao: leitura.producao, carga: leitura.carga, lotacao: leitura.lotacao });
   return cartaoAtual;
@@ -344,7 +344,7 @@ simulacao.iniciar({
   // with the simulation front; until the worker reads `partida`, the prototype's armies still play).
   ...(arquivosDaPartida && { dados: arquivosDaPartida.dados, partida: { missao: arquivosDaPartida.missao, ...arquivosDaPartida.mapa }, dificuldade: opcoes.dificuldade }),
   aoReceberMapa(mapa) {
-    catalogo = catalogoDoMapa(mapa, texto);
+    catalogo = catalogoDoMapa(mapa, texto, arquivosDaPartida?.dados.unidades.unidades ?? []);
     comecarRegistro(mapa);
     menu.marcarPronto();
     render.definirMapa(mapa);

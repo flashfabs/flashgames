@@ -86,7 +86,7 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
     let nome = '';
     let info = '';
     let progresso = -1;
-    if (slot?.acao) {
+    if (slot?.texto) {
       nome = texto(slot.texto);
     } else if (slot) {
       nome = slot.modo === 'pesquisar' ? catalogo().pesquisa(slot.pesquisa)?.nomeVisivel ?? '?' : catalogo().nome(slot.tipo);
@@ -122,6 +122,7 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
       const slot = atual.slots[i];
       desenharSlot(botao, slot, i);
       if (slot?.acao) botao.setAttribute('aria-pressed', String(controles.modo === slot.acao));
+      else if (slot?.modo === 'habilidade') botao.setAttribute('aria-pressed', String(slot.ativa || controles.habilidadeArmada === slot.habilidade.codigo));
       else botao.removeAttribute('aria-pressed');
     });
     for (const botao of utilidades.querySelectorAll('[data-acao]')) botao.setAttribute('aria-pressed', String(botao.dataset.acao === ACAO.PAUSAR && controles.pausado));
@@ -139,6 +140,8 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
         ? texto('hud.pausado')
         : controles.modo === 'colocar'
           ? texto('hud.posicionar', { nome: catalogo().nome(controles.colocando ?? -1) })
+          : controles.modo === 'habilidade'
+            ? 'Clique no alvo; Shift mantém para outro; Esc ou clique direito cancela.'
           : modo
             ? `Clique no chão para ${modo}; Shift mantém para enfileirar; Esc ou clique direito cancela.`
             : guardarNoProximo

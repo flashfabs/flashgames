@@ -21,7 +21,7 @@ kbd { font: inherit; font-size: 11px; color: var(--apagado); }
 #palco { position: fixed; inset: 0; display: grid; place-items: center; background: #050404; }
 #tela { display: block; cursor: crosshair; touch-action: none; }
 #tela:focus { outline: none; }
-#palco[data-modo="atacarMovendo"] #tela { cursor: cell; }
+#palco[data-modo="atacarMovendo"] #tela, #palco[data-modo="habilidade"] #tela { cursor: cell; }
 #palco[data-modo="mover"] #tela, #palco[data-modo="patrulhar"] #tela, #palco[data-modo="encontro"] #tela { cursor: copy; }
 #palco[data-modo="colocar"] #tela { cursor: none; }
 #caixa-selecao { position: absolute; border: 1px solid var(--bom); background: rgba(109, 255, 138, 0.08); pointer-events: none; }

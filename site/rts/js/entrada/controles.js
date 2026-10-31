@@ -3,7 +3,8 @@
 // rally points, control groups, camera (screen edges, arrows, middle button or Space and drag, two-finger scroll) and
 // the three zoom levels (wheel, pinch, + and −).
 // The on-screen buttons call executar() and executarSlot(), so every command works without the keyboard.
-import { FP, SEM_ENTIDADE } from '../sim/contratos.js';
+import { FP, SEM_ENTIDADE, DONO_NEUTRO } from '../sim/contratos.js';
+import { HABILIDADE } from '../interface/catalogo.js';
 import { ACAO, ACOES_COM_ALVO, SETAS, E_MAC, acaoDaTecla, modificadores } from './teclas.js';
 import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO } from './selecao.js';
 import { paraMundo, paraTela } from './camera.js';
@@ -22,8 +23,9 @@ const FIM_DA_RAJADA_MS = 200;
 const PAUSA_ENTRE_PASSOS_DA_RODA_MS = 120;
 /** Shift on a training button queues this many at once. */
 const LOTE_COM_SHIFT = 5;
-/** Placing a building is a mode of its own, next to the order modes of ACOES_COM_ALVO. */
+/** Placing a building is a mode of its own, next to the order modes of ACOES_COM_ALVO; so is aiming an ability. */
 const MODO_COLOCAR = 'colocar';
+const MODO_HABILIDADE = 'habilidade';
 
 export function ligarControles({
   canvas,
@@ -51,7 +53,8 @@ export function ligarControles({
   const setas = new Set();
   let espaco = false;
   let arrasto = null;
-  let modo = null; // ACAO.ATACAR_MOVENDO, MOVER or PATRULHAR waiting for a click, or MODO_COLOCAR
+  let modo = null; // ACAO.ATACAR_MOVENDO, MOVER or PATRULHAR waiting for a click, MODO_COLOCAR or MODO_HABILIDADE
+  let armada = null; // the ability waiting for its target: { habilidade, unidades }
   let modoComFila = false;
   let ultimoClique = null;
   let pausado = false;
@@ -133,14 +136,15 @@ export function ligarControles({
   /** What is under the pointer for a context order: a visible enemy, a resource node, or nothing. */
   function alvoSob(clienteX, clienteY) {
     const atual = estado.atual;
-    if (!atual) return { inimigo: SEM_ENTIDADE, recurso: SEM_ENTIDADE, qualquer: SEM_ENTIDADE };
+    if (!atual) return { inimigo: SEM_ENTIDADE, recurso: SEM_ENTIDADE, estrutura: SEM_ENTIDADE, qualquer: SEM_ENTIDADE };
     const jogador = estado.jogadorLocal;
     const ver = j => visivel(atual.x[j] / FP, atual.y[j] / FP);
     const recurso = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().ehRecurso(atual.tipo[j]) && ver(j));
-    const inimigo = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== jogador && !cat().ehRecurso(atual.tipo[j]) && ver(j));
+    const estrutura = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().categoria(atual.tipo[j]) === 'estrutura' && ver(j));
+    const inimigo = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== jogador && atual.dono[j] !== DONO_NEUTRO && !cat().ehRecurso(atual.tipo[j]) && ver(j));
     const qualquer = entidadeNoPonto(atual, projetar, clienteX, clienteY, ver);
     const id = k => (k < 0 ? SEM_ENTIDADE : atual.id[k]);
-    return { inimigo: id(inimigo), recurso: id(recurso), qualquer: id(qualquer) };
+    return { inimigo: id(inimigo), recurso: id(recurso), estrutura: id(estrutura), qualquer: id(qualquer) };
   }
 
   function entrarModo(acao) {
@@ -156,6 +160,7 @@ export function ligarControles({
 
   function cancelarModo() {
     if (modo === MODO_COLOCAR) colocacao.terminar();
+    armada = null;
     modo = null;
     modoComFila = false;
     avisar();
@@ -178,6 +183,16 @@ export function ligarControles({
       const deles = predios();
       if (deles.length) ordens.encontro(deles, noChao, alvo.qualquer, e.timeStamp);
       return;
+    }
+    // Units that bring structures back go to a neutral structure under the pointer; the others just move there.
+    if (alvo.estrutura !== SEM_ENTIDADE) {
+      const religam = ids.filter(id => cat().info(indice.tipo(id)).habilidade?.codigo === HABILIDADE.RELIGAR);
+      if (religam.length) {
+        ordens.habilidade(religam, HABILIDADE.RELIGAR, alvo.estrutura, noChao, e.shiftKey, e.timeStamp);
+        const resto = ids.filter(id => !religam.includes(id));
+        if (resto.length) ordens.deContexto(resto, noChao, SEM_ENTIDADE, e.shiftKey, e.timeStamp);
+        return;
+      }
     }
     if (alvo.recurso !== SEM_ENTIDADE && alvo.inimigo === SEM_ENTIDADE) {
       const coletores = ids.filter(id => cat().ehColetor(indice.tipo(id)));
@@ -217,6 +232,22 @@ export function ligarControles({
     }
     ordens.construir(atual.construtor, atual.tipo, atual.cx, atual.cy, e.shiftKey, e.timeStamp);
     // Shift keeps placing (poles in a row); the simulation decides whether another one is ready.
+    if (e.shiftKey) modoComFila = true;
+    else cancelarModo();
+  }
+
+  // ---------- abilities ----------
+
+  /** The click that gives an aimed ability its target: a neutral structure or an enemy building under the pointer. */
+  function usarHabilidade(e) {
+    const { habilidade, unidades: deles } = armada;
+    const alvo = alvoSob(e.clientX, e.clientY);
+    const id = habilidade.alvo === 'estrutura' ? alvo.estrutura : alvo.inimigo !== SEM_ENTIDADE && cat().ehPredio(indice.tipo(alvo.inimigo)) ? alvo.inimigo : SEM_ENTIDADE;
+    if (id === SEM_ENTIDADE) {
+      som.tocar('recusa');
+      return;
+    }
+    ordens.habilidade(deles, habilidade.codigo, id, ponto(e.clientX, e.clientY), e.shiftKey, e.timeStamp);
     if (e.shiftKey) modoComFila = true;
     else cancelarModo();
   }
@@ -287,6 +318,19 @@ export function ligarControles({
       som.tocar('clique');
       return true;
     }
+    if (slot.modo === 'habilidade') {
+      // A toggle goes at once; an ability with a target waits for the click on it.
+      if (slot.habilidade.alvo === null) {
+        ordens.habilidade(slot.unidades, slot.habilidade.codigo, SEM_ENTIDADE, null, false, timeStamp);
+      } else {
+        colocacao.terminar();
+        modo = MODO_HABILIDADE;
+        modoComFila = false;
+        armada = { habilidade: slot.habilidade, unidades: slot.unidades };
+      }
+      avisar();
+      return true;
+    }
     // The simulation gives each item to the listed building with the shortest queue.
     const quantos = fila && slot.modo !== 'construir' ? LOTE_COM_SHIFT : 1;
     if (slot.modo === 'pesquisar') ordens.pesquisar(deles, slot.pesquisa, timeStamp);
@@ -319,6 +363,10 @@ export function ligarControles({
     if (e.button !== 0) return;
     if (modo === MODO_COLOCAR) {
       colocar(e);
+      return;
+    }
+    if (modo === MODO_HABILIDADE) {
+      usarHabilidade(e);
       return;
     }
     if (modo) {
@@ -524,6 +572,10 @@ export function ligarControles({
     },
     get origem() {
       return origem;
+    },
+    /** Code of the ability waiting for its target, or 0. */
+    get habilidadeArmada() {
+      return armada?.habilidade.codigo ?? 0;
     },
     /** Kind of the building being placed, or -1. */
     get colocando() {
