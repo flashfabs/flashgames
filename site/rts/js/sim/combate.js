@@ -9,10 +9,10 @@ import * as estado from './estado.js';
 import { slotVivo, emitirEvento, matar, idDoSlot } from './entidades.js';
 import { raizInteira, sortear } from './matematica.js';
 import { celulaVisivel } from './neblina.js';
-import { combateDe, BLINDAGEM, NIVEIS_VETERANIA } from './armas.js';
+import { combateDe, BLINDAGEM } from './armas.js';
 import { ganharExperiencia, experienciaPorDano } from './veterania.js';
 import { desligar } from './religar.js';
-import { avancarHabilidades, podeMover, podeDisparar, alcanceExtraDe, ignoraElevacao, porcentoDoDisparo, disparou, ocultoPara } from './habilidades.js';
+import { avancarHabilidades, habilidadesDe, podeMover, podeDisparar, alcanceExtraDe, ignoraElevacao, porcentoDoDisparo, disparou, ocultoPara } from './habilidades.js';
 
 // retarget every few ticks per unit, staggered by slot, so the search cost spreads over time
 const INTERVALO_BUSCA = 6;
@@ -127,11 +127,21 @@ function podeAcertar(sim, c, i, j, alcance, arma, nivelI) {
 }
 
 // Closest enemy i can hit (ties to the lowest slot), or -1. Distances in 1/16 world units keep the squares small.
+// The search reaches as far as the height of i allows; distance and team are checked first, and the costly checks
+// (sight, the reach at the target's height) only for a candidate that would become the closest.
 function procurarAlvo(sim, c, i, alcance, arma, nivelI, linhas) {
-  const { baldeCabeca, baldeProximo, baldeLargura, x, y } = sim;
-  const r = ((alcance + NIVEIS_VETERANIA * c.alcanceAcima) >> TAMANHO_BALDE_BITS) + 1;
-  const bx = x[i] >> TAMANHO_BALDE_BITS;
-  const by = y[i] >> TAMANHO_BALDE_BITS;
+  const { baldeCabeca, baldeProximo, baldeLargura, x, y, time, ativo } = sim;
+  const maximo = alcance + nivelI * c.alcanceAcima;
+  const r = (maximo >> TAMANHO_BALDE_BITS) + 1;
+  const xi = x[i];
+  const yi = y[i];
+  const meuTime = time[i];
+  const a = maximo >> 4;
+  const a2 = a * a;
+  const m = c.alcanceMinimo[arma] >> 4;
+  const m2 = m * m;
+  const bx = xi >> TAMANHO_BALDE_BITS;
+  const by = yi >> TAMANHO_BALDE_BITS;
   const y1 = Math.min(linhas - 1, by + r);
   const x0 = Math.max(0, bx - r);
   const x1 = Math.min(baldeLargura - 1, bx + r);
@@ -140,14 +150,15 @@ function procurarAlvo(sim, c, i, alcance, arma, nivelI, linhas) {
   for (let yb = Math.max(0, by - r); yb <= y1; yb++) {
     for (let xb = x0; xb <= x1; xb++) {
       for (let j = baldeCabeca[yb * baldeLargura + xb]; j >= 0; j = baldeProximo[j]) {
-        if (!podeAcertar(sim, c, i, j, alcance, arma, nivelI)) continue;
-        const dx = (x[j] - x[i]) >> 4;
-        const dy = (y[j] - y[i]) >> 4;
+        if (time[j] === meuTime || !ativo[j]) continue;
+        const dx = (x[j] - xi) >> 4;
+        const dy = (y[j] - yi) >> 4;
         const d = dx * dx + dy * dy;
-        if (melhor < 0 || d < melhorD || (d === melhorD && j < melhor)) {
-          melhorD = d;
-          melhor = j;
-        }
+        if (d > a2 || d < m2) continue;
+        if (melhor >= 0 && (d > melhorD || (d === melhorD && j > melhor))) continue;
+        if (!podeAcertar(sim, c, i, j, alcance, arma, nivelI)) continue;
+        melhorD = d;
+        melhor = j;
       }
     }
   }
@@ -380,6 +391,9 @@ export function combater(sim) {
   pousarProjeteis(sim, c, ex);
   aplicarPocas(sim, c, ex);
   const ord = sim.ordens;
+  const pq = sim.extras?.pesquisas;
+  const nTipos = sim.tipos.length;
+  const habilidades = habilidadesDe(sim);
   const linhas = Math.trunc(sim.baldeCabeca.length / sim.baldeLargura);
   const nivel = sim.mapa.nivel;
   for (let i = 0; i < sim.capacidade; i++) {
@@ -387,7 +401,7 @@ export function combater(sim) {
     if (sim.recarga[i] > 0) sim.recarga[i]--;
     const arma = c.armaDoTipo[sim.tipo[i]];
     if (arma < 0 || sim.time[i] === c.neutro) continue;
-    const alcance = c.alcance[arma] + pesquisa(sim, 'alcance', sim.time[i], sim.tipo[i]) + alcanceExtraDe(sim, i);
+    const alcance = c.alcance[arma] + (pq ? pq.alcance[sim.time[i] * nTipos + sim.tipo[i]] : 0) + (habilidades[sim.tipo[i]] ? alcanceExtraDe(sim, i) : 0);
     const nivelI = nivel[celulaDe(sim, i)];
     let alvo = sim.alvo[i];
     if (alvo >= 0 && !podeAcertar(sim, c, i, alvo, alcance, arma, nivelI)) alvo = -1;
