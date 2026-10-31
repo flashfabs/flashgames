@@ -32,21 +32,42 @@ function bytesDoCodigo() {
     .reduce((soma, arquivo) => soma + statSync(arquivo).size, 0);
 }
 
+/**
+ * Texture bytes of one level of a set of pages, as the renderer allocates them (backend-webgl2.js bytesTexturas):
+ * a sprite page takes one layer in each of three texture arrays (RGBA8, R8, R8) whatever passes it has, plus a full
+ * mip chain; HUD pages are plain RGBA bitmaps and a ground tile is one RGBA image.
+ */
+function bytesDasPaginas(paginas, tipo) {
+  const pixels = paginas.reduce((soma, pagina) => soma + pagina.largura * pagina.altura, 0);
+  if (tipo === 'interface' || tipo === 'terreno') return pixels * 4;
+  return Math.floor((pixels * 6 * 4) / 3);
+}
+
 /** Texture bytes of one level of a manifest, recomputed from its pages. */
 function texturaRecalculada(m, nivel) {
-  const paginas = m.paginas?.[nivel] ?? [];
-  const bytesPorPixel = 4 + Math.max(0, (m.passes ?? ['cor']).length - 1);
-  return paginas.reduce((soma, pagina) => soma + pagina.largura * pagina.altura * bytesPorPixel, 0);
+  return bytesDasPaginas(m.paginas?.[nivel] ?? [], m.tipo);
 }
+
+// Phase packages: pages shared by the sprites of a phase, counted once per package (testes/rts-arte.test.mjs checks them).
+const pacotes = Object.entries(indice.pacotes ?? {}).map(([fase, p]) => ({ fase, dados: lerJson(join(ASSETS, p.arquivo)) }));
 
 /** Totals of one phase and level in bytes: { textura, assets, codigo, download, porAsset }. */
 function totais(fase, nivel, codigo) {
   let textura = 0;
   let assets = 0;
   const porAsset = [];
+  for (const pacote of pacotes) {
+    if (pacote.fase !== fase) continue;
+    const t = pacote.dados.orcamento[nivel].bytesGpuEstimados;
+    textura += t;
+    assets += pacote.dados.orcamento[nivel].bytesArquivos;
+    porAsset.push([`pacote ${fase}`, t]);
+  }
   for (const [nome, entrada] of entradas) {
     if (!entrada.fases?.includes(fase)) continue;
     const m = manifestos.get(nome);
+    // shared pages are counted once, in their package
+    if (m.pacote) continue;
     const t = m.orcamento?.[nivel]?.bytesGpuEstimados ?? 0;
     textura += t;
     assets += m.orcamento?.[nivel]?.bytesArquivos ?? 0;
@@ -71,8 +92,12 @@ test('the budget file has a version, a file limit and a texture and download bud
 });
 
 test('each manifest texture estimate matches its pages', () => {
+  for (const { fase, dados } of pacotes) {
+    for (const nivel of NIVEIS) assert.equal(dados.orcamento[nivel].bytesGpuEstimados, bytesDasPaginas(dados.paginas[nivel], 'unidade'), `${fase}: orcamento.${nivel}.bytesGpuEstimados`);
+  }
   for (const [nome] of entradas) {
     const m = manifestos.get(nome);
+    if (m.pacote) continue;
     for (const nivel of NIVEIS) {
       if (!m.paginas?.[nivel]) continue;
       assert.equal(m.orcamento?.[nivel]?.bytesGpuEstimados, texturaRecalculada(m, nivel), `${nome}: orcamento.${nivel}.bytesGpuEstimados`);

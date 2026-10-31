@@ -120,7 +120,8 @@ test('the sandbox ends: a win by surviving the waves or taking down the camp, a 
   const q = derrotas[0].quando;
   assert.equal(q.se, 'contagem');
   assert.equal(q.maximo, 0);
-  assert.deepEqual([...q.tipos].sort(), ['equipe-de-manutencao', 'escritorio-regional', 'poste-avancado']);
+  // without these the player has no way to raise a new forward post: the crew is made in the garage
+  assert.deepEqual([...q.tipos].sort(), ['equipe-de-manutencao', 'escritorio-regional', 'garagem', 'poste-avancado']);
   const camp = caixa.grupos.acampamento;
   const mapa = mapaDe(caixa);
   assert.deepEqual(mapa.entidades.filter(e => camp.includes(e.etiqueta)).map(e => e.tipo).sort(), ['barracao', 'carrocao-mae', 'ferraria-a-vapor']);

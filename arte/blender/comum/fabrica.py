@@ -17,6 +17,10 @@ uses the turret's objects in another pose, the whole-vehicle transition uses bod
 A layer may also cut its objects out of others through "recorte" (layer names rendered as holdout): a lights
 layer shows only the lamps, hidden where walls stand in front of them.
 Each layer renders only its own objects (the others are hidden from the render, shadows included).
+An animation may reuse frames instead of rendering them: "igual": "<other animation>" copies every frame of
+another animation of the same layer (frame k from frame min(k, last), directions mapped by angle), and
+"quadrosIguais": {"<k>": ["<animation>", <frame>]} copies single frames (a shot whose last frame is the idle pose).
+Reused frames cost no render and no atlas space; the packer points them at the same rectangle.
 Directions turn the model, never the camera: direction k faces map angle k * 360 / N, clockwise on screen
 from east. A layer with a pivot (a turret) is rendered with that pivot over the world origin, turning on
 its own axis; the body layer exports where the pivot sits through the point "encaixe_torre".
@@ -60,6 +64,48 @@ def ordem_dos_quadros(descricao):
                 yield animacao, direcao, quadro
 
 
+def fonte_do_quadro(descricao, animacao, direcao, quadro):
+    """(animation, direction, frame) whose image this frame reuses, following chains, or None when it is rendered."""
+    por_nome = {a["nome"]: a for a in descricao["animacoes"]}
+    vistos = set()
+    fonte = None
+    while True:
+        chave = (animacao["nome"], direcao, quadro)
+        if chave in vistos:
+            raise ValueError(f"animation {animacao['nome']}: reused frames form a loop")
+        vistos.add(chave)
+        alvo = None
+        iguais = animacao.get("quadrosIguais", {})
+        if str(quadro) in iguais:
+            nome, quadro_alvo = iguais[str(quadro)]
+            alvo = (por_nome[nome], quadro_alvo)
+        elif animacao.get("igual"):
+            outra = por_nome[animacao["igual"]]
+            alvo = (outra, min(quadro, outra["quadros"] - 1))
+        if alvo is None:
+            return fonte
+        outra, quadro = alvo
+        if outra["camada"] != animacao["camada"]:
+            raise ValueError(f"animation {animacao['nome']} reuses frames of {outra['nome']}, which is in another layer")
+        direcoes = animacao.get("direcoes", descricao["direcoes"])
+        direcoes_outra = outra.get("direcoes", descricao["direcoes"])
+        direcao = (direcao * direcoes_outra + direcoes // 2) // direcoes % direcoes_outra
+        animacao = outra
+        fonte = (animacao, direcao, quadro)
+
+
+def indices_reusados(descricao):
+    """Manifest index of every reused frame -> manifest index of the frame it shows."""
+    sequencia = list(ordem_dos_quadros(descricao))
+    indice = {(a["nome"], d, q): i for i, (a, d, q) in enumerate(sequencia)}
+    reusados = {}
+    for i, (animacao, direcao, quadro) in enumerate(sequencia):
+        fonte = fonte_do_quadro(descricao, animacao, direcao, quadro)
+        if fonte is not None:
+            reusados[i] = indice[(fonte[0]["nome"], fonte[1], fonte[2])]
+    return reusados
+
+
 def caminho_quadro(saida, animacao, passe, direcao, quadro):
     return os.path.join(saida, "quadros", animacao["camada"], animacao["nome"], passe, f"d{direcao:02d}_q{quadro:03d}.png")
 
@@ -83,6 +129,7 @@ def executar(modulo, projecao, argumentos, saida, progresso=print):
     trocador = Trocador(objetos)
     passes = descricao["passes"]
     sequencia = list(ordem_dos_quadros(descricao))
+    reusados = indices_reusados(descricao)
     tempos = {passe: [] for passe in passes}
     tabela_pontos = {o["ponto"]: [None] * len(sequencia) for o in pontos}
     repouso_raiz = tuple(raiz.rotation_euler)
@@ -123,7 +170,7 @@ def executar(modulo, projecao, argumentos, saida, progresso=print):
             for indice, (animacao, direcao, quadro) in enumerate(sequencia):
                 if animacao["camada"] != camada:
                     continue
-                if passe == "sombra" and camada not in camadas_sombra:
+                if indice in reusados or (passe == "sombra" and camada not in camadas_sombra):
                     # only the whole model casts the ground shadow; other layers keep empty frames
                     feitos += 1
                     continue
@@ -148,6 +195,9 @@ def executar(modulo, projecao, argumentos, saida, progresso=print):
     for obj in objetos:
         obj.hide_render = False
         obj.is_holdout = False
+    for indice, fonte in reusados.items():
+        for lista in tabela_pontos.values():
+            lista[indice] = lista[fonte]
 
     relatorio = {
         "blender": bpy.app.version_string,
@@ -155,6 +205,7 @@ def executar(modulo, projecao, argumentos, saida, progresso=print):
         "gpus": gpus,
         "projecao": projecao.resumo(),
         "quadros_por_passe": len(sequencia),
+        "quadros_reusados": len(reusados),
         "passes": passes,
         "segundos_por_quadro": {p: round(sum(v) / len(v), 4) for p, v in tempos.items() if v},
         "segundos_render": round(time.perf_counter() - inicio, 2),
