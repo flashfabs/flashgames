@@ -456,6 +456,10 @@ export function transferiveisDoRetrato(retrato) {
  * @property {number} capacidade Carga a harvester carries
  * @property {number} limite     most of this kind a player may have, 0 for no limit
  * @property {object|null} holofote the searchlight block of predios.json as written, for the presentation; null without
+ * @property {number} arma       index of its weapon in MapaEstatico.armas, -1 without one
+ * @property {number} religa     1 for a unit that re-powers neutral structures (HABILIDADE 1)
+ * @property {string|null} habilidade the kind of the unit's ability in unidades.json ('erguer', 'leitura', 'tocaia'...),
+ *                                or null
  */
 
 // ---------- team view for computer players (C4) ----------

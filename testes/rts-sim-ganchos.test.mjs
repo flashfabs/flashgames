@@ -82,7 +82,7 @@ test('a reader shows the enemy building it reads in the queues of its own snapsh
   assert.deepEqual(produtores(), [id(sim, barracao)]);
 });
 
-test('the static map names the weapons the effect events count, each kind its searchlight, and the light scenes', () => {
+test('the static map names the weapons the effect events count, each kind its searchlight and ability, and the light scenes', () => {
   const sim = partida([['cesto-blindado', 0, 10, 15]]);
   const mapa = montarMapaEstatico(sim, 0);
   const armas = JSON.parse(readFileSync(new URL('armas.json', dadosUrl), 'utf8')).armas;
@@ -91,6 +91,11 @@ test('the static map names the weapons the effect events count, each kind its se
   const predios = JSON.parse(readFileSync(new URL('predios.json', dadosUrl), 'utf8')).predios;
   for (const p of predios) assert.deepEqual(mapa.tipos.find(t => t.nome === p.nome).holofote, p.holofote ?? null, p.nome);
   assert.deepEqual(mapa.cenasLuz, [], 'no mission, no scenes');
+  const unidades = JSON.parse(readFileSync(new URL('unidades.json', dadosUrl), 'utf8')).unidades;
+  for (const u of unidades) {
+    const t = mapa.tipos.find(tipo => tipo.nome === u.nome);
+    assert.deepEqual([t.religa, t.habilidade], [u.religa ?? 0, u.habilidade?.tipo ?? null], u.nome);
+  }
 });
 
 test('a team deciding right after a load sees an ambusher exactly as the match that never stopped', () => {

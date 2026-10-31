@@ -544,5 +544,7 @@ export function tipoEstatico(tipo) {
     limite: tipo.limite,
     holofote: tipo.extras?.holofote ?? null,
     arma: tipo.arma, // index of its weapon in armas.json, -1 none
+    religa: tipo.extras?.religa ?? 0, // 1: re-powers neutral structures (HABILIDADE 1)
+    habilidade: tipo.extras?.habilidade?.tipo ?? null, // the kind of its ability in unidades.json, or null
   };
 }
