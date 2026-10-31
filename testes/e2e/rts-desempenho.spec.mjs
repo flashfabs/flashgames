@@ -17,24 +17,33 @@ const LIMITES = { fracaoAcimaDe20ms: 0.05, quadroP50Ms: 20, cpuQuadroP95Ms: 8 };
 
 test.use({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
 
-for (const cenario of CENARIOS) {
-  test(`RTS em 4K: ${cenario.nome}`, async ({ page }) => {
-    test.setTimeout(150_000);
-    const erros = [];
-    page.on('pageerror', erro => erros.push(erro.message));
-    await page.goto(`/rts/?bench=1&seg=10&avancar=600&${cenario.consulta}`);
-    await page.waitForFunction(() => window.__bench, null, { timeout: 120_000 });
-    const resultado = await page.evaluate(() => window.__bench);
-    console.log(JSON.stringify({ cenario: cenario.nome, ...resultado }));
-    expect(erros).toEqual([]);
-    expect(resultado.canvas).toBe('3840x2160');
-    expect(resultado.escalaMedia).toBe(1);
-    expect(resultado.unidades).toBeGreaterThan(1500);
-    expect(resultado.fracaoAcimaDe20ms).toBeLessThan(LIMITES.fracaoAcimaDe20ms);
-    expect(resultado.quadroP50).toBeLessThan(LIMITES.quadroP50Ms);
-    expect(resultado.cpuQuadroP95).toBeLessThan(LIMITES.cpuQuadroP95Ms);
-  });
+async function medir(page, cenario, canvas) {
+  test.setTimeout(150_000);
+  const erros = [];
+  page.on('pageerror', erro => erros.push(erro.message));
+  await page.goto(`/rts/?bench=1&seg=10&avancar=600&${cenario.consulta}`);
+  await page.waitForFunction(() => window.__bench, null, { timeout: 120_000 });
+  const resultado = await page.evaluate(() => window.__bench);
+  console.log(JSON.stringify({ cenario: cenario.nome, ...resultado }));
+  expect(erros).toEqual([]);
+  expect(resultado.canvas).toBe(canvas);
+  expect(resultado.escalaMedia).toBe(1);
+  expect(resultado.unidades).toBeGreaterThan(1500);
+  expect(resultado.fracaoAcimaDe20ms).toBeLessThan(LIMITES.fracaoAcimaDe20ms);
+  expect(resultado.quadroP50).toBeLessThan(LIMITES.quadroP50Ms);
+  expect(resultado.cpuQuadroP95).toBeLessThan(LIMITES.cpuQuadroP95Ms);
 }
+
+for (const cenario of CENARIOS) {
+  test(`RTS em 4K: ${cenario.nome}`, async ({ page }) => medir(page, cenario, '3840x2160'));
+}
+
+// The same battle at 1920x1080 (a quarter of the pixels): the hd baseline, and a check of how much of the
+// simulation step measured in the page comes from sharing the machine with the 4K render.
+test.describe('1080p', () => {
+  test.use({ deviceScaleFactor: 1 });
+  test('RTS em 1080p: 2000 unidades, zoom padrão', async ({ page }) => medir(page, { nome: '2000 unidades, 1080p', consulta: 'unidades=2000' }, '1920x1080'));
+});
 
 test('visualizador de atlas compara duas versões sem erro', async ({ page }) => {
   const erros = [];
