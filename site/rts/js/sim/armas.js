@@ -214,6 +214,9 @@ export function combateDe(sim) {
   const suporteDoTipo = new Uint8Array(n);
   const veiculoDoTipo = new Uint8Array(n);
   const tocaiaDoTipo = new Uint8Array(n);
+  // half the footprint of buildings and structures, world units: reach is measured to their edge
+  const meiaLargura = new Int32Array(n);
+  const meiaAltura = new Int32Array(n);
   sim.tipos.forEach((tipo, t) => {
     armaDoTipo[t] = armaDoTipoDeUnidade(tipo, armas);
     blindagemDoTipo[t] = blindagemDoTipoDeUnidade(tipo);
@@ -226,6 +229,10 @@ export function combateDe(sim) {
     suporteDoTipo[t] = tipo.extras?.reparo ? 1 : 0;
     veiculoDoTipo[t] = categoria === CATEGORIA.UNIDADE && tipo.classe !== 0 ? 1 : 0;
     tocaiaDoTipo[t] = tipo.extras?.habilidade?.tipo === 'tocaia' ? 1 : 0;
+    if ((categoria === CATEGORIA.PREDIO || categoria === CATEGORIA.ESTRUTURA) && tipo.pegada) {
+      meiaLargura[t] = (tipo.pegada[0] * FP) >> 1;
+      meiaAltura[t] = (tipo.pegada[1] * FP) >> 1;
+    }
   });
   const coluna = campo => Int32Array.from(armas, arma => arma[campo]);
   sim.regrasCombate = Object.freeze({
@@ -240,6 +247,9 @@ export function combateDe(sim) {
     suporteDoTipo,
     veiculoDoTipo,
     tocaiaDoTipo,
+    meiaLargura,
+    meiaAltura,
+    meiaMaxima: Math.max(0, ...meiaLargura, ...meiaAltura),
     // the neutral side (piles, sparks, dead structures waiting to be re-powered) neither shoots nor is shot
     neutro: DONO_NEUTRO,
     tipoDano: coluna('tipoDano'),

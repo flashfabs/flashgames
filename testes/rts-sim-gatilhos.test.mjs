@@ -229,7 +229,9 @@ test('economy, idle player and research conditions', () => {
   while (sim.tick < 90) passo(sim);
   assert.deepEqual(v(), [0, 0, 0, 0]);
   carga[0] = 1000;
-  sim.parada[0] = 0;
+  // a harvester at work: a task of the economy when the match has one, on the move otherwise
+  if (sim.tarefa) sim.tarefa[0] = 1;
+  else sim.parada[0] = 0;
   ultimo[0] = 0;
   avaliacoes(sim, 1);
   assert.deepEqual(v(), [1, 1, 1, 0]);

@@ -110,7 +110,7 @@ function lentificar(ex, j, porcento, ate, tick) {
 }
 
 // Whether i can shoot j now: a live enemy (never the neutral side) on a cell i's team sees, within the weapon's reach
-// from i's height.
+// from i's height, measured to the edge of a building's footprint.
 function podeAcertar(sim, c, i, j, alcance, arma, nivelI) {
   if (!sim.ativo[j] || sim.time[j] === sim.time[i] || sim.time[j] === c.neutro || !c.alvejavel[sim.tipo[j]]) return false;
   if (c.tocaiaDoTipo[sim.tipo[j]] && ocultoPara(sim, j, sim.time[i], sim.x[i], sim.y[i])) return false;
@@ -118,12 +118,22 @@ function podeAcertar(sim, c, i, j, alcance, arma, nivelI) {
   if (!celulaVisivel(sim, sim.time[i], cj)) return false;
   const acima = nivelI - sim.mapa.nivel[cj];
   const a = (acima > 0 ? alcance + acima * c.alcanceAcima : alcance) >> 4;
-  const dx = (sim.x[j] - sim.x[i]) >> 4;
-  const dy = (sim.y[j] - sim.y[i]) >> 4;
-  const d2 = dx * dx + dy * dy;
-  if (d2 > a * a) return false;
+  const tipoJ = sim.tipo[j];
+  let ax = sim.x[j] - sim.x[i];
+  let ay = sim.y[j] - sim.y[i];
   const m = c.alcanceMinimo[arma] >> 4;
-  return m === 0 || d2 >= m * m;
+  if (m > 0) {
+    const cx = ax >> 4;
+    const cy = ay >> 4;
+    if (cx * cx + cy * cy < m * m) return false;
+  }
+  if (c.meiaLargura[tipoJ] > 0) {
+    ax = Math.max(0, (ax < 0 ? -ax : ax) - c.meiaLargura[tipoJ]);
+    ay = Math.max(0, (ay < 0 ? -ay : ay) - c.meiaAltura[tipoJ]);
+  }
+  const dx = ax >> 4;
+  const dy = ay >> 4;
+  return dx * dx + dy * dy <= a * a;
 }
 
 // Closest enemy i can hit (ties to the lowest slot), or -1. Distances in 1/16 world units keep the squares small.
@@ -131,7 +141,8 @@ function podeAcertar(sim, c, i, j, alcance, arma, nivelI) {
 // (sight, the reach at the target's height) only for a candidate that would become the closest.
 function procurarAlvo(sim, c, i, alcance, arma, nivelI, linhas) {
   const { baldeCabeca, baldeProximo, baldeLargura, x, y, time, ativo } = sim;
-  const maximo = alcance + nivelI * c.alcanceAcima;
+  // a building's centre may be beyond the reach that its edge is within
+  const maximo = alcance + nivelI * c.alcanceAcima + c.meiaMaxima;
   const r = (maximo >> TAMANHO_BALDE_BITS) + 1;
   const xi = x[i];
   const yi = y[i];

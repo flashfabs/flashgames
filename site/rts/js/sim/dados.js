@@ -7,6 +7,7 @@
 // pile and a spark of spilled charge). DADOS_PROTOTIPO keeps the prototype's two vehicles for the old benches.
 // Runs in the worker, in Node and on the page (plain ES module, no Node API).
 import { FP, CATEGORIA } from './contratos.js';
+import { validarRegrasCombate } from './armas.js';
 
 /** Movement classes: who fits where and who collides with whom. */
 export const CLASSE = Object.freeze({ INFANTARIA: 0, VEICULO: 1, VEICULO_GRANDE: 2 });
@@ -316,6 +317,7 @@ export function compilarDados(dados) {
   const unidades = lerArquivo(dados?.unidades, 'unidades', 'unidades.json', erros).map((u, k) => conferir(u, ESQUEMA_UNIDADE_ARQUIVO, `unidades.json[${u?.nome ?? k}]`, erros));
   const predios = lerArquivo(dados?.predios, 'predios', 'predios.json', erros).map((p, k) => conferir(p, ESQUEMA_PREDIO_ARQUIVO, `predios.json[${p?.nome ?? k}]`, erros));
   const armas = lerArmas(dados?.armas, erros);
+  if (armas.bruto) try { validarRegrasCombate(armas.bruto); } catch (erro) { erros.push(erro.message); } // the rest of armas.json, by the combat module
   const economiaArquivo = dados?.economia ? conferir(dados.economia, ESQUEMA_ECONOMIA, 'economia.json', erros) : null;
   const pesquisasArquivo = dados?.pesquisas ? lerArquivo(dados.pesquisas, 'pesquisas', 'pesquisas.json', erros).map((p, k) => conferir(p, ESQUEMA_PESQUISA, `pesquisas.json[${p?.nome ?? k}]`, erros)) : [];
 

@@ -576,10 +576,14 @@ function darRecursos(sim, jogador, quantidade) {
   if (lista) lista[jogador] = Math.max(0, Math.min(MAX_VALOR, lista[jogador] + quantidade));
 }
 const ultimoComando = (sim, jogador) => (sim.extras?.economia?.ultimoComando ?? sim.ultimoComando)?.[jogador] ?? 0;
-// harvesters of the player on the move or at work
+// harvesters of the player at work: with a task of the economy (economia.js; a loading harvester stands still), or on
+// the move without it
 function coletoresAtivos(sim, jogador) {
   let n = 0;
-  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.time[i] === jogador && sim.coletorPorTipo[sim.tipo[i]] && !sim.parada[i]) n++;
+  for (let i = 0; i < sim.capacidade; i++) {
+    if (!sim.ativo[i] || sim.time[i] !== jogador || !sim.coletorPorTipo[sim.tipo[i]]) continue;
+    if (sim.tarefa ? sim.tarefa[i] !== 0 : !sim.parada[i]) n++;
+  }
   return n;
 }
 // what the piles of node k still hold
