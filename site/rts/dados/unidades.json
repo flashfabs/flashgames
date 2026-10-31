@@ -1,0 +1,94 @@
+{
+  "versao": 1,
+  "unidades": [
+    {
+      "nome": "guincho-de-celulas", "faccao": "religadores", "papel": "coletor", "asset": "religadores-veiculo-guincho-de-celulas",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 1, "custo": 300, "tempoMs": 20000, "lotacao": 2, "nivel": 1, "limite": 0,
+      "vida": 440, "velocidade": 160, "raio": 4, "visao": 6, "giroCorpo": 8, "giroTorre": 8, "arma": null, "coletor": 1,
+      "coleta": { "carga": 100, "carregarMs": 12000, "descarregarMs": 4000, "recolherFaiscaMs": 2000 }
+    },
+    {
+      "nome": "turma-de-linha", "faccao": "religadores", "papel": "infantaria", "asset": "religadores-infantaria-turma-de-linha",
+      "classe": "infantaria", "blindagem": "pessoal", "eletrico": 0, "custo": 100, "tempoMs": 12000, "lotacao": 1, "nivel": 1, "limite": 0,
+      "vida": 100, "velocidade": 108, "raio": 2, "visao": 6, "giroCorpo": 16, "giroTorre": 16, "arma": "pregadeira", "coletor": 0,
+      "naRede": { "danoPorcento": 110 }
+    },
+    {
+      "nome": "soldador", "faccao": "religadores", "papel": "antiblindagem", "asset": "religadores-infantaria-soldador",
+      "classe": "infantaria", "blindagem": "pessoal", "eletrico": 0, "custo": 150, "tempoMs": 15000, "lotacao": 1, "nivel": 1, "limite": 0,
+      "vida": 90, "velocidade": 90, "raio": 2, "visao": 5, "giroCorpo": 16, "giroTorre": 16, "arma": "arco-de-solda", "coletor": 0
+    },
+    {
+      "nome": "leiturista", "faccao": "religadores", "papel": "batedor", "asset": "religadores-veiculo-leiturista",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 1, "custo": 200, "tempoMs": 15000, "lotacao": 2, "nivel": 1, "limite": 0,
+      "vida": 176, "velocidade": 300, "raio": 3, "visao": 9, "giroCorpo": 12, "giroTorre": 12, "arma": "carabina-de-vistoria", "coletor": 0,
+      "habilidade": { "tipo": "leitura", "alcance": 80, "duracaoMs": 30000, "recargaMs": 60000 }
+    },
+    {
+      "nome": "cesto-blindado", "faccao": "religadores", "papel": "linha-pesada", "asset": "religadores-veiculo-cesto-blindado",
+      "classe": "veiculoGrande", "blindagem": "pesada", "eletrico": 1, "custo": 650, "tempoMs": 35000, "lotacao": 3, "nivel": 2, "limite": 0,
+      "vida": 990, "velocidade": 110, "raio": 5, "visao": 7, "giroCorpo": 6, "giroTorre": 10, "arma": "lanca-isolada", "coletor": 0,
+      "habilidade": { "tipo": "erguer", "alcanceExtra": 20, "visaoExtra": 2, "erguerMs": 2000, "baixarMs": 1500, "ignoraElevacao": 1 }
+    },
+    {
+      "nome": "lanca-bobinas", "faccao": "religadores", "papel": "artilharia", "asset": "religadores-veiculo-lanca-bobinas",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 1, "custo": 700, "tempoMs": 40000, "lotacao": 3, "nivel": 2, "limite": 0,
+      "vida": 330, "velocidade": 90, "raio": 4, "visao": 7, "giroCorpo": 6, "giroTorre": 8, "arma": "carretel-de-cabo", "coletor": 0
+    },
+    {
+      "nome": "equipe-de-manutencao", "faccao": "religadores", "papel": "suporte", "asset": "religadores-veiculo-equipe-de-manutencao",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 1, "custo": 350, "tempoMs": 20000, "lotacao": 2, "nivel": 1, "limite": 0,
+      "vida": 275, "velocidade": 160, "raio": 4, "visao": 6, "giroCorpo": 8, "giroTorre": 8, "arma": null, "coletor": 0,
+      "reparo": { "vidaPorSegundo": 12, "alcance": 15 },
+      "ergue": ["poste-avancado"]
+    },
+    {
+      "nome": "religador", "faccao": "religadores", "papel": "especial", "asset": "religadores-infantaria-religador",
+      "classe": "infantaria", "blindagem": "pessoal", "eletrico": 0, "custo": 500, "tempoMs": 30000, "lotacao": 4, "nivel": 1, "limite": 2,
+      "vida": 150, "velocidade": 108, "raio": 2, "visao": 6, "giroCorpo": 16, "giroTorre": 16, "arma": null, "coletor": 0,
+      "religa": 1
+    },
+    {
+      "nome": "carroca-de-pedal", "faccao": "desligados", "papel": "coletor", "asset": "desligados-veiculo-carroca-de-pedal",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 0, "custo": 250, "tempoMs": 18000, "lotacao": 2, "nivel": 1, "limite": 0,
+      "vida": 360, "velocidade": 140, "raio": 4, "visao": 6, "giroCorpo": 8, "giroTorre": 8, "arma": null, "coletor": 1,
+      "coleta": { "carga": 100, "carregarMs": 12000, "descarregarMs": 4000, "recolherFaiscaMs": 1000 }
+    },
+    {
+      "nome": "chapa", "faccao": "desligados", "papel": "infantaria", "asset": "desligados-infantaria-chapa",
+      "classe": "infantaria", "blindagem": "pessoal", "eletrico": 0, "custo": 100, "tempoMs": 12000, "lotacao": 1, "nivel": 1, "limite": 0,
+      "vida": 100, "velocidade": 132, "raio": 2, "visao": 6, "giroCorpo": 16, "giroTorre": 16, "arma": "carabina-de-ar", "coletor": 0,
+      "habilidade": { "tipo": "tocaia", "paradoMs": 3000 }
+    },
+    {
+      "nome": "arpoador", "faccao": "desligados", "papel": "antiblindagem", "asset": "desligados-infantaria-arpoador",
+      "classe": "infantaria", "blindagem": "pessoal", "eletrico": 0, "custo": 150, "tempoMs": 15000, "lotacao": 1, "nivel": 1, "limite": 0,
+      "vida": 90, "velocidade": 110, "raio": 2, "visao": 5, "giroCorpo": 16, "giroTorre": 16, "arma": "arpao-de-cabo", "coletor": 0
+    },
+    {
+      "nome": "rolima", "faccao": "desligados", "papel": "batedor", "asset": "desligados-veiculo-rolima",
+      "classe": "veiculo", "blindagem": "pessoal", "eletrico": 0, "custo": 120, "tempoMs": 10000, "lotacao": 2, "nivel": 1, "limite": 0,
+      "vida": 120, "velocidade": 360, "raio": 3, "visao": 8, "giroCorpo": 14, "giroTorre": 14, "arma": "estilingue-de-camara", "coletor": 0,
+      "habilidade": { "tipo": "estrepes", "raio": 15, "lentidaoPorcento": 50, "duracaoMs": 10000, "vidaMs": 30000, "recargaMs": 20000, "soRodas": 1 }
+    },
+    {
+      "nome": "carro-vela", "faccao": "desligados", "papel": "assedio", "asset": "desligados-veiculo-carro-vela",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 0, "custo": 350, "tempoMs": 20000, "lotacao": 2, "nivel": 1, "limite": 0,
+      "vida": 280, "velocidade": 260, "raio": 4, "visao": 7, "giroCorpo": 8, "giroTorre": 12, "arma": "garrucha-de-bordo", "coletor": 0,
+      "terreno": { "abertoPorcento": 130, "ruinaPorcento": 70, "lamaPorcento": 70 },
+      "habilidade": { "tipo": "abalroar", "atordoaMs": 1000, "alcance": 20, "recargaMs": 15000 }
+    },
+    {
+      "nome": "locomovel", "faccao": "desligados", "papel": "linha-pesada", "asset": "desligados-veiculo-locomovel",
+      "classe": "veiculoGrande", "blindagem": "pesada", "eletrico": 0, "custo": 700, "tempoMs": 40000, "lotacao": 3, "nivel": 2, "limite": 0,
+      "vida": 1100, "velocidade": 80, "raio": 5, "visao": 6, "giroCorpo": 5, "giroTorre": 8, "arma": "canhao-de-pressao", "coletor": 0,
+      "habilidade": { "tipo": "pressao", "paradoMs": 5000, "danoPorcento": 150 }
+    },
+    {
+      "nome": "canhao-de-caldeira", "faccao": "desligados", "papel": "artilharia", "asset": "desligados-veiculo-canhao-de-caldeira",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 0, "custo": 600, "tempoMs": 40000, "lotacao": 3, "nivel": 2, "limite": 0,
+      "vida": 300, "velocidade": 70, "raio": 4, "visao": 6, "giroCorpo": 5, "giroTorre": 6, "arma": "morteiro-a-vapor", "coletor": 0,
+      "habilidade": { "tipo": "armar", "armarMs": 3000, "desarmarMs": 2000, "apitoMs": 1000 }
+    }
+  ]
+}
