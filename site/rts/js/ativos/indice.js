@@ -28,6 +28,12 @@ export async function carregarIndice(url = INDICE) {
 export function lerIndice(assets, base) {
   return {
     nomes: Object.keys(assets),
+    /** Sprite assets (not interface pieces nor ground tiles) the index lists for a phase. */
+    daFase(fase) {
+      return Object.entries(assets)
+        .filter(([, e]) => (e.fases ?? []).includes(fase) && e.tipo !== 'interface' && e.tipo !== 'terreno' && e.manifesto)
+        .map(([nome]) => nome);
+    },
     /** Manifest URL of a sprite asset, or null when the index does not list it. */
     urlDo(asset) {
       const entrada = assets[asset];

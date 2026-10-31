@@ -17,6 +17,8 @@ const FICHA_DIRECOES = 16;
 const FICHA_CELULA = 128;
 const FICHA_PX_NIVEL = 96;
 const MARGEM_PREDIO_PX = 8;
+// placeholder layers as wide as the phase atlas pages, so they do not stretch every layer of the texture array
+const LARGURA_CAMADA_FICHAS = 2048;
 
 /**
  * Shape and height of a building kind's placeholder, from its category and name (the grey kit replaces it).
@@ -141,7 +143,7 @@ export function criarFolhas(backend, projecao, quadroComum) {
 
     /** Draws and registers the placeholder unit sheets (body, and turret for vehicles, in 16 directions). */
     adicionarFichas() {
-      const largura = Math.min(4096, backend.info.maxTextura);
+      const largura = Math.min(LARGURA_CAMADA_FICHAS, backend.info.maxTextura);
       const porLinha = Math.floor(largura / FICHA_CELULA);
       const nomes = Object.keys(FICHAS);
       const partes = nomes.flatMap(nome => (FICHAS[nome].torre === undefined ? [[nome, FICHAS[nome].corpo]] : [[nome, FICHAS[nome].corpo], [nome, FICHAS[nome].torre]]));
@@ -190,7 +192,7 @@ export function criarFolhas(backend, projecao, quadroComum) {
      */
     adicionarFichasPredios(tipos, categoriaRecurso) {
       if (tipos.length === 0) return;
-      const larguraCamada = Math.min(4096, backend.info.maxTextura);
+      const larguraCamada = Math.min(LARGURA_CAMADA_FICHAS, backend.info.maxTextura);
       const k = projecao.cosseno / projecao.metrosPorCelula;
       const px = FICHA_PX_NIVEL;
       // frames with the anchor inside, packed in shelves

@@ -18,6 +18,8 @@ export const SOLOS_PADRAO = Object.freeze([
 ]);
 const TINTAS = new Map(SOLOS_PADRAO);
 export const LADRILHO_BASE = 'terra-batida';
+/** Tile of the cliff faces, seen from the front (x along the face, y down its height). */
+export const LADRILHO_FACE = 'rocha-face';
 export const prefixoLadrilho = nome => `terreno-${nome}`;
 
 /**

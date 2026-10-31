@@ -26,7 +26,7 @@ const COR_INVALIDO = [1.0, 0.22, 0.16, 0.42];
  * without turret has it drawn into the body), ring radius and shadow height; buildings add their footprint.
  * @typedef {{
  *   variantes: { corpo: string, torre?: string }[], raio: number, sombraMetros: number,
- *   predio?: boolean, pegada?: number[], aditivo?: boolean,
+ *   predio?: boolean, pegada?: number[], faisca?: boolean, pilha?: boolean, conecta?: boolean, estrutura?: boolean,
  * }} Aparencia
  */
 export const APARENCIAS_PADRAO = Object.freeze([
@@ -34,15 +34,25 @@ export const APARENCIAS_PADRAO = Object.freeze([
   { variantes: [{ corpo: 'prototipo-tanque' }, { corpo: 'ficha-tanque', torre: 'ficha-tanque' }], raio: 0.55, sombraMetros: 1.4 },
 ]);
 
+// Art of the simulation's built-in kinds, which have no asset in the data.
+const ASSET_PADRAO = new Map([
+  [CATEGORIA.RECURSO, 'neutro-recurso-pilha-de-baterias'],
+  [CATEGORIA.FAISCA, 'neutro-recurso-faisca-de-carga'],
+]);
+
+/** Art asset of a kind: the data's, else the built-in one for its category, else ''. */
+export const assetDoTipo = tipo => tipo.asset || ASSET_PADRAO.get(tipo.categoria) || '';
+
 /**
- * Looks of the match's kinds (MapaEstatico.tipos): the kind's art first (the asset of the data, then its grey kit
- * version `<asset>-cinza`), then a placeholder by category. Art sheets carry their turret layer in the same sheet.
+ * Looks of the match's kinds (MapaEstatico.tipos): the kind's art first, then a placeholder by category. Art sheets
+ * carry their turret layer in the same sheet.
  * @param {{ nome: string, categoria: number, asset: string, pegada: number[], lotacao?: number }[]} tipos
  * @returns {Aparencia[]}
  */
 export function aparenciasDosTipos(tipos) {
   return tipos.map(tipo => {
-    const arte = tipo.asset ? [`${tipo.asset}`, `${tipo.asset}-cinza`].map(nome => ({ corpo: nome, torre: nome })) : [];
+    const asset = assetDoTipo(tipo);
+    const arte = asset ? [{ corpo: asset, torre: asset }] : [];
     if (tipo.categoria === CATEGORIA.UNIDADE) {
       if (/infantaria/.test(tipo.asset) || /infantaria/.test(tipo.nome)) return { variantes: [...arte, { corpo: 'ficha-infantaria' }], raio: 0.28, sombraMetros: 0.6 };
       // the prototype's tank keeps its Blender sheet
@@ -50,7 +60,7 @@ export function aparenciasDosTipos(tipos) {
       if ((tipo.lotacao ?? 1) >= 2) return { variantes: [...arte, { corpo: 'ficha-tanque', torre: 'ficha-tanque' }], raio: 0.55, sombraMetros: 1.4 };
       return { variantes: [...arte, { corpo: 'ficha-veiculo-leve', torre: 'ficha-veiculo-leve' }], raio: 0.42, sombraMetros: 0.9 };
     }
-    if (tipo.categoria === CATEGORIA.FAISCA) return { variantes: [{ corpo: 'ficha-faisca' }], raio: 0.2, sombraMetros: 0, aditivo: true };
+    if (tipo.categoria === CATEGORIA.FAISCA) return { variantes: [...arte, { corpo: 'ficha-faisca' }], raio: 0.2, sombraMetros: 0, faisca: true };
     const [l, a] = tipo.pegada;
     return {
       variantes: [...arte, { corpo: `ficha-${tipo.nome}` }],
@@ -61,6 +71,7 @@ export function aparenciasDosTipos(tipos) {
       // walls pick their frame by which neighbours are walls of the same kind (N 1, E 2, S 4, W 8)
       conecta: /palicada/.test(tipo.nome),
       estrutura: tipo.categoria === CATEGORIA.ESTRUTURA,
+      pilha: tipo.categoria === CATEGORIA.RECURSO,
     };
   });
 }
@@ -119,6 +130,10 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
   let versaoFolhas = -1;
   /** @type {{ tipo: number, cx: number, cy: number, largura: number, altura: number, valido: boolean, celulas?: Uint8Array } | null} */
   let fantasma = null;
+  /** @type {{ largura: number, altura: number, decoracao: Uint8Array, nomes: string[] } | null} decoration layer of the map */
+  let decoracoes = null;
+  let aparenciasDeco = [];
+  let versaoDeco = -1;
   const brutos = new Instancias(4096);
   const sprites = new Instancias(4096);
   const sombras = new Instancias(4096);
@@ -164,6 +179,11 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
         animAtividade: animacao('atividade') ?? animacao('produzindo'),
         animDanificado: animacao('danificada') ?? animacao('danificado'),
         animLuzes: animacoes.find(x => x.camada === 'luzes') ?? null,
+        // a pile shows how much charge is left, its glow pulsing over it; a spark cools down as its life runs out
+        animCarga: a.pilha ? ['apagada', 'carga-25', 'carga-50', 'carga-75', 'carga-100'].map(n => corpo?.animacoes.get(n) ?? null) : null,
+        animBrilho: a.pilha ? [null, 'brilho-25', 'brilho-50', 'brilho-75', 'brilho-100'].map(n => (n && corpo?.animacoes.get(n)) || null) : null,
+        animFaisca: a.faisca ? ['sumindo', 'esfriando', 'viva'].map(n => corpo?.animacoes.get(n) ?? null) : null,
+        aditivo: a.faisca && variante?.corpo === 'ficha-faisca',
         caboDx,
         torre,
         animTorre: torre?.animacoes.get('torre') ?? null,
@@ -177,7 +197,8 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
 
   // Per-entity doubles travel through this scratch array: passing a fractional number to a function that is not
   // inlined boxes it on the heap, so the hot loop only ever passes integers and objects. Fields: x, y, height.
-  const posicao = new Float64Array(3);
+  const posicao = new Float64Array(4);
+  posicao[3] = 1;
   // visible ground of this frame and the sort scale, for the helpers below: x0, y0, x1, y1, scale
   const quadroArea = new Float64Array(5);
 
@@ -204,8 +225,53 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
     percorrer(estado, atual, anterior, atual.tick + alfa, alfa, selecionadas);
     if (estado.extras) percorrer(estado, estado.extras, null, atual.tick + alfa, alfa, selecionadas);
     montarMemorias(atual.fantasmas);
+    montarDecoracoes(estado.atual.visao);
     montarFantasma();
     ordenar();
+  }
+
+  function resolverDecoracoes() {
+    if (versaoDeco === folhas.totalQuadros) return;
+    versaoDeco = folhas.totalQuadros;
+    aparenciasDeco = decoracoes.nomes.map(nome => {
+      const corpo = folhas.folha(`neutro-decoracao-${nome}`);
+      const anim = corpo?.animacoes.get('parado') ?? corpo?.animacoes.values().next().value ?? null;
+      return corpo && anim ? { corpo, anim, ponte: /ponte/.test(nome), sombraMetros: 0.8, predio: false, vies: 2 } : null;
+    });
+  }
+
+  // Decorations of the explored cells in view, one sprite per cell with its variation picked by the cell; a bridge
+  // shows its parapet on the west and the east edge.
+  function montarDecoracoes(visao) {
+    if (!decoracoes) return;
+    resolverDecoracoes();
+    const { largura, altura, decoracao } = decoracoes;
+    const cx0 = Math.max(0, Math.floor(quadroArea[0]));
+    const cy0 = Math.max(0, Math.floor(quadroArea[1]));
+    const cx1 = Math.min(largura - 1, Math.ceil(quadroArea[2]));
+    const cy1 = Math.min(altura - 1, Math.ceil(quadroArea[3]));
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const i = cy * largura + cx;
+        const d = decoracao[i];
+        if (d === 0 || (visao && visao[i] === VISAO.NUNCA)) continue;
+        const a = aparenciasDeco[d - 1];
+        if (!a) continue;
+        posicao[0] = cx + 0.5;
+        posicao[1] = cy + 0.5;
+        posicao[2] = alturaEm(posicao[0], posicao[1]);
+        const sorte = (Math.imul(cx, 0x27d4eb2d) ^ Math.imul(cy, 0x165667b1)) >>> 27;
+        const chave = chaveDe(cy + 0.5);
+        const empacotado = empacotar(7, 0, 0, a.vies);
+        if (!a.ponte) {
+          emitirSprite(quadroDe(a.corpo, a.anim, 0, sorte % a.anim.quadros), empacotado, a, chave, 1);
+          continue;
+        }
+        const furo = (sorte & 3) === 0 ? 2 : 0;
+        if (cx === 0 || decoracao[i - 1] !== d) emitirSprite(quadroDe(a.corpo, a.anim, 0, furo), empacotado, a, chave, 1);
+        if (cx === largura - 1 || decoracao[i + 1] !== d) emitirSprite(quadroDe(a.corpo, a.anim, 0, 1 + furo), empacotado, a, chave, 1);
+      }
+    }
   }
 
   // Every entity of one snapshot-like source (the snapshot, or the benchmark's still extras), then its cables.
@@ -264,7 +330,10 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
         const obra = (b & BANDEIRA.EM_OBRA) !== 0 && progresso ? Math.max(1, Math.min(254, progresso[k])) : 0;
         let anim = aparencia.animParado;
         const danificado = obra === 0 && atual.vida[k] < 128;
-        if (dono === DONO_NEUTRO && aparencia.animMorta) anim = aparencia.animMorta;
+        // charge left in a pile: 0 (dry) to 4 (full)
+        const degrau = aparencia.pilha ? ((b & BANDEIRA.ESGOTADO) !== 0 || !atual.carga || atual.carga[k] === 0 ? 0 : 1 + Math.min(3, atual.carga[k] >> 6)) : 0;
+        if (aparencia.pilha && aparencia.animCarga[degrau]) anim = aparencia.animCarga[degrau];
+        else if (dono === DONO_NEUTRO && aparencia.animMorta) anim = aparencia.animMorta;
         else if (danificado && aparencia.animDanificado) anim = aparencia.animDanificado;
         else if (obra === 0 && (b & BANDEIRA.PRODUZINDO) !== 0 && aparencia.animAtividade) anim = aparencia.animAtividade;
         const tempoS = (tempoTick - atual.inicioAnim[k]) / PASSOS_POR_SEGUNDO;
@@ -273,11 +342,13 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
         const fuligem = danificado && !aparencia.animDanificado ? FLAGS_SPRITE.DANIFICADO : 0;
         emitirSprite(quadroDe(aparencia.corpo, anim, 0, passo), empacotar(time, obra, fuligem, aparencia.vies), aparencia, chavePredio, 1);
         if (aparencia.torre && aparencia.animTorre && obra === 0) emitirTorre(aparencia, x, y, chao, torre, tempoS, (b & BANDEIRA.EM_COMBATE) !== 0, empacotar(time, 0, 0, aparencia.vies), chavePredio);
-        // lights add over the body with the same depth, while the building has power
-        const luzes = aparencia.animLuzes;
-        if (luzes && obra === 0 && (!bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0)) {
+        // lights add over the body with the same depth, while the building has power; a pile's glow pulses
+        const luzes = aparencia.pilha ? aparencia.animBrilho[degrau] : aparencia.animLuzes;
+        if (luzes && obra === 0 && (aparencia.pilha || !bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0)) {
           const passoLuz = luzes.fps > 0 && tempoS > 0 ? Math.floor(tempoS * luzes.fps) : 0;
+          if (aparencia.pilha) posicao[3] = 0.65 + 0.35 * Math.sin(tempoS * 2.4 + (id & 15));
           emitirSprite(quadroDe(aparencia.corpo, luzes, 0, passoLuz), empacotar(time, 0, 0, aparencia.vies), aparencia, chavePredio, -1);
+          posicao[3] = 1;
         }
         if (selecionada) emitirPegada(x, y, aparencia.pegada, VERDE_SELECAO[0], VERDE_SELECAO[1], VERDE_SELECAO[2], 0.5);
         if (selecionada || atual.vida[k] < 255) emitirBarra(x, y, chao + aparencia.corpo.alturaBarraMetros, atual.vida[k] / 255, aparencia.pegada[0] * 0.6, time, selecionada);
@@ -294,7 +365,8 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
       const tempoS = (tempoTick - atual.inicioAnim[k]) / PASSOS_POR_SEGUNDO;
       const atirando = (b & BANDEIRA.EM_COMBATE) !== 0;
       let anim = aparencia.animParado;
-      if (andando && aparencia.animAndando) anim = aparencia.animAndando;
+      if (aparencia.animFaisca) anim = aparencia.animFaisca[atual.carga ? Math.min(2, Math.floor(atual.carga[k] / 86)) : 2] ?? anim;
+      else if (andando && aparencia.animAndando) anim = aparencia.animAndando;
       else if (atirando && aparencia.animAtirando && !aparencia.animTorreAtirando) anim = aparencia.animAtirando;
       const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
       const quadro = quadroDe(aparencia.corpo, anim, Math.round((corpo * anim.direcoes) / 256), passo);
@@ -411,11 +483,12 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
     return folha.primeiroQuadro + anim.base + d * anim.quadros + q;
   }
 
-  // Writes one sprite at posicao (and its shadow); quadro, empacotado and chave are integers, alfa is 1 or -1.
+  // Writes one sprite at posicao (and its shadow); quadro, empacotado and chave are integers, alfa is 1 or -1 (added
+  // over what is behind), scaled by the intensity in posicao[3].
   function emitirSprite(quadro, empacotado, aparencia, chave, alfa) {
     const i = brutos.n;
     const camada = aparencia.corpo.temSombra && (modoSombra === 'camada' || (modoSombra === 'recomendado' && aparencia.predio));
-    brutos.escrever(posicao[0], posicao[1], posicao[2], 1, quadro, empacotado, camada ? -1 : aparencia.sombraMetros, alfa);
+    brutos.escrever(posicao[0], posicao[1], posicao[2], 1, quadro, empacotado, camada ? -1 : aparencia.sombraMetros, alfa * posicao[3]);
     ordenacao.garantir(i + 1);
     ordenacao.chaves[i] = chave;
     if (alfa > 0 && aparencia.sombraMetros > 0) sombras.escrever(posicao[0], posicao[1], posicao[2], 1, quadro, empacotado, camada ? -1 : aparencia.sombraMetros, alfa);
@@ -531,6 +604,14 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
      */
     definirFantasma(f) {
       fantasma = f;
+    },
+    /**
+     * Decoration layer of the map (0 none, n the decoration nomes[n - 1]); null removes it.
+     * @param {{ largura: number, altura: number, decoracao: Uint8Array, nomes: string[] } | null} d
+     */
+    definirDecoracoes(d) {
+      decoracoes = d;
+      versaoDeco = -1;
     },
     sprites,
     sombras,
