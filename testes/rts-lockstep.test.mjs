@@ -11,7 +11,7 @@ import {
   MENSAGEM, LIMITE_MENSAGEM, MAX_UNIDADES_ENVELOPE, PASSOS_POR_TURNO, SOMA_A_CADA, TURNO_MS,
   envelopeValido, fatiar, criarJuntador, bytesDe, primeiroPasso,
 } from '../prototipos/rts-lockstep/protocolo.js';
-import { criarAnfitriao, criarParticipante, LIMITE_ATRASO_PASSOS } from '../prototipos/rts-lockstep/lockstep.js';
+import { criarAnfitriao, criarParticipante, LIMITE_ATRASO_PASSOS, CAMPOS_SOMA } from '../prototipos/rts-lockstep/lockstep.js';
 import { criarPartida, executarTurno, somasDoEstado } from '../prototipos/rts-lockstep/partida.js';
 
 function sorteador(semente) {
@@ -95,7 +95,7 @@ test('the host clock waits for a member whose checksums fall too far behind', ()
     anfitriao.fecharTurno();
   }
   assert.equal(anfitriao.podeFechar(), false);
-  anfitriao.receber('b', { t: MENSAGEM.SOMA, k: SOMA_A_CADA, s: [1, 2, 3, 4, 5, 6, 7] });
+  anfitriao.receber('b', { t: MENSAGEM.SOMA, k: SOMA_A_CADA, s: CAMPOS_SOMA.map((_, k) => k + 1) });
   assert.equal(anfitriao.podeFechar(), true);
 });
 

@@ -3,10 +3,10 @@
 // way to one moving, a unit holding position gives way to nobody, harvesters of one kind pass through each other);
 // stuck detection by lack of progress, with a side step far from the goal and acceptance near it; terrain collision
 // one axis at a time so units slide along rock; body and turret turn at their own rates.
-import { FP, FP_BITS, TIPO_COMANDO } from './contratos.js';
+import { FP, FP_BITS, TIPO_COMANDO, CATEGORIA, DONO_NEUTRO } from './contratos.js';
 import { anguloDe, seno, cosseno, girarAngulo, raizInteira } from './matematica.js';
 import { INFINITO, celulaAdiante, linhaLivre } from './caminhos.js';
-import { concluirOrdem, limparOrdens } from './ordens.js';
+import { concluirOrdem, limparOrdens, campoDaOrdem, classeDoCampo } from './ordens.js';
 import { slotVivo } from './entidades.js';
 
 export const TAMANHO_BALDE_BITS = FP_BITS + 1; // spatial hash buckets of 2x2 cells
@@ -36,12 +36,17 @@ const FASE_CAMPO = 1;
 const FASE_ZONA = 2;
 const ALCANCE_VISADA = 32 * FP;
 
-/** Rebuilds the bucket lists from the live units, in slot order. */
+/**
+ * Rebuilds the bucket lists from the live units and buildings, in slot order; piles, sparks and neutral entities stay
+ * out, so neither separation nor target search ever sees them.
+ */
 export function montarBaldes(sim) {
-  const { baldeCabeca, baldeProximo, baldeLargura } = sim;
+  const { baldeCabeca, baldeProximo, baldeLargura, categoriaPorTipo } = sim;
   baldeCabeca.fill(-1);
   for (let i = 0; i < sim.capacidade; i++) {
-    if (!sim.ativo[i]) continue;
+    if (!sim.ativo[i] || sim.time[i] === DONO_NEUTRO) continue;
+    const categoria = categoriaPorTipo[sim.tipo[i]];
+    if (categoria !== CATEGORIA.UNIDADE && categoria !== CATEGORIA.PREDIO) continue;
     const b = (sim.y[i] >> TAMANHO_BALDE_BITS) * baldeLargura + (sim.x[i] >> TAMANHO_BALDE_BITS);
     baldeProximo[i] = baldeCabeca[b];
     baldeCabeca[b] = i;
@@ -79,7 +84,8 @@ function desejar(sim, i, tipo) {
   }
   const { largura } = sim.mapa;
   const cam = sim.caminhos;
-  const e = ord.campo[o];
+  const classe = classeDoCampo(tipo.classe);
+  const e = campoDaOrdem(sim, o, classe);
   const celula = (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS);
   const fixa = ord.fixa[o];
   let alvoX = fixa ? ord.tx[o] : ord.metaX[i];
@@ -90,7 +96,7 @@ function desejar(sim, i, tipo) {
     const vx = alvoX - sim.x[i];
     const vy = alvoY - sim.y[i];
     const perto = vx < ALCANCE_VISADA && vx > -ALCANCE_VISADA && vy < ALCANCE_VISADA && vy > -ALCANCE_VISADA;
-    sim.visada[i] = perto && linhaLivre(cam, sim.x[i], sim.y[i], alvoX, alvoY) ? 1 : 0;
+    sim.visada[i] = perto && linhaLivre(cam, sim.x[i], sim.y[i], alvoX, alvoY, classe) ? 1 : 0;
   }
   if (cam.pronto[e]) {
     const d = cam.dist[e][celula];
@@ -104,7 +110,7 @@ function desejar(sim, i, tipo) {
           const adiante = celulaAdiante(cam, e, celula, alcance);
           alvoX = (adiante % largura) * FP + (FP >> 1);
           alvoY = Math.trunc(adiante / largura) * FP + (FP >> 1);
-          if (alcance === 1 || linhaLivre(cam, sim.x[i], sim.y[i], alvoX, alvoY)) break;
+          if (alcance === 1 || linhaLivre(cam, sim.x[i], sim.y[i], alvoX, alvoY, classe)) break;
         }
       }
     }
@@ -183,7 +189,7 @@ function vigiarProgresso(sim, i, medida, fase, angulo, dCampo) {
     const direcao = (angulo + lado) & 255;
     const px = sim.x[i] + cosseno(direcao);
     const py = sim.y[i] + seno(direcao);
-    if (sim.mapa.bloqueado[(py >> FP_BITS) * sim.mapa.largura + (px >> FP_BITS)]) continue;
+    if (sim.grade.bloqueado[(py >> FP_BITS) * sim.grade.largura + (px >> FP_BITS)]) continue;
     sim.desvioDirecao[i] = direcao;
     sim.desvioAte[i] = sim.tick + DURACAO_DESVIO;
     break;
@@ -217,12 +223,14 @@ export function mover(sim) {
   // hot loop: everything it touches in locals
   const { baldeCabeca, baldeProximo, baldeLargura, tipos, capacidade, ativo, tipo: tipoDe, x, y, vx, vy, parada, segurando } = sim;
   const ordem = sim.ordens.ordem;
-  const { largura, bloqueado } = sim.mapa;
+  const { largura, bloqueado } = sim.grade;
   const linhas = Math.trunc(baldeCabeca.length / baldeLargura);
   const raioDe = sim.raioPorTipo;
   const coletorDe = sim.coletorPorTipo;
+  const categoriaDe = sim.categoriaPorTipo;
   for (let i = 0; i < capacidade; i++) {
-    if (!ativo[i]) continue;
+    // buildings stand still and block the grid instead of pushing
+    if (!ativo[i] || categoriaDe[tipoDe[i]] !== CATEGORIA.UNIDADE) continue;
     const tipo = tipos[tipoDe[i]];
     const velocidade = tipo.velocidade;
     desejar(sim, i, tipo);
@@ -254,6 +262,7 @@ export function mover(sim) {
           for (let j = baldeCabeca[by2 * baldeLargura + bx2]; j >= 0; j = baldeProximo[j]) {
             if (j === i || !ativo[j]) continue;
             const outroTipo = tipoDe[j];
+            if (categoriaDe[outroTipo] !== CATEGORIA.UNIDADE) continue;
             const minimo = meuRaio + raioDe[outroTipo];
             const dx = nx - x[j];
             if (dx >= minimo || dx <= -minimo) continue;

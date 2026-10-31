@@ -51,7 +51,9 @@ function vigiar(sim, slots, limite, espiar = null) {
       const dx = sim.ordens.metaX[i] - sim.x[i];
       const dy = sim.ordens.metaY[i] - sim.y[i];
       const d = Math.sqrt(dx * dx + dy * dy);
-      const e = sim.ordens.campo[sim.ordens.ordem[i]];
+      // the field of the unit's class (infantry or vehicle)
+      const o = sim.ordens.ordem[i];
+      const e = sim.tipos[sim.tipo[i]].classe === 0 ? sim.ordens.campo[o] : sim.ordens.campoVeiculo[o];
       const campo = sim.caminhos.pronto[e] ? sim.caminhos.dist[e][(sim.y[i] >> 10) * largura + (sim.x[i] >> 10)] : Infinity;
       let avancou = false;
       if (d <= melhor[i] - 256) {

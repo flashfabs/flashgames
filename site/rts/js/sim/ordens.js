@@ -4,9 +4,18 @@
 import { FP, FP_BITS, TIPO_COMANDO } from './contratos.js';
 import { anguloDe, seno, cosseno, raizInteira } from './matematica.js';
 import { celulaLivreMaisProxima } from './mapa.js';
-import { pedirCampo, prenderCampo, soltarCampo } from './caminhos.js';
+import { pedirCampo, prenderCampo, soltarCampo, CLASSE_CAMPO } from './caminhos.js';
+import { CLASSE } from './dados.js';
 
 export const MAX_ORDENS = 32;
+/** Field class a unit's movement class walks by: infantry anywhere, every vehicle out of one-cell gaps. */
+export const classeDoCampo = classe => (classe === CLASSE.INFANTARIA ? CLASSE_CAMPO.INFANTARIA : CLASSE_CAMPO.VEICULO);
+/** Bit mask of the field classes the given units walk by. */
+export function classesDe(sim, unidades) {
+  let mascara = 0;
+  for (const i of unidades) mascara |= 1 << classeDoCampo(sim.tipos[sim.tipo[i]].classe);
+  return mascara;
+}
 /** Queued orders per unit (Shift). */
 export const TAMANHO_FILA = 8;
 const SEM_ORDEM = -1;
@@ -22,7 +31,8 @@ export function criarOrdens(capacidade) {
     ativa: new Uint8Array(MAX_ORDENS),
     fixa: new Uint8Array(MAX_ORDENS), // team default order of the prototype rules: never ends, never stops its units
     modo: new Uint8Array(MAX_ORDENS), // TIPO_COMANDO of the order
-    campo: new Int16Array(MAX_ORDENS).fill(-1), // flow field cache entry
+    campo: new Int16Array(MAX_ORDENS).fill(-1), // flow field cache entry for infantry
+    campoVeiculo: new Int16Array(MAX_ORDENS).fill(-1), // and for vehicles; each made when a unit of its class needs it
     destino: new Int32Array(MAX_ORDENS), // destination cell
     tx: new Int32Array(MAX_ORDENS), // target point, world units
     ty: new Int32Array(MAX_ORDENS),
@@ -62,8 +72,21 @@ function liberarSeVazia(sim, o) {
   const ord = sim.ordens;
   if (ord.usos[o] > 0 || ord.fixa[o] || !ord.ativa[o]) return;
   ord.ativa[o] = 0;
-  soltarCampo(sim.caminhos, ord.campo[o]);
-  ord.campo[o] = -1;
+  for (const campos of [ord.campo, ord.campoVeiculo]) {
+    if (campos[o] >= 0) soltarCampo(sim.caminhos, campos[o]);
+    campos[o] = -1;
+  }
+}
+
+/** The order's flow field for a field class (CLASSE_CAMPO), requested the first time a unit of that class needs it. */
+export function campoDaOrdem(sim, o, classe) {
+  const ord = sim.ordens;
+  const campos = classe === CLASSE_CAMPO.VEICULO ? ord.campoVeiculo : ord.campo;
+  if (campos[o] < 0) {
+    campos[o] = pedirCampo(sim.caminhos, ord.destino[o], sim.tick, classe);
+    prenderCampo(sim.caminhos, campos[o]);
+  }
+  return campos[o];
 }
 
 /** Drops every order of a unit: current, patrol partner and queue. */
@@ -164,24 +187,26 @@ function filaTem(ord, i, o) {
   return false;
 }
 
-/** Creates an order towards world point (tx, ty); the target cell moves to the nearest open one. Returns its index. */
-export function criarOrdem(sim, modo, tx, ty, { fixa = 0, raioChegada = 0, alvo = -1 } = {}) {
-  const { mapa, ordens: ord } = sim;
+/**
+ * Creates an order towards world point (tx, ty); the target cell moves to the nearest open one. `classes` is the bit
+ * mask of field classes to start computing now (classesDe). Returns its index.
+ */
+export function criarOrdem(sim, modo, tx, ty, { fixa = 0, raioChegada = 0, alvo = -1, classes = 1 << CLASSE_CAMPO.VEICULO } = {}) {
+  const { grade: mapa, ordens: ord } = sim;
   const cx = Math.max(0, Math.min(mapa.largura - 1, tx >> FP_BITS));
   const cy = Math.max(0, Math.min(mapa.altura - 1, ty >> FP_BITS));
   let destino = celulaLivreMaisProxima(mapa, cx, cy);
-  if (destino < 0) destino = mapa.bases[0].y * mapa.largura + mapa.bases[0].x;
+  if (destino < 0) destino = sim.mapa.bases[0].y * mapa.largura + sim.mapa.bases[0].x;
   if (destino !== cy * mapa.largura + cx) {
     tx = (destino % mapa.largura) * FP + (FP >> 1);
     ty = Math.trunc(destino / mapa.largura) * FP + (FP >> 1);
   }
   const o = slotDeOrdem(sim);
-  const campo = pedirCampo(sim.caminhos, destino, sim.tick);
-  prenderCampo(sim.caminhos, campo);
   ord.ativa[o] = 1;
   ord.fixa[o] = fixa;
   ord.modo[o] = modo;
-  ord.campo[o] = campo;
+  ord.campo[o] = -1;
+  ord.campoVeiculo[o] = -1;
   ord.destino[o] = destino;
   ord.tx[o] = tx;
   ord.ty[o] = ty;
@@ -189,18 +214,38 @@ export function criarOrdem(sim, modo, tx, ty, { fixa = 0, raioChegada = 0, alvo 
   ord.alvo[o] = alvo;
   ord.criadaEm[o] = sim.tick;
   ord.usos[o] = 0;
+  for (const classe of [CLASSE_CAMPO.INFANTARIA, CLASSE_CAMPO.VEICULO]) if (classes & (1 << classe)) campoDaOrdem(sim, o, classe);
   return o;
+}
+
+/**
+ * An order of `modo` to (tx, ty) shared by every unit sent to the same cell (harvesters, new units to a rally point),
+ * so a busy economy does not fill the order table: an active order of the same kind to the same cell is reused.
+ */
+export function ordemCompartilhada(sim, modo, tx, ty, classes) {
+  const { grade, ordens: ord } = sim;
+  const cx = Math.max(0, Math.min(grade.largura - 1, tx >> FP_BITS));
+  const cy = Math.max(0, Math.min(grade.altura - 1, ty >> FP_BITS));
+  let destino = cy * grade.largura + cx;
+  if (grade.bloqueado[destino]) destino = celulaLivreMaisProxima(grade, cx, cy);
+  for (let o = 0; o < MAX_ORDENS; o++) {
+    if (ord.ativa[o] && !ord.fixa[o] && ord.modo[o] === modo && ord.destino[o] === destino && ord.alvo[o] < 0) return o;
+  }
+  return criarOrdem(sim, modo, tx, ty, { classes });
 }
 
 /** Points a fixed order at a new target (the prototype's computer waves). */
 export function redirecionarOrdem(sim, o, tx, ty) {
-  const { mapa, ordens: ord } = sim;
+  const { grade: mapa, ordens: ord } = sim;
   let destino = celulaLivreMaisProxima(mapa, tx >> FP_BITS, ty >> FP_BITS);
   if (destino < 0) destino = ord.destino[o];
-  const campo = pedirCampo(sim.caminhos, destino, sim.tick);
-  prenderCampo(sim.caminhos, campo);
-  soltarCampo(sim.caminhos, ord.campo[o]);
-  ord.campo[o] = campo;
+  for (const [campos, classe] of [[ord.campo, CLASSE_CAMPO.INFANTARIA], [ord.campoVeiculo, CLASSE_CAMPO.VEICULO]]) {
+    if (campos[o] < 0) continue;
+    const campo = pedirCampo(sim.caminhos, destino, sim.tick, classe);
+    prenderCampo(sim.caminhos, campo);
+    soltarCampo(sim.caminhos, campos[o]);
+    campos[o] = campo;
+  }
   ord.destino[o] = destino;
   ord.tx[o] = tx;
   ord.ty[o] = ty;
@@ -212,7 +257,7 @@ export function redirecionarOrdem(sim, o, tx, ty) {
  * units' left-to-right order, so nobody crosses the group on arrival. Calls `destino(i, metaX, metaY, limiar)`.
  */
 export function formar(sim, unidades, tx, ty, destino) {
-  const { mapa } = sim;
+  const mapa = sim.grade;
   const n = unidades.length;
   let somaX = 0;
   let somaY = 0;
@@ -264,7 +309,7 @@ export function formar(sim, unidades, tx, ty, destino) {
 
 /** Gives a group order to units (slots of the ordering player), honouring the queue flag. */
 export function ordenarGrupo(sim, unidades, modo, tx, ty, { fila = 0, alvo = -1 } = {}) {
-  const o = criarOrdem(sim, modo, tx, ty, { alvo });
+  const o = criarOrdem(sim, modo, tx, ty, { alvo, classes: classesDe(sim, unidades) });
   const destino = sim.ordens;
   formar(sim, unidades, destino.tx[o], destino.ty[o], (i, mx, my, limiar) => {
     if (fila && (destino.ordem[i] >= 0 && !sim.parada[i])) {
@@ -285,8 +330,9 @@ export function ordenarPatrulha(sim, unidades, tx, ty) {
     somaX += sim.x[i];
     somaY += sim.y[i];
   }
-  const volta = criarOrdem(sim, TIPO_COMANDO.PATRULHAR, Math.trunc(somaX / unidades.length), Math.trunc(somaY / unidades.length));
-  const ida = criarOrdem(sim, TIPO_COMANDO.PATRULHAR, tx, ty);
+  const classes = classesDe(sim, unidades);
+  const volta = criarOrdem(sim, TIPO_COMANDO.PATRULHAR, Math.trunc(somaX / unidades.length), Math.trunc(somaY / unidades.length), { classes });
+  const ida = criarOrdem(sim, TIPO_COMANDO.PATRULHAR, tx, ty, { classes });
   const ord = sim.ordens;
   const metasVolta = new Map();
   formar(sim, unidades, ord.tx[volta], ord.ty[volta], (i, mx, my, limiar) => metasVolta.set(i, [mx, my, limiar]));
