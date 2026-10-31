@@ -55,7 +55,7 @@ Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando
 | F5 Design, mundo e fase 1 | `rts-design`, 8825 | `site/rts/dados/{unidades,predios,armas}.json`, `site/rts/dados/missoes/`, `site/rts/dados/mapas/`, `site/rts/dados/textos/pt-BR.json`, `site/rts/js/telemetria/`, `arte/briefs/`, `arte/mapas-fonte/`, `ferramentas/mapas/` | 1 (só briefs), 2, 3, 5 |
 | F6 IA inimiga | `rts-ia`, 8826 | `site/rts/js/sim/comportamentos/` (determinístico, sob a barreira da F1a), `site/rts/js/ia/`, `ferramentas/rts/ia-harness.mjs`, `testes/rts-ia*.test.mjs` | 3, 5 |
 | F7 Interface e controles | `rts-interface`, 8823 | `site/rts/index.html`, `site/rts/css/`, `site/rts/js/principal.js`, `site/rts/js/entrada/`, `site/rts/js/interface/` | 1 a 6 |
-| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
+| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `site/rts/js/teste/` (o gancho `window.__rts`, carregado só com `?teste=1`), `ferramentas/rts/ritmo/` (conferidor de ritmo), `testes/rts-gancho.test.mjs`, `testes/rts-ritmo.test.mjs`, `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
 | F9 Rede | `rts-rede`, 8828 | `prototipos/rts-lockstep/` e, na E8, `site/rts/js/rede/`; `site/js/sala.js` só em acordo | 2 (curta), 6 |
 
 Divisão do motor a partir da onda 2 (plano, E3): a F1 vira duas sessões, F1a e F1b, pela tabela acima. `contratos.js` e `simulacao.js` são da F1a; a F1b liga os seus módulos neles com uma ou duas linhas ditas no commit e, acima disso, pede à F1a por mensagem. Mudança de contrato (C1 a C4) passa pela F1a, que sobe a versão e avisa os consumidores.
@@ -140,6 +140,7 @@ site/rts/js/render/, js/ativos/                WebGL2 e carregador de atlas (F2)
 site/rts/js/entrada/, js/interface/            mouse, teclado, trackpad, HUD, menus (F7)
 site/rts/js/audio/                             motor de áudio (F4)
 site/rts/js/telemetria/                        registro do kit de teste (F5)
+site/rts/js/teste/                             gancho dos testes de ponta a ponta, só com ?teste=1 (F8)
 site/rts/js/rede/                              lockstep, na E8 (F9)
 site/rts/dados/                                projecao.json (F2), dados de jogo, missões, mapas, textos (F5), sons.json (F4)
 site/rts/assets/                               índice, sprites, terreno, interface, vídeo (F3), áudio (F4)
