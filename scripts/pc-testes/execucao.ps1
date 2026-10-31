@@ -208,6 +208,8 @@ try {
     $env:PLAYWRIGHT_BROWSERS_PATH = "D:\rts\playwright"
     $env:SALINHA_PYTHON = "python"
     $env:SALINHA_PROCESSOS = "$Processos"
+    # the functional tests draw on the NVIDIA card too; without it Chrome falls back to SwiftShader here (playwright.config.mjs)
+    $env:SALINHA_GPU_FUNCIONAIS = "1"
     # As on the Action: a Playwright browser missing here must fail the run, not be skipped.
     $env:CI = "1"
 
