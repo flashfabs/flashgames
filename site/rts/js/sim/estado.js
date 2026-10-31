@@ -41,13 +41,17 @@ export const CAMPOS_ENTIDADE = Object.freeze([
 ]);
 
 /** Empty state for a map; also the starting point of carregar(). */
-export function criarEstado({ opcoes, mapa, tipos, regras, capacidade, times, semente }) {
+export function criarEstado({ opcoes, mapa, dados, regras, capacidade, times, semente }) {
+  const { tipos } = dados;
   const sim = {
     versao: VERSAO_SIMULACAO,
-    opcoes: { ...opcoes, mapa: undefined, tipos: opcoes.tipos },
+    opcoes: { ...opcoes, mapa: undefined, arquivosMapa: undefined, tipos: opcoes.tipos },
     tick: 0,
     mapa,
     tipos,
+    economia: dados.economia,
+    pesquisas: dados.pesquisas,
+    armas: dados.armas,
     regras,
     capacidade,
     times,
