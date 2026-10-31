@@ -55,7 +55,17 @@ Recursos e terreno, para o kit cinza da caixa de areia (31/10/2026):
 | [Faísca de Carga](neutro-recurso-faisca-de-carga.md) | recurso, carga derramada | |
 | [Terreno do vale](neutro-terreno-vale.md) | solos e decorações | |
 
-Ainda sem brief, para a onda 3: as peças só da fase 1 (Ponte Velha, caminhão tombado, os nós com cara própria como o Ferro-Velho e a Pilha de Entulho) e os retratos da Supervisora e do Locutor.
+Peças da missão "Morro Aceso" (31/10/2026, onda 3): os quatro prédios do acampamento empacotados, que a missão leva até o refúgio, e o caminhão tombado do resgate opcional.
+
+| Brief | Papel | Nota |
+| --- | --- | --- |
+| [Carroção-Mãe em mudança](desligados-unidade-carrocao-mae-empacotado.md) | Desligados, prédio empacotado | missão |
+| [Paiol em mudança](desligados-unidade-paiol-empacotado.md) | Desligados, prédio empacotado | missão |
+| [Barracão em mudança](desligados-unidade-barracao-empacotado.md) | Desligados, prédio empacotado | missão |
+| [Ferraria em mudança](desligados-unidade-ferraria-a-vapor-empacotado.md) | Desligados, prédio empacotado | missão |
+| [Caminhão tombado](neutro-estrutura-caminhao-tombado.md) | neutra recuperável por reparo, resgate | missão |
+
+Ainda sem brief próprio: a Ponte Velha (hoje a decoração `ponte-de-concreto` do terreno), os nós com cara própria (o Entulho, o Cemitério Norte e o Ferro-Velho; hoje pilhas comuns sobre cascalho) e os retratos da Supervisora e do Locutor; os pedidos à `rts-arte` estão na nota de recados dela.
 
 ## Nome dos arquivos
 

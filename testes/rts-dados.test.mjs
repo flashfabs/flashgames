@@ -90,6 +90,10 @@ test('weapons are well formed', () => {
   }
 });
 
+// A packed building (papel "empacotado", named "<building>-empacotado") is the unit a camp building turns into to
+// move (sim/empacotar.js): nobody trains it, it takes no room in the population, and it carries no weapon.
+const EMPACOTADO = 'empacotado';
+
 test('units reference existing weapons and are made by a building of their faction', () => {
   const nomesArmas = new Set(armas.armas.map(a => a.nome));
   const produzidas = new Map();
@@ -99,6 +103,13 @@ test('units reference existing weapons and are made by a building of their facti
     assert.ok(CLASSES.includes(u.classe), `${u.nome}: classe`);
     assert.ok(BLINDAGENS.includes(u.blindagem) && u.blindagem !== 'estrutura', `${u.nome}: blindagem`);
     assert.ok(u.arma === null || nomesArmas.has(u.arma), `${u.nome}: arma ${u.arma}`);
+    if (u.papel === EMPACOTADO) {
+      const predio = predios.predios.find(p => `${p.nome}-${EMPACOTADO}` === u.nome);
+      assert.ok(predio && predio.faccao === u.faccao, `${u.nome}: nenhum prédio da facção se empacota nele`);
+      assert.ok(u.custo > 0 && u.vida > 0 && u.velocidade > 0 && u.lotacao === 0 && u.arma === null && u.coletor === 0, `${u.nome}: carroça de mudança sem arma, sem lotação e com custo e vida`);
+      assert.ok(!produzidas.has(u.nome), `${u.nome}: ninguém produz um prédio empacotado`);
+      continue;
+    }
     assert.ok(u.custo > 0 && u.tempoMs > 0 && u.vida > 0 && u.velocidade > 0 && u.lotacao >= 1, `${u.nome}: números básicos`);
     assert.ok(u.nivel === 1 || u.nivel === 2, `${u.nome}: nivel`);
     assert.ok(u.coletor === 0 || u.coletor === 1);
@@ -189,8 +200,15 @@ test('every brief has exactly one data entry, and every entry a brief', () => {
 
 test('asset ids follow the art naming and match the index where the art exists', () => {
   const categoriaUnidade = u => (u.classe === 'infantaria' ? 'infantaria' : 'veiculo');
-  for (const u of unidades.unidades) assert.equal(u.asset, `${u.faccao}-${categoriaUnidade(u)}-${u.nome}`);
-  for (const p of predios.predios) assert.equal(p.asset, `${p.faccao}-${p.faccao === 'neutro' ? 'estrutura' : 'construcao'}-${p.nome}`);
+  // an entry whose own art is not in the index yet borrows a grey-kit asset that is (C14: a stand-in until the art
+  // front delivers); once its own asset is in the index, this fails until the entry points at it
+  const confere = (t, esperado) => {
+    if (t.asset === esperado) return;
+    assert.ok(!indice.assets[esperado], `${t.nome}: ${esperado} já está no índice; troque o asset emprestado ${t.asset} por ele`);
+    assert.ok(indice.assets[t.asset], `${t.nome}: o asset emprestado ${t.asset} não está no índice`);
+  };
+  for (const u of unidades.unidades) confere(u, `${u.faccao}-${categoriaUnidade(u)}-${u.nome}`);
+  for (const p of predios.predios) confere(p, `${p.faccao}-${p.faccao === 'neutro' ? 'estrutura' : 'construcao'}-${p.nome}`);
   for (const t of [...unidades.unidades, ...predios.predios]) {
     const asset = indice.assets[t.asset];
     if (asset) assert.equal(asset.manifesto.split('/')[1], t.asset.split('-')[1], `${t.asset}: categoria diferente no índice`);

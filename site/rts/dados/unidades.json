@@ -89,6 +89,26 @@
       "classe": "veiculo", "blindagem": "leve", "eletrico": 0, "custo": 600, "tempoMs": 40000, "lotacao": 3, "nivel": 2, "limite": 0,
       "vida": 300, "velocidade": 70, "raio": 4, "visao": 6, "giroCorpo": 5, "giroTorre": 6, "arma": "morteiro-a-vapor", "coletor": 0,
       "habilidade": { "tipo": "armar", "armarMs": 3000, "desarmarMs": 2000, "apitoMs": 1000 }
+    },
+    {
+      "nome": "carrocao-mae-empacotado", "faccao": "desligados", "papel": "empacotado", "asset": "desligados-veiculo-carroca-de-pedal",
+      "classe": "veiculoGrande", "blindagem": "leve", "eletrico": 0, "custo": 1000, "tempoMs": 5000, "lotacao": 0, "nivel": 1, "limite": 0,
+      "vida": 1500, "velocidade": 80, "raio": 8, "visao": 6, "giroCorpo": 4, "giroTorre": 4, "arma": null, "coletor": 0
+    },
+    {
+      "nome": "paiol-empacotado", "faccao": "desligados", "papel": "empacotado", "asset": "desligados-veiculo-carroca-de-pedal",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 0, "custo": 400, "tempoMs": 5000, "lotacao": 0, "nivel": 1, "limite": 0,
+      "vida": 600, "velocidade": 90, "raio": 5, "visao": 5, "giroCorpo": 6, "giroTorre": 6, "arma": null, "coletor": 0
+    },
+    {
+      "nome": "barracao-empacotado", "faccao": "desligados", "papel": "empacotado", "asset": "desligados-veiculo-carroca-de-pedal",
+      "classe": "veiculo", "blindagem": "leve", "eletrico": 0, "custo": 400, "tempoMs": 5000, "lotacao": 0, "nivel": 1, "limite": 0,
+      "vida": 800, "velocidade": 90, "raio": 6, "visao": 5, "giroCorpo": 6, "giroTorre": 6, "arma": null, "coletor": 0
+    },
+    {
+      "nome": "ferraria-a-vapor-empacotado", "faccao": "desligados", "papel": "empacotado", "asset": "desligados-veiculo-carroca-de-pedal",
+      "classe": "veiculoGrande", "blindagem": "leve", "eletrico": 0, "custo": 800, "tempoMs": 5000, "lotacao": 0, "nivel": 1, "limite": 0,
+      "vida": 900, "velocidade": 70, "raio": 7, "visao": 5, "giroCorpo": 4, "giroTorre": 4, "arma": null, "coletor": 0
     }
   ]
 }

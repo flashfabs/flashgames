@@ -128,6 +128,13 @@
       "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 0, "constroi": [], "produz": [],
       "religavel": 1, "tempoReligarMs": 90000
+    },
+    {
+      "nome": "caminhao-tombado", "faccao": "neutro", "papel": "religavel-resgate", "asset": "religadores-veiculo-guincho-de-celulas",
+      "pegada": [3, 2], "custo": 0, "tempoMs": 0, "vida": 800, "blindagem": "estrutura", "eletrico": 1, "visao": 2,
+      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
+      "arma": null, "destrutivel": 0, "constroi": [], "produz": [],
+      "religavel": 1, "tempoReligarMs": 15000
     }
   ]
 }
