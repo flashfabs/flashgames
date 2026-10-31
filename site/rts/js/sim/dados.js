@@ -542,5 +542,6 @@ export function tipoEstatico(tipo) {
     coletor: tipo.coletor,
     capacidade: tipo.capacidade,
     limite: tipo.limite,
+    arma: tipo.arma, // index of its weapon in armas.json, -1 none
   };
 }

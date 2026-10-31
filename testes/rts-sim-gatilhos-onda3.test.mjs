@@ -386,7 +386,9 @@ test('a mission drains a resource node, pile by pile, and can fill it back up to
 
 test('without em, a building packs into the kind named after it, and the teams block is accepted and labelled last', () => {
   const m = missao([{ id: 'empacota', quando: { se: 'tempo', segundos: 0 }, acoes: [{ faz: 'empacotar', grupo: 'acampamento', segundos: 1 }] }], {
-    equipes: [{ grupo: 'guarda-ponte', jogador: 1, faz: 'guardar' }, { grupo: 'acampamento', reserva: 'reserva-norte', jogador: 1, faz: 'reconstruir' }],
+    // a valid teams block (comportamentos/formato.js): the step compiles it
+    pontos: { ponte: [30, 30] },
+    equipes: [{ id: 'guarda', grupo: 'guarda-ponte', jogador: 1, faz: 'guardar', ponto: 'ponte' }, { id: 'campo', grupo: 'acampamento', reserva: 'reserva-norte', jogador: 1, faz: 'reconstruir' }],
     licoes: { versao: 1, licoes: [] },
   });
   assert.deepEqual(rotulosDaMissao(m), ['acampamento', 'guarda-ponte', 'reserva-norte']);
