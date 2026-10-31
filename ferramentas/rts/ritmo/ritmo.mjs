@@ -136,9 +136,10 @@ function janelasSemComando(registro, pps, final) {
   return { total, vazias, fracao: vazias / total };
 }
 
-/** Seconds to the first depleted battery graveyard (every pile of the node ran out). */
+/** Seconds to the first depleted battery graveyard (every pile of the node ran out); a node the log marks `cemiterio: 0`
+ * (the first mission's starter rubble) is not one. */
 function primeiroCemiterio(registro, pps) {
-  const evento = registro.eventos.find(e => eh(e, 'noEsgotado'));
+  const evento = registro.eventos.find(e => eh(e, 'noEsgotado') && e.cemiterio !== 0);
   return evento ? segundosDe(passoDe(evento), pps) : null;
 }
 

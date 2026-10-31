@@ -80,6 +80,15 @@ test('missing data is "sem dado", except a long match that never emptied a grave
   assert.equal(criterio(conferirRegistro(registro({ cemiterio: null, duracao: 12 * 60 })), 'primeiroCemiterio').passou, null);
 });
 
+test('a depleted node that is not a battery yard does not count as the first graveyard', () => {
+  const r = registro({ cemiterio: 11 * 60 });
+  r.eventos.push({ passo: 4.5 * 60 * 30, tipo: 'noEsgotado', no: 'entulho', cemiterio: 0 });
+  r.eventos.sort((a, b) => a.passo - b.passo);
+  const c = criterio(conferirRegistro(r), 'primeiroCemiterio');
+  assert.equal(c.valor, 11 * 60);
+  assert.equal(c.passou, true);
+});
+
 test('a wave without its warning fails the warning check', () => {
   const r = registro();
   r.eventos = r.eventos.filter(e => e.tipo !== 'aviso');

@@ -6,7 +6,8 @@
 //
 // node ferramentas/rts/ritmo/jogar-roteiro.mjs [--missao caixa-de-areia] [--dificuldade normal] [--minutos 30]
 //   [--roteiro testes/e2e/rts-roteiro.mjs] [--saida registro.json] [--json]
-// The script module exports criarRoteiro(), decidir(retrato, roteiro, mapa) and DECISAO_SEGUNDOS.
+// The script module exports criarRoteiro(opcoes), decidir(retrato, roteiro, mapa) and DECISAO_SEGUNDOS, and may export
+// opcoesDaMissao(missao, entidadesDoMapa) for the options it takes from the mission's map.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -68,7 +69,8 @@ export function jogar({ missao: missaoId, dificuldade, minutos, roteiro: modulo 
     versoes: { simulacao: VERSAO_SIMULACAO, comandos: VERSAO_COMANDOS },
     agora: () => 'node',
   });
-  const roteiro = modulo.criarRoteiro();
+  // a script may tune itself to the mission from its map (routes, areas)
+  const roteiro = modulo.criarRoteiro(modulo.opcoesDaMissao?.(missaoId, arquivosMapa.entidades) ?? {});
   const passosPorDecisao = modulo.DECISAO_SEGUNDOS * PASSOS_POR_SEGUNDO;
   const fim = minutos * 60 * PASSOS_POR_SEGUNDO;
   let seq = 0;
