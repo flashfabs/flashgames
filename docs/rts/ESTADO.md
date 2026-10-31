@@ -372,6 +372,7 @@ Onda 2 (E3), a partir de 30/10/2026:
 | --- | --- | --- |
 | Orçamento da fase 1 com os assets de hoje | textura uhd 676 MiB contra 256 (hd 169 contra 96), download uhd 17,9 MiB contra 30 (hd 6,1 contra 12); o Cesto e as variantes de elevação -e45 e -e65 dão 144 MiB cada no uhd e as três estão marcadas para a fase 1; só anotado até a E5 | `testes/rts-orcamento.test.mjs`, 31/10/2026 |
 | Fila do PC com as sessões da onda 2 | uma execução completa segura a trava de 8 a 15 minutos; às 00h35 de 31/10/2026 havia uma rodando e três esperando, com esperas de 5 a 16 minutos | registros das execuções em `D:\rts\testes\*\execucoes`, 31/10/2026 |
+| Modo `rts` do executor | 14 min 15 s no total, dos quais 10 min esperando a trava; funcionais do RTS em 39 s (10 passaram, 6 pularam à espera da caixa de areia), desempenho em 52 s (4 de 4) e determinismo em 2 min 40 s (12 de 12): cerca de 4,5 min de trava contra 8 a 15 do completo | execução `20261031-003610` |
 
 ### F9 Rede (`rts-rede`)
 
