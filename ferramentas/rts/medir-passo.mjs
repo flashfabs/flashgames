@@ -7,7 +7,9 @@
 // leaves behind is collected during the steps like in the game. With --caixa the match is the design front's sandbox
 // (site/rts/dados/ and its map) with about 2,000 units: both sides' armies, harvesters at work on every node, and the
 // starting buildings, so the economy, the network and the ghosts are timed under the same load.
-//   node ferramentas/rts/medir-passo.mjs [ticks=9000] [--retrato] [--caixa]
+// With --aquecer the engine first runs the warm-up match the worker runs before a page's first match
+// (site/rts/js/sim/aquecimento.js), so the worst steps are those of a game, not the first compilation of each path.
+//   node ferramentas/rts/medir-passo.mjs [ticks=9000] [--retrato] [--caixa] [--aquecer]
 import { cpus, loadavg } from 'node:os';
 import { readFileSync } from 'node:fs';
 import { criarSimulacao, agendarComando } from '../../site/rts/js/sim/simulacao.js';
@@ -18,10 +20,13 @@ import { colocarPredio, motivoPosicaoNaSimulacao } from '../../site/rts/js/sim/c
 import * as simulacao from '../../site/rts/js/sim/simulacao.js';
 import { montarRetrato } from '../../site/rts/js/sim/retrato.js';
 import { criarMedidor, resumir, media, quantil } from './passo-medido.mjs';
+import { aquecerMotor } from '../../site/rts/js/sim/aquecimento.js';
 
 const passos = Number(process.argv.find(a => /^\d+$/.test(a)) ?? 9000);
 const comRetrato = process.argv.includes('--retrato');
 const naCaixa = process.argv.includes('--caixa');
+const aquecer = process.argv.includes('--aquecer');
+if (aquecer) aquecerMotor();
 const sim = naCaixa ? caixaCheia() : criarSimulacao({ semente: 7, unidadesPorTime: 1000 });
 
 // The sandbox with ~1,000 units per side: 50 harvesters by the base sent to the pile nearest it, a depot by that pile
@@ -111,6 +116,7 @@ console.log(JSON.stringify({
   passos,
   ...resumir(medidor),
   cenario: naCaixa ? 'caixa-de-areia' : 'prototipo',
+  aquecido: aquecer,
   entregas,
   // harvesters by task (estado.js TAREFA) at the end
   tarefas: (() => {

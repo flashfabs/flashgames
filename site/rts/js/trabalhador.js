@@ -9,12 +9,15 @@ import { salvar, carregar } from './sim/persistencia.js';
 import { criarGravador } from './sim/replay.js';
 import { PARA_TRABALHADOR, DO_TRABALHADOR, VELOCIDADES, comandoValido, transferiveisDoRetrato } from './sim/contratos.js';
 import { camadasEmTexto } from './sim/mapa.js';
+import { aquecerMotor } from './sim/aquecimento.js';
 
 const MAX_RECUPERACAO = 4;
 // AVANCAR runs at most one hour of game time per message
 const MAX_AVANCAR = 108000;
 
 let sim = null;
+// the engine's code has run a throwaway match (sim/aquecimento.js) before the player's first one
+let aquecido = false;
 let gravador = null;
 let jogadorLocal = 0;
 let teste = false;
@@ -45,6 +48,10 @@ function tratar(data) {
         const camadas = partida.camadas instanceof ArrayBuffer ? new Uint8Array(partida.camadas) : partida.camadas;
         opcoes.arquivosMapa = { cabecalho: partida.cabecalho, camadas: camadas instanceof Uint8Array ? camadasEmTexto(camadas) : camadas, entidades: partida.entidades };
         opcoes.missao = partida.missao;
+      }
+      if (!aquecido) {
+        aquecerMotor();
+        aquecido = true;
       }
       sim = criarSimulacao(opcoes);
       gravador = criarGravador(opcoes);
