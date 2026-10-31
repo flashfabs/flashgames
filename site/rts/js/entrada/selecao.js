@@ -31,18 +31,21 @@ export function idsNaCaixa(retrato, jogador, projetar, caixa) {
 }
 
 /**
- * Index of the entity nearest to (x, y) within raio client pixels, or -1. aceita(k) filters by owner or kind.
+ * Index of the entity nearest to (x, y) within reach, or -1. aceita(k) filters by owner or kind; the reach is raio
+ * client pixels, or raio(k) for entities of different sizes (a building is picked anywhere on its footprint).
  * Used both to select and to find the target of a context order.
  */
 export function entidadeNoPonto(retrato, projetar, x, y, aceita = () => true, raio = RAIO_DO_CLIQUE) {
   const p = { x: 0, y: 0 };
+  const alcance = typeof raio === 'function' ? raio : () => raio;
   let melhor = -1;
-  let melhorD2 = raio * raio;
+  let melhorD2 = Infinity;
   for (let k = 0; k < retrato.n; k++) {
     if (!aceita(k)) continue;
     projetar(retrato, k, p);
     const d2 = (p.x - x) ** 2 + (p.y - y) ** 2;
-    if (d2 <= melhorD2) {
+    const r = alcance(k);
+    if (d2 <= r * r && d2 < melhorD2) {
       melhorD2 = d2;
       melhor = k;
     }

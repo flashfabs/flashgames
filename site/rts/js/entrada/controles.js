@@ -3,11 +3,11 @@
 // rally points, control groups, camera (screen edges, arrows, middle button or Space and drag, two-finger scroll) and
 // the three zoom levels (wheel, pinch, + and −).
 // The on-screen buttons call executar() and executarSlot(), so every command works without the keyboard.
-import { FP, SEM_ENTIDADE, DONO_NEUTRO } from '../sim/contratos.js';
+import { FP, SEM_ENTIDADE, DONO_NEUTRO, VISAO } from '../sim/contratos.js';
 import { HABILIDADE } from '../interface/catalogo.js';
 import { ACAO, ACOES_COM_ALVO, SETAS, E_MAC, acaoDaTecla, modificadores } from './teclas.js';
-import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO } from './selecao.js';
-import { paraMundo, paraTela } from './camera.js';
+import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO, RAIO_DO_CLIQUE } from './selecao.js';
+import { paraMundo, paraTela, pixelsCssPorCelula } from './camera.js';
 import { TECLAS_DA_GRADE } from '../interface/cartao.js';
 
 /** Client pixels from the window edge where the camera scrolls. */
@@ -46,6 +46,7 @@ export function ligarControles({
   cartao,
   colocacao,
   acoes = {},
+  aoVirarPagina = () => {},
   bloqueado = () => false,
   roda = 'auto',
   aoMudar = () => {},
@@ -76,6 +77,18 @@ export function ligarControles({
     return [r.left + r.width / 2, r.top + r.height / 2];
   };
   const origemDoPonteiro = e => (e.pointerType === 'touch' ? 'toque' : 'mouse');
+  // Click reach of entity k: a unit's fixed radius, or the half of a footprint's longer side on screen.
+  const raioDe = k => {
+    const [largura, altura] = cat().info(estado.atual.tipo[k]).pegada;
+    return Math.max(RAIO_DO_CLIQUE, (Math.max(largura, altura) * pixelsCssPorCelula(canvas, camera)) / 2);
+  };
+  // Whether the cell of entity k was ever seen by the player: resource piles stay where they were seen.
+  const jaVista = k => {
+    const { mapa, atual } = estado;
+    const cx = (atual.x[k] / FP) | 0;
+    const cy = (atual.y[k] / FP) | 0;
+    return cx >= 0 && cy >= 0 && cx < mapa.largura && cy < mapa.altura && atual.visao[cy * mapa.largura + cx] !== VISAO.NUNCA;
+  };
 
   function avisar() {
     palco.dataset.modo = modo ?? '';
@@ -92,9 +105,9 @@ export function ligarControles({
     if (!atual) return;
     const jogador = estado.jogadorLocal;
     if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) < ARRASTO_MINIMO) {
-      const k = entidadeNoPonto(atual, projetar, e.clientX, e.clientY, j => atual.dono[j] === jogador);
-      // With nothing of the player's there, a visible resource pile is picked alone, to read what is left in it.
-      const recurso = k < 0 ? entidadeNoPonto(atual, projetar, e.clientX, e.clientY, j => cat().ehRecurso(atual.tipo[j]) && visivel(atual.x[j] / FP, atual.y[j] / FP)) : -1;
+      const k = entidadeNoPonto(atual, projetar, e.clientX, e.clientY, j => atual.dono[j] === jogador, raioDe);
+      // With nothing of the player's there, a resource pile already seen is picked alone, to read what is left in it.
+      const recurso = k < 0 ? entidadeNoPonto(atual, projetar, e.clientX, e.clientY, j => cat().ehRecurso(atual.tipo[j]) && jaVista(j), raioDe) : -1;
       if (recurso >= 0) {
         aplicarSelecao(selecionadas, [atual.id[recurso]], 'trocar');
         ultimoClique = null;
@@ -139,10 +152,11 @@ export function ligarControles({
     if (!atual) return { inimigo: SEM_ENTIDADE, recurso: SEM_ENTIDADE, estrutura: SEM_ENTIDADE, qualquer: SEM_ENTIDADE };
     const jogador = estado.jogadorLocal;
     const ver = j => visivel(atual.x[j] / FP, atual.y[j] / FP);
-    const recurso = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().ehRecurso(atual.tipo[j]) && ver(j));
-    const estrutura = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().categoria(atual.tipo[j]) === 'estrutura' && ver(j));
-    const inimigo = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== jogador && atual.dono[j] !== DONO_NEUTRO && !cat().ehRecurso(atual.tipo[j]) && ver(j));
-    const qualquer = entidadeNoPonto(atual, projetar, clienteX, clienteY, ver);
+    // Piles and neutral structures stay where they were seen; enemies count only while visible.
+    const recurso = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().ehRecurso(atual.tipo[j]) && jaVista(j), raioDe);
+    const estrutura = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().categoria(atual.tipo[j]) === 'estrutura' && jaVista(j), raioDe);
+    const inimigo = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== jogador && atual.dono[j] !== DONO_NEUTRO && !cat().ehRecurso(atual.tipo[j]) && ver(j), raioDe);
+    const qualquer = entidadeNoPonto(atual, projetar, clienteX, clienteY, ver, raioDe);
     const id = k => (k < 0 ? SEM_ENTIDADE : atual.id[k]);
     return { inimigo: id(inimigo), recurso: id(recurso), estrutura: id(estrutura), qualquer: id(qualquer) };
   }
@@ -300,6 +314,11 @@ export function ligarControles({
     if (!slot) return false;
     if (slot.acao) {
       executar({ acao: slot.acao, fila }, timeStamp);
+      return true;
+    }
+    if (slot.modo === 'pagina') {
+      som.tocar('clique');
+      aoVirarPagina();
       return true;
     }
     const { predios: deles, construtores } = cartao();
@@ -560,6 +579,8 @@ export function ligarControles({
     cancelarModo,
     comecarColocacao,
     alternarPausa,
+    /** The card's slot at that place right now (the drawn card can be a quarter second old). */
+    slotAgora: posicao => cartao().slots[posicao],
     /** Marks the next command as given by an on-screen button (for the playtest log). */
     marcarBotao() {
       origem = 'botao';
