@@ -1,0 +1,74 @@
+// The seam for the computer teams' behaviours (sim/comportamentos/, front F6): when they run in the tick, what they
+// read and how they act. They run inside the tick, so they are part of the deterministic simulation and replays
+// recreate them; they read only what their team sees (the C4 view), the public static map and their own state, and
+// they act only by commands, validated and applied exactly like a player's.
+import { comandoValido } from './contratos.js';
+import { vistaDoTime } from './vista.js';
+import { montarMapaEstatico } from './retrato.js';
+import { slotVivo } from './entidades.js';
+import { indiceDificuldade, missaoDe, extrasMissao } from './gatilhos.js';
+import * as indice from './comportamentos/indice.js';
+
+/** Each team decides once every PERIODO_EQUIPES ticks (a third of a second), team t on the ticks where tick % PERIODO_EQUIPES === t. */
+export const PERIODO_EQUIPES = 10;
+
+let comportamentos = indice;
+
+/** Swaps the behaviours module ({ ativo, decidir }) for tests and tools; returns the one in use before. */
+export function usarComportamentos(modulo) {
+  const anterior = comportamentos;
+  comportamentos = modulo ?? indice;
+  return anterior;
+}
+
+// The static map is the same for the whole match: built once per simulation, never saved.
+const mapasEstaticos = new WeakMap();
+
+function mapaEstaticoDe(sim) {
+  let mapa = mapasEstaticos.get(sim);
+  if (!mapa) {
+    mapa = montarMapaEstatico(sim, -1);
+    mapasEstaticos.set(sim, mapa);
+  }
+  return mapa;
+}
+
+// Mission label of one of the team's own live entities; '' for anyone else's, for unlabelled ones and with no mission.
+function rotuloDe(sim, time, id) {
+  const i = slotVivo(sim, id);
+  const m = missaoDe(sim);
+  if (i < 0 || sim.time[i] !== time || !m) return '';
+  const ex = extrasMissao(sim);
+  const r = ex.rotulo[i];
+  return r > 0 && ex.rotuloGeracao[i] === sim.geracao[i] ? m.rotulos[r - 1] : '';
+}
+
+/** What a behaviour's decidir() receives: no simulation, only the team's view and a way to command. */
+function contextoDaEquipe(sim, time, aplicar) {
+  let seq = 0;
+  return {
+    tick: sim.tick,
+    time,
+    dificuldade: indiceDificuldade(sim.opcoes.dificuldade),
+    vista: vistaDoTime(sim, time),
+    mapa: mapaEstaticoDe(sim),
+    lugares: sim.opcoes.lugares ?? null,
+    estado: sim.extras.comportamentos ?? null,
+    rotuloDe: id => rotuloDe(sim, time, id),
+    comandar(c) {
+      const comando = { tipo: c.tipo, unidades: c.unidades ?? [], alvo: c.alvo ?? 0, x: c.x ?? 0, y: c.y ?? 0, arg: c.arg ?? 0, fila: c.fila ?? 0, tick: sim.tick, jogador: time, seq: seq++ };
+      if (comandoValido(comando)) aplicar(sim, comando);
+    },
+  };
+}
+
+/**
+ * Runs the behaviours of every team whose turn it is, in team order. `aplicar(sim, comando)` is the simulation's own
+ * command step, so a behaviour's command goes through the same rules as a player's and takes effect in this tick.
+ */
+export function conduzirEquipes(sim, aplicar) {
+  const fase = sim.tick % PERIODO_EQUIPES;
+  for (let time = fase; time < sim.times; time += PERIODO_EQUIPES) {
+    if (comportamentos.ativo(sim, time)) comportamentos.decidir(contextoDaEquipe(sim, time, aplicar));
+  }
+}

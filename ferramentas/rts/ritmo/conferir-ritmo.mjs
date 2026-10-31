@@ -3,7 +3,7 @@
 // Prints each log's numbers and, with several logs (one per person), the median per criterion.
 // Exit code: 0 when every criterion with data passed, 1 when one failed, 2 when a file could not be read.
 import { readFile } from 'node:fs/promises';
-import { conferirVarios, relogio } from './ritmo.mjs';
+import { conferirVarios, conferirE4, grupoDoArquivo, relogio } from './ritmo.mjs';
 
 const argumentos = process.argv.slice(2);
 const comoJson = argumentos.includes('--json');
@@ -37,7 +37,7 @@ const formatar = (id, valor) => {
 };
 
 if (comoJson) {
-  console.log(JSON.stringify({ arquivos, individuais, resumo }, null, 2));
+  console.log(JSON.stringify({ arquivos, individuais, resumo, e4: arquivos.some(arquivo => grupoDoArquivo(arquivo) !== null) ? conferirE4(arquivos.map((nome, k) => ({ nome, registro: registros[k] }))) : null }, null, 2));
 } else {
   individuais.forEach((resultado, k) => {
     console.log(`\n${arquivos[k]}`);
@@ -53,6 +53,14 @@ if (comoJson) {
   }
 }
 
+// logs named novato-*.json and veterano-*.json are the stage E4 play test (marco M4)
+const e4 = arquivos.some(arquivo => grupoDoArquivo(arquivo) !== null) ? conferirE4(arquivos.map((nome, k) => ({ nome, registro: registros[k] }))) : null;
+if (e4 && !comoJson) {
+  console.log('\nE4: novatos e veteranos');
+  for (const c of e4.criterios) console.log(`  ${c.nome}: ${c.texto} (meta ${c.meta}) ${marca(c.passou)}`);
+  if (e4.semGrupo.length > 0) console.log(`  sem grupo no nome (novato-... ou veterano-...): ${e4.semGrupo.join(', ')}`);
+}
+
 const invalido = individuais.some(r => !r.valido);
-const reprovado = (individuais.length > 1 ? resumo : individuais[0]?.criterios ?? []).some(c => c.passou === false);
+const reprovado = (individuais.length > 1 ? resumo : individuais[0]?.criterios ?? []).some(c => c.passou === false) || (e4?.criterios ?? []).some(c => c.passou === false);
 process.exit(invalido ? 2 : reprovado ? 1 : 0);

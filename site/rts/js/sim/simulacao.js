@@ -23,6 +23,7 @@ import { avancarProducao, comandoProduzir, comandoPesquisar, comandoCancelar, co
 import { atualizarFantasmas } from './fantasmas.js';
 import { aplicarMudancasDaGrade } from './pegadas.js';
 import { classificarEntidades } from './listas.js';
+import { conduzirEquipes } from './equipes.js';
 
 export { FP_BITS, FP, PASSOS_POR_SEGUNDO };
 
@@ -277,6 +278,7 @@ export function passo(sim) {
   classificarEntidades(sim);
   aplicarComandos(sim);
   passoDaMissao(sim);
+  conduzirEquipes(sim, aplicarComando);
   avancarEconomia(sim);
   avancarObras(sim);
   atualizarRede(sim);
