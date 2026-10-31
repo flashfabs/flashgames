@@ -137,20 +137,20 @@ const fonteDeComandos = {
 };
 const ordens = criarOrdens({ simulacao: fonteDeComandos, estado, efeitos, fila, som, latencia });
 
-// Building placement: the ghost goes to the renderer when it has one, else to the SVG layer; the network area is
-// shaded while placing and follows the snapshots (poles built or cut).
+// Building placement: the renderer draws the ghost and shades the network area while placing, which follows the
+// snapshots (poles built or cut).
 let fantasma = null;
 let areaDeConstrucao = null;
 function atualizarArea() {
   areaDeConstrucao = colocacao.ativa ? areaDaRede(estado.mapa, estado.atual, catalogo, estado.jogadorLocal) : null;
-  render.definirAreaDeConstrucao?.(areaDeConstrucao);
+  render.definirAreaDeConstrucao(areaDeConstrucao);
 }
 const colocacao = criarColocacao({
   validar: (tipo, cx, cy) => regraDaPagina({ mapa: estado.mapa, retrato: estado.atual, catalogo, area: areaDeConstrucao }, tipo, cx, cy),
   desenhar(novo) {
     const comecou = novo && !fantasma;
     fantasma = novo;
-    render.definirFantasma?.(novo);
+    render.definirFantasma(novo);
     if (comecou || !novo) atualizarArea();
   },
 });
@@ -282,7 +282,7 @@ function encontros() {
   return linhas;
 }
 const objetivos = criarObjetivos({ raiz: document.getElementById('objetivos'), objetivos: arquivosDaPartida?.missao.objetivos ?? [], texto });
-const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, fantasma: () => (render.definirFantasma ? null : fantasma), encontros });
+const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, encontros });
 const minimapa = criarMinimapa({
   minimapa: document.getElementById('minimapa'),
   camera,
