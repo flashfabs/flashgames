@@ -144,6 +144,7 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
       desenharSlot(botao, slot, i);
       if (slot?.acao) botao.setAttribute('aria-pressed', String(controles.modo === slot.acao));
       else if (slot?.modo === 'habilidade') botao.setAttribute('aria-pressed', String(slot.ativa || controles.habilidadeArmada === slot.habilidade.codigo));
+      else if (slot?.modo === 'reparar') botao.setAttribute('aria-pressed', String(controles.reparoArmado));
       else botao.removeAttribute('aria-pressed');
     });
     for (const botao of utilidades.querySelectorAll('[data-acao]')) botao.setAttribute('aria-pressed', String(botao.dataset.acao === ACAO.PAUSAR && controles.pausado));
@@ -162,11 +163,11 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
         : controles.modo === 'colocar'
           ? texto('hud.posicionar', { nome: catalogo().nome(controles.colocando ?? -1) })
           : controles.modo === 'habilidade'
-            ? 'Clique no alvo; Shift mantém para outro; Esc ou clique direito cancela.'
+            ? texto(controles.reparoArmado ? 'hud.modo_reparar' : 'hud.modo_alvo')
           : modo
-            ? `Clique no chão para ${modo}; Shift mantém para enfileirar; Esc ou clique direito cancela.`
+            ? texto('hud.modo_chao', { modo })
             : guardarNoProximo
-              ? 'Toque no número do grupo para guardar a seleção.'
+              ? texto('hud.guardar_grupo')
               : selecionadas.size === 0
                 ? texto('hud.nada_selecionado')
                 : selecionadas.size === 1

@@ -27,9 +27,9 @@ const LIVRES_NA_UNIDADE = Object.freeze([1, 2, 7]);
  * @property {number} slot          0..7
  * @property {string} [acao]        ACAO.* for unit orders
  * @property {string} [texto]       text id of the label (unit orders)
- * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'|'habilidade'|'pagina'} [modo]
+ * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'|'habilidade'|'reparar'|'pagina'} [modo]
  * @property {import('./catalogo.js').Habilidade} [habilidade] modo 'habilidade'
- * @property {number[]} [unidades]  modo 'habilidade': the selected units that have it
+ * @property {number[]} [unidades]  modo 'habilidade' or 'reparar': the selected units that have it
  * @property {boolean} [ativa]      modo 'habilidade': a toggle that is on (the basket raised)
  * @property {number} [tipo]        kind to train, build or raise (-1 for research)
  * @property {number} [pesquisa]    research index (modo 'pesquisar')
@@ -63,6 +63,12 @@ export function montarCartao({ selecao, catalogo, producao, carga, lotacao, pagi
       const slot = livres.shift();
       const custo = catalogo.info(tipo).custo;
       slots[slot] = { slot, modo: 'erguer', tipo, custo, quantidade: 0, progresso: -1, falta: carga < custo ? 'carga' : null };
+    }
+    // Repair (REPARAR) aims at what to fix, like an ability with a target; only the units that repair get it.
+    const reparadores = unidades.filter(e => catalogo.info(e.tipo).repara).map(e => e.id);
+    if (reparadores.length && livres.length) {
+      const slot = livres.shift();
+      slots[slot] = { slot, modo: 'reparar', unidades: reparadores, texto: 'comando.reparar' };
     }
     // Abilities of the selected kinds, one place each; the units that have it are who the command goes to.
     const porCodigo = new Map();

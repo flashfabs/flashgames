@@ -28,7 +28,7 @@ import { criarBarraDeComandos, RAZAO_DO_MOTIVO } from './interface/comandos.js';
 import { criarSobreposicao } from './interface/sobreposicao.js';
 import { carregarTextos } from './interface/textos.js';
 import { carregarPartida } from './interface/partida.js';
-import { criarCatalogo, catalogoDoMapa } from './interface/catalogo.js';
+import { criarCatalogo, catalogoDoMapa, estruturasPorReparo } from './interface/catalogo.js';
 import { montarCartao } from './interface/cartao.js';
 import { criarLeitura } from './interface/leitura.js';
 import { criarAlertas, ALERTA, ALERTAS_DE_PERIGO } from './interface/alertas.js';
@@ -368,7 +368,7 @@ simulacao.iniciar({
   ...(arquivosDaPartida && { dados: arquivosDaPartida.dados, partida: { missao: arquivosDaPartida.missao, ...arquivosDaPartida.mapa }, dificuldade: opcoes.dificuldade }),
   ...(Number.isInteger(opcoes.carga) && { cargaInicial: opcoes.carga }),
   aoReceberMapa(mapa) {
-    catalogo = catalogoDoMapa(mapa, texto, arquivosDaPartida?.dados.unidades.unidades ?? []);
+    catalogo = catalogoDoMapa(mapa, texto, arquivosDaPartida?.dados.unidades.unidades ?? [], { porReparo: estruturasPorReparo(arquivosDaPartida?.missao, arquivosDaPartida?.mapa.entidades) });
     comecarRegistro(mapa);
     menu.marcarPronto();
     render.definirMapa(mapa);
