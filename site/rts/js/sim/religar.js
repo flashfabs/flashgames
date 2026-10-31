@@ -1,9 +1,9 @@
 // Re-powering dead structures: a unit whose kind has `religa` standing by a structure whose kind has `religavel`
 // builds up progress for its team, one tick per tick while it is there (the count pauses when it leaves, and a unit of
-// another team first winds the other team's progress back); at the structure's time (`tempoReligar` in seconds, or what
-// the mission set) the structure changes hands. A re-powered structure that is destroyed goes dead again (back to the
-// neutral side, healed) instead of disappearing, so it can be taken again. The neutral side is opcoes.timeNeutro.
-import { EVENTO, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO } from './contratos.js';
+// another team first winds the other team's progress back); at the structure's time (its kind's `tempoReligar` in
+// ticks, or what the mission set) the structure changes hands. A re-powered structure that is destroyed goes dead
+// again (back to the neutral side, DONO_NEUTRO, healed) instead of disappearing, so it can be taken again.
+import { EVENTO, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, DONO_NEUTRO } from './contratos.js';
 import { slotVivo, emitirEvento } from './entidades.js';
 import { atualizarNeblina } from './neblina.js';
 import { ordenarGrupo, limparOrdens } from './ordens.js';
@@ -13,9 +13,8 @@ export const HABILIDADE_RELIGAR = 1;
 // a unit works on a structure within the structure's radius plus this distance
 const ALCANCE_RELIGAR = (3 * FP) >> 1;
 const SEM_TIME = 255;
-
-/** The neutral side's team, or -1 when the match has none. */
-export const timeNeutroDe = sim => sim.opcoes?.timeNeutro ?? -1;
+// a re-powerable kind with no time of its own
+const TEMPO_PADRAO = 30 * PASSOS_POR_SEGUNDO;
 
 /**
  * Re-powering state, only typed arrays, in sim.extras.religar: per structure slot the progress in ticks, the team it
@@ -50,13 +49,14 @@ function registro(sim, ex, j) {
 }
 
 const religavel = (sim, j) => sim.tipos[sim.tipo[j]].religavel === 1;
-const religa = (sim, i) => sim.tipos[sim.tipo[i]].religa === 1;
+// compiled kinds carry it in extras (dados.js); the prototype's form at the top
+const religa = (sim, i) => (sim.tipos[sim.tipo[i]].extras?.religa ?? sim.tipos[sim.tipo[i]].religa) === 1;
 
 /** Ticks of work structure j needs. */
 export function tempoParaReligar(sim, j) {
   const ex = extrasReligar(sim);
   registro(sim, ex, j);
-  return ex.tempo[j] > 0 ? ex.tempo[j] : Math.max(1, (sim.tipos[sim.tipo[j]].tempoReligar ?? 30) * PASSOS_POR_SEGUNDO);
+  return ex.tempo[j] > 0 ? ex.tempo[j] : sim.tipos[sim.tipo[j]].tempoReligar || TEMPO_PADRAO;
 }
 
 /** Mission override of how long structure j takes, in ticks. */
@@ -116,14 +116,13 @@ export function ordenarReligar(sim, unidades, alvoId) {
 
 /** What a destroyed re-powerable structure does instead of dying: back to the neutral side, healed. */
 export function desligar(sim, j) {
-  const neutro = timeNeutroDe(sim);
-  if (neutro < 0 || !religavel(sim, j)) return false;
+  if (!religavel(sim, j)) return false;
   sim.vida[j] = sim.tipos[sim.tipo[j]].vida;
   const ex = extrasReligar(sim);
   registro(sim, ex, j);
   ex.progresso[j] = 0;
   ex.progressoTime[j] = SEM_TIME;
-  trocarDono(sim, j, neutro);
+  trocarDono(sim, j, DONO_NEUTRO);
   return true;
 }
 

@@ -90,7 +90,7 @@ test('the validator converts design units and rejects what is not an integer rul
   assert.equal(r.matriz[0 * 4 + 2], 25, 'bullet against heavy armour');
   assert.equal(r.matriz[1 * 4 + 2], 150, 'piercing against heavy armour');
   assert.equal(r.cobertura[COBERTURA.NENHUMA * 4 + 0], 100);
-  assert.equal(r.cobertura[COBERTURA.RUINA * 4 + 0], 60);
+  assert.equal(r.cobertura[COBERTURA.RUINA * 4 + 0], 75);
   const errado = mudanca => assert.throws(() => validarRegrasCombate({ ...ARMAS, ...mudanca }), /armas inválidas/);
   errado({ matriz: { ...ARMAS.matriz, bala: [100, 60, 20, 25] } });
   errado({ matriz: { ...ARMAS.matriz, pane: [25, 100, 75] } });
@@ -148,9 +148,10 @@ test('cover protects personal armour only, by damage kind', () => {
       { tipo: CESTO, time: 1, x: meio(12), y: meio(14) },
     ],
   });
-  assert.equal(calcularDano(sim, 0, 100, 0, 1), 60, 'bullet into ruins');
-  assert.equal(calcularDano(sim, 0, 100, 0, 2), 80, 'bullet into brush');
-  assert.equal(calcularDano(sim, 2, 100, 0, 1), 93, 'explosive into ruins: 125% then 75%');
+  assert.equal(calcularDano(sim, 0, 100, 0, 1), 75, 'bullet into ruins');
+  assert.equal(calcularDano(sim, 0, 100, 0, 2), 85, 'bullet into brush');
+  assert.equal(calcularDano(sim, 1, 100, 0, 1), 34, 'piercing into ruins: 40% then 85%');
+  assert.equal(calcularDano(sim, 2, 100, 0, 1), 125, 'explosive ignores cover');
   assert.equal(calcularDano(sim, 1, 100, 0, 3), 150, 'a vehicle in ruins has no cover');
 });
 

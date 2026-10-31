@@ -4,50 +4,50 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { criarSimulacao, passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
 import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, E_ARG, E_X, E_Y, idDe } from '../site/rts/js/sim/contratos.js';
-import { CLASSE } from '../site/rts/js/sim/dados.js';
+import { compilarDados } from '../site/rts/js/sim/dados.js';
 import { REGRAS_COMBATE_PADRAO } from '../site/rts/js/sim/armas.js';
 import { compilarMissao, textosDaMissao, rotulosDaMissao, cenasDaMissao, extrasMissao, rotular, resultadoDaMissao, temRotulo, RESULTADO, ESTADO_OBJETIVO, INTERVALO_GATILHOS } from '../site/rts/js/sim/gatilhos.js';
 import { tipoLiberado, pesquisaFeita } from '../site/rts/js/sim/pesquisas.js';
 import { tempoParaReligar, ordenarReligar } from '../site/rts/js/sim/religar.js';
 
-const ARMAS = { ...REGRAS_COMBATE_PADRAO, armas: [{ nome: 'carabina', tipoDano: 'bala', dano: 10, recargaMs: 1000, alcance: 40 }, { nome: 'estilingue', tipoDano: 'bala', dano: 6, recargaMs: 1000, alcance: 40 }] };
-const celulasPorSegundo = decimos => Math.trunc((decimos * FP) / 300);
-const BASE = { giroCorpo: 16, giroTorre: 16, coletor: 0, alcance: 0, dano: 0, recarga: 30 };
-const TIPOS = [
-  { nome: 'turma', velocidade: celulasPorSegundo(12), vida: 100, raio: 160, visao: 7, classe: CLASSE.INFANTARIA, ...BASE },
-  { nome: 'rolima', velocidade: celulasPorSegundo(30), vida: 60, raio: 200, visao: 7, classe: CLASSE.VEICULO, ...BASE },
-  { nome: 'escritorio', velocidade: 1, vida: 600, raio: 700, visao: 6, classe: CLASSE.VEICULO_GRANDE, ...BASE },
-  { nome: 'guincho', velocidade: celulasPorSegundo(16), vida: 400, raio: 300, visao: 5, classe: CLASSE.VEICULO, ...BASE, coletor: 1 },
-  { nome: 'almoxarifado', velocidade: 1, vida: 800, raio: 700, visao: 5, classe: CLASSE.VEICULO_GRANDE, ...BASE },
-  { nome: 'religador', velocidade: celulasPorSegundo(12), vida: 120, raio: 160, visao: 7, classe: CLASSE.INFANTARIA, ...BASE },
-];
-const COMBATE = [
-  { arma: 'carabina', blindagem: 'pessoal', custo: 100 },
-  { arma: 'estilingue', blindagem: 'leve', custo: 200 },
-  { arma: null, blindagem: 'estrutura', custo: 1000 },
-  { arma: null, blindagem: 'leve', custo: 300 },
-  { arma: null, blindagem: 'estrutura', custo: 800, religavel: 1, tempoReligar: 20 },
-  { arma: null, blindagem: 'pessoal', custo: 300, religa: 1 },
-];
-const PESQUISAS = { versao: 1, pesquisas: [{ nome: 'cabo-reforcado', custo: 0, tempoSegundos: 10, predio: 'almoxarifado', efeitos: [{ efeito: 'libera', tipos: ['guincho'] }] }] };
+// game data in the design front's file formats (C5)
+const infantaria = { classe: 'infantaria', blindagem: 'pessoal', lotacao: 1, raio: 2, giroCorpo: 16, giroTorre: 16, tempoMs: 12000 };
+const DADOS = {
+  unidades: {
+    versao: 1,
+    unidades: [
+      { nome: 'turma', faccao: 'religadores', ...infantaria, custo: 100, vida: 100, velocidade: 120, visao: 7, arma: 'carabina' },
+      { nome: 'rolima', faccao: 'desligados', classe: 'veiculo', blindagem: 'leve', lotacao: 2, raio: 2, giroCorpo: 16, giroTorre: 16, tempoMs: 15000, custo: 200, vida: 60, velocidade: 300, visao: 7, arma: 'estilingue' },
+      { nome: 'guincho', faccao: 'religadores', classe: 'veiculo', blindagem: 'leve', lotacao: 2, raio: 3, giroCorpo: 8, giroTorre: 8, tempoMs: 20000, custo: 300, vida: 400, velocidade: 160, visao: 5, coletor: 1, coleta: { carga: 100, carregarMs: 4000, descarregarMs: 2000, recolherFaiscaMs: 2000 } },
+      { nome: 'religador', faccao: 'religadores', ...infantaria, custo: 300, vida: 120, velocidade: 120, visao: 7, religa: 1 },
+    ],
+  },
+  predios: {
+    versao: 1,
+    predios: [
+      { nome: 'escritorio', faccao: 'religadores', pegada: [1, 1], custo: 1000, tempoMs: 60000, vida: 600, visao: 6 },
+      { nome: 'almoxarifado', faccao: 'neutro', pegada: [1, 1], custo: 800, tempoMs: 30000, vida: 800, visao: 5, religavel: 1, tempoReligarMs: 20000 },
+    ],
+  },
+  armas: { ...REGRAS_COMBATE_PADRAO, armas: [{ nome: 'carabina', tipoDano: 'bala', dano: 10, recargaMs: 1000, alcance: 40 }, { nome: 'estilingue', tipoDano: 'bala', dano: 6, recargaMs: 1000, alcance: 40 }] },
+  pesquisas: { versao: 1, pesquisas: [{ nome: 'cabo-reforcado', predio: 'almoxarifado', custo: 0, tempoMs: 10000, efeito: { efeito: 'libera', tipos: ['guincho'] } }] },
+};
+const TIPOS = compilarDados(DADOS).tipos;
+// kinds: the units in file order, then the buildings
+const [TURMA, ROLIMA, GUINCHO, RELIGADOR, ESCRITORIO, ALMOXARIFADO] = [0, 1, 2, 3, 4, 5];
 
-/** A match on an open 64x64 map with the mission, explicit units in cells and the combat fields on the kinds. */
-function partida(missao, { unidades = [], dificuldade, lugares, timeNeutro } = {}) {
-  const sim = criarSimulacao({
+/** A match on an open 64x64 map with the mission and explicit units in cells. */
+function partida(missao, { unidades = [], dificuldade, lugares } = {}) {
+  return criarSimulacao({
     mapa: { largura: 64, altura: 64, bases: [{ x: 32, y: 54 }, { x: 32, y: 6 }] },
-    tipos: TIPOS,
-    armas: ARMAS,
-    pesquisas: PESQUISAS,
+    dados: DADOS,
     missao,
     lugares,
     dificuldade,
-    timeNeutro,
     regras: REGRAS_LIVRES,
     capacidade: 200,
     unidades: unidades.map(u => ({ direcao: 0, ...u, x: Math.trunc(u.x * FP), y: Math.trunc(u.y * FP), time: u.time })),
   });
-  sim.tipos = Object.freeze(TIPOS.map((tipo, t) => Object.freeze({ ...tipo, ...COMBATE[t] })));
-  return sim;
 }
 
 const meio = n => n + 1 / 2;
@@ -171,10 +171,10 @@ test('count, alive, owner, health and seen conditions read the entities', () => 
   );
   const sim = partida(m, {
     unidades: [
-      { tipo: 0, time: 0, x: meio(10), y: meio(50) },
-      { tipo: 0, time: 0, x: meio(12), y: meio(50) },
-      { tipo: 2, time: 1, x: meio(30), y: meio(10) }, // posto
-      { tipo: 4, time: 1, x: meio(50), y: meio(50) }, // torre
+      { tipo: TURMA, time: 0, x: meio(10), y: meio(50) },
+      { tipo: TURMA, time: 0, x: meio(12), y: meio(50) },
+      { tipo: ESCRITORIO, time: 1, x: meio(30), y: meio(10) }, // posto
+      { tipo: ALMOXARIFADO, time: 1, x: meio(50), y: meio(50) }, // torre
     ],
   });
   rotular(sim, 2, 'posto');
@@ -200,7 +200,7 @@ test('count, alive, owner, health and seen conditions read the entities', () => 
   // a third turma of player 0 appears in a recycled slot; the old label does not stick to it
   sim.ativo[2] = 1;
   sim.geracao[2]++;
-  sim.tipo[2] = 0;
+  sim.tipo[2] = TURMA;
   sim.time[2] = 0;
   avaliacoes(sim, 1);
   assert.equal(v()[0], 1, 'contagem by kind and player');
@@ -218,7 +218,7 @@ test('economy, idle player and research conditions', () => {
       ],
       { variaveis: { marca: 0, c: 0, p: 0, q: 0 } },
     ),
-    { unidades: [{ tipo: 3, time: 0, x: meio(10), y: meio(50) }] },
+    { unidades: [{ tipo: GUINCHO, time: 0, x: meio(10), y: meio(50) }] },
   );
   // the economy front's arrays, as the conditions read them
   sim.recursos = new Int32Array([500, 0]);
@@ -305,15 +305,15 @@ test('spawning, orders, attack, owner, destruction, veterancy, unlocks, research
     assert.equal(sim.ordens.filaTamanho[i], 2, 'the rest of the route is queued');
   }
   for (const i of defesa) assert.equal(sim.segurando[i], 1);
-  assert.equal(tipoLiberado(sim, 0, 0), false, 'bloquear');
+  assert.equal(tipoLiberado(sim, 0, TURMA), false, 'bloquear');
   assert.equal(sim.neblina.explorado[0][2 * 64 + 2], 1, 'revelar');
   assert.ok(pesquisaFeita(sim, 0, 0), 'pesquisa');
-  assert.equal(tipoLiberado(sim, 0, 3), true, 'the research unlocked the harvester');
+  assert.equal(tipoLiberado(sim, 0, GUINCHO), true, 'the research unlocked the harvester');
   assert.equal(tempoParaReligar(sim, defesa[0]), 7 * 30, 'religavel');
   while (sim.tick < 31) passo(sim);
   for (const i of defesa) assert.equal(sim.time[i], 1, 'dono');
   for (const i of onda) assert.equal(sim.ativo[i], 0, 'destruir');
-  assert.equal(tipoLiberado(sim, 0, 0), true, 'liberar');
+  assert.equal(tipoLiberado(sim, 0, TURMA), true, 'liberar');
   while (sim.tick < 70) passo(sim);
   assert.equal(ex.variaveis[0], 0, 'a trigger turned off never fires');
 });
@@ -328,12 +328,11 @@ test('re-powering and attack orders driven by the mission', () => {
     { variaveis: { marca: 0, r: 0, d: 0 } },
   );
   const sim = partida(m, {
-    timeNeutro: 2,
     unidades: [
-      { tipo: 4, time: 2, x: meio(40), y: meio(40) },
-      { tipo: 5, time: 0, x: meio(39), y: meio(41) },
-      { tipo: 0, time: 0, x: meio(10), y: meio(10) },
-      { tipo: 2, time: 1, x: meio(10), y: meio(30) },
+      { tipo: ALMOXARIFADO, time: 2, x: meio(40), y: meio(40) },
+      { tipo: RELIGADOR, time: 0, x: meio(39), y: meio(41) },
+      { tipo: TURMA, time: 0, x: meio(10), y: meio(10) },
+      { tipo: ESCRITORIO, time: 1, x: meio(10), y: meio(30) },
     ],
   });
   rotular(sim, 0, 'torre');
@@ -394,8 +393,8 @@ const CAIXA_DE_AREIA = {
 };
 
 function caixaDeAreia(defensores) {
-  const unidades = [{ tipo: 2, time: 0, x: meio(32), y: meio(54) }];
-  for (let k = 0; k < defensores; k++) unidades.push({ tipo: 0, time: 0, x: meio(28 + k), y: meio(50) });
+  const unidades = [{ tipo: ESCRITORIO, time: 0, x: meio(32), y: meio(54) }];
+  for (let k = 0; k < defensores; k++) unidades.push({ tipo: TURMA, time: 0, x: meio(28 + k), y: meio(50) });
   return partida(CAIXA_DE_AREIA, { unidades });
 }
 
@@ -407,7 +406,7 @@ test('sandbox: the scripted waves attack after their warnings and the defended b
   assert.equal(ex.variaveis[0], 3, 'three waves came');
   assert.equal(vistos.filter(e => e[E_TIPO] === EVENTO.SURGIMENTO).length, 3 + 4 + 6);
   // TIRO carries the shooter's kind: the rolimas are the waves
-  assert.ok(vistos.some(e => e[E_TIPO] === EVENTO.TIRO && e[E_ARG] === 1), 'the waves fired at the base');
+  assert.ok(vistos.some(e => e[E_TIPO] === EVENTO.TIRO && e[E_ARG] === ROLIMA), 'the waves fired at the base');
   assert.equal(resultadoDaMissao(sim)[0], RESULTADO.VITORIA);
   assert.equal(vistos.filter(e => e[E_TIPO] === EVENTO.VITORIA).length, 1);
   assert.equal(ex.objetivos[0], ESTADO_OBJETIVO.CUMPRIDO);
