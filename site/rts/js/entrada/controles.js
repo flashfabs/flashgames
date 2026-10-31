@@ -1,9 +1,11 @@
 // Mouse, trackpad and keyboard on the battlefield: selection (click, box, Shift, double click by kind), orders (context
 // click, A, M or R and a click, S, H, Shift for the queue), the command card (Q W E R A S D F), placing buildings,
-// rally points, control groups, camera (screen edges, arrows, middle button or Space and drag, two-finger scroll) and
-// the three zoom levels (wheel, pinch, + and −).
+// repair and abilities aimed at a target, rally points, control groups, camera (screen edges, arrows, middle button or
+// Space and drag, two-finger scroll) and the three zoom levels (wheel, pinch, + and −). While the mission's scripted
+// camera moves (cameraTravada), edges, arrows, drag and wheel leave the camera alone; jumps of the player (a group
+// recalled) let go of it (soltarCamera).
 // The on-screen buttons call executar() and executarSlot(), so every command works without the keyboard.
-import { FP, SEM_ENTIDADE, DONO_NEUTRO, VISAO } from '../sim/contratos.js';
+import { FP, SEM_ENTIDADE, DONO_NEUTRO, VISAO, BANDEIRA } from '../sim/contratos.js';
 import { HABILIDADE } from '../interface/catalogo.js';
 import { ACAO, ACOES_COM_ALVO, SETAS, E_MAC, acaoDaTecla, modificadores } from './teclas.js';
 import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO, RAIO_DO_CLIQUE } from './selecao.js';
@@ -26,6 +28,8 @@ const LOTE_COM_SHIFT = 5;
 /** Placing a building is a mode of its own, next to the order modes of ACOES_COM_ALVO; so is aiming an ability. */
 const MODO_COLOCAR = 'colocar';
 const MODO_HABILIDADE = 'habilidade';
+/** Retrato.vida of an entity at full health. */
+const VIDA_CHEIA = 255;
 
 export function ligarControles({
   canvas,
@@ -50,12 +54,14 @@ export function ligarControles({
   bloqueado = () => false,
   roda = 'auto',
   aoMudar = () => {},
+  cameraTravada = () => false,
+  soltarCamera = () => {},
 }) {
   const setas = new Set();
   let espaco = false;
   let arrasto = null;
   let modo = null; // ACAO.ATACAR_MOVENDO, MOVER or PATRULHAR waiting for a click, MODO_COLOCAR or MODO_HABILIDADE
-  let armada = null; // the ability waiting for its target: { habilidade, unidades }
+  let armada = null; // the ability or repair waiting for its target: { habilidade, unidades } or { reparar: true, unidades }
   let modoComFila = false;
   let ultimoClique = null;
   let pausado = false;
@@ -149,7 +155,7 @@ export function ligarControles({
   /** What is under the pointer for a context order: a visible enemy, a resource node, or nothing. */
   function alvoSob(clienteX, clienteY) {
     const atual = estado.atual;
-    if (!atual) return { inimigo: SEM_ENTIDADE, recurso: SEM_ENTIDADE, estrutura: SEM_ENTIDADE, qualquer: SEM_ENTIDADE };
+    if (!atual) return { inimigo: SEM_ENTIDADE, recurso: SEM_ENTIDADE, estrutura: SEM_ENTIDADE, qualquer: SEM_ENTIDADE, ferido: SEM_ENTIDADE };
     const jogador = estado.jogadorLocal;
     const ver = j => visivel(atual.x[j] / FP, atual.y[j] / FP);
     // Piles and neutral structures stay where they were seen; enemies count only while visible.
@@ -157,8 +163,10 @@ export function ligarControles({
     const estrutura = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().categoria(atual.tipo[j]) === 'estrutura' && jaVista(j), raioDe);
     const inimigo = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== jogador && atual.dono[j] !== DONO_NEUTRO && !cat().ehRecurso(atual.tipo[j]) && ver(j), raioDe);
     const qualquer = entidadeNoPonto(atual, projetar, clienteX, clienteY, ver, raioDe);
+    // A unit or finished building of the player's that lost health: what repair units fix.
+    const ferido = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] === jogador && atual.vida[j] < VIDA_CHEIA && !(atual.bandeiras[j] & BANDEIRA.EM_OBRA), raioDe);
     const id = k => (k < 0 ? SEM_ENTIDADE : atual.id[k]);
-    return { inimigo: id(inimigo), recurso: id(recurso), estrutura: id(estrutura), qualquer: id(qualquer) };
+    return { inimigo: id(inimigo), recurso: id(recurso), estrutura: id(estrutura), qualquer: id(qualquer), ferido: id(ferido) };
   }
 
   function entrarModo(acao) {
@@ -198,12 +206,25 @@ export function ligarControles({
       if (deles.length) ordens.encontro(deles, noChao, alvo.qualquer, e.timeStamp);
       return;
     }
-    // Units that bring structures back go to a neutral structure under the pointer; the others just move there.
+    // Units that bring structures back go to a neutral structure under the pointer (repair units to one the mission
+    // lets them repair); the others just move there.
     if (alvo.estrutura !== SEM_ENTIDADE) {
-      const religam = ids.filter(id => cat().info(indice.tipo(id)).habilidade?.codigo === HABILIDADE.RELIGAR);
+      const porReparo = cat().porReparo(indice.tipo(alvo.estrutura));
+      const religam = ids.filter(id => (porReparo ? cat().repara(indice.tipo(id)) : cat().info(indice.tipo(id)).habilidade?.codigo === HABILIDADE.RELIGAR));
       if (religam.length) {
-        ordens.habilidade(religam, HABILIDADE.RELIGAR, alvo.estrutura, noChao, e.shiftKey, e.timeStamp);
+        if (porReparo) ordens.reparar(religam, alvo.estrutura, noChao, e.shiftKey, e.timeStamp);
+        else ordens.habilidade(religam, HABILIDADE.RELIGAR, alvo.estrutura, noChao, e.shiftKey, e.timeStamp);
         const resto = ids.filter(id => !religam.includes(id));
+        if (resto.length) ordens.deContexto(resto, noChao, SEM_ENTIDADE, e.shiftKey, e.timeStamp);
+        return;
+      }
+    }
+    // Repair units on a damaged unit or building of the player's repair it; the others move there.
+    if (alvo.ferido !== SEM_ENTIDADE && alvo.inimigo === SEM_ENTIDADE) {
+      const reparadores = ids.filter(id => id !== alvo.ferido && cat().repara(indice.tipo(id)));
+      if (reparadores.length) {
+        ordens.reparar(reparadores, alvo.ferido, noChao, e.shiftKey, e.timeStamp);
+        const resto = ids.filter(id => !reparadores.includes(id));
         if (resto.length) ordens.deContexto(resto, noChao, SEM_ENTIDADE, e.shiftKey, e.timeStamp);
         return;
       }
@@ -252,10 +273,26 @@ export function ligarControles({
 
   // ---------- abilities ----------
 
-  /** The click that gives an aimed ability its target: a neutral structure or an enemy building under the pointer. */
+  /**
+   * The click that gives an aimed ability its target: a neutral structure or an enemy building under the pointer; for
+   * repair, a damaged unit or building of the player's or a structure the mission lets repair units bring back.
+   */
   function usarHabilidade(e) {
-    const { habilidade, unidades: deles } = armada;
     const alvo = alvoSob(e.clientX, e.clientY);
+    if (armada.reparar) {
+      const estrutura = alvo.estrutura !== SEM_ENTIDADE && cat().porReparo(indice.tipo(alvo.estrutura)) ? alvo.estrutura : SEM_ENTIDADE;
+      const deles = armada.unidades.filter(id => id !== alvo.ferido);
+      const id = estrutura !== SEM_ENTIDADE ? estrutura : alvo.ferido;
+      if (id === SEM_ENTIDADE || deles.length === 0) {
+        som.tocar('recusa');
+        return;
+      }
+      ordens.reparar(deles, id, ponto(e.clientX, e.clientY), e.shiftKey, e.timeStamp);
+      if (e.shiftKey) modoComFila = true;
+      else cancelarModo();
+      return;
+    }
+    const { habilidade, unidades: deles } = armada;
     const id = habilidade.alvo === 'estrutura' ? alvo.estrutura : alvo.inimigo !== SEM_ENTIDADE && cat().ehPredio(indice.tipo(alvo.inimigo)) ? alvo.inimigo : SEM_ENTIDADE;
     if (id === SEM_ENTIDADE) {
       som.tocar('recusa');
@@ -277,7 +314,10 @@ export function ligarControles({
     aplicarSelecao(selecionadas, membros, 'trocar');
     if (centralizar) {
       const centro = indice.centro(membros);
-      if (centro) Object.assign(camera, { x: centro.x, y: centro.y });
+      if (centro) {
+        soltarCamera();
+        Object.assign(camera, { x: centro.x, y: centro.y });
+      }
     }
     som.tocar('selecao');
   }
@@ -337,6 +377,15 @@ export function ligarControles({
       som.tocar('clique');
       return true;
     }
+    if (slot.modo === 'reparar') {
+      // Repair waits for the click on what to fix.
+      colocacao.terminar();
+      modo = MODO_HABILIDADE;
+      modoComFila = false;
+      armada = { reparar: true, unidades: slot.unidades };
+      avisar();
+      return true;
+    }
     if (slot.modo === 'habilidade') {
       // A toggle goes at once; an ability with a target waits for the click on it.
       if (slot.habilidade.alvo === null) {
@@ -370,6 +419,7 @@ export function ligarControles({
     const contexto = e.button === 2 || (E_MAC && e.button === 0 && e.ctrlKey);
     if (e.button === 1 || (e.button === 0 && espaco)) {
       e.preventDefault();
+      if (cameraTravada()) return;
       arrasto = { pan: true, x: e.clientX, y: e.clientY };
       canvas.setPointerCapture(e.pointerId);
       return;
@@ -457,7 +507,7 @@ export function ligarControles({
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    if (bloqueado()) return;
+    if (bloqueado() || cameraTravada()) return;
     if (e.ctrlKey) {
       // Safari may send the same pinch as gesture events too; while a gesture runs it wins.
       if (e.timeStamp > gestoAte) zoom.pinca(e.deltaY, e.timeStamp, e.clientX, e.clientY);
@@ -550,6 +600,10 @@ export function ligarControles({
     if (estado.atual && podarSelecao(selecionadas, indice.existe)) aoMudar();
     let dx = 0;
     let dy = 0;
+    if (cameraTravada()) {
+      prenderCamera();
+      return;
+    }
     for (const code of setas) {
       dx += SETAS[code][0];
       dy += SETAS[code][1];
@@ -565,10 +619,14 @@ export function ligarControles({
       camera.x += Math.sign(dx) * v;
       camera.y += Math.sign(dy) * v;
     }
-    if (estado.mapa) {
-      camera.x = Math.min(Math.max(camera.x, 0), estado.mapa.largura);
-      camera.y = Math.min(Math.max(camera.y, 0), estado.mapa.altura);
-    }
+    prenderCamera();
+  }
+
+  /** Keeps the camera's centre on the map. */
+  function prenderCamera() {
+    if (!estado.mapa) return;
+    camera.x = Math.min(Math.max(camera.x, 0), estado.mapa.largura);
+    camera.y = Math.min(Math.max(camera.y, 0), estado.mapa.altura);
   }
 
   return {
@@ -596,7 +654,11 @@ export function ligarControles({
     },
     /** Code of the ability waiting for its target, or 0. */
     get habilidadeArmada() {
-      return armada?.habilidade.codigo ?? 0;
+      return armada?.habilidade?.codigo ?? 0;
+    },
+    /** Whether repair is waiting for its target. */
+    get reparoArmado() {
+      return Boolean(armada?.reparar);
     },
     /** Kind of the building being placed, or -1. */
     get colocando() {

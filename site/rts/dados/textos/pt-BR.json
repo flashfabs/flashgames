@@ -313,6 +313,10 @@
     "alerta.morro_onda_ponte": "Ataque a caminho pela Ponte Velha",
     "alerta.morro_onda_sul": "Ataque a caminho pela estrada do sul",
     "alerta.morro_onda_final_varzea": "Ataque final a caminho pela Várzea",
-    "alerta.morro_onda_final_desfiladeiro": "Ataque final a caminho pelo desfiladeiro"
+    "alerta.morro_onda_final_desfiladeiro": "Ataque final a caminho pelo desfiladeiro",
+    "hud.modo_alvo": "Clique no alvo; Shift mantém para outro; Esc ou clique direito cancela.",
+    "hud.modo_reparar": "Clique na unidade, no prédio ou na estrutura a reparar; Shift mantém para outro; Esc ou clique direito cancela.",
+    "hud.modo_chao": "Clique no chão para {modo}; Shift mantém para enfileirar; Esc ou clique direito cancela.",
+    "hud.guardar_grupo": "Toque no número do grupo para guardar a seleção."
   }
 }

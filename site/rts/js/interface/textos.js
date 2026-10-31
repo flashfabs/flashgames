@@ -84,6 +84,11 @@ export const PROVISORIOS = Object.freeze({
   'comando.ponto_encontro': 'Ponto de encontro',
   'comando.coletar': 'Coletar',
   'comando.cancelar': 'Cancelar',
+  'comando.reparar': 'Reparar',
+  'hud.modo_alvo': 'Clique no alvo; Shift mantém para outro; Esc ou clique direito cancela.',
+  'hud.modo_reparar': 'Clique na unidade, no prédio ou na estrutura a reparar; Shift mantém para outro; Esc ou clique direito cancela.',
+  'hud.modo_chao': 'Clique no chão para {modo}; Shift mantém para enfileirar; Esc ou clique direito cancela.',
+  'hud.guardar_grupo': 'Toque no número do grupo para guardar a seleção.',
 });
 
 /** Flattens nested objects into dotted ids; only string leaves are texts. */

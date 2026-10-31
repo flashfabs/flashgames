@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { ACAO } from '../site/rts/js/entrada/teclas.js';
 import { montarCartao, TECLAS_DA_GRADE, MAXIMO_DA_FILA } from '../site/rts/js/interface/cartao.js';
-import { criarCatalogo, catalogoDoMapa, nomeDoId, habilidadeDoC5, HABILIDADE, BANDEIRA_CESTO_ERGUIDO } from '../site/rts/js/interface/catalogo.js';
+import { criarCatalogo, catalogoDoMapa, nomeDoId, habilidadeDoC5, estruturasPorReparo, HABILIDADE, BANDEIRA_CESTO_ERGUIDO } from '../site/rts/js/interface/catalogo.js';
 import { criarAlertas, ALERTA, RAIO_DO_ATAQUE, SILENCIO_DO_ATAQUE_MS } from '../site/rts/js/interface/alertas.js';
 import { criarTextos, PROVISORIOS, achatar } from '../site/rts/js/interface/textos.js';
 import { criarLeitura, lerFilas, TETO_PADRAO } from '../site/rts/js/interface/leitura.js';
@@ -90,6 +90,32 @@ test('abilities come from the C5 entry and take the free places of the unit card
   assert.deepEqual(cartao.slots[2].unidades, [1, 2]);
   assert.equal(cartao.slots[2].texto, 'comando.baixar_cesto', 'the first basket is raised: the button lowers');
   assert.equal(cartao.slots[7].texto, 'comando.religar');
+});
+
+test('repair units get Reparar on the card, and the mission names the structures they bring back', () => {
+  const missao = JSON.parse(readFileSync(new URL('../site/rts/dados/missoes/morro-aceso.json', import.meta.url), 'utf8'));
+  const entidades = JSON.parse(readFileSync(new URL(`../site/rts/dados/mapas/${missao.mapa}/entidades.json`, import.meta.url), 'utf8'));
+  // the overturned truck is brought back by repair (religavel por reparo); the substation and the old tower by re-powering
+  assert.deepEqual([...estruturasPorReparo(missao, entidades)], ['caminhao-tombado']);
+  assert.equal(estruturasPorReparo(null, entidades).size, 0);
+  const mapa = {
+    tipos: [
+      tipoEstatico({ nome: 'equipe-de-manutencao', ergue: [2], religa: 0, habilidade: null }),
+      tipoEstatico({ nome: 'religador', religa: 1, habilidade: null }),
+      tipoEstatico({ nome: 'poste-avancado', categoria: CATEGORIA.PREDIO, custo: 1000 }),
+      tipoEstatico({ nome: 'caminhao-tombado', categoria: CATEGORIA.ESTRUTURA, pegada: [3, 2] }),
+      tipoEstatico({ nome: 'torre-antiga', categoria: CATEGORIA.ESTRUTURA, pegada: [2, 2] }),
+    ],
+  };
+  const comReparo = catalogoDoMapa(mapa, textoComNomes, [{ nome: 'equipe-de-manutencao', reparo: { vidaPorSegundo: 12, alcance: 15 } }], { porReparo: new Set(['caminhao-tombado']) });
+  assert.ok(comReparo.repara(0) && !comReparo.repara(1));
+  assert.ok(comReparo.porReparo(3) && !comReparo.porReparo(4));
+  // the static map's religa says who re-powers, without the C5 entry
+  assert.equal(comReparo.info(1).habilidade.codigo, HABILIDADE.RELIGAR);
+  const cartao = montarCartao({ selecao: [{ id: 5, tipo: 0 }, { id: 6, tipo: 1 }], catalogo: comReparo, producao: () => null, carga: 2000, lotacao: { usada: 0, teto: 60 } });
+  assert.deepEqual([1, 2, 7].map(i => cartao.slots[i]?.modo), ['erguer', 'reparar', 'habilidade']);
+  assert.deepEqual(cartao.slots[2].unidades, [5], 'only the repair unit gets the order');
+  assert.equal(cartao.slots[2].texto, 'comando.reparar');
 });
 
 test('a building card trains and researches in data order, counts its queues and says when Carga or population is short', () => {

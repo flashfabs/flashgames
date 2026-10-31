@@ -81,6 +81,13 @@ export function criarOrdens({ simulacao, estado, efeitos, fila, som, latencia })
       if (alvo === SEM_ENTIDADE) return enviarSemFila(TIPO_COMANDO.HABILIDADE, ids, { arg: codigo, timeStamp });
       return enviar(TIPO_COMANDO.HABILIDADE, ids, { ponto, alvo, arg: codigo, naFila, timeStamp });
     },
+    /**
+     * Repair units to `alvo` (C1 REPARAR): a damaged unit or building of their own team, or a neutral structure the
+     * mission lets them bring back by repairing it; they walk there, and the simulation drops what it cannot fix.
+     */
+    reparar(ids, alvo, ponto, naFila, timeStamp) {
+      return enviar(TIPO_COMANDO.REPARAR, ids, { ponto, alvo, naFila, timeStamp });
+    },
     /** Harvesters to a resource node (or back to a depot, by the target). */
     coletar(ids, alvo, ponto, naFila, timeStamp) {
       return enviar(TIPO_COMANDO.COLETAR, ids, { ponto, alvo, naFila, timeStamp });
