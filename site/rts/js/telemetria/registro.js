@@ -220,10 +220,11 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
         for (let p = o + TAMANHO_EVENTO; p + TAMANHO_EVENTO <= ev.length; p += TAMANHO_EVENTO) {
           if (ev[p + E_TIPO] === EVENTO.SURGIMENTO && ev[p + E_TICK] === t && inimigos(donoDe(ev[p + E_ENTIDADE]), jogadorLocal)) ids.add(ev[p + E_ENTIDADE]);
         }
-        ataque.unidades = ids.size;
+        // a team that forms the wave from units already on the map reports their number in alvo, with no SURGIMENTO
+        ataque.unidades = ev[o + E_ALVO] > 0 ? ev[o + E_ALVO] : ids.size;
         idsDaOnda.set(ataque.grupo, ids);
         if (ataque.avisoPasso !== null) ataque.avisoSegundos = Math.trunc((t - ataque.avisoPasso) / PASSOS_POR_SEGUNDO);
-        anotar('onda', { passo: t, grupo: ataque.grupo, unidades: ids.size });
+        anotar('onda', { passo: t, grupo: ataque.grupo, unidades: ataque.unidades });
       } else if (tipo === EVENTO.VITORIA || tipo === EVENTO.DERROTA) {
         // arg is the player who won (VITORIA) or lost (DERROTA)
         const local = ev[o + E_ARG] === jogadorLocal;
