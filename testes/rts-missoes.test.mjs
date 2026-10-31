@@ -190,3 +190,15 @@ test('the interface texts name every kind and research and have no empty entry',
   for (const p of predios) assert.ok(textos[`predio.${p.nome}.nome`], `predio.${p.nome}.nome`);
   for (const p of pesquisas) assert.ok(textos[`pesquisa.${p.nome}.nome`], `pesquisa.${p.nome}.nome`);
 });
+
+test('the home yard is known from the first tick, so the first minute teaches collecting', () => {
+  const mapa = mapaDe(caixa);
+  const inicio = caixa.gatilhos.find(g => g.quando.se === 'tempo' && g.quando.segundos === 0);
+  const reveladas = inicio.acoes.filter(a => a.faz === 'revelar' && a.jogador === 0).map(a => mapa.areas[a.area]);
+  const casa = mapa.nos.findIndex(n => n.id === 'cemiterio-sudoeste');
+  const pilhas = mapa.entidades.filter(e => e.tipo === 'pilha' && e.no === casa);
+  assert.ok(pilhas.length > 0);
+  for (const p of pilhas) {
+    assert.ok(reveladas.some(a => p.x >= a.x && p.x < a.x + a.largura && p.y >= a.y && p.y < a.y + a.altura), `pilha em ${p.x},${p.y} começa escondida`);
+  }
+});
