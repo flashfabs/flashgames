@@ -117,11 +117,19 @@ test('the sandbox ends: a win by surviving the waves or taking down the camp, a 
   const derrotas = caixa.gatilhos.filter(g => g.acoes.some(a => a.faz === 'derrota'));
   assert.deepEqual(vitorias.map(g => g.id).sort(), ['vitoria-acampamento', 'vitoria-ondas']);
   assert.equal(derrotas.length, 1);
-  const q = derrotas[0].quando;
-  assert.equal(q.se, 'contagem');
-  assert.equal(q.maximo, 0);
-  // without these the player has no way to raise a new forward post: the crew is made in the garage
-  assert.deepEqual([...q.tipos].sort(), ['equipe-de-manutencao', 'escritorio-regional', 'garagem', 'poste-avancado']);
+  // the base is gone (headquarters, forward posts and the garage, which makes the crew) and the player cannot raise a
+  // forward post in time: no crew, not enough charge for one, or 90 s after the base fell; the match always ends
+  const [semBase, semSaida] = derrotas[0].quando.condicoes;
+  assert.equal(semBase.se, 'contagem');
+  assert.equal(semBase.maximo, 0);
+  assert.deepEqual([...semBase.tipos].sort(), ['escritorio-regional', 'garagem', 'poste-avancado']);
+  const custoPoste = predios.find(p => p.nome === 'poste-avancado').custo;
+  assert.ok(semSaida.condicoes.some(c => c.se === 'contagem' && c.tipos.includes('equipe-de-manutencao') && c.maximo === 0));
+  assert.ok(semSaida.condicoes.some(c => c.se === 'recursos' && c.maximo === custoPoste - 1));
+  const prazo = semSaida.condicoes.find(c => c.se === 'depoisDe');
+  assert.ok(prazo && prazo.segundos <= 120, 'a partida termina mesmo com uma Equipe escondida');
+  const aviso = caixa.gatilhos.find(g => g.id === prazo.gatilho);
+  assert.deepEqual(aviso.quando, semBase, 'o rádio avisa do prazo no instante em que a base cai');
   const camp = caixa.grupos.acampamento;
   const mapa = mapaDe(caixa);
   assert.deepEqual(mapa.entidades.filter(e => camp.includes(e.etiqueta)).map(e => e.tipo).sort(), ['barracao', 'carrocao-mae', 'ferraria-a-vapor']);

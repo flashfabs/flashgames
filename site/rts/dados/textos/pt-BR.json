@@ -229,6 +229,7 @@
     "radio.locutor.caixa_derrota": "E o vale volta para o escuro. Fiquem com a gente, que o intervalo comercial é a guerra.",
     "radio.locutor.coletor_perdido": "Que lance! O guincho largou a carga no meio da estrada. Quem passar, recolhe!",
     "radio.supervisora.caixa_cemiterio_acabando": "Equipe 14, o cemitério da base está no fim. Tem carga no ferro-velho a sudeste: mandem a Manutenção erguer um Poste Avançado lá.",
+    "radio.supervisora.caixa_base_caiu": "Equipe 14, perdemos a base. Se a Manutenção erguer um Poste Avançado em 90 segundos, a ordem de serviço continua aberta.",
     "radio.supervisora.caixa_torre_religada": "Torre Antiga religada e lançada na nossa conta. Bom serviço."
   }
 }
