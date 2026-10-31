@@ -2,7 +2,7 @@
 // the two questions of the milestone (fun from 1 to 5, would play again) and an optional comment; "Baixar registro"
 // writes the answers into the playtest log (C15) and saves it as a JSON file, with no network. The match stays paused
 // behind it.
-import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_ENTIDADE, PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
+import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_ARG, PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
 
 /** File name of the saved log: registro-rts-2026-10-31-1530.json, local time. */
 export function nomeDoArquivo(data = new Date()) {
@@ -27,9 +27,8 @@ export function resultadoDosEventos(eventos, jogador) {
   for (let o = 0; o + TAMANHO_EVENTO <= eventos.length; o += TAMANHO_EVENTO) {
     const tipo = eventos[o + E_TIPO];
     if (tipo !== EVENTO.VITORIA && tipo !== EVENTO.DERROTA) continue;
-    // The event names the player it is about; without one (-1) it is about the local player.
-    const quem = eventos[o + E_ENTIDADE];
-    if (quem >= 0 && quem !== jogador) continue;
+    // The mission's evaluator puts the player the result is about in arg.
+    if (eventos[o + E_ARG] !== jogador) continue;
     return tipo === EVENTO.VITORIA ? 'vitoria' : 'derrota';
   }
   return null;

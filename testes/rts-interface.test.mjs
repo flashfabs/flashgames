@@ -278,9 +278,9 @@ test('the page\'s placing rule: inside the powered network, flat passable ground
 
 test('victory or defeat of the local player ends the match; the saved log has a dated name', () => {
   assert.equal(resultadoDosEventos(eventos(evento(EVENTO.TIRO, 1)), 0), null);
-  assert.equal(resultadoDosEventos(eventos(evento(EVENTO.VITORIA, 0)), 0), 'vitoria');
-  assert.equal(resultadoDosEventos(eventos(evento(EVENTO.DERROTA, -1)), 0), 'derrota');
-  assert.equal(resultadoDosEventos(eventos(evento(EVENTO.VITORIA, 1)), 0), null, 'another player\'s victory');
+  assert.equal(resultadoDosEventos(eventos(evento(EVENTO.VITORIA, -1, { arg: 0 })), 0), 'vitoria');
+  assert.equal(resultadoDosEventos(eventos(evento(EVENTO.DERROTA, -1, { arg: 0 })), 0), 'derrota');
+  assert.equal(resultadoDosEventos(eventos(evento(EVENTO.VITORIA, -1, { arg: 1 })), 0), null, 'another player\'s victory');
   assert.equal(nomeDoArquivo(new Date(2026, 9, 31, 15, 7)), 'registro-rts-2026-10-31-1507.json');
 });
 
