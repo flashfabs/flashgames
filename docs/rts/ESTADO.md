@@ -68,7 +68,7 @@ Executor `scripts/rtx-testes.sh`, entregue em 30/10/2026; números das execuçõ
 | Placa do Chrome lançado pelo SSH (sessão 0) | NVIDIA GeForce RTX 4090 nos quatro backends do ANGLE (d3d11, gl, vulkan, d3d11on12); o executor usa o d3d11 e confere antes de cada passo de desempenho |
 | Funcionais | 41 de 41, nenhum instável, em 4,7 minutos com 2 processos |
 | `rts-determinismo` | 12 de 12 (roteiro do protótipo e os 3 replays dourados no Chromium, no Firefox e no WebKit), em 2,5 minutos: o mesmo resultado do Mac e do Action |
-| `rts-desempenho`, 2.000 unidades em 4K (3840×2160), zoom padrão | 60 qps, quadro p99 16,8 ms, 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,5 ms, GPU 4,8 ms por quadro, passo da simulação p50/p95 8,9/22,2 ms |
+| `rts-desempenho`, 2.000 unidades em 4K (3840×2160), zoom padrão | 60 qps, quadro p99 16,8 ms, 0 de 600 quadros acima de 20 ms, CPU do quadro p95 0,5 ms, GPU 4,8 ms por quadro, passo da simulação p50/p95 8,9/22,2 ms; depois de a soma de verificação passar a uma por segundo (`21d0b40`), a `rts-render` mediu o passo em 1,8/3,3 ms em 4K e 1,7/3,0 ms em 1080p (execução `20261030-205938`), então não era disputa com o render |
 | `rts-desempenho`, zoom afastado | 60 qps, p99 16,8 ms, 0 de 600 acima de 20 ms, GPU 1,6 ms, passo p50/p95 9,1/18,8 ms |
 | Pavio, 8 jogadores (`desempenho.spec.mjs`) | reprova no PC: trabalho por quadro p95 do convidado 8,7 ms contra o limite de 8 ms; com a CPU 4x mais lenta, quadro p95 de 183 ms no anfitrião e 150 ms no convidado (a limitação de CPU do Chrome pesa muito mais no Windows). Os limites foram feitos para o Mac, como substituto de um iPad, então esse teste fica fora do e2e do PC e entra na lista abaixo |
 | Pavio, anfitrião com 7 robôs | passa no PC |
