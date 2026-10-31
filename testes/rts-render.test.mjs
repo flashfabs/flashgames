@@ -626,3 +626,17 @@ test('a blocking decoration stands as a block in the middle of its cell', () => 
   assert.ok(r.alturaEm(2.5, 3.5) < 0.05 && r.alturaEm(2.8, 3.5) < 0.05 && r.alturaEm(3.25, 3.5) > 2.4, 'ground beside it, steep sides');
   assert.equal(r.topos[3 * 8 + 3], 1, 'the shader bounds reach the block');
 });
+
+import { prediosDeBancada } from '../site/rts/js/render/medicao.js';
+import { BANDEIRA } from '../site/rts/js/sim/contratos.js';
+
+test('the benchmark rings the battle with buildings whose cables reach poles of the same ring', () => {
+  const p = prediosDeBancada(60, 96, 96, 0);
+  assert.equal(p.n, 60);
+  assert.equal(new Set(p.id).size, 60);
+  const ids = new Set(p.id);
+  for (let k = 0; k < p.n; k++) if (p.ligacao[k] !== -1) assert.ok(ids.has(p.ligacao[k]), `cable of ${k} goes to a building of the ring`);
+  const emObra = Array.from(p.bandeiras).filter(b => b & BANDEIRA.EM_OBRA).length;
+  assert.equal(emObra, 12, 'one in five under construction');
+  for (let k = 0; k < p.n; k++) assert.ok(Math.hypot(p.x[k] / 1024 - 96, p.y[k] / 1024 - 96) < 40);
+});
