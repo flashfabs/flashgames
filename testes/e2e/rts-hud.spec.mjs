@@ -38,7 +38,10 @@ test('the start screen holds the match until Começar, and the menu stops it whi
   await expect(page.locator('#menu')).toBeHidden();
   await page.keyboard.press('F10');
   await expect(page.locator('#menu')).toBeVisible();
-  const parado = await tick(page);
+  // the pause reaches the worker a moment after the menu opens (a snapshot may be on its way): take the tick once it
+  // stops moving, then it must stand still
+  let parado = await tick(page);
+  await expect.poll(async () => parado === (parado = await tick(page)), { intervals: [250] }).toBe(true);
   await page.waitForTimeout(400);
   expect(await tick(page)).toBe(parado);
   await page.keyboard.press('Escape');
