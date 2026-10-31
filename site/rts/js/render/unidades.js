@@ -245,12 +245,14 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
         posicao[2] = chao;
         const obra = (b & BANDEIRA.EM_OBRA) !== 0 && progresso ? Math.max(1, Math.min(254, progresso[k])) : 0;
         let anim = aparencia.animParado;
-        if (obra === 0 && atual.vida[k] < 128 && aparencia.animDanificado) anim = aparencia.animDanificado;
+        const danificado = obra === 0 && atual.vida[k] < 128;
+        if (danificado && aparencia.animDanificado) anim = aparencia.animDanificado;
         else if (obra === 0 && (b & BANDEIRA.PRODUZINDO) !== 0 && aparencia.animAtividade) anim = aparencia.animAtividade;
         const tempoS = (tempoTick - atual.inicioAnim[k]) / PASSOS_POR_SEGUNDO;
         const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
         const chavePredio = chaveDe(y + aparencia.pegada[1] * 0.5);
-        emitirSprite(quadroDe(aparencia.corpo, anim, 0, passo), empacotar(time, obra, 0, aparencia.vies), aparencia, chavePredio, 1);
+        const fuligem = danificado && !aparencia.animDanificado ? FLAGS_SPRITE.DANIFICADO : 0;
+        emitirSprite(quadroDe(aparencia.corpo, anim, 0, passo), empacotar(time, obra, fuligem, aparencia.vies), aparencia, chavePredio, 1);
         // lights add over the body with the same depth, while the building has power
         const luzes = aparencia.animLuzes;
         if (luzes && obra === 0 && (!bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0)) {

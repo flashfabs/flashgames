@@ -256,8 +256,9 @@ void quadroDoSprite(vec2 deslocamentoMundo, out vec2 tela) {
 }
 `;
 
-// Flags of a sprite (packed into aDados.y): remembered under the fog (grey), placement ghost (valid, invalid).
-export const FLAGS_SPRITE = Object.freeze({ MEMORIA: 1, FANTASMA: 2, INVALIDO: 4 });
+// Flags of a sprite (packed into aDados.y): remembered under the fog (grey), placement ghost (valid, invalid), damaged
+// without a damaged animation of its own (soot).
+export const FLAGS_SPRITE = Object.freeze({ MEMORIA: 1, FANTASMA: 2, INVALIDO: 4, DANIFICADO: 8 });
 
 export const VERT_SPRITE = `${CABECALHO}${SPRITE_VERT_COMUM}
 void main() {
@@ -287,6 +288,11 @@ void main() {
     vec2 g = gl_FragCoord.xy / max(uCamPx.z * 0.16, 3.0);
     float barra = max(step(0.82, fract(g.x)), step(0.88, fract(g.y + 0.5 * floor(g.x))));
     s = vec4(vec3(0.66, 0.6, 0.5), 1.0) * c.a * barra * 0.7 + s * 0.1;
+  }
+  if ((vBandeiras & 8) != 0) {
+    vec2 g = floor(gl_FragCoord.xy / max(uCamPx.z * 0.1, 2.0));
+    float fuligem = fract(sin(dot(g, vec2(12.9898, 78.233))) * 43758.5453);
+    s.rgb *= 0.62 - 0.22 * step(0.7, fuligem);
   }
   if ((vBandeiras & 1) != 0) s.rgb = vec3(dot(s.rgb, vec3(0.3, 0.59, 0.11))) * 0.55;
   if ((vBandeiras & 6) != 0) s.rgb = mix(s.rgb, ((vBandeiras & 4) != 0 ? vec3(1.0, 0.22, 0.16) : vec3(0.3, 1.0, 0.42)) * s.a, 0.5);
