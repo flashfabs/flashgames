@@ -188,7 +188,7 @@ export function avancarReligar(sim) {
     trocarDono(sim, j, time);
     ex.alvo[i] = 0;
     sim.parada[i] = 1;
-    if (EVENTO.RELIGADO) emitirEvento(sim, EVENTO.RELIGADO, j, i, sim.tipo[j]);
+    emitirEvento(sim, EVENTO.RELIGADO, j, i, sim.tipo[j]);
   }
 }
 

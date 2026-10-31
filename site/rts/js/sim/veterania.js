@@ -43,7 +43,7 @@ export function ganharExperiencia(sim, i, pontos) {
   while (nivel < maximo && xp >= limiar(c, sim, i, nivel + 1)) nivel++;
   if (nivel === sim.veterania[i]) return;
   sim.veterania[i] = nivel;
-  if (EVENTO.PROMOCAO) emitirEvento(sim, EVENTO.PROMOCAO, i, -1, nivel);
+  emitirEvento(sim, EVENTO.PROMOCAO, i, -1, nivel);
 }
 
 /** A harvester delivered a load (economy): one trip of experience. */

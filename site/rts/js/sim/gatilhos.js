@@ -540,7 +540,7 @@ export function desistir(sim, jogador) {
   const ex = extrasMissao(sim);
   if (ex.resultado[jogador] !== RESULTADO.JOGANDO) return;
   ex.resultado[jogador] = RESULTADO.DERROTA;
-  emitirSeExiste(sim, EVENTO.DERROTA, 0, 0, jogador);
+  emitirMissao(sim, EVENTO.DERROTA, 0, 0, jogador);
 }
 
 /** Each player's RESULTADO.* so far. */
@@ -688,8 +688,8 @@ function lugaresDeSurgimento(sim, a, n) {
 
 const centro = a => (a.area ? a.area : a.ponto ?? { x: 0, y: 0 });
 
-function emitirSeExiste(sim, tipo, x, y, arg) {
-  if (tipo) emitirEventoNoPonto(sim, tipo, -1, x, y, arg);
+function emitirMissao(sim, tipo, x, y, arg) {
+  emitirEventoNoPonto(sim, tipo, -1, x, y, arg);
 }
 
 function ordenar(sim, unidades, a) {
@@ -715,17 +715,17 @@ function executar(sim, m, ex, a) {
   switch (a.faz) {
     case 'mensagem': {
       const p = a.area ?? { x: 0, y: 0 };
-      emitirSeExiste(sim, EVENTO.MENSAGEM_MISSAO, p.x, p.y, a.texto);
+      emitirMissao(sim, EVENTO.MENSAGEM_MISSAO, p.x, p.y, a.texto);
       return;
     }
     case 'aviso':
-      emitirSeExiste(sim, EVENTO.AVISO_ATAQUE, a.area.x, a.area.y, a.grupo);
-      if (a.texto >= 0) emitirSeExiste(sim, EVENTO.MENSAGEM_MISSAO, a.area.x, a.area.y, a.texto);
+      emitirMissao(sim, EVENTO.AVISO_ATAQUE, a.area.x, a.area.y, a.grupo);
+      if (a.texto >= 0) emitirMissao(sim, EVENTO.MENSAGEM_MISSAO, a.area.x, a.area.y, a.texto);
       return;
     case 'objetivo':
       if (ex.objetivos[a.objetivo] === a.estado) return;
       ex.objetivos[a.objetivo] = a.estado;
-      emitirSeExiste(sim, EVENTO.OBJETIVO, 0, 0, a.objetivo * 4 + a.estado);
+      emitirMissao(sim, EVENTO.OBJETIVO, 0, 0, a.objetivo * 4 + a.estado);
       return;
     case 'criar': {
       const total = a.unidades.reduce((s, u) => s + u.quantos, 0);
@@ -733,7 +733,7 @@ function executar(sim, m, ex, a) {
       if (celulas.length === 0) return;
       const { largura } = sim.mapa;
       const c = centro(a);
-      if (a.rotulo >= 0) emitirSeExiste(sim, EVENTO.ONDA, c.x, c.y, a.rotulo);
+      if (a.rotulo >= 0) emitirMissao(sim, EVENTO.ONDA, c.x, c.y, a.rotulo);
       let k = 0;
       for (const u of a.unidades) {
         for (let q = 0; q < u.quantos; q++, k++) {
@@ -800,18 +800,18 @@ function executar(sim, m, ex, a) {
       for (const i of membros(sim, ex, a.grupo)) definirVeterania(sim, i, a.nivel);
       return;
     case 'luz':
-      emitirSeExiste(sim, EVENTO.LUZ, 0, 0, a.cena);
+      emitirMissao(sim, EVENTO.LUZ, 0, 0, a.cena);
       return;
     case 'camera': {
       const c = centro(a);
-      emitirSeExiste(sim, EVENTO.CAMERA, c.x, c.y, 0);
+      emitirMissao(sim, EVENTO.CAMERA, c.x, c.y, 0);
       return;
     }
     case 'vitoria':
     case 'derrota':
       if (ex.resultado[a.jogador] !== RESULTADO.JOGANDO) return;
       ex.resultado[a.jogador] = a.faz === 'vitoria' ? RESULTADO.VITORIA : RESULTADO.DERROTA;
-      emitirSeExiste(sim, a.faz === 'vitoria' ? EVENTO.VITORIA : EVENTO.DERROTA, 0, 0, a.jogador);
+      emitirMissao(sim, a.faz === 'vitoria' ? EVENTO.VITORIA : EVENTO.DERROTA, 0, 0, a.jogador);
       return;
     default:
       return;
