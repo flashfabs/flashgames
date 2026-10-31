@@ -8,12 +8,13 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 
 ## Onde estamos
 
-- Etapa: E0 (pré-produção e higiene) junto com a onda 1 (E1 motor de produção e E2 fábrica de arte), por pedido do Victor em 30/10/2026.
+- Etapa: E3 (fatia cinza jogável), na onda 2, aberta em 30/10/2026 com as 8 sessões aprovadas pelo Victor; termina no marco M3, uma partida de 15 a 25 minutos com arte cinza jogada por 3 pessoas do grupo. A onda 1 (E1 motor de produção e E2 fábrica de arte, junto com a E0) terminou em 30/10/2026; o que ficou dela está nas seções de cada frente e em "Medições que esperam o Mac".
+- Sessões da onda 2 e portas: `rts-qualidade` (8820), `rts-motor-economia` (8821), `rts-render` (8822), `rts-interface` (8823), `rts-arte` (8824), `rts-design` (8825), `rts-rede` (8828) e `rts-motor-combate` (8829); o motor ficou dividido em F1a e F1b pela tabela de frentes do [frentes.md](frentes.md).
 - Integração: branch `rts/base`, criada em 30/10/2026 a partir da `main` em `94d4631`; nada do RTS foi para a `main` nem para a Netlify.
 - Guarda da produção, conferida de novo no fim da onda 1 (30/10/2026): `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404, a `rts/base` não tem deploy de branch na Netlify e a `main` segue em `94d4631`.
 - Página de diagnóstico para os amigos, com aprovação do Victor em 30/10/2026: deploy de rascunho na Netlify, fora da produção, em https://diagnostico-rts--salinha-jogos.netlify.app (deploy `6ae537f4a4f10013b680a403`, feito com `netlify deploy --no-build --alias diagnostico-rts` sem `--prod`), só com `prototipos/diagnostico` e o protótipo de `3faef0e`; a raiz leva a `/diagnostico/`. Conferido no Chromium: placa, Opus e a soma `897f4ba5` no Worker. A produção seguiu em `45b1664`. Um deploy novo com o mesmo `--alias` atualiza esse endereço.
 - Fim da onda 1 (30/10/2026): as seis frentes integraram na `rts/base` e o Action ficou verde em `f609c18` (run 41147192783); o que falta da E0 depende do Victor (roteiro de medições, endereço da página de diagnóstico) e está em "Medições que esperam o Mac".
-- Sessões da onda 1: `rts-qualidade`, `rts-arte`, `rts-design`, `rts-motor`, `rts-render` e `rts-interface`.
+- Sessões da onda 1, arquivadas: `rts-qualidade`, `rts-arte`, `rts-design`, `rts-motor`, `rts-render` e `rts-interface`.
 - Regra do Victor de 30/10/2026, 20h17: o que exige esforço roda no PC da RTX 4090 e o Mac fica com editar, git e `npm test`; os testes de ponta a ponta rodam no PC por `scripts/rtx-testes.sh` (detalhes em [frentes.md](frentes.md), seção Onde roda o quê).
 
 ## Decisões
@@ -129,14 +130,29 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 
 ### E3. Fatia cinza jogável (plano, E3)
 
-| Critério | Meta | Estado |
-| --- | --- | --- |
-| Partida jogada por 3 pessoas do grupo | 15 a 25 minutos, com registro e condição de fim definida | pendente |
-| Diversão | mediana de pelo menos 4 em 5; "jogaria de novo?" com sim de todos | pendente |
-| Ritmo pelo registro | primeiro tiro entre 2:30 e 4:00; 10 contra 10 em 8 a 20 s; menos de 20% de janelas sem comando; primeiro cemitério esgotado entre 10 e 13 min; 1 a 4 coletores perdidos | pendente |
-| Testes de regra | matriz, carga derramada, saturação, vento, poste, lotação verdes | pendente |
-| Spike de lockstep | 10 minutos sem dessincronia entre Chrome e Firefox; envelope do comando congelado | pendente |
-| Briefs | 33 aprovados no checklist de originalidade, sem lembrança específica de outro jogo na revisão | pendente |
+Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, ou quem destrava quando o número depende do Victor. O empacotar dos Desligados saiu da E3 para a E7 (plano, E3: na fase 1 os Desligados não constroem).
+
+| Critério | Meta | Dono | Estado |
+| --- | --- | --- | --- |
+| Partida jogada por 3 pessoas do grupo | 15 a 25 minutos, com registro e condição de fim definida (sobreviver a N ondas ou destruir o acampamento) | Victor joga com 2 pessoas pelo kit do M3 (`rts-qualidade`); condição de fim e caixa de areia da `rts-design` | pendente |
+| Diversão | mediana de pelo menos 4 em 5; "jogaria de novo?" com sim de todos | Victor (respostas das 3 pessoas pelo kit do M3); `rts-qualidade` registra | pendente |
+| Ritmo: primeiro tiro | entre 2:30 e 4:00 | número: conferidor de ritmo da `rts-qualidade` sobre o registro (C15); ajuste: `rts-design` | pendente |
+| Ritmo: 10 contra 10 | resolvido em 8 a 20 s | idem; ajuste: `rts-design` com a `rts-motor-combate` | pendente |
+| Ritmo: janelas sem comando | menos de 20% | idem; ajuste: `rts-design` e `rts-interface` | pendente |
+| Ritmo: primeiro cemitério esgotado | entre 10 e 13 min | idem; ajuste: `rts-design` com a `rts-motor-economia` | pendente |
+| Ritmo: coletores perdidos | 1 a 4 por partida | idem; ajuste: `rts-design` | pendente |
+| Testes de regra: carga derramada, saturação, vento, poste, lotação | verdes no `npm test` | `rts-motor-economia` | pendente |
+| Testes de regra: matriz de dano, veterania, pesquisas, religar e gatilhos | verdes no `npm test` | `rts-motor-combate` | pendente |
+| Fatia cinza de ponta a ponta | começar, coletar, construir, produzir, lutar, vitória e derrota verdes no `rts/base` com o gancho `window.__rts` (`?teste=1`) | `rts-qualidade` | pendente |
+| Spike de lockstep | 10 minutos sem dessincronia entre Chrome e Firefox, mensagens abaixo de 16.000 bytes | `rts-rede` | pendente |
+| Formato de comando congelado | `VERSAO_COMANDOS` 1 depois do spike | `rts-motor-economia`, depois da `rts-rede` | pendente |
+| Briefs | 33 aprovados no checklist de originalidade, sem lembrança específica de outro jogo na revisão | `rts-design`; a revisão por quem jogou o jogo que inspirou o projeto depende do Victor achar a pessoa | pendente |
+| Kit cinza | todas as unidades e construções da fase 1 em cinza procedural, com manifesto e procedência | `rts-arte` | pendente |
+| HUD da fatia | recursos, lotação, construção e produção com fila e grade, minimapa com alertas, coletor ocioso | `rts-interface` | pendente |
+| Render da fatia | construções com pegada, cabos e o que a caixa de areia pede | `rts-render` | pendente |
+| Manifesto, orçamento e procedência | testes verdes, com a lista de licenças permitidas | `rts-qualidade` | pendente |
+| Tamanho do git | `git count-objects -vH` no fim da etapa | `rts-qualidade` | pendente |
+| Som provisório | sintetizado e respostas gravadas pelo grupo | sem sessão na onda 2 (a `rts-som` abre na onda 3); a decisão de adiantar ou seguir sem som no M3 é do Victor | pendente |
 
 ### E4. Missão em cinza (plano, E4)
 
@@ -177,7 +193,7 @@ O [roteiro de medições](roteiro-medicoes.md) cobre o Safari 26, o Chrome e o E
 
 ## Frentes
 
-### F1 Motor e simulação (`rts-motor`)
+### F1 Motor e simulação (`rts-motor`, onda 1; na onda 2, `rts-motor-economia` e `rts-motor-combate`)
 
 - 30/10/2026, passo zero: o protótipo foi para `site/rts/` dividido pelos donos (simulação em `js/sim/`, worker em `js/trabalhador.js`, render em `js/render/` e `js/ativos/`, entrada e interface em `js/entrada/` e `js/interface/`, `js/principal.js` só com a montagem e o laço de quadro, `js/ponte-simulacao.js` como lado da página do protocolo do worker), sem mudar comportamento; `prototipos/rts-4k/` ficou congelado.
 - 30/10/2026: `site/rts/js/sim/contratos.js` com o comando (C1, `TIPO_COMANDO`, validação, ordem total e forma compacta), ids com geração (slot nos 16 bits baixos), o retrato por passo (C2, arrays por entidade viva em ordem de slot), os eventos (C3, registros de 9 inteiros com posições), a forma da `VistaDoTime` (C4) e as mensagens do worker; `VERSAO_COMANDOS` 0 e `VERSAO_SIMULACAO` 1.
@@ -284,4 +300,4 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 
 ### F4, F6 e F9
 
-Abrem nas ondas 3 (F4 e F6) e 2 (F9, spike curto).
+A F9 (`rts-rede`) abre na onda 2, com o spike curto de lockstep; a F4 e a F6 abrem na onda 3.

@@ -1,0 +1,437 @@
+{
+ "type": "tileset",
+ "version": "1.10",
+ "tiledversion": "1.11.0",
+ "name": "terreno",
+ "tilewidth": 16,
+ "tileheight": 16,
+ "tilecount": 21,
+ "columns": 8,
+ "margin": 0,
+ "spacing": 0,
+ "image": "terreno.png",
+ "imagewidth": 128,
+ "imageheight": 48,
+ "tiles": [
+  {
+   "id": 0,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 0
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "terra-batida"
+    }
+   ]
+  },
+  {
+   "id": 1,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 1
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "capim"
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 2
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "capim-alto"
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 3
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "cascalho"
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 4
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "asfalto-velho"
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 5
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "entulho"
+    }
+   ]
+  },
+  {
+   "id": 6,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 6
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "lama"
+    }
+   ]
+  },
+  {
+   "id": 7,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 7
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "agua-rasa"
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 8
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "agua-funda"
+    }
+   ]
+  },
+  {
+   "id": 9,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "solo"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 9
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "rocha"
+    }
+   ]
+  },
+  {
+   "id": 10,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "altura"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 0
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "altura-0"
+    }
+   ]
+  },
+  {
+   "id": 11,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "altura"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 1
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "altura-1"
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "altura"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 2
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "altura-2"
+    }
+   ]
+  },
+  {
+   "id": 13,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "altura"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 3
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "altura-3"
+    }
+   ]
+  },
+  {
+   "id": 14,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 1
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "pedra"
+    }
+   ]
+  },
+  {
+   "id": 15,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 2
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "arvore-seca"
+    }
+   ]
+  },
+  {
+   "id": 16,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 3
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "carcaca-de-onibus"
+    }
+   ]
+  },
+  {
+   "id": 17,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 4
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "muro-em-ruina"
+    }
+   ]
+  },
+  {
+   "id": 18,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 5
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "poste-caido"
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 6
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "pneus"
+    }
+   ]
+  },
+  {
+   "id": 20,
+   "properties": [
+    {
+     "name": "camada",
+     "type": "string",
+     "value": "decoracao"
+    },
+    {
+     "name": "codigo",
+     "type": "int",
+     "value": 7
+    },
+    {
+     "name": "nome",
+     "type": "string",
+     "value": "ponte-de-concreto"
+    }
+   ]
+  }
+ ]
+}

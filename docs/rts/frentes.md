@@ -46,16 +46,19 @@ Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando
 
 | Frente | Sessão e porta | É dona de | Ondas |
 | --- | --- | --- | --- |
-| F1 Motor e simulação | `rts-motor`, 8821 | `site/rts/js/sim/` (menos `sim/comportamentos/`), `site/rts/js/trabalhador.js`, `ferramentas/rts/tabelas/`, `testes/rts-sim*.test.mjs`, `testes/rts-replays/` | 1 a 3, 5, 6 |
+| F1 Motor e simulação | `rts-motor`, 8821 (onda 1) | `site/rts/js/sim/` (menos `sim/comportamentos/`), `site/rts/js/trabalhador.js`, `ferramentas/rts/tabelas/`, `testes/rts-sim*.test.mjs`, `testes/rts-replays/` | 1 |
+| F1a Motor: núcleo, economia, construção e produção | `rts-motor-economia`, 8821 | o núcleo de `site/rts/js/sim/` (todos os arquivos que existiam no fim da onda 1, menos `combate.js`, e sempre `contratos.js` e `simulacao.js`), os módulos novos de economia, construção e produção, `site/rts/js/trabalhador.js`, `ferramentas/rts/tabelas/`, as ferramentas dos replays e de medida em `ferramentas/rts/`, `testes/rts-replays/` e os `testes/rts-sim*.test.mjs` que não sejam de combate nem de gatilhos | 2, 3, 5, 6 |
+| F1b Motor: combate, veterania, pesquisas e gatilhos | `rts-motor-combate`, 8829 | `site/rts/js/sim/combate.js`, os módulos novos de veterania, pesquisas, religar estruturas e gatilhos, `testes/rts-sim-combate*.test.mjs` e `testes/rts-sim-gatilhos*.test.mjs` | 2, 3 |
 | F2 Renderização e 4K | `rts-render`, 8822 | `site/rts/js/render/`, `site/rts/js/ativos/`, `site/rts/dados/projecao.json`, `site/rts/ferramentas/visualizador.html`, `testes/e2e/rts-desempenho.spec.mjs` | 1 a 4 |
 | F3 Arte e Blender | `rts-arte`, 8824 | `arte/blender/`, `arte/procedencia/`, `ferramentas/arte/`, `site/rts/assets/{sprites,terreno,interface,video}/`, `site/rts/assets/indice.json`; no PC, `D:\rts` e a trava da GPU | 0 a 5 |
 | F4 Áudio | `rts-som`, 8827 | `site/rts/js/audio/`, `site/rts/dados/sons.json`, `site/rts/assets/audio/`, `ferramentas/audio/`, `arte/procedencia/audio/`; gravações fora do repositório | 3, 4 |
 | F5 Design, mundo e fase 1 | `rts-design`, 8825 | `site/rts/dados/{unidades,predios,armas}.json`, `site/rts/dados/missoes/`, `site/rts/dados/mapas/`, `site/rts/dados/textos/pt-BR.json`, `site/rts/js/telemetria/`, `arte/briefs/`, `arte/mapas-fonte/`, `ferramentas/mapas/` | 1 (só briefs), 2, 3, 5 |
-| F6 IA inimiga | `rts-ia`, 8826 | `site/rts/js/sim/comportamentos/` (determinístico, sob a barreira da F1), `site/rts/js/ia/`, `ferramentas/rts/ia-harness.mjs`, `testes/rts-ia*.test.mjs` | 3, 5 |
+| F6 IA inimiga | `rts-ia`, 8826 | `site/rts/js/sim/comportamentos/` (determinístico, sob a barreira da F1a), `site/rts/js/ia/`, `ferramentas/rts/ia-harness.mjs`, `testes/rts-ia*.test.mjs` | 3, 5 |
 | F7 Interface e controles | `rts-interface`, 8823 | `site/rts/index.html`, `site/rts/css/`, `site/rts/js/principal.js`, `site/rts/js/entrada/`, `site/rts/js/interface/` | 1 a 6 |
-| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
+| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `site/rts/js/teste/` (o gancho `window.__rts`, carregado só com `?teste=1`), `ferramentas/rts/ritmo/` (conferidor de ritmo), `testes/rts-gancho.test.mjs`, `testes/rts-ritmo.test.mjs`, `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `testes/rts-licencas.json`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
 | F9 Rede | `rts-rede`, 8828 | `prototipos/rts-lockstep/` e, na E8, `site/rts/js/rede/`; `site/js/sala.js` só em acordo | 2 (curta), 6 |
 
+Divisão do motor a partir da onda 2 (plano, E3): a F1 vira duas sessões, F1a e F1b, pela tabela acima. `contratos.js` e `simulacao.js` são da F1a; a F1b liga os seus módulos neles com uma ou duas linhas ditas no commit e, acima disso, pede à F1a por mensagem. Mudança de contrato (C1 a C4) passa pela F1a, que sobe a versão e avisa os consumidores.
 O protótipo técnico fica em `prototipos/rts-4k/` (porta 8811) e não vai ao ar; o passo zero da onda 1 o move para `site/rts/`, dividido pelos donos acima, numa sessão só, antes de as outras mexerem nele.
 `package.json`, `playwright.config.mjs`, `netlify.toml` e `scripts/` são compartilhados com o Pavio e o Farm: cada mudança neles passa com todos os testes de ponta a ponta.
 Na fase 1, o RTS não toca em `site/js/sala.js`, `site/js/app.js`, `site/index.html`, no Pavio nem no Farm.
@@ -64,22 +67,22 @@ Na fase 1, o RTS não toca em `site/js/sala.js`, `site/js/app.js`, `site/index.h
 
 | # | Contrato | Onde | Dono | Consumidores | Versão |
 | --- | --- | --- | --- | --- | --- |
-| C1 | Comando `{ tick, jogador, seq, tipo, unidades, alvo, x, y, arg }` com `TIPO_COMANDO` inteiro e ids de entidade com geração (slot e geração); na rede, array compacto | `site/rts/js/sim/contratos.js` | F1 | F6, F7, F9, F8 | `VERSAO_COMANDOS`, congelada no fim da E3 |
-| C2 | Retrato por passo em TypedArrays transferíveis: id com geração, tipo, dono, posição, nível, direções, animação, vida, bandeiras, visão, recursos, filas, eventos, soma | `contratos.js` | F1 | F2, F4, F7, F9 | `VERSAO_SIMULACAO` |
-| C3 | Eventos de apresentação (`TIRO`, `IMPACTO`, `EXPLOSAO`, `MORTE`, `PRODUCAO_CONCLUIDA`, `CONSTRUCAO_CONCLUIDA`, `SOB_ATAQUE`, `RECURSO_ESGOTADO`, `MENSAGEM_MISSAO`, `OBJETIVO`, `VITORIA`, `DERROTA`); a simulação nunca os lê de volta | `contratos.js` | F1 | F2, F4, F7, F5 | `VERSAO_SIMULACAO` |
-| C4 | `vistaDoTime(sim, time)`: só o que o time enxerga, mais os fantasmas de prédios vistos | `site/rts/js/sim/` | F1 | F6 | teste de "sem trapaça" |
-| C5 | Dados de jogo em inteiros, validados no carregamento | `site/rts/dados/{unidades,predios,armas}.json` | F5 (números), F1 (esquema e validador) | F1, F7 | campo `versao` |
-| C6 | Mapa: `mapa.json` (cabeçalho), `camadas.bin` (solo, altura, passabilidade, recurso, decoração) e `entidades.json` | `site/rts/dados/mapas/<id>/` | F5 | F1, F2, F7 | campo `versao`, esquema testado pela F1 |
-| C7 | Gatilhos de missão (condições e ações) em JSON | `site/rts/dados/missoes/` | F5 (dados), F1 (avaliador), F6 (comportamentos) | F1 | campo `versao` |
+| C1 | Comando `{ tick, jogador, seq, tipo, unidades, alvo, x, y, arg }` com `TIPO_COMANDO` inteiro e ids de entidade com geração (slot e geração); na rede, array compacto | `site/rts/js/sim/contratos.js` | F1a | F6, F7, F9, F8, F1b | `VERSAO_COMANDOS`, congelada no fim da E3 |
+| C2 | Retrato por passo em TypedArrays transferíveis: id com geração, tipo, dono, posição, nível, direções, animação, vida, bandeiras, visão, recursos, filas, eventos, soma | `contratos.js` | F1a | F2, F4, F7, F9, F8 | `VERSAO_SIMULACAO` |
+| C3 | Eventos de apresentação (`TIRO`, `IMPACTO`, `EXPLOSAO`, `MORTE`, `PRODUCAO_CONCLUIDA`, `CONSTRUCAO_CONCLUIDA`, `SOB_ATAQUE`, `RECURSO_ESGOTADO`, `MENSAGEM_MISSAO`, `OBJETIVO`, `VITORIA`, `DERROTA`); a simulação nunca os lê de volta | `contratos.js` | F1a (eventos de combate e de missão pedidos pela F1b) | F2, F4, F7, F5, F8 | `VERSAO_SIMULACAO` |
+| C4 | `vistaDoTime(sim, time)`: só o que o time enxerga, mais os fantasmas de prédios vistos | `site/rts/js/sim/` | F1a | F6 | teste de "sem trapaça" |
+| C5 | Dados de jogo em inteiros, validados no carregamento | `site/rts/dados/{unidades,predios,armas}.json` | F5 (números), F1a (esquema e validador) | F1a, F1b, F7 | campo `versao` |
+| C6 | Mapa: `mapa.json` (cabeçalho), `camadas.bin` (solo, altura, passabilidade, recurso, decoração) e `entidades.json` | `site/rts/dados/mapas/<id>/` | F5 | F1a, F2, F7 | campo `versao`, esquema testado pela F1a |
+| C7 | Gatilhos de missão (condições e ações) em JSON | `site/rts/dados/missoes/` | F5 (dados), F1b (avaliador), F6 (comportamentos) | F1b | campo `versao` |
 | C8 | Projeção e luz: elevação, metros e pixels por célula por nível, campo de visão em células (30 colunas em 16:9, linhas fixas, colunas entre 24 e 40) e os três zooms, sol, transformação de cor, exagero da infantaria e cores de time; a câmera da página é `{ x, y, zoom }`, com o zoom como fator, e as conversões entre tela e mapa ficam em `site/rts/js/entrada/camera.js` sobre `site/rts/js/render/projecao.js` | `site/rts/dados/projecao.json` | F2 | F3, F7 | `versao`; v1 congelada no M2 |
 | C9 | Manifesto de sprites por asset e índice por fase, com pontos de encaixe por direção | `site/rts/assets/sprites/<categoria>/<asset>.json`, `site/rts/assets/indice.json` | F3 | F2, F8 | `versao` |
 | C10 | Sons: evento para ids de som, categoria, prioridade e variações | `site/rts/dados/sons.json` | F4 | F4 | `versao` |
 | C11 | Textos de interface, briefings, falas e legendas por id | `site/rts/dados/textos/pt-BR.json` | F5 | F7, F4 | ids estáveis |
 | C12 | Orçamentos de memória e de download por nível e por fase | `testes/rts-orcamento.json` | F8 | todos | — |
-| C13 | Procedência por asset (autores, ferramentas, modelos de IA com licença, prompt, semente, edições humanas) e lista de licenças permitidas | `arte/procedencia/` e teste da F8 | F8 (esquema e lista), F3 e F4 (conteúdo) | F8 | — |
+| C13 | Procedência por asset (autores, ferramentas, modelos de IA com licença, prompt, semente, edições humanas) e lista de licenças permitidas | `arte/procedencia/`, `testes/rts-licencas.json` e `testes/rts-procedencia.test.mjs` | F8 (esquema e lista), F3 e F4 (conteúdo) | F8 | — |
 | C14 | Pedido de asset por mensagem à F3: id, tipo, brief de uma linha, animações, prioridade; a F3 entrega antes um provisório | mensagem entre sessões | F3 | todos | — |
 | C15 | Registro do kit de teste, exportado em JSON pelo jogador, sem rede | `site/rts/js/telemetria/` | F5 | F8 | campo `versao` |
-| C16 | Pacote de turno do lockstep e soma por subsistema; mensagens abaixo de 16.000 bytes | `site/rts/js/rede/` | F9 | F1 | `VERSAO_PROTOCOLO` da sala |
+| C16 | Pacote de turno do lockstep e soma por subsistema; mensagens abaixo de 16.000 bytes | `site/rts/js/rede/` | F9 | F1a | `VERSAO_PROTOCOLO` da sala |
 
 Um teste de esquema impede que um consumidor velho de contrato passe despercebido.
 
@@ -107,7 +110,7 @@ Um teste de esquema impede que um consumidor velho de contrato passe despercebid
 | --- | --- |
 | 8811 | protótipo `prototipos/rts-4k/` (configuração `prototipo-rts` do `.claude/launch.json`) |
 | 8820 | `rts-qualidade` |
-| 8821 | `rts-motor` |
+| 8821 | `rts-motor` (onda 1), `rts-motor-economia` (onda 2 em diante) |
 | 8822 | `rts-render` |
 | 8823 | `rts-interface` |
 | 8824 | `rts-arte` |
@@ -115,6 +118,7 @@ Um teste de esquema impede que um consumidor velho de contrato passe despercebid
 | 8826 | `rts-ia` |
 | 8827 | `rts-som` |
 | 8828 | `rts-rede` |
+| 8829 | `rts-motor-combate` |
 
 ## Git e tamanho
 
@@ -128,14 +132,15 @@ Um teste de esquema impede que um consumidor velho de contrato passe despercebid
 
 ```
 site/rts/index.html, css/, js/principal.js     página, estilos e laço de quadro (F7)
-site/rts/js/sim/                               simulação inteira e determinística (F1)
+site/rts/js/sim/                               simulação inteira e determinística (F1a; combate, veterania, pesquisas, religar e gatilhos da F1b)
 site/rts/js/sim/comportamentos/                equipes da missão, determinístico (F6)
-site/rts/js/trabalhador.js                     Worker: relógio, fila de comandos, retratos (F1)
+site/rts/js/trabalhador.js                     Worker: relógio, fila de comandos, retratos (F1a)
 site/rts/js/ia/                                jogadores virtuais (F6)
 site/rts/js/render/, js/ativos/                WebGL2 e carregador de atlas (F2)
 site/rts/js/entrada/, js/interface/            mouse, teclado, trackpad, HUD, menus (F7)
 site/rts/js/audio/                             motor de áudio (F4)
 site/rts/js/telemetria/                        registro do kit de teste (F5)
+site/rts/js/teste/                             gancho dos testes de ponta a ponta, só com ?teste=1 (F8)
 site/rts/js/rede/                              lockstep, na E8 (F9)
 site/rts/dados/                                projecao.json (F2), dados de jogo, missões, mapas, textos (F5), sons.json (F4)
 site/rts/assets/                               índice, sprites, terreno, interface, vídeo (F3), áudio (F4)
@@ -143,7 +148,7 @@ site/rts/ferramentas/visualizador.html         visualizador de atlas, sem link (
 arte/                                          não publicado: briefs e mapas-fonte (F5), blender e procedência (F3)
 ferramentas/arte/, audio/, mapas/, rts/        ferramentas de linha de comando
 testes/rts-*.test.mjs                          node --test (o npm test só lê testes/*.test.mjs)
-testes/rts-replays/                            replays dourados (F1)
+testes/rts-replays/                            replays dourados (F1a)
 testes/e2e/rts-*.spec.mjs                      Playwright (F8; rts-desempenho é da F2)
 prototipos/                                    fora da publicação
 docs/rts/                                      ESTADO.md e este arquivo (F8)
