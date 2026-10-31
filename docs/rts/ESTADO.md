@@ -211,7 +211,8 @@ Ninguém espera parado por estes itens; cada sessão segue com o que dá e a `rt
 - Jogar o M3 com 2 pessoas do grupo pelo [kit do M3](kit-m3.md) e mandar os 3 registros e as respostas para a `rts-qualidade`.
 - Som no M3: os sons sintetizados provisórios já tocam; as respostas de unidade gravadas pelo grupo dependem de o Victor gravar ou chamar alguém (a `rts-som` só abre na onda 3).
 - Pela bateria de teclas e no Safari (pedidos da `rts-interface`): calibrar roda e trackpad, confirmar B, ponto, V e F10, a pinça no Safari, e o M1.
-- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos).
+- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos), com os rascunhos de convite da nota de recrutamento da `rts-design`.
+- Jogar o M4 pelo [kit do M4](kit-m4.md) quando a `rts-qualidade` avisar que a missão está pronta, e mandar os 6 registros (com o grupo no nome do arquivo) e as entrevistas.
 - Licença comunitária de áudio gerado por IA (Stable Audio): fica fora da lista de licenças permitidas (`testes/rts-licencas.json`) até a decisão dele.
 - As escolhas do portão de estilo (M2) e as medições que esperam o Mac, abaixo.
 
@@ -417,7 +418,7 @@ Onda 2 (E3), aberta em 30/10/2026; integrações na `rts/base` em `924e882`, `69
 | Cemitério da base esvaziando com 3 guinchos (depósito a pelo menos 5 células, carregar 12 s, descarregar 4 s) | 11,4 min; com o depósito colado nas pilhas e 4 s e 2 s, seriam 6,4 min | modelo de viagem de `testes/rts-mapas.test.mjs` |
 | Primeiro tiro previsto da caixa de areia | cerca de 3:10 (onda de 2 Rolimãs aos 2:45, 83 células de rota) | `testes/rts-missoes.test.mjs` |
 
-Pendências da F5 com outras frentes: a `rts-motor-economia` pôr no esquema `distanciaMinimaPilha` (a regra que segura o esgotamento do cemitério nos 10 a 13 minutos) e o bloco `holofote` dos prédios, e os eventos `AVISO_ATAQUE` e `ONDA` no C3, que o registro já lê; a `rts-motor-combate` aceitar os campos `mapa` e `titulo` no topo da missão (a missão já está no formato do `gatilhos.js` dela e compila nas três dificuldades com esses dois campos liberados); a `rts-interface` carregar a missão, o mapa e os dados na página e ligar o registro. O ajuste do ritmo pelos registros reais fica para depois do M3.
+Fechamento da onda 2 da F5 (31/10/2026): os pedidos às outras frentes foram atendidos e os números entraram: `distanciaMinimaPilha` 5 no `economia.json` (o `MOTIVO.PERTO_DO_RECURSO` do motor recusa depósito mais perto que isso) e o bloco `holofote` da Torre de Holofote (cone de 24 unidades de ângulo e 8 células) e do Holofote de Estrada (círculo de 6 células), os dois desmanchando tocaia; os eventos `AVISO_ATAQUE` e `ONDA` estão no C3 e o registro os lê; a missão roda no avaliador da `rts-motor-combate`. De propósito, e não defeito: os Religadores começam sem depósito (o Escritório Regional tem `deposito: 0`), então o primeiro Acumulador vem antes de qualquer entrega; é a lição de montar a operação. O ajuste do ritmo pelos registros reais fica para depois do M3, com o conferidor da `rts-qualidade`; a próxima sessão de design (onda 3, Morro Aceso) começa em arquivos novos de `site/rts/dados/missoes/` e `site/rts/dados/mapas/`, e o `economia.json` e o `predios.json` ficam livres para ela.
 
 Depende do Victor:
 

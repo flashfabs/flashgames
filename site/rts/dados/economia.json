@@ -2,6 +2,7 @@
   "versao": 1,
   "lotacaoMaxima": 60,
   "saturacao": 3,
+  "distanciaMinimaPilha": 5,
   "cargaDerramada": { "porcento": 100, "duracaoMs": 90000 },
   "faiscaCarga": 25,
   "vento": { "intervaloMs": 120000, "lote": 80, "avisoMs": 15000, "primeiraMs": 120000 },
