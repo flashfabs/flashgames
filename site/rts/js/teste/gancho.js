@@ -161,6 +161,20 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
     simulacao.enviarComando(ordem);
   }
 
+  /**
+   * Saves the match in the worker and plays the replay it recorded here, from the first tick: resolves with
+   * { tick, final, soma }, the replay's final checksum and the worker's checksum of that same tick (8-digit hex; soma
+   * is null when the latest snapshot did not hash that tick, so fast-forward or pause right before calling).
+   */
+  async function conferirReplay() {
+    const salvo = await simulacao.salvar();
+    if (!salvo.replay) throw new Error('gancho: esta partida não tem replay (foi carregada de um salvamento)');
+    const { executarReplay } = await import('../sim/replay.js');
+    const { final } = executarReplay(salvo.replay);
+    const hex = n => (n >>> 0).toString(16).padStart(8, '0');
+    return { tick: salvo.tick, final, soma: atual && atual.tickSoma === salvo.tick ? hex(atual.soma) : null };
+  }
+
   Object.assign(rts, {
     versaoGancho: VERSAO_GANCHO,
     FP,
@@ -193,6 +207,7 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
     pausar: (valor = true) => simulacao.pausar(valor, 'teste'),
     avancar,
     esperarTick,
+    conferirReplay,
   });
   if (atual) aoReceber(atual);
   return rts;

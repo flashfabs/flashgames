@@ -150,7 +150,7 @@ test('defeat: without headquarters, forward post, garage and maintenance crew th
   }
 });
 
-test('victory: holding the base and the harvested yard through the six waves wins, and the log reads in the pacing checker', async ({ page }) => {
+test('victory: holding the base and the harvested yard through the six waves wins, its replay matches, and the log reads in the pacing checker', async ({ page }) => {
   test.setTimeout(10 * 60 * 1000);
   await abrirCaixa(page);
   // the scripted player of rts-roteiro.mjs, tuned against the real simulation in Node: it wins on Normal at about 20 min
@@ -168,6 +168,10 @@ test('victory: holding the base and the harvested yard through the six waves win
   expect(vitoria.length, 'VITORIA em até 26 min de jogo').toBeGreaterThan(0);
   expect(vitoria[0].arg, 'a vitória é do jogador 0').toBe(0);
   test.info().annotations.push({ type: 'vitória', description: `aos ${(vitoria[0].tick / MINUTO).toFixed(1)} min de jogo` });
+  // the replay the worker recorded, played back from the first tick in the page, ends on the worker's own checksum
+  const replay = await page.evaluate(() => window.__rts.conferirReplay());
+  expect(replay.soma, 'a soma do worker no último passo').not.toBeNull();
+  expect(replay.final, `o replay de ${(replay.tick / MINUTO).toFixed(1)} min dá a soma do worker`).toBe(replay.soma);
   const registro = await page.evaluate(() => window.__rts.registro());
   test.skip(registro === null, 'a página ainda não entrega o registro ao gancho');
   expect(validarRegistro(registro)).toEqual([]);
