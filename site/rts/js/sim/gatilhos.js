@@ -40,7 +40,7 @@
 //   parar }; liberar | bloquear { jogador, tipos }; revelar { jogador, area }; recursos { jogador, somar };
 //   dono { grupo, jogador }; destruir { grupo }; gatilho { gatilho, ativo }; religavel { grupo, segundos,
 //   por?: religa | reparo };
-//   pesquisa { jogador, pesquisa }; veterania { grupo, nivel }; luz { cena }; camera { area | ponto };
+//   pesquisa { jogador, pesquisa }; veterania { grupo, nivel }; luz { cena, area | ponto? }; camera { area | ponto };
 //   empacotar { grupo, em: <unit kind>, segundos } each building of the group becomes, after N s standing still, a unit
 //   of that kind with the same label; desempacotar { grupo, area?, segundos } packed members (inside the area) turn
 //   back into their building after N s (empacotar.js);
@@ -483,7 +483,8 @@ export function compilarMissao(missao, contexto) {
       case 'desempacotar':
         return { faz: 'desempacotar', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), area: a.area === undefined ? null : area(`${onde}.area`, a.area), passos: segundos(`${onde}.segundos`, a.segundos) };
       case 'luz':
-        return { faz: 'luz', cena: cenas.indexOf(a.cena) };
+        // the lights come on outward from the point or area, or from the camera with neither
+        return { faz: 'luz', cena: cenas.indexOf(a.cena), ...(a.area !== undefined ? { area: area(`${onde}.area`, a.area) } : a.ponto !== undefined ? { ponto: ponto(`${onde}.ponto`, a.ponto) } : {}) };
       case 'camera':
         return { faz: 'camera', ...(a.area !== undefined ? { area: area(`${onde}.area`, a.area) } : { ponto: ponto(`${onde}.ponto`, a.ponto) }) };
       case 'vitoria':
@@ -876,9 +877,11 @@ function executar(sim, m, ex, a) {
     case 'desempacotar':
       for (const i of membros(sim, ex, a.grupo)) if (faseDe(sim, i) === FASE.EMPACOTADO && (!a.area || dentroDaArea(sim, i, a.area))) iniciarDesempacotar(sim, i, a.passos);
       return;
-    case 'luz':
-      emitirMissao(sim, EVENTO.LUZ, 0, 0, a.cena);
+    case 'luz': {
+      const c = centro(a);
+      emitirMissao(sim, EVENTO.LUZ, c.x, c.y, a.cena);
       return;
+    }
     case 'camera': {
       const c = centro(a);
       emitirMissao(sim, EVENTO.CAMERA, c.x, c.y, 0);

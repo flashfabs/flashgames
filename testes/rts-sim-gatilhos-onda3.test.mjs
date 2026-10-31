@@ -4,12 +4,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { criarSimulacao, passo, agendarComando, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
-import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, TIPO_COMANDO, CATEGORIA, DONO_NEUTRO, criarComando, idDe } from '../site/rts/js/sim/contratos.js';
+import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, E_X, E_Y, E_ARG, TIPO_COMANDO, CATEGORIA, DONO_NEUTRO, criarComando, idDe } from '../site/rts/js/sim/contratos.js';
 import { REGRAS_COMBATE_PADRAO } from '../site/rts/js/sim/armas.js';
 import { extrasMissao, rotular, temRotulo, INTERVALO_GATILHOS } from '../site/rts/js/sim/gatilhos.js';
 import { progressoReligar, religandoQual } from '../site/rts/js/sim/religar.js';
 import { comandoReparar, reparandoQual } from '../site/rts/js/sim/reparo.js';
 import { faseDe, FASE } from '../site/rts/js/sim/empacotar.js';
+import { BANDEIRA_COMBATE } from '../site/rts/js/sim/habilidades.js';
+import { montarRetrato } from '../site/rts/js/sim/retrato.js';
 import { ordenarGrupo } from '../site/rts/js/sim/ordens.js';
 
 const pe = { classe: 'infantaria', blindagem: 'pessoal', lotacao: 1, raio: 2, giroCorpo: 16, giroTorre: 16, tempoMs: 12000, velocidade: 120, visao: 7 };
@@ -310,4 +312,42 @@ test('the camp packs and runs when threatened, and taking it down pays the rewar
   assert.equal(doTipo(caca, BARRACAO).length, 0, 'and never set up again');
   assert.equal(extrasMissao(caca).objetivos[0], 2, 'desmontar is done');
   assert.equal(carga(caca, 0) - antes, 1000, 'and the reward is paid');
+});
+
+test('the snapshot shows re-powering progress and packing, and the lights come on from the mission\u2019s point', () => {
+  const m = missao(
+    [
+      { id: 'empacota', quando: { se: 'tempo', segundos: 0 }, acoes: [{ faz: 'empacotar', grupo: 'acampamento', em: 'carroca', segundos: 2 }, { faz: 'luz', cena: 'entardecer', ponto: 'morro' }] },
+      { id: 'noite', quando: { se: 'tempo', segundos: 1 }, acoes: [{ faz: 'luz', cena: 'noite' }] },
+    ],
+    { pontos: { morro: [30, 31] } },
+  );
+  const sim = partida(m, [
+    { tipo: SUBESTACAO, time: DONO_NEUTRO, x: 30, y: 30 },
+    { tipo: RELIGADOR, time: 0, x: meio(28), y: meio(30) },
+    { tipo: BARRACAO, time: 1, x: 50, y: 50 },
+  ]);
+  rotular(sim, 2, 'acampamento');
+  const linha = (r, i) => Array.from(r.id).indexOf(id(sim, i));
+  const luzes = eventos(sim, EVENTO.LUZ, 1);
+  assert.equal(luzes.length, 1);
+  assert.deepEqual([luzes[0][E_X], luzes[0][E_Y], luzes[0][E_ARG]], [Math.trunc(meio(30) * FP), Math.trunc(meio(31) * FP), 0], 'from the point, in world units');
+  let r = montarRetrato(sim);
+  assert.equal(r.progresso[linha(r, 0)], 255, 'nobody started');
+  assert.ok(r.bandeiras[linha(r, 2)] & BANDEIRA_COMBATE.EMPACOTANDO, 'packing');
+  assert.equal(r.bandeiras[linha(r, 2)] & BANDEIRA_COMBATE.EMPACOTADO, 0);
+
+  agendarComando(sim, criarComando({ tick: sim.tick + 1, jogador: 0, seq: 1, tipo: TIPO_COMANDO.HABILIDADE, unidades: [id(sim, 1)], alvo: id(sim, 0), arg: 1 }));
+  const noite = eventos(sim, EVENTO.LUZ, 2 * 30);
+  assert.deepEqual([noite[0][E_X], noite[0][E_Y], noite[0][E_ARG]], [0, 0, 1], 'with no point, from the camera');
+  avancar(sim, 13 * 30);
+  r = montarRetrato(sim);
+  const feito = progressoReligar(sim, 0);
+  assert.ok(feito.passos > 0);
+  assert.equal(r.progresso[linha(r, 0)], Math.trunc((feito.passos * 255) / feito.total), 'how far the re-powering got');
+  let carroca = -1;
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.tipo[i] === CARROCA) carroca = i;
+  const b = r.bandeiras[linha(r, carroca)];
+  assert.ok(b & BANDEIRA_COMBATE.EMPACOTADO, 'a packed building');
+  assert.equal(b & BANDEIRA_COMBATE.EMPACOTANDO, 0);
 });

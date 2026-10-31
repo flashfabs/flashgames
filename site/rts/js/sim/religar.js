@@ -100,6 +100,14 @@ export function progressoReligar(sim, j) {
   return { time: ex.progressoTime[j] === SEM_TIME ? -1 : ex.progressoTime[j], passos: ex.progresso[j], total: tempoParaReligar(sim, j) };
 }
 
+/** Retrato.progresso of structure j: how far its re-powering got, 0..254, or 255 when nobody started; reads only. */
+export function progressoDoRetrato(sim, j) {
+  const ex = sim.extras?.religar;
+  if (!ex || ex.geracao[j] !== sim.geracao[j] || ex.progressoTime[j] === SEM_TIME) return 255;
+  const total = ex.tempo[j] > 0 ? ex.tempo[j] : sim.tipos[sim.tipo[j]].tempoReligar || TEMPO_PADRAO;
+  return Math.min(254, Math.trunc((ex.progresso[j] * 255) / total));
+}
+
 /** Whether someone (of `jogador`, or anyone with -1) worked on structure j this tick or the one before. */
 export function sendoReligada(sim, j, jogador = -1) {
   const ex = extrasReligar(sim);
