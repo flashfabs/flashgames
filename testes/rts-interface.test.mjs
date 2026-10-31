@@ -169,6 +169,9 @@ test('refusals, ready buildings, power loss, gusts and attack warnings become al
   ), 0);
   assert.deepEqual(novos.map(a => [a.tipo, a.arg]), [[ALERTA.RECUSA, MOTIVO.SEM_CARGA], [ALERTA.PREDIO_PRONTO, 5], [ALERTA.SEM_ENERGIA, 4], [ALERTA.RAJADA, 300], [ALERTA.AVISO_ATAQUE, 0]]);
   assert.deepEqual([alertas.ultimo.tipo, alertas.ultimo.x], [ALERTA.AVISO_ATAQUE, 60], 'a gust has no place to go to');
+  const mensagens = alertas.registrar(eventos(evento(EVENTO.MENSAGEM_MISSAO, -1, { arg: 3 }), evento(EVENTO.MENSAGEM_MISSAO, -1, { arg: 4, x: 30, y: 40 })), 100);
+  assert.deepEqual(mensagens.map(a => [a.tipo, a.arg, a.semLugar]), [[ALERTA.MENSAGEM, 3, true], [ALERTA.MENSAGEM, 4, false]]);
+  assert.deepEqual([alertas.ultimo.x, alertas.ultimo.y], [30, 40], 'a message with an area is a place to go to');
 });
 
 test('a lost harvester, a paid gust and one alert for a cut pole, and owners of the just-dead come from the snapshot before', () => {

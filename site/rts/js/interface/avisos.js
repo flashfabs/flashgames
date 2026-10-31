@@ -4,6 +4,8 @@ import { ALERTA, ALERTAS_DE_PERIGO } from './alertas.js';
 import { PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
 
 const DURACAO_MS = 6000;
+/** Mission messages are read, not glanced at: they stay longer. */
+const DURACAO_DA_MENSAGEM_MS = 12000;
 const MAXIMO = 4;
 
 const TEXTO_DO_ALERTA = {
@@ -26,8 +28,9 @@ const TEXTO_DO_ALERTA = {
 /**
  * @param {object} opcoes
  * @param {(grupo: number) => string | null} [opcoes.textoDoAviso] text id the mission gives an attack warning of that group
+ * @param {(indice: number) => string | null} [opcoes.textoDaMensagem] text id of a mission message by its index
  */
-export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso = () => null }) {
+export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso = () => null, textoDaMensagem = () => null }) {
   const vivos = [];
 
   lista.addEventListener('click', e => {
@@ -45,6 +48,10 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso =
 
   /** The line an alert shows. */
   function textoDe(alerta) {
+    if (alerta.tipo === ALERTA.MENSAGEM) {
+      const id = textoDaMensagem(alerta.arg);
+      return id ? texto(id) : '';
+    }
     const doAviso = alerta.tipo === ALERTA.AVISO_ATAQUE ? textoDoAviso(alerta.arg) : null;
     const id = doAviso && texto.tem(doAviso) ? doAviso : TEXTO_DO_ALERTA[alerta.tipo];
     if (!id) return '';
@@ -52,8 +59,12 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso =
     return texto(id, { nome, s: Math.round(alerta.arg / PASSOS_POR_SEGUNDO), n: alerta.arg });
   }
 
-  /** Shows an alert; refusals are not listed here (the command bar says them). */
+  /**
+   * Shows an alert; refusals are not listed here (the command bar says them), nor an attack warning the mission words
+   * itself (its message comes right after as MENSAGEM_MISSAO).
+   */
   function mostrar(alerta) {
+    if (alerta.tipo === ALERTA.AVISO_ATAQUE && textoDoAviso(alerta.arg)) return;
     const conteudo = textoDe(alerta);
     if (!conteudo) return;
     const item = document.createElement('li');
@@ -63,7 +74,7 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso =
     lista.append(item);
     const vivo = { item, alerta };
     vivos.push(vivo);
-    setTimeout(() => remover(vivo), DURACAO_MS);
+    setTimeout(() => remover(vivo), alerta.tipo === ALERTA.MENSAGEM ? DURACAO_DA_MENSAGEM_MS : DURACAO_MS);
     while (vivos.length > MAXIMO) remover(vivos[0]);
   }
 

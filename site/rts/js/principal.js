@@ -40,7 +40,8 @@ import { criarSomDaPartida } from './interface/som-da-partida.js';
 import { criarFim } from './interface/fim.js';
 import { criarObjetivos } from './interface/objetivos.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
-import { criarRegistro, nomesDosGrupos } from './telemetria/registro.js';
+import { criarRegistro } from './telemetria/registro.js';
+import { textosDaMissao, rotulosDaMissao } from './sim/gatilhos.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
 import { TIPO_COMANDO, SEM_ENTIDADE, VERSAO_SIMULACAO, VERSAO_COMANDOS, EVENTO, TAMANHO_EVENTO, E_TIPO, E_X, E_Y, FP } from './sim/contratos.js';
 
@@ -118,12 +119,14 @@ function comecarRegistro(mapa) {
   }
 }
 
-// Attack warnings name their mission group by index (the log's order); the mission gives each warning its text.
+// Mission messages and attack warnings come by index (the trigger evaluator's own lists); the mission gives each
+// warning its text.
+const textosDaPartida = arquivosDaPartida ? textosDaMissao(arquivosDaPartida.missao) : [];
 const textosDosAvisos = new Map();
 if (arquivosDaPartida) {
-  const grupos = nomesDosGrupos(arquivosDaPartida.missao);
+  const grupos = rotulosDaMissao(arquivosDaPartida.missao);
   for (const gatilho of arquivosDaPartida.missao.gatilhos ?? []) {
-    for (const acao of gatilho.acoes ?? []) if (acao.faz === 'aviso' && acao.texto) textosDosAvisos.set(grupos.indexOf(acao.grupo), acao.texto);
+    for (const acao of gatilho.acoes ?? gatilho.faz ?? []) if (acao.faz === 'aviso' && acao.texto) textosDosAvisos.set(grupos.indexOf(acao.grupo), acao.texto);
   }
 }
 
@@ -288,7 +291,14 @@ controles = ligarControles({
 barra = criarBarraDeComandos({ raiz: document.getElementById('comandos'), utilidades: document.getElementById('utilidades'), controles, grupos, indice, selecionadas, canvasAlvo: canvas, telaCheia, texto, catalogo: obterCatalogo, cartao: () => cartaoAtual });
 painelSelecao = criarPainelDeSelecao({ raiz: document.getElementById('selecao'), selecionadas, indice, estado, catalogo: obterCatalogo, leitura, texto, controles, ordens, canvasAlvo: canvas, aoMudar });
 const hud = criarHud({ topo: document.getElementById('topo'), atalhos: document.getElementById('atalhos-mapa'), texto, controles, canvasAlvo: canvas, acoes: acoesDoMapa });
-const avisos = criarAvisos({ lista: document.getElementById('alertas'), texto, catalogo: obterCatalogo, aoEscolher: alerta => centrarEm(alerta.x, alerta.y), textoDoAviso: grupo => textosDosAvisos.get(grupo) ?? null });
+const avisos = criarAvisos({
+  lista: document.getElementById('alertas'),
+  texto,
+  catalogo: obterCatalogo,
+  aoEscolher: alerta => !alerta.semLugar && centrarEm(alerta.x, alerta.y),
+  textoDoAviso: grupo => textosDosAvisos.get(grupo) ?? null,
+  textoDaMensagem: indice => textosDaPartida[indice] ?? null,
+});
 // Rally points of the selected buildings, drawn from the building to the point.
 function encontros() {
   const linhas = [];
@@ -326,6 +336,7 @@ const SOM_DO_ALERTA = {
   [ALERTA.RAJADA_PAGA]: SOM.PRODUCAO,
   [ALERTA.PROMOCAO]: SOM.PRODUCAO,
   [ALERTA.RELIGADO]: SOM.CONSTRUCAO,
+  [ALERTA.MENSAGEM]: SOM.ALERTA,
   [ALERTA.RECURSO_ESGOTADO]: SOM.ALERTA,
 };
 
