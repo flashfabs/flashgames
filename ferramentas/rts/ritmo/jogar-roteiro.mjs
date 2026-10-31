@@ -15,6 +15,8 @@ import { TIPO_COMANDO, PASSOS_POR_SEGUNDO, VERSAO_SIMULACAO, VERSAO_COMANDOS, EV
 import { montarRetrato, montarMapaEstatico } from '../../../site/rts/js/sim/retrato.js';
 import { criarRegistro } from '../../../site/rts/js/telemetria/registro.js';
 import { decodificarRetrato } from '../../../site/rts/js/teste/gancho.js';
+import { criarGravador, executarReplay } from '../../../site/rts/js/sim/replay.js';
+import { somaDeVerificacao } from '../../../site/rts/js/sim/soma.js';
 import { conferirRegistro } from './ritmo.mjs';
 
 const RAIZ = new URL('../../../', import.meta.url);
@@ -44,12 +46,17 @@ export function carregarPartida(missaoId) {
 }
 
 /**
- * Plays one match and returns { resultado, minutos, registro (exported C15), conferido (checker result) }.
+ * Plays one match and returns { resultado, minutos, registro (exported C15), conferido (checker result), replay,
+ * soma }: the replay of the whole match as the worker records it, and the final checksum as 8-digit hex.
  * @param {{ missao: string, dificuldade: string, minutos: number, roteiro: { criarRoteiro, decidir, DECISAO_SEGUNDOS } }} opcoes
  */
+export { executarReplay };
+
 export function jogar({ missao: missaoId, dificuldade, minutos, roteiro: modulo }) {
   const { dados, missao, arquivosMapa } = carregarPartida(missaoId);
-  const sim = criarSimulacao({ dados, arquivosMapa, missao, dificuldade });
+  const opcoesSimulacao = { dados, arquivosMapa, missao, dificuldade };
+  const sim = criarSimulacao(opcoesSimulacao);
+  const gravador = criarGravador(opcoesSimulacao);
   const mapa = montarMapaEstatico(sim, 0);
   const registro = criarRegistro({
     missao: missao.id,
@@ -74,6 +81,7 @@ export function jogar({ missao: missaoId, dificuldade, minutos, roteiro: modulo 
         const comando = { tick: sim.tick + 1, jogador: 0, seq: seq++, unidades: [], alvo: -1, x: 0, y: 0, arg: 0, fila: 0, ...ordem, tipo: TIPO_COMANDO[ordem.tipo] };
         registro.anotarComando(comando, 'teste');
         agendarComando(sim, comando);
+        gravador.registrar(comando);
       }
     }
     passo(sim);
@@ -83,7 +91,8 @@ export function jogar({ missao: missaoId, dificuldade, minutos, roteiro: modulo 
     }
   }
   const exportado = registro.exportar();
-  return { resultado: exportado.resultado, minutos: +(sim.tick / (60 * PASSOS_POR_SEGUNDO)).toFixed(2), registro: exportado, conferido: conferirRegistro(exportado) };
+  const soma = somaDeVerificacao(sim).toString(16).padStart(8, '0');
+  return { resultado: exportado.resultado, minutos: +(sim.tick / (60 * PASSOS_POR_SEGUNDO)).toFixed(2), registro: exportado, conferido: conferirRegistro(exportado), replay: gravador.replay(sim.tick), soma };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import { ligarGancho, decodificarRetrato, decodificarEventos, decodificarFilas } from '../site/rts/js/teste/gancho.js';
 import { CAMPOS_RETRATO, EVENTO, TAMANHO_EVENTO, TIPO_COMANDO, FP, alocarCamposRetrato } from '../site/rts/js/sim/contratos.js';
 import { FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, TAMANHO_REGISTRO_FILA, TAMANHO_FAIXA, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, MAX_FILA } from '../site/rts/js/sim/contratos.js';
-import { criarSimulacao, passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
+import { criarSimulacao, passo, agendarComando, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
+import { criarGravador } from '../site/rts/js/sim/replay.js';
+import { somaDeVerificacao } from '../site/rts/js/sim/soma.js';
 import { montarRetrato } from '../site/rts/js/sim/retrato.js';
 
 function retratoFalso(tick, eventos = []) {
@@ -138,4 +140,22 @@ test('decodes the production queues and names kinds from the static map', () => 
   assert.equal(retrato.entidades[0].nome, 'escritorio-regional');
   assert.equal(retrato.filas.length, 1);
   assert.equal(retrato.filas_, undefined);
+});
+
+test('the replay the worker saves reproduces its checksum when played back', async () => {
+  const opcoes = { semente: 5, largura: 48, altura: 48, unidades: [{ tipo: 0, time: 0, x: 10 * FP, y: 10 * FP }, { tipo: 0, time: 1, x: 30 * FP, y: 30 * FP }], regras: REGRAS_LIVRES };
+  const sim = criarSimulacao(opcoes);
+  const gravador = criarGravador(opcoes);
+  const ordem = { tick: 3, jogador: 0, seq: 0, tipo: TIPO_COMANDO.MOVER, unidades: [65536], alvo: -1, x: 25 * FP, y: 25 * FP, arg: 0, fila: 0 };
+  agendarComando(sim, ordem);
+  gravador.registrar(ordem);
+  for (let k = 0; k < 120; k++) passo(sim);
+  const { ponte, estado } = ponteFalsa();
+  const rts = ligarGancho({}, { simulacao: { ...ponte, salvar: async () => ({ tick: sim.tick, replay: gravador.replay(sim.tick) }) }, estado });
+  estado.atual = { ...retratoFalso(sim.tick), soma: somaDeVerificacao(sim), tickSoma: sim.tick };
+  const r = await rts.conferirReplay();
+  assert.equal(r.tick, 120);
+  assert.equal(r.final, r.soma);
+  estado.atual = { ...retratoFalso(sim.tick), soma: 1, tickSoma: sim.tick - 30 };
+  assert.equal((await rts.conferirReplay()).soma, null, 'no checksum of that tick to compare');
 });
