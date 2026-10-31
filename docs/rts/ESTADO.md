@@ -8,7 +8,10 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 
 ## Onde estamos
 
-- Etapa: E3 (fatia cinza jogável), na onda 2, aberta em 30/10/2026 com as 8 sessões aprovadas pelo Victor; termina no marco M3, uma partida de 15 a 25 minutos com arte cinza jogada por 3 pessoas do grupo. A onda 1 (E1 motor de produção e E2 fábrica de arte, junto com a E0) terminou em 30/10/2026; o que ficou dela está nas seções de cada frente e em "Medições que esperam o Mac".
+- Etapa: E4 ("Morro Aceso" jogável em cinza, marco M4), na onda 3, aberta em 31/10/2026 com o Victor dormindo, mais o que der da E5 sem as escolhas dele no portão de estilo; as linhas da E3 que esperam o Victor (M3, diversão e ritmo pelos registros) continuam abertas.
+- Sessões da onda 3 e portas: `rts-qualidade` (F8, 8820), `rts-motor-economia` (F1a, 8821: núcleo, movimento e a API dos comportamentos), `rts-render` (F2, 8822), `rts-interface` (F7, 8823), `rts-arte` (F3, 8824), `rts-design` (F5, 8825: a missão), `rts-rede` (F6 nesta onda, 8828: comportamentos e IA inimiga) e `rts-motor-combate` (F1b, 8829: gatilhos da missão e o acampamento); a F4 abre de manhã com o Victor.
+- Onda 2 (E3, fatia cinza) fechada em 31/10/2026: a fatia joga de ponta a ponta e os testes dela estão verdes no PC e no Action (`431de45`); o M3 com 3 pessoas espera o Victor.
+- Onda 2: E3 (fatia cinza jogável), aberta em 30/10/2026 com as 8 sessões aprovadas pelo Victor; termina no marco M3, uma partida de 15 a 25 minutos com arte cinza jogada por 3 pessoas do grupo. A onda 1 (E1 motor de produção e E2 fábrica de arte, junto com a E0) terminou em 30/10/2026; o que ficou dela está nas seções de cada frente e em "Medições que esperam o Mac".
 - Sessões da onda 2 e portas: `rts-qualidade` (8820), `rts-motor-economia` (8821), `rts-render` (8822), `rts-interface` (8823), `rts-arte` (8824), `rts-design` (8825), `rts-rede` (8828) e `rts-motor-combate` (8829); o motor ficou dividido em F1a e F1b pela tabela de frentes do [frentes.md](frentes.md).
 - Integração: branch `rts/base`, criada em 30/10/2026 a partir da `main` em `94d4631`; nada do RTS foi para a `main` nem para a Netlify.
 - Guarda da produção, conferida de novo no fim da onda 1 (30/10/2026): `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404, a `rts/base` não tem deploy de branch na Netlify e a `main` segue em `94d4631`.
@@ -158,14 +161,25 @@ Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, o
 
 ### E4. Missão em cinza (plano, E4)
 
-| Critério | Meta | Estado |
-| --- | --- | --- |
-| Duração no Normal com 6 pessoas que nunca viram o jogo | mediana de 20 a 25 min entre 3 novatos e de 15 a 18 entre 3 veteranos | pendente |
-| Aviso de ataque | todo ataque com 6 ou mais unidades avisado com pelo menos 10 s (teste no registro) | pendente |
-| Lições | cada lição aparece no registro de pelo menos 4 das 6 pessoas | pendente |
-| Justiça e briefings | ninguém chama derrota de injusta; no máximo 1 pessoa pula briefings | pendente |
-| Diversão | mediana de pelo menos 4 em 5; "jogaria a próxima fase?" com sim de pelo menos 5 de 6 | pendente |
-| IA sem vantagem | sem recurso, visão ou produção extra (teste automático); replay da partida inteira reproduz as somas | pendente |
+Aberta em 31/10/2026 (onda 3). Cada linha tem um dono: quem entrega o número, ou quem destrava quando o número depende do Victor.
+
+| Critério | Meta | Dono | Estado |
+| --- | --- | --- | --- |
+| Duração no Normal com 6 pessoas que nunca viram o jogo | mediana de 20 a 25 min entre 3 novatos e de 15 a 18 entre 3 veteranos | Victor joga o M4 com as 6 pessoas pelo kit do M4 (`rts-qualidade`, convite da `rts-design`); número pelo conferidor | pendente |
+| Aviso de ataque | todo ataque com 6 ou mais unidades avisado com pelo menos 10 s (teste no registro) | teste: `rts-qualidade`; ondas e avisos: `rts-design`, `rts-motor-combate` e `rts-rede` (F6) | pendente |
+| Lições | cada lição aparece no registro de pelo menos 4 das 6 pessoas | conferidor das lições: `rts-qualidade`, pela lista da `rts-design`; eventos no registro: `rts-design` e `rts-interface`; registros: Victor | pendente |
+| Justiça e briefings | ninguém chama derrota de injusta; no máximo 1 pessoa pula briefings | Victor (entrevista do kit do M4); briefings pulados pelo registro (conferidor da `rts-qualidade`, evento da `rts-interface`) | pendente |
+| Diversão | mediana de pelo menos 4 em 5; "jogaria a próxima fase?" com sim de pelo menos 5 de 6 | Victor (respostas do M4); a pergunta da tela de fim muda para "jogaria a próxima fase?" (`rts-interface` e `rts-design`); `rts-qualidade` registra | pendente |
+| IA sem vantagem | sem recurso, visão ou produção extra (teste automático) | `rts-rede` (F6) com a `rts-qualidade` | pendente |
+| Replay da partida inteira | reproduz as somas | `rts-motor-economia` com a `rts-qualidade` | pendente |
+| Vitória e derrota de ponta a ponta | e2e da missão nas três dificuldades, com o gancho e um jogador roteirizado | `rts-qualidade` | pendente |
+| Missão | mapa de 128 × 96, duas rotas, dez objetivos, momentos M0 a M6 com contingências, dificuldade em dados, briefing e cerca de 40 falas em texto | `rts-design` | pendente |
+| Comportamentos da IA | guardar, patrulhar, atacar por rota, recuar, reconstruir; ondas com aviso | `rts-rede` (F6), sobre a API da `rts-motor-economia` | pendente |
+| Acampamento | o opcional de desmontar o acampamento, que se empacota e foge quando ameaçado | `rts-motor-combate`, com os dados da `rts-design` | pendente |
+| Interface da missão | briefing, objetivos, rádio com legenda, contagem, vitória, derrota e reiniciar | `rts-interface` | pendente |
+| Render e arte da missão | o que o mapa de 128 × 96 e a missão pedem; da E5, o que não depende das escolhas do portão | `rts-render` e `rts-arte` | pendente |
+| Orçamento | textura `uhd` da fase dentro de 256 MiB (hoje 271) | `rts-arte`, acompanhado pela `rts-qualidade` | pendente |
+| Tamanho do git | `git count-objects -vH` no fim da etapa | `rts-qualidade` | pendente |
 
 ### E5. Arte e som de produção (plano, E5)
 
