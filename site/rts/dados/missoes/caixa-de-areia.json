@@ -20,6 +20,7 @@
       "quando": {"se": "tempo", "segundos": 0},
       "acoes": [
         {"faz": "recursos", "jogador": 0, "somar": {"facil": 2000, "normal": 1500, "dificil": 1200}},
+        {"faz": "revelar", "jogador": 0, "area": "base-jogador"},
         {"faz": "mensagem", "texto": "radio.supervisora.caixa_inicio"},
         {"faz": "mensagem", "texto": "radio.locutor.caixa_inicio"},
         {"faz": "objetivo", "objetivo": "segurar-a-base", "estado": "ativo"},
@@ -226,7 +227,7 @@
     },
     {
       "id": "derrota",
-      "quando": {"se": "contagem", "jogador": 0, "tipos": ["escritorio-regional", "poste-avancado", "equipe-de-manutencao"], "maximo": 0},
+      "quando": {"se": "contagem", "jogador": 0, "tipos": ["escritorio-regional", "poste-avancado", "equipe-de-manutencao", "garagem"], "maximo": 0},
       "acoes": [
         {"faz": "mensagem", "texto": "radio.locutor.caixa_derrota"},
         {"faz": "derrota", "jogador": 0}

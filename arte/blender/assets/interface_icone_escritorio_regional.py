@@ -4,14 +4,14 @@ in the game's 3/4 view, fitted to 128 px (to be checked at 64 px as well)."""
 
 import math
 
-from assets import religadores_construcao_escritorio_regional as escritorio
+from assets import religadores_construcao_escritorio_regional_portao as escritorio
 
 DESCRICAO = {
     "asset": "interface-icone-escritorio-regional",
     "brief": "religadores/escritorio-regional",
     "tipo": "interface",
     "categoria": "icone",
-    "fases": ["portao", "fase-1"],
+    "fases": ["portao"],
     "direcoes": 1,
     "passes": ["cor"],
     "camadas": {"corpo": {"quadro": [128, 128], "ancora": [64, 64], "usa": ["corpo", "luzes"]}},

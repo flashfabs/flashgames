@@ -14,11 +14,10 @@ export const FICHAS = Object.freeze({
   'ficha-faisca': { corpo: 5 },
 });
 const FICHA_DIRECOES = 16;
-const FICHA_CELULA = 128;
-const FICHA_PX_NIVEL = 96;
 const MARGEM_PREDIO_PX = 8;
-// placeholder layers as wide as the phase atlas pages, so they do not stretch every layer of the texture array
-const LARGURA_CAMADA_FICHAS = 2048;
+// Placeholders per art level: drawn at px per cell, unit frames in square cells, on pages no bigger than the phase
+// atlas pages of that level, so they never stretch every layer of the texture array.
+const RESOLUCAO_FICHAS = Object.freeze({ uhd: { lado: 2048, px: 96, celula: 128 }, hd: { lado: 1024, px: 48, celula: 64 } });
 
 /**
  * Shape and height of a building kind's placeholder, from its category and name (the grey kit replaces it).
@@ -141,9 +140,14 @@ export function criarFolhas(backend, projecao, quadroComum) {
       });
     },
 
-    /** Draws and registers the placeholder unit sheets (body, and turret for vehicles, in 16 directions). */
-    adicionarFichas() {
-      const largura = Math.min(LARGURA_CAMADA_FICHAS, backend.info.maxTextura);
+    /**
+     * Draws and registers the placeholder unit sheets (body, and turret for vehicles, in 16 directions), once.
+     * @param {'hd' | 'uhd'} [nivel]
+     */
+    adicionarFichas(nivel = 'uhd') {
+      if (porAsset.has('ficha-veiculo-leve')) return;
+      const { lado, px: FICHA_PX_NIVEL, celula: FICHA_CELULA } = RESOLUCAO_FICHAS[nivel] ?? RESOLUCAO_FICHAS.uhd;
+      const largura = Math.min(lado, backend.info.maxTextura);
       const porLinha = Math.floor(largura / FICHA_CELULA);
       const nomes = Object.keys(FICHAS);
       const partes = nomes.flatMap(nome => (FICHAS[nome].torre === undefined ? [[nome, FICHAS[nome].corpo]] : [[nome, FICHAS[nome].corpo], [nome, FICHAS[nome].torre]]));
@@ -172,7 +176,7 @@ export function criarFolhas(backend, projecao, quadroComum) {
           primeiroQuadro: base,
           direcoes: FICHA_DIRECOES,
           pxNivel: FICHA_PX_NIVEL,
-          nivel: 'uhd',
+          nivel,
           animacoes,
           pontos: {},
           alturaBarraMetros: nome === 'ficha-infantaria' ? 1.6 : 2.2,
@@ -189,12 +193,14 @@ export function criarFolhas(backend, projecao, quadroComum) {
      * `ficha-<kind name>`, with a `cabo` point where power cables hang and a `topo` point for the health bar.
      * @param {{ nome: string, categoria: number, pegada: number[] }[]} tipos building, structure and resource kinds
      * @param {number} categoriaRecurso CATEGORIA.RECURSO
+     * @param {'hd' | 'uhd'} [nivel]
      */
-    adicionarFichasPredios(tipos, categoriaRecurso) {
+    adicionarFichasPredios(tipos, categoriaRecurso, nivel = 'uhd') {
+      tipos = tipos.filter(t => !porAsset.has(`ficha-${t.nome}`));
       if (tipos.length === 0) return;
-      const larguraCamada = Math.min(LARGURA_CAMADA_FICHAS, backend.info.maxTextura);
+      const { lado, px } = RESOLUCAO_FICHAS[nivel] ?? RESOLUCAO_FICHAS.uhd;
+      const larguraCamada = Math.min(lado, backend.info.maxTextura);
       const k = projecao.cosseno / projecao.metrosPorCelula;
-      const px = FICHA_PX_NIVEL;
       // frames with the anchor inside, packed in shelves
       const quadros = tipos.map((tipo, i) => {
         const { forma, alturaMetros } = formaDoPredio(tipo, categoriaRecurso);
@@ -204,30 +210,45 @@ export function criarFolhas(backend, projecao, quadroComum) {
         const abaixo = (a / 2) * projecao.seno * px + MARGEM_PREDIO_PX;
         return { tipo, forma, alturaMetros, largura: Math.ceil(2 * meiaL), altura: Math.ceil(acima + abaixo), ancoraX: Math.ceil(meiaL), ancoraY: Math.ceil(acima), semente: i * 1.37 };
       });
+      // shelves of frames, going on to a new page when one is full
+      let pagina = 0;
       let x = 0;
       let y = 0;
       let alturaPrateleira = 0;
+      let alturaUsada = 0;
       for (const q of quadros) {
         if (x + q.largura > larguraCamada) {
           x = 0;
           y += alturaPrateleira;
           alturaPrateleira = 0;
         }
+        if (y + q.altura > larguraCamada) {
+          pagina++;
+          x = 0;
+          y = 0;
+          alturaPrateleira = 0;
+        }
+        q.pagina = pagina;
         q.x = x;
         q.y = y;
         x += q.largura;
         alturaPrateleira = Math.max(alturaPrateleira, q.altura);
+        alturaUsada = Math.max(alturaUsada, y + alturaPrateleira);
       }
-      const camada = proximaCamada++;
-      backend.garantirCamadas(larguraCamada, y + alturaPrateleira, proximaCamada);
+      const primeiraCamada = proximaCamada;
+      proximaCamada += pagina + 1;
+      backend.garantirCamadas(larguraCamada, alturaUsada, proximaCamada);
       const primeiro = reservarQuadros(quadros.length);
-      backend.desenharFichasPredio(
-        camada,
-        quadros.map(q => ({ ...q, pxNivel: px, pegada: q.tipo.pegada })),
-        quadroComum(),
-      );
+      for (let p = 0; p <= pagina; p++) {
+        const daPagina = quadros.filter(q => q.pagina === p);
+        backend.desenharFichasPredio(
+          primeiraCamada + p,
+          daPagina.map(q => ({ ...q, pxNivel: px, pegada: q.tipo.pegada })),
+          quadroComum(),
+        );
+      }
       quadros.forEach((q, i) => {
-        tabela.set([camada, q.x, q.y, q.largura, q.altura, -q.ancoraX, -q.ancoraY, px], (primeiro + i) * CAMPOS);
+        tabela.set([primeiraCamada + q.pagina, q.x, q.y, q.largura, q.altura, -q.ancoraX, -q.ancoraY, px], (primeiro + i) * CAMPOS);
         const alturaCabo = q.forma === FORMA_PREDIO.POSTE ? q.alturaMetros - 0.4 : q.forma === FORMA_PREDIO.PILHA ? 0 : q.alturaMetros;
         const nome = `ficha-${q.tipo.nome}`;
         porAsset.set(nome, {
@@ -235,7 +256,7 @@ export function criarFolhas(backend, projecao, quadroComum) {
           primeiroQuadro: primeiro + i,
           direcoes: 1,
           pxNivel: px,
-          nivel: 'uhd',
+          nivel,
           animacoes: new Map([['parado', { nome: 'parado', camada: 'corpo', quadros: 1, fps: 0, laco: true, direcoes: 1, base: 0 }]]),
           pontos: { cabo: Float32Array.of(0, -alturaCabo * k * px), topo: Float32Array.of(0, -q.alturaMetros * k * px) },
           alturaBarraMetros: q.alturaMetros + 1,
