@@ -23,6 +23,9 @@ export const METAS = Object.freeze({
   diversao: { min: 4, max: 5 },
 });
 
+/** Results that count as a defined end; a match the player closed from the menu ("encerrada") does not. */
+export const RESULTADOS_DE_FIM = Object.freeze(['vitoria', 'derrota']);
+
 /** Seconds of warning every attack of 6 or more units needs (stage E4, checked here too because the sandbox has waves). */
 export const AVISO_MINIMO_SEGUNDOS = 10;
 export const ONDA_COM_AVISO = 6;
@@ -194,7 +197,7 @@ export function conferirRegistro(registro) {
   const piorAviso = avisos.length === 0 ? null : avisos.includes(null) ? -1 : Math.min(...avisos);
 
   const criterios = [
-    { id: 'duracao', nome: 'Duração da partida', meta: '15:00 a 25:00, com fim definido', valor: duracao, texto: `${relogio(duracao)}${resultado ? `, ${resultado}` : ', sem fim registrado'}`, passou: dentro(duracao, METAS.duracao) && resultado !== null },
+    { id: 'duracao', nome: 'Duração da partida', meta: '15:00 a 25:00, com fim definido', valor: duracao, texto: `${relogio(duracao)}${resultado ? `, ${resultado}` : ', sem fim registrado'}`, passou: dentro(duracao, METAS.duracao) && RESULTADOS_DE_FIM.includes(resultado) },
     { id: 'primeiroTiro', nome: 'Primeiro tiro', meta: '2:30 a 4:00', valor: tiro, texto: tiro === null ? 'nenhum tiro no registro' : relogio(tiro), passou: tiro === null ? null : dentro(tiro, METAS.primeiroTiro) },
     { id: 'luta10contra10', nome: '10 contra 10', meta: '8 a 20 s (mediana)', valor: lutaMediana, texto: lutaMediana === null ? `nenhuma luta com ${LUTA_MIN} a ${LUTA_MAX} de cada lado` : `${lutaMediana.toFixed(1)} s (${lutas.length} luta${lutas.length > 1 ? 's' : ''})`, passou: lutaMediana === null ? null : dentro(lutaMediana, METAS.luta10contra10) },
     { id: 'janelasSemComando', nome: 'Janelas sem comando', meta: `menos de 20% das janelas de ${JANELA_SEGUNDOS} s`, valor: janelas.fracao, texto: janelas.fracao === null ? 'partida curta demais' : `${(janelas.fracao * 100).toFixed(1)}% (${janelas.vazias} de ${janelas.total})`, passou: janelas.fracao === null ? null : janelas.fracao < METAS.janelasSemComando.maxExclusivo },

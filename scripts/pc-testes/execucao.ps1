@@ -2,6 +2,7 @@
 # It waits for the test lock D:\rts\trava-testes (one run at a time on the PC), unpacks the session's tree next to its cached node_modules, runs npm ci only when package-lock.json changed, installs the Playwright browsers on D:, and runs the Playwright steps.
 # Performance steps first check which ANGLE backend reaches the NVIDIA card and also hold the GPU lock D:\rts\trava-gpu, so they never measure next to a Blender batch.
 # Everything it learns goes to D:\rts\testes\<session>\execucoes\<run>: testes.log, estado.json, resumo.txt, one JSON report and one output folder per step.
+# Every run also appends one line to D:\rts\testes\fila.log (start, session, run, seconds waiting for the test lock, total seconds, exit code), to measure the queue across sessions.
 param(
     [Parameter(Mandatory)][string]$Sessao,
     [Parameter(Mandatory)][string]$Execucao,
@@ -20,6 +21,7 @@ $log = "$saida\testes.log"
 $resumo = "$saida\resumo.txt"
 $travaTestes = "D:\rts\trava-testes"
 $travaGpu = "D:\rts\trava-gpu"
+$fila = "D:\rts\testes\fila.log"
 New-Item -ItemType Directory -Force -Path $saida, "D:\rts\cache\tmp-testes", "D:\rts\npm-cache", "D:\rts\playwright" | Out-Null
 [IO.File]::WriteAllText($log, "", $utf8)
 
@@ -140,12 +142,15 @@ function Rodar-Passo([string]$nome, [string[]]$argumentosPlaywright, [bool]$usaG
 $inicioGeral = Get-Date
 $codigoGeral = 0
 $comTrava = $false
+$esperaTestes = $null
 try {
     Gravar-Estado ([ordered]@{ estado = "esperando testes"; pid = $PID })
     if (-not (Esperar-Trava $travaTestes "$Sessao $Execucao pid=$PID $(Get-Date -Format o)" "testes" 180 $true)) {
         throw "the test lock stayed busy for 180 min"
     }
     $comTrava = $true
+    $esperaTestes = [math]::Round(((Get-Date) - $inicioGeral).TotalSeconds, 1)
+    Registrar "FILA waited $esperaTestes s for the test lock"
     Gravar-Estado ([ordered]@{ estado = "preparando"; pid = $PID })
 
     # A fresh tree each run, keeping node_modules, which npm ci only rebuilds when the lock file changes.
@@ -203,13 +208,16 @@ try {
         inicio = $inicioGeral.ToString("o")
         fim = $fim.ToString("o")
         segundos = [math]::Round(($fim - $inicioGeral).TotalSeconds, 1)
+        esperaSegundos = $esperaTestes
     }
-    $linhas = @("execucao $Execucao da sessao $($Sessao): $($final.estado), codigo $codigoGeral, $($final.segundos) s")
+    $linhas = @("execucao $Execucao da sessao $($Sessao): $($final.estado), codigo $codigoGeral, $($final.segundos) s, $($esperaTestes) s esperando a trava")
     foreach ($passo in $passos) {
         $linhas += "  $($passo.nome): codigo $($passo.codigo), $($passo.segundos) s, $($passo.esperados) passaram, $($passo.inesperados) falharam, $($passo.instaveis) instaveis, $($passo.pulados) pulados"
     }
     [IO.File]::WriteAllText($resumo, ($linhas -join "`r`n") + "`r`n", $utf8)
     Gravar-Estado $final
+    # A busy file (two runs ending together) only loses this one line.
+    try { [IO.File]::AppendAllText($fila, "$($final.inicio) $Sessao $Execucao espera=$esperaTestes total=$($final.segundos) codigo=$codigoGeral`r`n", $utf8) } catch { Registrar "AVISO could not append to fila.log" }
     # Keep the five newest runs of this session.
     Get-ChildItem "$pasta\execucoes" -Directory | Sort-Object Name -Descending | Select-Object -Skip 5 | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }

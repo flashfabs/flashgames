@@ -54,6 +54,7 @@ test('each band edge fails on the right side', () => {
   assert.equal(criterio(conferirRegistro(registro({ coletores: 5 })), 'coletoresPerdidos').passou, false);
   assert.equal(criterio(conferirRegistro(registro({ duracao: 14 * 60, cemiterio: 11 * 60 })), 'duracao').passou, false);
   assert.equal(criterio(conferirRegistro(registro({ resultado: null })), 'duracao').passou, false, 'no end condition reached');
+  assert.equal(criterio(conferirRegistro(registro({ resultado: 'encerrada' })), 'duracao').passou, false, 'closed from the menu');
   assert.equal(criterio(conferirRegistro(registro({ aviso: 9 })), 'avisoDeAtaque').passou, false);
 });
 

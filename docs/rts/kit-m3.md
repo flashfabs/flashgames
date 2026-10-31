@@ -16,10 +16,10 @@ Ninguém manda nada em nome do Victor; quem convida e recolhe as respostas é el
 - Abre o endereço que o Victor mandou; a partida começa na caixa de areia contra o computador, sem cadastro.
 - Joga do jeito que quiser até a vitória ou a derrota. A vitória vem ao destruir a sexta onda de ataque ou o acampamento inimigo (Carroção-Mãe, Barracão e Ferraria a Vapor); a derrota, ao ficar sem Escritório Regional, sem Poste Avançado e sem Equipe de Manutenção. As ondas avisam antes de chegar.
 - Pausa (P) não atrapalha a medida: o registro conta o tempo de jogo, não o do relógio.
-- No fim, a tela de resultado faz duas perguntas e tem um campo livre: "De 1 a 5, quanto você se divertiu?" e "Jogaria de novo?". Depois, o botão de baixar o registro salva um arquivo JSON.
+- No fim, a tela de resultado abre sozinha e faz duas perguntas, com um campo livre: "De 1 a 5, quanto você se divertiu?" (botões de 1 a 5), "Jogaria de novo?" (Sim ou Não) e "Comentário (opcional)".
+- O botão "Baixar registro" salva um arquivo `registro-rts-AAAA-MM-DD-HHMM.json` (data e hora de quando baixou), com a partida e as respostas.
 - Manda esse arquivo ao Victor (como documento, não como texto colado).
-
-Os nomes exatos do botão e do arquivo ficam aqui quando a `rts-interface` fechar a tela de fim.
+- Quem precisar parar antes do fim abre o menu (F10 ou o botão "Menu") e escolhe "Encerrar e responder": a tela de resultado abre do mesmo jeito, mas essa partida não conta para a duração, que pede vitória ou derrota. O menu também tem "Copiar registro", para quem não conseguir baixar o arquivo.
 
 ## Entrevista curta (opcional, cinco minutos)
 

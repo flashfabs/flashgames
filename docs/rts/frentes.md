@@ -54,8 +54,8 @@ Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando
 | F4 Áudio | `rts-som`, 8827 | `site/rts/js/audio/`, `site/rts/dados/sons.json`, `site/rts/assets/audio/`, `ferramentas/audio/`, `arte/procedencia/audio/`; gravações fora do repositório | 3, 4 |
 | F5 Design, mundo e fase 1 | `rts-design`, 8825 | `site/rts/dados/{unidades,predios,armas}.json`, `site/rts/dados/missoes/`, `site/rts/dados/mapas/`, `site/rts/dados/textos/pt-BR.json`, `site/rts/js/telemetria/`, `arte/briefs/`, `arte/mapas-fonte/`, `ferramentas/mapas/` | 1 (só briefs), 2, 3, 5 |
 | F6 IA inimiga | `rts-ia`, 8826 | `site/rts/js/sim/comportamentos/` (determinístico, sob a barreira da F1a), `site/rts/js/ia/`, `ferramentas/rts/ia-harness.mjs`, `testes/rts-ia*.test.mjs` | 3, 5 |
-| F7 Interface e controles | `rts-interface`, 8823 | `site/rts/index.html`, `site/rts/css/`, `site/rts/js/principal.js`, `site/rts/js/entrada/`, `site/rts/js/interface/` | 1 a 6 |
-| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `site/rts/js/teste/` (o gancho `window.__rts`, carregado só com `?teste=1`), `ferramentas/rts/ritmo/` (conferidor de ritmo), `testes/rts-gancho.test.mjs`, `testes/rts-ritmo.test.mjs`, `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `testes/rts-licencas.json`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
+| F7 Interface e controles | `rts-interface`, 8823 | `site/rts/index.html`, `site/rts/css/`, `site/rts/js/principal.js`, `site/rts/js/entrada/`, `site/rts/js/interface/`, `testes/rts-interface.test.mjs` e `testes/e2e/rts-hud.spec.mjs` (exceção combinada com a F8 na onda 2) | 1 a 6 |
+| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho` e `rts-hud`), `site/rts/js/teste/` (o gancho `window.__rts`, carregado só com `?teste=1`), `ferramentas/rts/ritmo/` (conferidor de ritmo), `testes/rts-gancho.test.mjs`, `testes/rts-ritmo.test.mjs`, `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `testes/rts-licencas.json`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
 | F9 Rede | `rts-rede`, 8828 | `prototipos/rts-lockstep/` e, na E8, `site/rts/js/rede/`; `site/js/sala.js` só em acordo | 2 (curta), 6 |
 
 Divisão do motor a partir da onda 2 (plano, E3): a F1 vira duas sessões, F1a e F1b, pela tabela acima. `contratos.js` e `simulacao.js` são da F1a; a F1b liga os seus módulos neles com uma ou duas linhas ditas no commit e, acima disso, pede à F1a por mensagem. Mudança de contrato (C1 a C4) passa pela F1a, que sobe a versão e avisa os consumidores.
@@ -149,7 +149,7 @@ arte/                                          não publicado: briefs e mapas-fo
 ferramentas/arte/, audio/, mapas/, rts/        ferramentas de linha de comando
 testes/rts-*.test.mjs                          node --test (o npm test só lê testes/*.test.mjs)
 testes/rts-replays/                            replays dourados (F1a)
-testes/e2e/rts-*.spec.mjs                      Playwright (F8; rts-desempenho é da F2)
+testes/e2e/rts-*.spec.mjs                      Playwright (F8; rts-desempenho é da F2 e rts-hud da F7)
 prototipos/                                    fora da publicação
 docs/rts/                                      ESTADO.md e este arquivo (F8)
 ```
