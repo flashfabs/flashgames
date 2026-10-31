@@ -17,6 +17,8 @@ anim = cinza.anim
 PEGADA = (5, 4)
 DESCRICAO = cinza.descricao_construcao("neutro-estrutura-subestacao", "neutro/subestacao", "neutro", PEGADA, 17.0, estados=("morta", "religada"),
                                        categoria="estrutura")
+# seen once on the map and about 2 Mpx in uhd: shipped at hd resolution, scaled up in 4K (gray kit budget)
+DESCRICAO["uhdComoHd"] = True
 DESCRICAO["animacoes"].insert(1, anim("religando", "corpo", 2, 2, True))
 
 

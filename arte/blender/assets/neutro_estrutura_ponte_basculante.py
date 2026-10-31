@@ -16,6 +16,8 @@ PEGADA = (2, 7)
 VAO = 20.0
 DESCRICAO = cinza.descricao_construcao("neutro-estrutura-ponte-basculante", "neutro/ponte-basculante", "neutro", PEGADA, 21.0,
                                        estados=("morta", "religada"), categoria="estrutura", folga_lados=(16, 200, 0, 0))
+# seen once on the map and about 2 Mpx in uhd: shipped at hd resolution, scaled up in 4K (gray kit budget)
+DESCRICAO["uhdComoHd"] = True
 DESCRICAO["animacoes"] += [anim("religando", "corpo", 1, 0, True, igual="morta"), anim("baixando", "corpo", 2, 4, False)]
 ERGUIDA, BAIXANDO = 70, (45, 18)
 

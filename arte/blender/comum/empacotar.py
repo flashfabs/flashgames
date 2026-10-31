@@ -204,6 +204,17 @@ def recortar_quadros(descricao, saida):
     return [proprios[reusados.get(indice, indice)] for indice in range(len(sequencia))]
 
 
+def uhd_como_hd(descricao, quadros):
+    """Big set pieces seen once on the map (descricao "uhdComoHd") ship their hd frames in uhd as well, and the
+    manifest says so through pxPorCelula, so the renderer scales them up in 4K; reused frames stay shared."""
+    if not descricao.get("uhdComoHd"):
+        return quadros
+    trocados = {}
+    for quadro in quadros:
+        trocados.setdefault(id(quadro), {"uhd": quadro["hd"], "hd": quadro["hd"]})
+    return [trocados[id(quadro)] for quadro in quadros]
+
+
 def bytes_gpu(paginas, tipo):
     """Estimated GPU memory of a level's pages: texture-array layers for sprites, plain RGBA bitmaps for the HUD."""
     if tipo == "interface":
@@ -300,7 +311,15 @@ def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):
         w, h = config["quadro"]
         ax, ay = config["ancora"]
         por_camada[nome] = {"uhd": {"quadro": [w, h], "ancora": [ax, ay]}, "hd": {"quadro": [w // 2, h // 2], "ancora": [ax // 2, ay // 2]}}
+        if descricao.get("uhdComoHd"):
+            por_camada[nome]["uhd"] = dict(por_camada[nome]["hd"])
     primeira = por_camada[camadas[0]]
+    px_por_celula = dict(projecao.px_por_celula)
+    pontos = {"uhd": pontos_do_manifesto(tabela_pontos)}
+    if descricao.get("uhdComoHd"):
+        px_por_celula["uhd"] = px_por_celula["hd"]
+        metade = {nome: [[p[0] / 2, p[1] / 2] if p else None for p in lista] for nome, lista in pontos["uhd"].items()}
+        pontos = {"uhd": metade, "hd": metade}
     extras = {chave: descricao[chave] for chave in ("pegada", "variantes") if chave in descricao}
     return {
         "versao": 1,
@@ -316,7 +335,7 @@ def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):
         "sentido": "horario-na-tela",
         "elevacaoGraus": projecao.elevacao,
         "projecaoVersao": projecao.versao,
-        "pxPorCelula": projecao.px_por_celula,
+        "pxPorCelula": px_por_celula,
         "ancora": {"uhd": primeira["uhd"]["ancora"], "hd": primeira["hd"]["ancora"]},
         "camadas": camadas,
         "quadroPorCamada": por_camada,
@@ -324,7 +343,7 @@ def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):
         "passes": descricao["passes"],
         "paginas": paginas,
         "quadros": entradas,
-        "pontos": {"uhd": pontos_do_manifesto(tabela_pontos)},
+        "pontos": pontos,
         "orcamento": orcamento,
         "procedencia": f"arte/procedencia/{descricao['asset']}.json",
     }
@@ -399,7 +418,7 @@ def executar(descricao, projecao, saida, tabela_pontos, relatorio, argumentos, s
             json.dump(procedencia(descricao, relatorio, argumentos, script, saida), arquivo, ensure_ascii=False, indent=2)
             arquivo.write("\n")
         return orcamento
-    quadros = recortar_quadros(descricao, saida)
+    quadros = uhd_como_hd(descricao, recortar_quadros(descricao, saida))
     paginas, entradas, orcamento = {}, {}, {}
     for nivel in ("uhd", "hd"):
         paginas[nivel], entradas[nivel], orcamento[nivel] = montar_nivel(descricao, quadros, nivel, destino, argumentos.qualidade_cor)

@@ -70,7 +70,9 @@ test('every sprite manifest follows C9: frames inside existing pages, one entry 
     for (const [camada, porNivel] of Object.entries(dados.quadroPorCamada)) {
       const { quadro, ancora } = porNivel.uhd;
       assert.ok([...quadro, ...ancora].every(v => v % 2 === 0), `${id}: layer ${camada} frame and anchor must be even`);
-      assert.deepEqual(porNivel.hd.quadro, quadro.map(v => v / 2), `${id}: hd frame of ${camada}`);
+      // big set pieces ship their hd frames in uhd too, and say so with the same px per cell on both levels
+      const fator = dados.pxPorCelula && dados.pxPorCelula.uhd === dados.pxPorCelula.hd ? 1 : 2;
+      assert.deepEqual(porNivel.hd.quadro, quadro.map(v => v / fator), `${id}: hd frame of ${camada}`);
     }
     for (const [nivel, quadros] of Object.entries(dados.quadros)) {
       const paginas = dados.paginas[nivel];

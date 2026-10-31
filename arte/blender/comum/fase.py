@@ -47,7 +47,7 @@ def executar(fase, execucoes, saida, qualidade_cor, progresso=print):
         if descricao["tipo"] in ("terreno", "interface"):
             raise ValueError(f"{asset} is a {descricao['tipo']} asset, which never goes in the sprite arrays")
         relatorio = _ler(os.path.join(pasta, "relatorio.json"))
-        recortados = empacotar.recortar_quadros(descricao, pasta)
+        recortados = empacotar.uhd_como_hd(descricao, empacotar.recortar_quadros(descricao, pasta))
         itens.append({"asset": asset, "pasta": pasta, "descricao": descricao, "relatorio": relatorio,
                       "pontos": _ler(os.path.join(pasta, "quadros", "pontos.json")), "inicio": len(quadros), "total": len(recortados)})
         quadros += recortados
