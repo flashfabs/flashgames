@@ -2,34 +2,41 @@
 // unit and effect instance builders, and the frame plan. The page gives it the camera once ({ x, y, zoom }, zoom
 // being the factor of projecao.json, which the page moves) and, every frame, the simulation state and the selection.
 //
-// Frame plan: scene at the render scale (terrain with fog, ground decals and order markers, selection rings,
-// shadows, every sprite in one sorted draw, smoke, additive glow), upscale to the canvas, then health bars at
-// native resolution so they stay crisp.
-import { criarBackendWebGL2, FLOATS_QUADRO } from './backend-webgl2.js';
+// Frame plan: scene at the render scale (terrain with height and fog, ground decals and order markers, building
+// footprints, selection rings, shadows, every sprite in one sorted draw, power cables, smoke, additive glow), upscale
+// to the canvas, then health bars at native resolution so they stay crisp.
+import { criarBackendWebGL2, FLOATS_QUADRO, INICIO_CORES_QUADRO } from './backend-webgl2.js';
 import { pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from './projecao.js';
 import { criarControleDeEscala, DEGRAUS } from './escala.js';
 import { criarFolhas } from './sprites.js';
-import { criarMontagemUnidades } from './unidades.js';
+import { criarMontagemUnidades, aparenciasDosTipos } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
+import { criarRelevo, limitesPorCelula } from './relevo.js';
+import { soloDoMapa, tabelaDeSolos, mascaraDeAgua, LADRILHO_BASE, prefixoLadrilho } from './solos.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
+import { carregarIndice } from '../ativos/indice.js';
+import { CATEGORIA } from '../sim/contratos.js';
 
 export { EFEITO };
 
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {ReturnType<typeof import('./projecao.js').criarProjecao>} projecao
- * @param {{ camera: { x: number, y: number, zoom: number }, visivel: (x: number, y: number) => boolean, escalaFixa?: number | null }} opcoes
+ * @param {{
+ *   camera: { x: number, y: number, zoom: number }, visivel: (x: number, y: number) => boolean, escalaFixa?: number | null,
+ *   terreno?: 'ladrilhos' | 'procedural',
+ * }} opcoes terreno: ground splatted from the art's tiles by soil (the default, once a tile arrives) or procedural
  */
-export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa = null }) {
+export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa = null, terreno = 'ladrilhos' }) {
   const backend = criarBackendWebGL2(canvas);
   const quadro = new Float32Array(FLOATS_QUADRO);
   // team colours are RGB triplets in projecao; the block wants vec4
   for (let t = 0; t < 8; t++) {
-    quadro[16 + t * 4] = projecao.coresTime[t * 3];
-    quadro[17 + t * 4] = projecao.coresTime[t * 3 + 1];
-    quadro[18 + t * 4] = projecao.coresTime[t * 3 + 2];
-    quadro[19 + t * 4] = 1;
+    quadro[INICIO_CORES_QUADRO + t * 4] = projecao.coresTime[t * 3];
+    quadro[INICIO_CORES_QUADRO + 1 + t * 4] = projecao.coresTime[t * 3 + 1];
+    quadro[INICIO_CORES_QUADRO + 2 + t * 4] = projecao.coresTime[t * 3 + 2];
+    quadro[INICIO_CORES_QUADRO + 3 + t * 4] = 1;
   }
   const vista = { largura: canvas.width, altura: canvas.height, px: 1 };
   const area = new Float64Array(4);
@@ -38,14 +45,105 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   const camera0 = { x: 0, y: 0, zoom: 1 };
   let mapaLargura = 1;
   let mapaAltura = 1;
+  /** @type {ReturnType<typeof criarRelevo> | null} */
+  let relevo = null;
+  // cells the view of a raised point can come from south of the visible ground
+  const margemDoRelevo = () => (relevo ? relevo.alturaMaxima * projecao.celulasPorMetroDeAltura : 0);
+  /** @type {Uint8Array | null} build area scaled for the texture */
+  let areaConstrucao = null;
+  let tiposAtuais = null;
+  // soil names of the map, the tile layer of each soil that has its own tile, and how many tiles repeat per cell
+  let nomesSolos = [LADRILHO_BASE];
+  let camadasLadrilho = new Map();
+  let celulasPorLadrilho = 8;
+  let modoTerreno = terreno;
+  let ladrilhosPedidos = false;
+
+  function atualizarSolos() {
+    backend.definirSolos(tabelaDeSolos(nomesSolos, camadasLadrilho), celulasPorLadrilho, modoTerreno === 'ladrilhos' && camadasLadrilho.size > 0 ? 1 : 0);
+  }
+
+  /**
+   * Ground tiles for the map's soils, from the art index: the base tile and every `terreno-<soil>` it lists, all of
+   * the base tile's size, in one texture array. Until they arrive the ground stays procedural.
+   * @param {Map<string, string | URL>} urls tile manifest URL by soil name
+   */
+  async function carregarLadrilhos(urls, nivel) {
+    const lidos = [];
+    for (const [nome, url] of urls) {
+      try {
+        const resposta = await fetch(url);
+        if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+        const manifesto = lerManifestoTerreno(await resposta.json(), resposta.url || url);
+        const pagina = manifesto.niveis[nivel] ?? manifesto.niveis.uhd ?? manifesto.niveis.hd;
+        lidos.push({ nome, manifesto, imagem: await carregarImagem(pagina.cor, true) });
+      } catch (erro) {
+        console.warn(`ladrilho de ${nome} indisponível`, erro);
+      }
+    }
+    if (lidos.length === 0) return;
+    const tamanho = lidos[0].imagem.width;
+    const cabem = lidos.filter(l => l.imagem.width === tamanho && l.imagem.height === tamanho && l.manifesto.celulasPorLadrilho === lidos[0].manifesto.celulasPorLadrilho);
+    backend.prepararLadrilhos(tamanho, cabem.length);
+    camadasLadrilho = new Map();
+    cabem.forEach((l, i) => {
+      backend.enviarLadrilho(i, l.imagem);
+      camadasLadrilho.set(l.nome, i);
+    });
+    for (const l of lidos) l.imagem.close();
+    celulasPorLadrilho = lidos[0].manifesto.celulasPorLadrilho;
+    atualizarSolos();
+  }
+
+  function pedirLadrilhos() {
+    if (ladrilhosPedidos) return;
+    ladrilhosPedidos = true;
+    const nivel = nivelDoCanvas();
+    carregarIndice()
+      .then(indice => {
+        const urls = new Map();
+        for (const nome of [LADRILHO_BASE, ...nomesSolos]) {
+          const url = indice.urlDo(prefixoLadrilho(nome));
+          if (url && !urls.has(nome)) urls.set(nome, url);
+        }
+        return carregarLadrilhos(urls, nivel);
+      })
+      .catch(erro => console.warn('ladrilhos de terreno indisponíveis', erro));
+  }
+
+  /**
+   * Kinds of the match (MapaEstatico.tipos): placeholders for the buildings, then the art of every kind the art
+   * index lists, loaded in the background (each kind switches to its art as its sheet arrives).
+   */
+  function definirTipos(tipos) {
+    if (tiposAtuais === tipos) return;
+    tiposAtuais = tipos;
+    const fixos = tipos.filter(t => t.categoria === CATEGORIA.PREDIO || t.categoria === CATEGORIA.ESTRUTURA || t.categoria === CATEGORIA.RECURSO);
+    folhas.adicionarFichasPredios(fixos.filter(t => !folhas.folha(`ficha-${t.nome}`)), CATEGORIA.RECURSO);
+    unidades.definirAparencias(aparenciasDosTipos(tipos));
+    const nivel = nivelDoCanvas();
+    carregarIndice()
+      .then(indice =>
+        Promise.all(
+          [...new Set(tipos.flatMap(t => (t.asset ? [t.asset, `${t.asset}-cinza`] : [])))]
+            .filter(asset => !folhas.folha(asset) && indice.urlDo(asset))
+            .map(asset =>
+              carregarManifesto(indice.urlDo(asset))
+                .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
+                .catch(erro => console.warn(`arte de ${asset} indisponível, fica a ficha`, erro)),
+            ),
+        ),
+      )
+      .catch(erro => console.warn('arte dos tipos indisponível', erro));
+  }
 
   // drawing on the CPU, the scene starts at the lowest step and probes up only if the frames allow
   const escala = criarControleDeEscala({ degrauInicial: backend.info.software ? DEGRAUS.length - 1 : 0 });
   if (escalaFixa !== null) escala.fixar(escalaFixa);
   const folhas = criarFolhas(backend, projecao, () => preencherQuadro(camera0, 1, vista.largura, vista.altura, 0));
-  const unidades = criarMontagemUnidades({ projecao, folhas });
+  const unidades = criarMontagemUnidades({ projecao, folhas, alturaEm: (x, y) => (relevo ? relevo.alturaEm(x, y) : 0) });
   const efeitos = criarEfeitos({ visivel });
-  const estatisticas = { escala: 1, alvoLargura: 0, alvoAltura: 0, sprites: 0, gpuMs: -1, nivel: '' };
+  const estatisticas = { escala: 1, alvoLargura: 0, alvoAltura: 0, sprites: 0, gpuMs: -1, nivel: '', bytesTexturas: 0 };
 
   function preencherQuadro(camera, px, largura, altura, tempo) {
     quadro[0] = camera.x;
@@ -63,7 +161,9 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     quadro[12] = mapaLargura;
     quadro[13] = mapaAltura;
     quadro[14] = projecao.fatorTime;
-    quadro[15] = 0;
+    quadro[15] = backend.areaVisivel ? 1 : 0;
+    quadro[16] = relevo ? relevo.alturaMaxima : 0;
+    quadro[17] = projecao.celulasPorMetroDeAltura;
     return quadro;
   }
 
@@ -83,9 +183,11 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     backend.definirQuadroComum(preencherQuadro(camera, vista.px * (alvo[0] / vista.largura), alvo[0], alvo[1], tempo));
     backend.desenharTerreno();
     backend.desenharEfeitos(efeitos.decalques, nD, false);
+    if (listas.pegadas) backend.desenharPegadas(listas.pegadas.dados, listas.pegadas.n);
     backend.desenharAneis(listas.aneis.dados, listas.aneis.n);
     backend.desenharSombras(listas.sombras.dados, listas.sombras.n);
     backend.desenharSprites(listas.sprites.dados, listas.sprites.n);
+    if (listas.cabos) backend.desenharCabos(listas.cabos.dados, listas.cabos.n);
     backend.desenharEfeitos(efeitos.fumaca, nF, false);
     backend.desenharEfeitos(efeitos.brilho, nB, true);
     backend.terminarCena(Math.min(0.25, (1 - s) * 0.6));
@@ -98,6 +200,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     estatisticas.alvoAltura = alvo[1];
     estatisticas.sprites = listas.sprites.n;
     estatisticas.gpuMs = backend.tempoDeGpuMs;
+    estatisticas.bytesTexturas = backend.bytesTexturas;
     return listas.sprites.n;
   }
 
@@ -116,16 +219,77 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       vista.altura = altura;
     },
 
-    /** @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array }} mapa static map */
+    /**
+     * Static map: blocked cells, visual relief and height levels (missing levels are flat). The camera gets the
+     * height field (camera.relevo), so the screen and map conversions of projecao.js follow the terrain.
+     * @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array, nivel?: Uint8Array }} mapa
+     */
     definirMapa(mapa) {
-      const rg = new Uint8Array(mapa.largura * mapa.altura * 2);
-      for (let i = 0; i < mapa.largura * mapa.altura; i++) {
-        rg[i * 2] = mapa.bloqueado[i] ? 255 : 0;
-        rg[i * 2 + 1] = mapa.relevo[i];
+      const solo = soloDoMapa(mapa);
+      // a blocked cell with a decoration is a blocking one (wall, wreck)
+      const blocos = mapa.decoracao ? Uint8Array.from(mapa.decoracao, (d, i) => (d && mapa.bloqueado[i] ? 1 : 0)) : null;
+      relevo = criarRelevo(mapa, projecao, mascaraDeAgua(solo.grade, solo.nomes), blocos);
+      const k = projecao.celulasPorMetroDeAltura;
+      const alcanceSol = projecao.sol[2] > 0 ? relevo.alturaMaxima / ((projecao.sol[2] / Math.hypot(projecao.sol[0], projecao.sol[1])) * projecao.metrosPorCelula) : 0;
+      const limites = limitesPorCelula(mapa, relevo.topos, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
+      const total = mapa.largura * mapa.altura;
+      const rgba = new Uint8Array(total * 4);
+      const escalaNivel = 255 / projecao.nivelMaximo;
+      for (let i = 0; i < total; i++) {
+        rgba[i * 4] = mapa.bloqueado[i] ? 255 : 0;
+        rgba[i * 4 + 1] = mapa.relevo[i];
+        rgba[i * 4 + 2] = Math.round(limites.coluna[i] * escalaNivel);
+        rgba[i * 4 + 3] = Math.round(limites.sol[i] * escalaNivel);
       }
-      backend.definirMapa(mapa.largura, mapa.altura, rg);
+      backend.definirMapa(mapa.largura, mapa.altura, rgba, relevo.fina, relevo.larguraFina, relevo.alturaFina);
       mapaLargura = mapa.largura;
       mapaAltura = mapa.altura;
+      areaConstrucao = null;
+      camera.relevo = relevo;
+      nomesSolos = solo.nomes;
+      backend.definirSolo(solo.grade);
+      atualizarSolos();
+      if (modoTerreno === 'ladrilhos') pedirLadrilhos();
+      if (mapa.tipos) definirTipos(mapa.tipos);
+    },
+
+    /** Ground splatted from the tiles by soil ('ladrilhos') or procedural; the measurement compares the two. */
+    definirModoTerreno(modo) {
+      modoTerreno = modo;
+      if (modo === 'ladrilhos') pedirLadrilhos();
+      atualizarSolos();
+    },
+
+    get modoTerreno() {
+      return backend.modoSolo === 1 ? 'ladrilhos' : 'procedural';
+    },
+
+    /**
+     * Placement ghost of the building being placed: kind, top-left cell, footprint in cells, validity and,
+     * optionally, `celulas` (one byte per footprint cell, 1 = a cell that makes it invalid); null removes it.
+     * @param {{ tipo: number, cx: number, cy: number, largura: number, altura: number, valido: boolean, celulas?: Uint8Array } | null} fantasma
+     */
+    definirFantasma(fantasma) {
+      unidades.definirFantasma(fantasma);
+    },
+
+    /**
+     * Where the local player may build (one byte per map cell, nonzero = yes), shaded while placing; null hides it.
+     * @param {Uint8Array | null} grade
+     */
+    definirAreaDeConstrucao(grade) {
+      if (!grade) {
+        backend.definirArea(null);
+        return;
+      }
+      if (!areaConstrucao || areaConstrucao.length !== mapaLargura * mapaAltura) areaConstrucao = new Uint8Array(mapaLargura * mapaAltura);
+      for (let i = 0; i < areaConstrucao.length; i++) areaConstrucao[i] = grade[i] ? 255 : 0;
+      backend.definirArea(areaConstrucao);
+    },
+
+    /** Height field of the current map (relevo.js), or null before the map arrives. */
+    get relevo() {
+      return relevo;
     },
 
     atualizarNeblina(visao) {
@@ -140,20 +304,22 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       return folha;
     },
 
-    /** Loads a terrain manifest as the ground texture (null goes back to the procedural ground). */
+    /**
+     * Shows one terrain manifest as the whole ground, every soil on that tile untinted (the atlas viewer); null goes
+     * back to the procedural ground.
+     */
     async carregarTerreno(url, nivel = nivelDoCanvas()) {
+      ladrilhosPedidos = true;
       if (!url) {
-        backend.definirLadrilho(null, 0);
+        modoTerreno = 'procedural';
+        atualizarSolos();
         return null;
       }
-      const resposta = await fetch(url);
-      if (!resposta.ok) throw new Error(`terreno ${url}: HTTP ${resposta.status}`);
-      const terreno = lerManifestoTerreno(await resposta.json(), resposta.url || url);
-      const pagina = terreno.niveis[nivel] ?? terreno.niveis.uhd ?? terreno.niveis.hd;
-      const imagem = await carregarImagem(pagina.cor, true);
-      backend.definirLadrilho(imagem, terreno.celulasPorLadrilho);
-      imagem.close();
-      return terreno;
+      modoTerreno = 'ladrilhos';
+      await carregarLadrilhos(new Map([[LADRILHO_BASE, url]]), nivel);
+      nomesSolos = [LADRILHO_BASE];
+      atualizarSolos();
+      return { url };
     },
 
     /** Loads the prototype's Blender tank; resolves to null when it is missing. */
@@ -164,7 +330,13 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
 
     folhas,
 
-    /** Shadows from the sprite alpha ('alfa', the default until the style gate decides) or the rendered layer ('camada'). */
+    /** Kinds of the match, when they do not come with the static map (MapaEstatico.tipos). */
+    definirTipos,
+
+    /**
+     * Shadows: 'recomendado' (the default until the style gate decides: derived from the sprite alpha on units, the
+     * rendered layer on buildings that have it), 'alfa' or 'camada' for every sheet.
+     */
     definirModoSombra(modo) {
       unidades.definirModoSombra(modo);
     },
@@ -176,6 +348,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     desenhar({ agora, dt, estado, selecionadas }) {
       vista.px = pxPorCelula(projecao, vista.largura, vista.altura, camera.zoom);
       areaVisivel(projecao, camera, vista, 0, area);
+      area[3] += margemDoRelevo();
       unidades.montar({ estado, area, selecionadas, agora });
       efeitos.montar(agora);
       return desenharCena(agora, dt, unidades);
