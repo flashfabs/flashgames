@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import { jogar, executarReplay } from '../../ferramentas/rts/ritmo/jogar-roteiro.mjs';
 import * as roteiro from './rts-roteiro.mjs';
 
-const MISSOES = [{ missao: 'caixa-de-areia', minutos: 28 }];
+const MISSOES = [{ missao: 'caixa-de-areia', minutos: 28 }, { missao: 'morro-aceso', minutos: 50 }];
 
 for (const { missao, minutos } of MISSOES) {
   for (const dificuldade of ['facil', 'normal', 'dificil']) {
