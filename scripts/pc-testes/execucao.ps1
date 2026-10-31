@@ -6,7 +6,7 @@
 param(
     [Parameter(Mandatory)][string]$Sessao,
     [Parameter(Mandatory)][string]$Execucao,
-    [ValidateSet("e2e", "playwright")][string]$Modo = "e2e",
+    [ValidateSet("e2e", "rts", "playwright")][string]$Modo = "e2e",
     [string]$Argumentos = "",
     [int]$Processos = 2
 )
@@ -184,8 +184,11 @@ try {
     Registrar "PREPARO playwright install chromium firefox webkit"
     if ((Rodar "npx.cmd playwright install chromium firefox webkit") -ne 0) { throw "playwright install failed" }
 
-    if ($Modo -eq "e2e") {
-        Rodar-Passo "funcionais" @("--project=funcionais", "--workers=$Processos") $false
+    if ($Modo -eq "e2e" -or $Modo -eq "rts") {
+        # The rts mode leaves out the Pavio and Farm functional specs, which an RTS-only change cannot reach; the Action still runs them on every push.
+        $funcionais = @("--project=funcionais", "--workers=$Processos")
+        if ($Modo -eq "rts") { $funcionais += "testes/e2e/rts-" }
+        Rodar-Passo "funcionais" $funcionais $false
         # Only the RTS performance spec: the Pavio one measures the Mac GPU as a stand-in for an iPad, and its limits do not hold on this PC (see docs/rts/ESTADO.md).
         Rodar-Passo "desempenho" @("--project=desempenho", "testes/e2e/rts-desempenho.spec.mjs") $true
         Rodar-Passo "rts-determinismo" @("--project=rts-determinismo-*") $false
