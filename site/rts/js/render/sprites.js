@@ -29,6 +29,7 @@ export function formaDoPredio(tipo, categoriaRecurso) {
   if (/poste/.test(tipo.nome)) return { forma: FORMA_PREDIO.POSTE, alturaMetros: 8 };
   if (/cata-vento/.test(tipo.nome)) return { forma: FORMA_PREDIO.CATA_VENTO, alturaMetros: 9 };
   if (/torre/.test(tipo.nome)) return { forma: FORMA_PREDIO.TORRE, alturaMetros: 10 };
+  if (/ponte|palicada/.test(tipo.nome)) return { forma: FORMA_PREDIO.PREDIO, alturaMetros: 2.4 };
   return { forma: FORMA_PREDIO.PREDIO, alturaMetros: Math.min(9, 3 + 1.2 * Math.min(largura, altura)) };
 }
 
