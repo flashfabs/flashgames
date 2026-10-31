@@ -1,0 +1,15 @@
+{
+  "versao": 1,
+  "descricao": "Contrato C12: orçamentos de memória de textura e de download do RTS por fase e por nível, em MiB. Um jogador baixa um nível só (uhd ou hd). Download conta as páginas dos assets da fase mais o código e os dados de site/rts, sem a música (que vem em streaming) e sem site/rts/ferramentas. Uma fase com obrigatorio false só é medida e anotada no teste; passa a reprovar quando virar true, na etapa indicada.",
+  "arquivoMaximoMiB": 8,
+  "fases": {
+    "fase-1": {
+      "obrigatorio": false,
+      "obrigatorioNaEtapa": "E5",
+      "niveis": {
+        "uhd": { "texturaMiB": 256, "downloadMiB": 30 },
+        "hd": { "texturaMiB": 96, "downloadMiB": 12 }
+      }
+    }
+  }
+}
