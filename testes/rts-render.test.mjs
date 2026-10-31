@@ -518,7 +518,7 @@ const quadrosEmOrdem = m => Array.from({ length: m.sprites.n }, (_, i) => m.spri
 
 test('kinds without art get a placeholder by category; buildings keep their footprint', () => {
   const a = aparenciasDosTipos(TIPOS_TESTE);
-  assert.deepEqual(a[0].variantes.map(v => v.corpo), ['religadores-infantaria-turma-de-linha', 'ficha-infantaria']);
+  assert.deepEqual(a[0].variantes.map(v => v.corpo), ['religadores-infantaria-turma-de-linha', 'religadores-infantaria-turma-de-linha-cinza', 'ficha-infantaria']);
   assert.ok(a[1].predio && a[1].pegada[0] === 4 && a[1].variantes[0].corpo === 'ficha-escritorio');
   assert.equal(formaDoPredio(TIPOS_TESTE[2], CATEGORIA.RECURSO).forma, FORMA_PREDIO.POSTE);
   assert.equal(formaDoPredio(TIPOS_TESTE[3], CATEGORIA.RECURSO).forma, FORMA_PREDIO.PILHA);
@@ -639,4 +639,27 @@ test('the benchmark rings the battle with buildings whose cables reach poles of 
   const emObra = Array.from(p.bandeiras).filter(b => b & BANDEIRA.EM_OBRA).length;
   assert.equal(emObra, 12, 'one in five under construction');
   for (let k = 0; k < p.n; k++) assert.ok(Math.hypot(p.x[k] / 1024 - 96, p.y[k] / 1024 - 96) < 40);
+});
+
+test('wall pieces pick their frame by the walls of the same kind and owner around them', () => {
+  const tipos = [...TIPOS_TESTE, { nome: 'palicada', categoria: CATEGORIA.PREDIO, asset: '', pegada: [1, 1] }];
+  const projecao = criarProjecao(copia());
+  const folhas = folhasDePredios();
+  const muro = { asset: 'ficha-palicada', primeiroQuadro: 30, direcoes: 1, pxNivel: 96, nivel: 'uhd', animacoes: new Map([['parado', { nome: 'parado', camada: 'corpo', quadros: 16, fps: 0, laco: true, direcoes: 1, base: 0 }]]), pontos: {}, alturaBarraMetros: 3, temSombra: false };
+  const m = criarMontagemUnidades({ projecao, folhas: { folha: nome => (nome === 'ficha-palicada' ? muro : folhas.folha(nome)), totalQuadros: 46 } });
+  m.definirAparencias(aparenciasDosTipos(tipos));
+  // an L: (10,10) has walls to the east and to the south; (11,10) only to the west; (10,11) only to the north;
+  // (12,10) belongs to another player and joins nobody
+  const r = retrato(10, [
+    { id: idDe(1, 1), tipo: 4, x: 10.5, y: 10.5 },
+    { id: idDe(2, 1), tipo: 4, x: 11.5, y: 10.5 },
+    { id: idDe(3, 1), tipo: 4, x: 10.5, y: 11.5 },
+    { id: idDe(4, 1), tipo: 4, x: 12.5, y: 10.5, dono: 1 },
+  ]);
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 1 }, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  const porX = new Map(Array.from({ length: m.sprites.n }, (_, i) => [m.sprites.dados[i * 8] * 10 + m.sprites.dados[i * 8 + 1], m.sprites.dados[i * 8 + 4] - 30]));
+  assert.equal(porX.get(105 + 10.5), 2 | 4);
+  assert.equal(porX.get(115 + 10.5), 8);
+  assert.equal(porX.get(105 + 11.5), 1);
+  assert.equal(porX.get(125 + 10.5), 0);
 });

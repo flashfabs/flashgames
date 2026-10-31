@@ -374,6 +374,16 @@ export function criarBackendWebGL2(canvas) {
     },
 
     /**
+     * Bytes the sprite layers (colour RGBA8, team R8, shadow R8) and the ground tiles (RGBA8) hold on the GPU,
+     * mipmaps included, by the same count the art budget uses (layers x width x height x bytes x 4/3).
+     */
+    get bytesTexturas() {
+      const sprites = camadas.largura * camadas.altura * camadas.quantidade * 6;
+      const chao = ladrilhos.tamanho * ladrilhos.tamanho * ladrilhos.quantidade * 4;
+      return Math.round(((sprites + chao) * 4) / 3);
+    },
+
+    /**
      * Uploads one atlas page into a layer at (0, 0). The colour must already be premultiplied
      * (ImageBitmap with premultiplyAlpha: 'premultiply'); the team mask and the shadow take the red channel of
      * their images, and a missing one clears its channel.

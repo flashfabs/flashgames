@@ -8,7 +8,7 @@ import { FLOATS_INSTANCIA } from './backend-webgl2.js';
 import { criarOrdenacao } from './ordenacao.js';
 import { pontoDeEncaixe, empacotar } from './sprites.js';
 import { FLAGS_SPRITE } from './shaders.js';
-import { FP, PASSOS_POR_SEGUNDO, VISAO, MAX_SLOTS, SEM_ENTIDADE, BANDEIRA, CATEGORIA, slotDe } from '../sim/contratos.js';
+import { FP, FP_BITS, PASSOS_POR_SEGUNDO, VISAO, MAX_SLOTS, SEM_ENTIDADE, BANDEIRA, CATEGORIA, DONO_NEUTRO, slotDe } from '../sim/contratos.js';
 
 export { CATEGORIA };
 
@@ -35,13 +35,14 @@ export const APARENCIAS_PADRAO = Object.freeze([
 ]);
 
 /**
- * Looks of the match's kinds (MapaEstatico.tipos): the kind's art first, then a placeholder by category.
+ * Looks of the match's kinds (MapaEstatico.tipos): the kind's art first (the asset of the data, then its grey kit
+ * version `<asset>-cinza`), then a placeholder by category. Art sheets carry their turret layer in the same sheet.
  * @param {{ nome: string, categoria: number, asset: string, pegada: number[], lotacao?: number }[]} tipos
  * @returns {Aparencia[]}
  */
 export function aparenciasDosTipos(tipos) {
   return tipos.map(tipo => {
-    const arte = tipo.asset ? [{ corpo: tipo.asset }] : [];
+    const arte = tipo.asset ? [`${tipo.asset}`, `${tipo.asset}-cinza`].map(nome => ({ corpo: nome, torre: nome })) : [];
     if (tipo.categoria === CATEGORIA.UNIDADE) {
       if (/infantaria/.test(tipo.asset) || /infantaria/.test(tipo.nome)) return { variantes: [...arte, { corpo: 'ficha-infantaria' }], raio: 0.28, sombraMetros: 0.6 };
       // the prototype's tank keeps its Blender sheet
@@ -51,7 +52,16 @@ export function aparenciasDosTipos(tipos) {
     }
     if (tipo.categoria === CATEGORIA.FAISCA) return { variantes: [{ corpo: 'ficha-faisca' }], raio: 0.2, sombraMetros: 0, aditivo: true };
     const [l, a] = tipo.pegada;
-    return { variantes: [...arte, { corpo: `ficha-${tipo.nome}` }], raio: Math.max(l, a) * 0.5, sombraMetros: 2.5, predio: true, pegada: [l, a] };
+    return {
+      variantes: [...arte, { corpo: `ficha-${tipo.nome}` }],
+      raio: Math.max(l, a) * 0.5,
+      sombraMetros: 2.5,
+      predio: true,
+      pegada: [l, a],
+      // walls pick their frame by which neighbours are walls of the same kind (N 1, E 2, S 4, W 8)
+      conecta: /palicada/.test(tipo.nome),
+      estrutura: tipo.categoria === CATEGORIA.ESTRUTURA,
+    };
   });
 }
 
@@ -140,17 +150,24 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
       }
       const animacoes = corpo ? [...corpo.animacoes.values()] : [];
       const doCorpo = animacoes.filter(x => x.camada !== 'luzes' && !x.camada.startsWith('torre'));
+      const animacao = nome => {
+        const encontrada = corpo?.animacoes.get(nome);
+        return encontrada && !encontrada.camada.startsWith('torre') ? encontrada : null;
+      };
       return {
         ...a,
         corpo,
-        animParado: corpo?.animacoes.get('parado') ?? corpo?.animacoes.get('pronta') ?? doCorpo[0] ?? null,
-        animAndando: corpo?.animacoes.get('andando') ?? null,
-        animAtividade: corpo?.animacoes.get('atividade') ?? corpo?.animacoes.get('produzindo') ?? null,
-        animDanificado: corpo?.animacoes.get('danificada') ?? corpo?.animacoes.get('danificado') ?? null,
+        animParado: animacao('parado') ?? animacao('pronta') ?? (a.estrutura ? animacao('religada') : null) ?? doCorpo[0] ?? null,
+        animMorta: a.estrutura ? animacao('morta') : null,
+        animAndando: animacao('andando') ?? animacao('rodando'),
+        animAtirando: animacao('atirando'),
+        animAtividade: animacao('atividade') ?? animacao('produzindo'),
+        animDanificado: animacao('danificada') ?? animacao('danificado'),
         animLuzes: animacoes.find(x => x.camada === 'luzes') ?? null,
         caboDx,
         torre,
         animTorre: torre?.animacoes.get('torre') ?? null,
+        animTorreAtirando: torre?.animacoes.get('atirando')?.camada.startsWith('torre') ? torre.animacoes.get('atirando') : null,
         alturaCabo,
         // buildings reach their front edge, in quarter cells
         vies: a.predio ? Math.min(63, Math.round(a.pegada[1] * 2)) : VIES_UNIDADE,
@@ -183,6 +200,7 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
     quadroArea[2] = area[2] + MARGEM_CELULAS;
     quadroArea[3] = area[3] + MARGEM_CELULAS;
     quadroArea[4] = 65535 / (quadroArea[3] - quadroArea[1]);
+    marcarMuros(estado, atual);
     percorrer(estado, atual, anterior, atual.tick + alfa, alfa, selecionadas);
     if (estado.extras) percorrer(estado, estado.extras, null, atual.tick + alfa, alfa, selecionadas);
     montarMemorias(atual.fantasmas);
@@ -246,13 +264,15 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
         const obra = (b & BANDEIRA.EM_OBRA) !== 0 && progresso ? Math.max(1, Math.min(254, progresso[k])) : 0;
         let anim = aparencia.animParado;
         const danificado = obra === 0 && atual.vida[k] < 128;
-        if (danificado && aparencia.animDanificado) anim = aparencia.animDanificado;
+        if (dono === DONO_NEUTRO && aparencia.animMorta) anim = aparencia.animMorta;
+        else if (danificado && aparencia.animDanificado) anim = aparencia.animDanificado;
         else if (obra === 0 && (b & BANDEIRA.PRODUZINDO) !== 0 && aparencia.animAtividade) anim = aparencia.animAtividade;
         const tempoS = (tempoTick - atual.inicioAnim[k]) / PASSOS_POR_SEGUNDO;
-        const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
+        const passo = aparencia.conecta ? mascaraDeVizinhos(x, y, atual.tipo[k], dono) : anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
         const chavePredio = chaveDe(y + aparencia.pegada[1] * 0.5);
         const fuligem = danificado && !aparencia.animDanificado ? FLAGS_SPRITE.DANIFICADO : 0;
         emitirSprite(quadroDe(aparencia.corpo, anim, 0, passo), empacotar(time, obra, fuligem, aparencia.vies), aparencia, chavePredio, 1);
+        if (aparencia.torre && aparencia.animTorre && obra === 0) emitirTorre(aparencia, x, y, chao, torre, tempoS, (b & BANDEIRA.EM_COMBATE) !== 0, empacotar(time, 0, 0, aparencia.vies), chavePredio);
         // lights add over the body with the same depth, while the building has power
         const luzes = aparencia.animLuzes;
         if (luzes && obra === 0 && (!bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0)) {
@@ -272,20 +292,23 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
       }
       const chave = chaveDe(y);
       const tempoS = (tempoTick - atual.inicioAnim[k]) / PASSOS_POR_SEGUNDO;
-      const anim = andando && aparencia.animAndando ? aparencia.animAndando : aparencia.animParado;
+      const atirando = (b & BANDEIRA.EM_COMBATE) !== 0;
+      let anim = aparencia.animParado;
+      if (andando && aparencia.animAndando) anim = aparencia.animAndando;
+      else if (atirando && aparencia.animAtirando && !aparencia.animTorreAtirando) anim = aparencia.animAtirando;
       const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
       const quadro = quadroDe(aparencia.corpo, anim, Math.round((corpo * anim.direcoes) / 256), passo);
       const chao = alturaEm(x, y);
       posicao[2] = chao;
       const empacotado = empacotar(time, 0, 0, aparencia.vies);
       emitirSprite(quadro, empacotado, aparencia, chave, aparencia.aditivo ? -1 : 1);
-      const animTorre = aparencia.animTorre;
-      if (aparencia.torre && animTorre) {
+      if (aparencia.torre && aparencia.animTorre) {
         if (pontoDeEncaixe(aparencia.corpo, 'encaixe_torre', quadro - aparencia.corpo.primeiroQuadro, projecao, encaixe)) {
           posicao[0] = x + encaixe[0];
           posicao[1] = y + encaixe[1];
           posicao[2] = chao + encaixe[2];
         }
+        const animTorre = atirando && aparencia.animTorreAtirando ? aparencia.animTorreAtirando : aparencia.animTorre;
         const passoTorre = animTorre.fps > 0 && tempoS > 0 ? Math.floor(tempoS * animTorre.fps) : 0;
         emitirSprite(quadroDe(aparencia.torre, animTorre, Math.round((torre * animTorre.direcoes) / 256), passoTorre), empacotado, aparencia, chave, 1);
       }
@@ -293,6 +316,67 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
       if (selecionada || atual.vida[k] < 255) emitirBarra(x, y, chao + aparencia.corpo.alturaBarraMetros, atual.vida[k] / 255, aparencia.raio * 1.5, time, selecionada);
     }
     resolverCabos(atual);
+  }
+
+  // Turret of a building (watch and searchlight towers), at its turret anchor or on the building's anchor.
+  function emitirTorre(aparencia, x, y, chao, angulo, tempoS, atirando, empacotado, chave) {
+    posicao[0] = x;
+    posicao[1] = y;
+    posicao[2] = chao;
+    if (pontoDeEncaixe(aparencia.corpo, 'encaixe_torre', 0, projecao, encaixe)) {
+      posicao[0] = x + encaixe[0];
+      posicao[1] = y + encaixe[1];
+      posicao[2] = chao + encaixe[2];
+    }
+    const anim = atirando && aparencia.animTorreAtirando ? aparencia.animTorreAtirando : aparencia.animTorre;
+    const passo = anim.fps > 0 && tempoS > 0 ? Math.floor(tempoS * anim.fps) : 0;
+    emitirSprite(quadroDe(aparencia.torre, anim, Math.round((angulo * anim.direcoes) / 256), passo), empacotado, aparencia, chave, 1);
+  }
+
+  // Cells holding a wall piece this snapshot: owner + 1 and kind + 1 packed, marked once per snapshot.
+  let grade = null;
+  let marcadas = new Int32Array(64);
+  let nMarcadas = 0;
+  let retratoMarcado = null;
+  let larguraGrade = 0;
+
+  function marcarMuros(estado, atual) {
+    if (retratoMarcado === atual || !estado.mapa) return;
+    retratoMarcado = atual;
+    const { largura, altura } = estado.mapa;
+    if (!grade || grade.length !== largura * altura) {
+      grade = new Int32Array(largura * altura);
+      nMarcadas = 0;
+    }
+    larguraGrade = largura;
+    for (let i = 0; i < nMarcadas; i++) grade[marcadas[i]] = 0;
+    nMarcadas = 0;
+    for (let k = 0; k < atual.n; k++) {
+      if (!resolvidas[atual.tipo[k]]?.conecta) continue;
+      const c = (atual.y[k] >> FP_BITS) * largura + (atual.x[k] >> FP_BITS);
+      if (c < 0 || c >= grade.length) continue;
+      grade[c] = ((atual.dono[k] + 1) << 16) | (atual.tipo[k] + 1);
+      if (nMarcadas === marcadas.length) {
+        const novas = new Int32Array(marcadas.length * 2);
+        novas.set(marcadas);
+        marcadas = novas;
+      }
+      marcadas[nMarcadas++] = c;
+    }
+  }
+
+  // Which of the four neighbours of the wall at (x, y) are walls of the same kind and owner: N 1, E 2, S 4, W 8.
+  function mascaraDeVizinhos(x, y, tipo, dono) {
+    if (!grade) return 0;
+    const cx = Math.floor(x);
+    const cy = Math.floor(y);
+    const mesmo = ((dono + 1) << 16) | (tipo + 1);
+    return (muroEm(cx, cy - 1, mesmo) ? 1 : 0) | (muroEm(cx + 1, cy, mesmo) ? 2 : 0) | (muroEm(cx, cy + 1, mesmo) ? 4 : 0) | (muroEm(cx - 1, cy, mesmo) ? 8 : 0);
+  }
+
+  function muroEm(cx, cy, mesmo) {
+    const c = cy * larguraGrade + cx;
+    return cx >= 0 && cx < larguraGrade && c >= 0 && c < grade.length && grade[c] === mesmo;
   }
 
   // Sort key of a ground y (cells) in the frame's visible band: integer 0..65535.

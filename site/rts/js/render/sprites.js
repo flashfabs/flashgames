@@ -50,6 +50,26 @@ export function criarFolhas(backend, projecao, quadroComum) {
   let tabela = new Float32Array(1024 * CAMPOS);
   let totalQuadros = 0;
   let proximaCamada = 0;
+  // pages shared by several manifests (the phase atlas) go up once: colour page URL -> promise of its layer
+  const camadaDaPagina = new Map();
+
+  // Layer of an atlas page, uploading it the first time any manifest asks for it.
+  function camadaPara(pagina) {
+    let pendente = camadaDaPagina.get(pagina.cor);
+    if (pendente) return pendente;
+    const camada = proximaCamada++;
+    pendente = Promise.all([carregarImagem(pagina.cor, true), pagina.time ? carregarImagem(pagina.time, false) : null, pagina.sombra ? carregarImagem(pagina.sombra, false) : null]).then(([cor, time, sombra]) => {
+      backend.garantirCamadas(pagina.largura, pagina.altura, proximaCamada);
+      backend.enviarPagina(camada, cor, time, sombra, pagina.largura, pagina.altura);
+      cor.close();
+      time?.close();
+      sombra?.close();
+      return camada;
+    });
+    pendente.catch(() => camadaDaPagina.delete(pagina.cor));
+    camadaDaPagina.set(pagina.cor, pendente);
+    return pendente;
+  }
   /** @type {Map<string, Folha>} */
   const porAsset = new Map();
 
@@ -88,33 +108,21 @@ export function criarFolhas(backend, projecao, quadroComum) {
 
   return {
     /**
-     * Uploads a manifest's pages at the wanted level (or the one it has) and registers its frames.
+     * Uploads a manifest's pages at the wanted level (or the one it has) and registers its frames. A page another
+     * manifest already brought (same colour URL, as in a phase atlas) is not uploaded again.
      * @param {ReturnType<typeof import('../ativos/manifesto.js').lerManifesto>} manifesto
      * @param {'hd' | 'uhd'} nivelDesejado
      */
     async adicionarManifesto(manifesto, nivelDesejado) {
       const nivel = nivelDisponivel(manifesto, nivelDesejado);
       const n = manifesto.niveis[nivel];
-      const imagens = await Promise.all(
-        n.paginas.map(p => Promise.all([carregarImagem(p.cor, true), p.time ? carregarImagem(p.time, false) : null, p.sombra ? carregarImagem(p.sombra, false) : null])),
-      );
-      const largura = Math.max(...n.paginas.map(p => p.largura));
-      const altura = Math.max(...n.paginas.map(p => p.altura));
-      const camadaBase = proximaCamada;
-      proximaCamada += n.paginas.length;
-      backend.garantirCamadas(largura, altura, proximaCamada);
-      imagens.forEach(([cor, time, sombra], i) => {
-        backend.enviarPagina(camadaBase + i, cor, time, sombra, n.paginas[i].largura, n.paginas[i].altura);
-        cor.close();
-        time?.close();
-        sombra?.close();
-      });
+      const camadas = await Promise.all(n.paginas.map(camadaPara));
       const pxNivel = n.pxPorCelula ?? projecao.pxNivel[nivel];
       const primeiro = reservarQuadros(manifesto.totalQuadros);
       for (let i = 0; i < manifesto.totalQuadros; i++) {
         const o = (primeiro + i) * CAMPOS;
         const q = i * 7;
-        tabela[o] = camadaBase + n.quadros[q];
+        tabela[o] = camadas[n.quadros[q]];
         for (let k = 1; k < 7; k++) tabela[o + k] = n.quadros[q + k];
         tabela[o + 7] = pxNivel;
       }

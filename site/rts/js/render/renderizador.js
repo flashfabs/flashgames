@@ -125,7 +125,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     carregarIndice()
       .then(indice =>
         Promise.all(
-          [...new Set(tipos.map(t => t.asset).filter(Boolean))]
+          [...new Set(tipos.flatMap(t => (t.asset ? [t.asset, `${t.asset}-cinza`] : [])))]
             .filter(asset => !folhas.folha(asset) && indice.urlDo(asset))
             .map(asset =>
               carregarManifesto(indice.urlDo(asset))
@@ -143,7 +143,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   const folhas = criarFolhas(backend, projecao, () => preencherQuadro(camera0, 1, vista.largura, vista.altura, 0));
   const unidades = criarMontagemUnidades({ projecao, folhas, alturaEm: (x, y) => (relevo ? relevo.alturaEm(x, y) : 0) });
   const efeitos = criarEfeitos({ visivel });
-  const estatisticas = { escala: 1, alvoLargura: 0, alvoAltura: 0, sprites: 0, gpuMs: -1, nivel: '' };
+  const estatisticas = { escala: 1, alvoLargura: 0, alvoAltura: 0, sprites: 0, gpuMs: -1, nivel: '', bytesTexturas: 0 };
 
   function preencherQuadro(camera, px, largura, altura, tempo) {
     quadro[0] = camera.x;
@@ -200,6 +200,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     estatisticas.alvoAltura = alvo[1];
     estatisticas.sprites = listas.sprites.n;
     estatisticas.gpuMs = backend.tempoDeGpuMs;
+    estatisticas.bytesTexturas = backend.bytesTexturas;
     return listas.sprites.n;
   }
 
