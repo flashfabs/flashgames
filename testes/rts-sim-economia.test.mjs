@@ -88,6 +88,24 @@ test('a harvester loads at a pile, carries to the depot and delivers 100 Carga a
   assert.equal(restante, 4500 - 100 * descargas.length - (sim.carga[g] > 0 ? sim.carga[g] : 0), 'what left the node is in the depot or in the harvester');
 });
 
+test('a loaded harvester with no depot waits, shown idle, and goes to deliver as soon as a depot stands', () => {
+  const sim = novaCaixa();
+  matar(sim, sim.etiquetas['qg-sul']);
+  const g = slotsDo(sim, 'guincho-de-celulas', 0)[0];
+  const pilha = slotsDo(sim, 'pilha').find(i => sim.no[i] === 0);
+  ordenar(sim, { tipo: TIPO_COMANDO.COLETAR, unidades: [id(sim, g)], alvo: id(sim, pilha) });
+  rodar(sim, 900);
+  assert.equal(sim.carga[g], 100, 'loaded');
+  assert.equal(sim.tarefa[g], TAREFA.IR_DEPOSITO);
+  const retrato = montarRetrato(sim);
+  const k = Array.from(retrato.id).indexOf(id(sim, g));
+  assert.ok(retrato.bandeiras[k] & BANDEIRA.OCIOSA, 'the interface shows it idle');
+  colocarPredio(sim, tipoDe(sim, 'acumulador'), 0, 16, 30);
+  const descargas = doTipo(rodar(sim, 600), EVENTO.DESCARGA);
+  assert.ok(descargas.length >= 1, 'it delivered to the new depot');
+  assert.equal(cargaDe(sim, 0), 1500 + 100 * descargas.length);
+});
+
 test('a node takes three harvesters at a time; the others wait their turn in arrival order', () => {
   const sim = (novaCaixa());
   const guinchos = [slotsDo(sim, 'guincho-de-celulas', 0)[0]];

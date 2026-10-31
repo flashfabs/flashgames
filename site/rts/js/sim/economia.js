@@ -2,7 +2,7 @@
 // (saturation), load, carry to the nearest depot and unload; piles that run dry; the load of a dead harvester spilled
 // as sparks any harvester may pick up for a while; and the announced wind gusts that pay every windmill standing on a
 // windy cell. Everything in slot order, timed in ticks.
-import { FP, FP_BITS, CATEGORIA, EVENTO, MOTIVO, SEM_ENTIDADE, TIPO_COMANDO } from './contratos.js';
+import { FP, FP_BITS, CATEGORIA, EVENTO, MOTIVO, SEM_ENTIDADE, TIPO_COMANDO, PASSOS_POR_SEGUNDO } from './contratos.js';
 import { seno, cosseno } from './matematica.js';
 import { TAREFA, registrarExtras } from './estado.js';
 import { cantoDaPegada } from './pegadas.js';
@@ -236,7 +236,9 @@ function voltarAoNo(sim, i, restante) {
 function irAoDeposito(sim, i, deposito = -1) {
   const j = deposito >= 0 ? deposito : depositoMaisProximo(sim, i);
   if (j < 0) {
-    tarefa(sim, i, TAREFA.NENHUMA, -1);
+    // no depot to go to: it waits loaded where it stands and looks again now and then, so the first depot built (or
+    // the next one, when its depot fell) puts it back to work
+    tarefa(sim, i, TAREFA.IR_DEPOSITO, -1);
     parar(sim, i);
     return;
   }
@@ -378,7 +380,11 @@ function trabalhar(sim, i, restante, ocupacao, esperando) {
       return seguirComCarga(sim, i, restante);
     }
     case TAREFA.IR_DEPOSITO: {
-      if (alvo < 0 || sim.obra[alvo] > 0) return irAoDeposito(sim, i);
+      if (alvo < 0 || sim.obra[alvo] > 0) {
+        // waiting for a depot: look once a second, staggered by slot
+        if (sim.tarefaAlvo[i] < 0 && (sim.tick + i) % PASSOS_POR_SEGUNDO !== 0) return;
+        return irAoDeposito(sim, i);
+      }
       if (distanciaCelulas(sim, i, alvo) > ALCANCE_COLETA) {
         if (repedir) irJuntoA(sim, i, alvo);
         return;

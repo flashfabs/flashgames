@@ -11,7 +11,9 @@ export function bandeirasDe(sim, i) {
   if (sim.obra[i] > 0) b |= BANDEIRA.EM_OBRA;
   if (sim.energizado[i]) b |= BANDEIRA.ENERGIZADO;
   const tarefa = sim.tarefa[i];
-  if (sim.coletorPorTipo[sim.tipo[i]] && tarefa === TAREFA.NENHUMA && (sim.parada[i] || sim.ordens.ordem[i] < 0)) b |= BANDEIRA.OCIOSA;
+  // a harvester with nothing to do, or loaded with no depot to go to
+  const semDeposito = tarefa === TAREFA.IR_DEPOSITO && sim.tarefaAlvo[i] < 0;
+  if (sim.coletorPorTipo[sim.tipo[i]] && (tarefa === TAREFA.NENHUMA || semDeposito) && (sim.parada[i] || sim.ordens.ordem[i] < 0)) b |= BANDEIRA.OCIOSA;
   if (tarefa === TAREFA.CARREGAR || tarefa === TAREFA.DESCARREGAR || tarefa === TAREFA.RECOLHER) b |= BANDEIRA.COLETANDO;
   const categoria = sim.categoriaPorTipo[sim.tipo[i]];
   if (categoria === CATEGORIA.RECURSO && sim.carga[i] === 0) b |= BANDEIRA.ESGOTADO;
