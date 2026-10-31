@@ -381,13 +381,14 @@ function caixaDoRepositorio() {
   const pasta = `mapas/${missao.mapa}/`;
   const cabecalho = json(`${pasta}mapa.json`);
   const arquivosMapa = { cabecalho, camadas: new Uint8Array(ler(pasta + cabecalho.camadas.arquivo)), entidades: json(`${pasta}entidades.json`) };
-  return criarSimulacao({ dados, arquivosMapa, missao, dificuldade: 'normal' });
+  // the mission's start trigger gives the starting Carga; without the trigger evaluator, the option does
+  return criarSimulacao({ dados, arquivosMapa, missao, dificuldade: 'normal', cargaInicial: 1500 });
 }
 
 test('the design sandbox plays by commands alone: harvest, build in the network, place, produce', t => {
   if (!existsSync(new URL('missoes/caixa-de-areia.json', pastaDados))) return t.skip('the design sandbox is not in the repository');
   const sim = caixaDoRepositorio();
-  assert.equal(cargaDe(sim, 0), 1500, 'the mission gives 1,500 on Normal');
+  assert.equal(cargaDe(sim, 0), 1500);
   const qg = (() => {
     for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.time[i] === 0 && sim.tipos[sim.tipo[i]].filaConstrucao) return i;
     return -1;

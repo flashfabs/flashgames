@@ -45,7 +45,7 @@ export const REGRAS_LIVRES = Object.freeze({ renascer: false, esperaRenascer: 0,
  * @param {number} [opcoes.capacidade] entity slots (defaults to the starting units, plus room to build and produce
  *   when the match has design data)
  * @param {number} [opcoes.cargaInicial] Carga each player starts with (defaults to the economy data's)
- * @param {object} [opcoes.missao] the mission (C7): its players' starting Carga here, its triggers in the missions module
+ * @param {object} [opcoes.missao] the mission (C7), for the missions module (its start trigger gives the starting Carga)
  * @param {string} [opcoes.dificuldade] 'facil', 'normal' (default) or 'dificil'
  * @param {object} [opcoes.dados] the design data files (C5: unidades, predios, economia, pesquisas, armas), compiled
  * @param {object[]} [opcoes.tipos] unit kinds in the simulation's units, validated (the prototype's form; without
@@ -71,7 +71,6 @@ export function criarSimulacao(opcoes = {}) {
   if (capacidade < iniciais) throw new Error('simulação: capacidade menor que as unidades iniciais');
   const times = Math.max(mapa.bases.length, ...(unidades ?? []).map(u => u.time + 1), 1);
   const sim = criarEstado({ opcoes, mapa, dados, regras, capacidade, times, semente });
-  definirCargaInicial(sim, opcoes);
   sim.faccoes = arquivo ? arquivo.faccoes.slice() : [];
   sim.etiquetas = {};
   sim.entidadesDoMapa = [];
@@ -107,18 +106,6 @@ export function criarSimulacao(opcoes = {}) {
 export function carregarDados(opcoes) {
   if (opcoes.dados) return compilarDados(opcoes.dados);
   return { tipos: opcoes.tipos ? validarTiposUnidade(opcoes.tipos) : DADOS_PROTOTIPO, economia: ECONOMIA_PADRAO, pesquisas: [], armas: null };
-}
-
-// Carga each player starts with: the mission's per player (a number, or one per difficulty), else the option, else the
-// economy data's.
-function definirCargaInicial(sim, opcoes) {
-  const carga = sim.extras.economia.carga;
-  const jogadores = opcoes.missao?.jogadores ?? [];
-  for (let j = 0; j < sim.times; j++) {
-    const daMissao = jogadores[j]?.carga;
-    const valor = typeof daMissao === 'object' && daMissao !== null ? daMissao[opcoes.dificuldade ?? 'normal'] : daMissao;
-    if (Number.isInteger(valor) && valor >= 0) carga[j] = valor;
-  }
 }
 
 // Room for buildings, new units and sparks in a match with design data, beyond its starting entities.
