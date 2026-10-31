@@ -1,24 +1,13 @@
-// What one team can see (C4): its own units, enemy units on cells it sees now, the cells it has explored and its
-// resources. The computer players read only this, so they cannot cheat by construction.
-import { FP_BITS, alocarCamposRetrato, idDe } from './contratos.js';
+// What one team can see (C4): its own entities, other entities on cells it sees now, the ghosts of buildings and
+// nodes it saw before, the cells it has explored, its players' economy and queues. The computer players read only
+// this, so they cannot cheat by construction.
+import { FP_BITS, TAMANHO_REGISTRO_FILA, alocarCamposRetrato, alocarFantasmas } from './contratos.js';
 import { visaoDoTime, celulaVisivel } from './neblina.js';
+import { copiarEntidade } from './retrato.js';
 
 function copiarEntidades(sim, slots) {
   const r = alocarCamposRetrato(slots.length);
-  const { largura, nivel } = sim.mapa;
-  slots.forEach((i, k) => {
-    r.id[k] = idDe(i, sim.geracao[i]);
-    r.tipo[k] = sim.tipo[i];
-    r.dono[k] = sim.time[i];
-    r.x[k] = sim.x[i];
-    r.y[k] = sim.y[i];
-    r.nivel[k] = nivel[(sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS)];
-    r.dirCorpo[k] = sim.dirCorpo[i];
-    r.dirTorre[k] = sim.dirTorre[i];
-    r.vida[k] = Math.max(1, Math.min(255, Math.trunc((sim.vida[i] * 255) / sim.tipos[sim.tipo[i]].vida)));
-    r.bandeiras[k] = sim.parada[i];
-    r.alvo[k] = sim.alvo[i] >= 0 ? idDe(sim.alvo[i], sim.geracao[sim.alvo[i]]) : -1;
-  });
+  slots.forEach((i, k) => copiarEntidade(sim, i, r, k));
   r.n = slots.length;
   return r;
 }
@@ -33,14 +22,18 @@ export function vistaDoTime(sim, time) {
     if (sim.time[i] === time) proprias.push(i);
     else if (celulaVisivel(sim, time, (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS))) inimigas.push(i);
   }
+  const lotacao = new Int32Array(2 * sim.times);
+  lotacao[2 * time + 1] = sim.regras.tetoLotacao ?? 0;
   return {
     tick: sim.tick,
     time,
-    recursos: new Int32Array(1),
+    recursos: new Int32Array(sim.times),
+    lotacao,
+    filas: new Int32Array(0 * TAMANHO_REGISTRO_FILA),
     proprias: copiarEntidades(sim, proprias),
     inimigas: copiarEntidades(sim, inimigas),
-    // buildings arrive with the next wave; their last seen state will live here
-    fantasmas: { id: new Int32Array(0), tipo: new Uint16Array(0), dono: new Uint8Array(0), x: new Int32Array(0), y: new Int32Array(0), n: 0 },
+    fantasmas: alocarFantasmas(0),
+    proximaRajada: 0,
     visao: visaoDoTime(sim, time),
   };
 }

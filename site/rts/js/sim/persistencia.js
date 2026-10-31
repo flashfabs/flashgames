@@ -2,8 +2,9 @@
 // array), so a loaded match continues bit for bit like the original. Flow fields are not stored; their keys and
 // progress are, and the fields are recomputed on load to the same point.
 import { VERSAO_SIMULACAO, comandoParaArray, comandoDeArray } from './contratos.js';
-import { montarMapa } from './mapa.js';
-import { validarTiposUnidade } from './dados.js';
+import { montarMapa, NOMES_CAMADAS_EXTRAS } from './mapa.js';
+import { camposDoPrototipo } from './dados.js';
+import { carregarDados } from './simulacao.js';
 import { CAMPOS_ENTIDADE, criarEstado } from './estado.js';
 import { resumoDosCaminhos, refazerCaminhos } from './caminhos.js';
 
@@ -20,6 +21,7 @@ function arraysDoEstado(sim) {
     ['mapa.bloqueado', sim.mapa.bloqueado],
     ['mapa.relevo', sim.mapa.relevo],
     ['mapa.nivel', sim.mapa.nivel],
+    ...NOMES_CAMADAS_EXTRAS.map(nome => [`mapa.${nome}`, sim.mapa[nome]]),
   ];
   for (const [nome] of CAMPOS_ENTIDADE) lista.push([`entidade.${nome}`, sim[nome]]);
   for (const [nome, valor] of Object.entries(sim.ordens)) lista.push([`ordens.${nome}`, valor]);
@@ -44,13 +46,15 @@ export function salvar(sim) {
     versao: VERSAO_SIMULACAO,
     tick: sim.tick,
     opcoes: sim.opcoes,
-    tipos: sim.tipos,
+    // with design data the options carry the files; otherwise the kinds go in the prototype's form
+    tipos: sim.opcoes.dados ? null : sim.tipos.map(camposDoPrototipo),
     regras: sim.regras,
     capacidade: sim.capacidade,
     times: sim.times,
     largura: sim.mapa.largura,
     altura: sim.mapa.altura,
     bases: sim.mapa.bases,
+    nos: sim.mapa.nos,
     sorteio: sim.sorteio.estado,
     expansoesPorPasso: sim.expansoesPorPasso,
     onda: sim.onda,
@@ -94,12 +98,14 @@ export function carregar(buffer) {
     bloqueado: ler.get('mapa.bloqueado'),
     relevo: ler.get('mapa.relevo'),
     nivel: ler.get('mapa.nivel'),
+    ...Object.fromEntries(NOMES_CAMADAS_EXTRAS.map(nome => [nome, ler.get(`mapa.${nome}`)])),
     bases: cabecalho.bases,
+    nos: cabecalho.nos,
   });
   const sim = criarEstado({
     opcoes: { ...cabecalho.opcoes, expansoesPorPasso: cabecalho.expansoesPorPasso },
     mapa,
-    tipos: validarTiposUnidade(cabecalho.tipos),
+    dados: carregarDados(cabecalho.opcoes.dados ? cabecalho.opcoes : { tipos: cabecalho.tipos }),
     regras: cabecalho.regras,
     capacidade: cabecalho.capacidade,
     times: cabecalho.times,

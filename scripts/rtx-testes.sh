@@ -3,6 +3,7 @@
 #
 # Usage: scripts/rtx-testes.sh [command]
 #   (nothing) or e2e            funcionais, the RTS performance spec (with the GPU lock) and rts-determinismo-*; the Pavio performance spec stays on the Mac
+#   rts                         the same without the Pavio and Farm functional specs: for changes that only touch the RTS (site/rts, testes/rts*, docs/rts)
 #   -- <playwright args...>     npx playwright test <args>, e.g. -- --project=funcionais testes/e2e/sala.spec.mjs
 #   acompanhar <run>            follows a run after a dropped connection and brings its results back
 #   estado                      the test and GPU locks, and the newest runs of this session
@@ -92,11 +93,12 @@ rodar() {
   if [[ "$modo" == "playwright" ]]; then
     argumentos="$(printf '%s\n' "$@" | base64 | tr -d '\n')"
   fi
-  ssh "${ssh_opcoes[@]}" "$host" "New-Item -ItemType Directory -Force D:\\rts\\testes\\scripts, D:\\rts\\testes\\$sessao\\execucoes\\$execucao | Out-Null"
-  scp -q "${ssh_opcoes[@]}" "$aqui"/pc-testes/*.ps1 "$aqui/pc-testes/placa.mjs" "$host:D:/rts/testes/scripts/"
+  # each session keeps its own copy of the run script, so sessions on different versions never overwrite each other's
+  ssh "${ssh_opcoes[@]}" "$host" "New-Item -ItemType Directory -Force D:\\rts\\testes\\$sessao\\scripts, D:\\rts\\testes\\$sessao\\execucoes\\$execucao | Out-Null"
+  scp -q "${ssh_opcoes[@]}" "$aqui/pc-testes/execucao.ps1" "$host:D:/rts/testes/$sessao/scripts/"
   scp -q "${ssh_opcoes[@]}" "$pacote" "$host:D:/rts/testes/$sessao/execucoes/$execucao/fonte.tar.gz"
   rm -f "$pacote"
-  local chamada=(Sessao "$sessao" Execucao "$execucao" Modo "$modo" Processos "$processos")
+  local chamada=(Sessao "$sessao" Execucao "$execucao" Modo "$modo" Processos "$processos" Script "D:\\rts\\testes\\$sessao\\scripts\\execucao.ps1")
   [[ -n "$argumentos" ]] && chamada+=(Argumentos "$argumentos")
   pc lancar.ps1 "${chamada[@]}"
   echo "EXECUCAO $execucao of $sessao started on $host ($(git -C "$raiz" rev-parse --short HEAD)$([[ -n "$(git -C "$raiz" status --porcelain)" ]] && echo ' with changes'))"
@@ -106,6 +108,7 @@ rodar() {
 comando="${1:-e2e}"
 case "$comando" in
   e2e) rodar e2e ;;
+  rts) rodar rts ;;
   --) shift; (($#)) || erro "usage: $0 -- <playwright args>"; rodar playwright "$@" ;;
   acompanhar) (($# == 2)) || erro "usage: $0 acompanhar <run>"; acompanhar "$2" ;;
   estado) pc estado.ps1 Sessao "$sessao" ;;

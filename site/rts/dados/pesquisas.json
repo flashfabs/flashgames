@@ -1,0 +1,21 @@
+{
+  "versao": 1,
+  "pesquisas": [
+    {
+      "nome": "nivel-2-religadores", "predio": "almoxarifado-tecnico", "custo": 0, "tempoMs": 100, "requer": [], "papel": "nivel",
+      "efeito": { "efeito": "nivel", "nivel": 2, "faccao": "religadores", "automatica": 1 }
+    },
+    {
+      "nome": "aterramento", "predio": "almoxarifado-tecnico", "custo": 400, "tempoMs": 40000, "requer": [], "papel": "pesquisa",
+      "efeito": { "efeito": "paralisia", "porcento": 50, "tipos": ["guincho-de-celulas", "leiturista", "cesto-blindado", "lanca-bobinas", "equipe-de-manutencao"] }
+    },
+    {
+      "nome": "isolamento", "predio": "almoxarifado-tecnico", "custo": 500, "tempoMs": 45000, "requer": [], "papel": "pesquisa",
+      "efeito": { "efeito": "resistencia", "porcento": 13, "tipos": ["guincho-de-celulas", "leiturista", "cesto-blindado", "lanca-bobinas", "equipe-de-manutencao"] }
+    },
+    {
+      "nome": "turno-extra", "predio": "almoxarifado-tecnico", "custo": 300, "tempoMs": 30000, "requer": [], "papel": "pesquisa",
+      "efeito": { "efeito": "velocidade", "porcento": 15, "tipos": ["guincho-de-celulas"] }
+    }
+  ]
+}
