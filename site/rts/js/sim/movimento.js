@@ -46,7 +46,7 @@ export function montarBaldes(sim) {
   for (let i = 0; i < sim.capacidade; i++) {
     if (!sim.ativo[i] || sim.time[i] === DONO_NEUTRO) continue;
     const categoria = categoriaPorTipo[sim.tipo[i]];
-    if (categoria !== CATEGORIA.UNIDADE && categoria !== CATEGORIA.PREDIO) continue;
+    if (categoria !== CATEGORIA.UNIDADE && categoria !== CATEGORIA.PREDIO && categoria !== CATEGORIA.ESTRUTURA) continue;
     const b = (sim.y[i] >> TAMANHO_BALDE_BITS) * baldeLargura + (sim.x[i] >> TAMANHO_BALDE_BITS);
     baldeProximo[i] = baldeCabeca[b];
     baldeCabeca[b] = i;

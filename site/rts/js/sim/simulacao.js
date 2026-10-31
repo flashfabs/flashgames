@@ -12,6 +12,8 @@ import { criarEstado } from './estado.js';
 import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrupo, ordenarPatrulha, classeDoCampo } from './ordens.js';
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
+import { passoDaMissao, rotular, desistir } from './gatilhos.js';
+import { comandoHabilidade } from './habilidades.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
 import { centroDaPegada } from './pegadas.js';
 import { avancarEconomia, processarDerrames, comandoColetar, cancelarTarefa } from './economia.js';
@@ -74,6 +76,8 @@ export function criarSimulacao(opcoes = {}) {
   sim.faccoes = arquivo ? arquivo.faccoes.slice() : [];
   sim.etiquetas = {};
   sim.entidadesDoMapa = [];
+  // the map's places and node names go with the saved options, for the mission (gatilhos.js)
+  if (arquivo) sim.opcoes.lugares ??= { mapa: opcoes.arquivosMapa.cabecalho.id, areas: arquivo.areas, pontos: arquivo.pontos, rotas: arquivo.rotas, nos: arquivo.nomesNos };
   doMapa.forEach((e, k) => colocarDoMapa(sim, k, e));
 
   if (regras.ordensPadrao) {
@@ -123,6 +127,7 @@ function colocarDoMapa(sim, k, e) {
     sim.no[k] = e.no;
   }
   if (e.etiqueta) sim.etiquetas[e.etiqueta] = k;
+  if (e.etiqueta) rotular(sim, k, e.etiqueta);
   sim.entidadesDoMapa.push(idDoSlot(sim, k));
 }
 
@@ -183,6 +188,8 @@ function aplicarComando(sim, c) {
       return comandoReciclar(sim, c, unidades);
     case TIPO_COMANDO.COLETAR:
       return comandoColetar(sim, c, unidades);
+    case TIPO_COMANDO.DESISTIR:
+      return desistir(sim, c.jogador);
     default:
       break;
   }
@@ -228,8 +235,10 @@ function aplicarComando(sim, c) {
         sim.segurando[i] = c.tipo === TIPO_COMANDO.SEGURAR_POSICAO ? 1 : 0;
       }
       return;
+    case TIPO_COMANDO.HABILIDADE:
+      return comandoHabilidade(sim, moveis, c.arg, c.alvo);
     default:
-      // repair, abilities and conceding belong to the combat and missions module
+      // repair belongs to the combat and missions module
       return;
   }
 }
@@ -265,6 +274,7 @@ export function passo(sim) {
   sim.eventos.length = 0;
   classificarEntidades(sim);
   aplicarComandos(sim);
+  passoDaMissao(sim);
   avancarEconomia(sim);
   avancarObras(sim);
   atualizarRede(sim);
