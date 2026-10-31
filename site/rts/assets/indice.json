@@ -1,15 +1,14 @@
 {
   "versao": 1,
   "assets": {
-    "desligados-veiculo-carro-vela": {
-      "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela.json",
+    "desligados-veiculo-carro-vela-portao": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela-portao.json",
       "tipo": "unidade",
       "categoria": "veiculo",
       "brief": "desligados/carro-vela",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 2710802,
@@ -37,8 +36,7 @@
       "brief": "religadores/escritorio-regional",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 12708,
@@ -60,75 +58,70 @@
         "hd": 25906
       }
     },
-    "religadores-construcao-escritorio-regional": {
-      "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional.json",
+    "religadores-construcao-escritorio-regional-portao": {
+      "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional-portao.json",
       "tipo": "unidade",
       "categoria": "construcao",
       "brief": "religadores/escritorio-regional",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 552196,
         "hd": 140750
       }
     },
-    "religadores-infantaria-turma-de-linha": {
-      "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha.json",
+    "religadores-infantaria-turma-de-linha-portao": {
+      "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha-portao.json",
       "tipo": "unidade",
       "categoria": "infantaria",
       "brief": "religadores/turma-de-linha",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 768422,
         "hd": 290294
       }
     },
-    "religadores-veiculo-cesto-blindado": {
-      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado.json",
+    "religadores-veiculo-cesto-blindado-portao": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-portao.json",
       "tipo": "unidade",
       "categoria": "veiculo",
       "brief": "religadores/cesto-blindado",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 4717982,
         "hd": 1564812
       }
     },
-    "religadores-veiculo-cesto-blindado-e45": {
-      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-e45.json",
+    "religadores-veiculo-cesto-blindado-portao-e45": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-portao-e45.json",
       "tipo": "unidade",
       "categoria": "veiculo",
       "brief": "religadores/cesto-blindado",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 4651686,
         "hd": 1534066
       }
     },
-    "religadores-veiculo-cesto-blindado-e65": {
-      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-e65.json",
+    "religadores-veiculo-cesto-blindado-portao-e65": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-portao-e65.json",
       "tipo": "unidade",
       "categoria": "veiculo",
       "brief": "religadores/cesto-blindado",
       "acabamento": "portao",
       "fases": [
-        "portao",
-        "fase-1"
+        "portao"
       ],
       "bytes": {
         "uhd": 4900592,
@@ -165,27 +158,20 @@
   },
   "fases": {
     "portao": [
-      "desligados-veiculo-carro-vela",
+      "desligados-veiculo-carro-vela-portao",
       "efeito-explosao-media",
       "interface-icone-escritorio-regional",
       "interface-retrato-turma-de-linha",
-      "religadores-construcao-escritorio-regional",
-      "religadores-infantaria-turma-de-linha",
-      "religadores-veiculo-cesto-blindado",
-      "religadores-veiculo-cesto-blindado-e45",
-      "religadores-veiculo-cesto-blindado-e65",
+      "religadores-construcao-escritorio-regional-portao",
+      "religadores-infantaria-turma-de-linha-portao",
+      "religadores-veiculo-cesto-blindado-portao",
+      "religadores-veiculo-cesto-blindado-portao-e45",
+      "religadores-veiculo-cesto-blindado-portao-e65",
       "terreno-terra-batida"
     ],
     "fase-1": [
-      "desligados-veiculo-carro-vela",
       "efeito-explosao-media",
-      "interface-icone-escritorio-regional",
       "interface-retrato-turma-de-linha",
-      "religadores-construcao-escritorio-regional",
-      "religadores-infantaria-turma-de-linha",
-      "religadores-veiculo-cesto-blindado",
-      "religadores-veiculo-cesto-blindado-e45",
-      "religadores-veiculo-cesto-blindado-e65",
       "terreno-terra-batida"
     ],
     "teste": [
