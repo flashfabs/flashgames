@@ -58,10 +58,11 @@ export function decodificarRetrato(retrato) {
 /**
  * Extends the page's window.__rts in place.
  * @param {object} rts the object principal.js exposes with ?teste=1
- * @param {{simulacao: object, estado: object, opcoes?: object, dados?: object, hud?: object}} contexto
- *   simulacao is the worker bridge (ponte-simulacao.js) and estado its shared state
+ * @param {{simulacao: object, estado: object, opcoes?: object, dados?: object, hud?: object, obterRegistro?: () => object|null}} contexto
+ *   simulacao is the worker bridge (ponte-simulacao.js) and estado its shared state; obterRegistro returns the play-test
+ *   log (C15) as an object, without downloading it
  */
-export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null, hud = null }) {
+export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null, hud = null, obterRegistro = null }) {
   const eventos = [];
   const esperas = [];
   let primeiro = null;
@@ -145,6 +146,11 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
     retrato: () => decodificarRetrato(atual),
     entidades: (filtro = () => true) => (decodificarRetrato(atual)?.entidades ?? []).filter(filtro),
     celula: n => n * FP + (FP >> 1),
+    /** The play-test log (C15) as plain data, or null while the page has none. */
+    registro: () => {
+      const registro = obterRegistro?.() ?? null;
+      return registro === null ? null : JSON.parse(JSON.stringify(registro));
+    },
     comando,
     /** Pauses or resumes for the tests' own reason; the player's pause and the hidden tab are separate reasons. */
     pausar: (valor = true) => simulacao.pausar(valor, 'teste'),
