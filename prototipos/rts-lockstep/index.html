@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lockstep do RTS (protótipo)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; padding: 16px; background: #0f1115; color: #e6e6e6; font: 14px/1.45 system-ui, sans-serif; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    main { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+    canvas { width: 384px; max-width: 100%; image-rendering: pixelated; background: #15171c; border: 1px solid #2a2e37; }
+    pre { margin: 0; white-space: pre-wrap; font: 13px/1.5 ui-monospace, monospace; flex: 1 1 420px; }
+    button { font: inherit; padding: 6px 14px; margin: 0 8px 12px 0; }
+    #link { user-select: all; font-family: ui-monospace, monospace; margin-bottom: 12px; word-break: break-all; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+  <script type="module" src="pagina.js"></script>
+</head>
+<body>
+  <h1>Lockstep do RTS: protótipo de rede</h1>
+  <p>Crie a sala, abra o link em outras abas ou navegadores (até 4) e comece. Os parâmetros do endereço estão no começo de <code>pagina.js</code> e no README.</p>
+  <button id="criar" type="button">Criar sala</button>
+  <button id="comecar" type="button" hidden>Começar</button>
+  <div id="link"></div>
+  <main>
+    <canvas id="mapa" width="192" height="192" aria-label="Minimapa com as unidades de cada jogador"></canvas>
+    <pre id="painel" aria-live="polite">carregando…</pre>
+  </main>
+</body>
+</html>

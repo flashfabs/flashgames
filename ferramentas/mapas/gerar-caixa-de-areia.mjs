@@ -208,9 +208,10 @@ function gerarObjetos() {
     'alvo-rampa-leste': [32, 78],
   };
   const rotas = {
-    'rota-ponte': [[81, 31], [60, 38], [48, 44], [48, 52], [40, 66], [28, 64], [14, 64]],
-    'rota-vau-leste': [[81, 31], [84, 40], [85, 52], [72, 66], [48, 76], [32, 78]],
-    'rota-vau-oeste': [[63, 17], [40, 22], [16, 32], [11, 44], [11, 53], [14, 64]],
+    // each route ends inside the player's base, through one of its ramps, so a wave walks the whole way attacking
+    'rota-ponte': [[81, 31], [60, 38], [48, 44], [48, 52], [40, 66], [28, 64], [14, 64], [14, 70], [12, 78]],
+    'rota-vau-leste': [[81, 31], [84, 40], [85, 52], [72, 66], [48, 76], [32, 78], [24, 78], [14, 80]],
+    'rota-vau-oeste': [[63, 17], [40, 22], [16, 32], [11, 44], [11, 53], [14, 64], [14, 70], [18, 74]],
   };
   return { nos, entidades, ventosas, areas, pontos, rotas };
 }

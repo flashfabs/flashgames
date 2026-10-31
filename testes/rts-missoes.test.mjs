@@ -28,6 +28,7 @@ const ehNumeroDeMissao = v => Number.isInteger(v) || (v && typeof v === 'object'
 function* condicoes(c) {
   yield c;
   for (const filha of c.condicoes ?? []) yield* condicoes(filha);
+  if (c.condicao) yield* condicoes(c.condicao);
 }
 
 function* numerosSoltos(v, caminho = '') {
@@ -50,7 +51,8 @@ test('every mission number is an integer, or one integer per difficulty', () => 
 });
 
 test('every reference of a mission resolves', () => {
-  const tipos = new Set([...unidades, ...predios].map(t => t.nome));
+  // the motor's built-in kinds count too: the battery pile and the spark
+  const tipos = new Set([...unidades, ...predios].map(t => t.nome).concat(['pilha', 'faisca']));
   for (const missao of missoes) {
     const mapa = mapaDe(missao);
     const areas = new Set([...Object.keys(missao.areas ?? {}), ...Object.keys(mapa.areas)]);
@@ -60,10 +62,14 @@ test('every reference of a mission resolves', () => {
     const objetivos = new Set(missao.objetivos.map(o => o.id));
     const gatilhos = new Set(missao.gatilhos.map(g => g.id));
     assert.equal(gatilhos.size, missao.gatilhos.length, 'gatilho repetido');
-    const variaveis = new Set((missao.variaveis ?? []).map(v => v.nome));
-    const grupos = new Set(Object.keys(missao.grupos ?? {}));
-    for (const g of missao.gatilhos) for (const a of g.faz) if (a.faz === 'criar') grupos.add(a.grupo);
-    for (const [nome, g] of Object.entries(missao.grupos ?? {})) for (const e of g.etiquetas) assert.ok(etiquetas.has(e), `grupo ${nome}: etiqueta ${e} fora do mapa`);
+    const variaveis = new Set(Object.keys(missao.variaveis ?? {}));
+    // a group is a union of labels, a label of the map or a label a create action gives
+    const grupos = new Set([...Object.keys(missao.grupos ?? {}), ...etiquetas]);
+    for (const g of missao.gatilhos) for (const a of g.acoes) if (a.faz === 'criar') grupos.add(a.grupo);
+    for (const [nome, membros] of Object.entries(missao.grupos ?? {})) {
+      assert.ok(!membros.includes(nome), `grupo ${nome} contém a si mesmo, e o avaliador não o rotula`);
+      for (const e of membros) assert.ok(etiquetas.has(e), `grupo ${nome}: etiqueta ${e} fora do mapa`);
+    }
     const texto = id => assert.ok(typeof textos[id] === 'string' && textos[id].length > 0, `${missao.id}: texto ${id} fora do pt-BR.json`);
     texto(missao.titulo);
     for (const o of missao.objetivos) texto(o.texto);
@@ -72,11 +78,10 @@ test('every reference of a mission resolves', () => {
         if (c.gatilho) assert.ok(gatilhos.has(c.gatilho), `${g.id}: gatilho ${c.gatilho}`);
         if (c.grupo) assert.ok(grupos.has(c.grupo), `${g.id}: grupo ${c.grupo}`);
         if (c.area) assert.ok(areas.has(c.area), `${g.id}: área ${c.area}`);
-        if (c.etiqueta) assert.ok(etiquetas.has(c.etiqueta), `${g.id}: etiqueta ${c.etiqueta}`);
         if (c.no) assert.ok(nos.has(c.no), `${g.id}: nó ${c.no}`);
         for (const t of c.tipos ?? []) assert.ok(tipos.has(t), `${g.id}: tipo ${t}`);
       }
-      for (const a of g.faz) {
+      for (const a of g.acoes) {
         if (a.texto) texto(a.texto);
         if (a.objetivo) assert.ok(objetivos.has(a.objetivo), `${g.id}: objetivo ${a.objetivo}`);
         if (a.area) assert.ok(areas.has(a.area), `${g.id}: área ${a.area}`);
@@ -93,7 +98,7 @@ test('every attack of 6 or more units comes after a warning of at least 10 s, in
   for (const missao of missoes) {
     const porId = new Map(missao.gatilhos.map(g => [g.id, g]));
     for (const g of missao.gatilhos) {
-      for (const a of g.faz) {
+      for (const a of g.acoes) {
         if (a.faz !== 'criar' || a.jogador === 0) continue;
         const maior = Math.max(...DIFICULDADES.map(d => a.unidades.reduce((s, u) => s + valor(u.quantos, d), 0)));
         if (maior < TAMANHO_COM_AVISO) continue;
@@ -101,28 +106,28 @@ test('every attack of 6 or more units comes after a warning of at least 10 s, in
         assert.equal(q.se, 'depoisDe', `${g.id}: onda ${a.grupo} de até ${maior} sem aviso antes`);
         assert.ok(DIFICULDADES.every(d => valor(q.segundos, d) >= AVISO_MINIMO_S), `${g.id}: aviso de menos de ${AVISO_MINIMO_S} s`);
         const aviso = porId.get(q.gatilho);
-        assert.ok(aviso.faz.some(x => x.faz === 'aviso' && x.grupo === a.grupo), `${g.id}: ${q.gatilho} não avisa ${a.grupo}`);
+        assert.ok(aviso.acoes.some(x => x.faz === 'aviso' && x.grupo === a.grupo), `${g.id}: ${q.gatilho} não avisa ${a.grupo}`);
       }
     }
   }
 });
 
 test('the sandbox ends: a win by surviving the waves or taking down the camp, a loss without a way to rebuild', () => {
-  const vitorias = caixa.gatilhos.filter(g => g.faz.some(a => a.faz === 'vitoria'));
-  const derrotas = caixa.gatilhos.filter(g => g.faz.some(a => a.faz === 'derrota'));
+  const vitorias = caixa.gatilhos.filter(g => g.acoes.some(a => a.faz === 'vitoria'));
+  const derrotas = caixa.gatilhos.filter(g => g.acoes.some(a => a.faz === 'derrota'));
   assert.deepEqual(vitorias.map(g => g.id).sort(), ['vitoria-acampamento', 'vitoria-ondas']);
   assert.equal(derrotas.length, 1);
   const q = derrotas[0].quando;
   assert.equal(q.se, 'contagem');
   assert.equal(q.maximo, 0);
   assert.deepEqual([...q.tipos].sort(), ['equipe-de-manutencao', 'escritorio-regional', 'poste-avancado']);
-  const camp = caixa.grupos.acampamento.etiquetas;
+  const camp = caixa.grupos.acampamento;
   const mapa = mapaDe(caixa);
   assert.deepEqual(mapa.entidades.filter(e => camp.includes(e.etiqueta)).map(e => e.tipo).sort(), ['barracao', 'carrocao-mae', 'ferraria-a-vapor']);
   // the final wave is every group created by the last wave trigger
   const ultima = caixa.gatilhos.find(g => g.id === 'onda-6');
-  const gruposFinais = ultima.faz.filter(a => a.faz === 'criar').map(a => a.grupo).sort();
-  const exigidos = vitorias.find(g => g.id === 'vitoria-ondas').quando.condicoes.filter(c => c.se === 'grupo').map(c => c.grupo).sort();
+  const gruposFinais = ultima.acoes.filter(a => a.faz === 'criar').map(a => a.grupo).sort();
+  const exigidos = vitorias.find(g => g.id === 'vitoria-ondas').quando.condicoes.filter(c => c.se === 'vivos').map(c => c.grupo).sort();
   assert.deepEqual(exigidos, gruposFinais);
 });
 
@@ -142,7 +147,7 @@ function linhaDoTempo(dificuldade, rapido) {
       const avisa = rapido ? Math.max(minimo.segundos, Math.min(folga, anterior + 90)) : folga;
       nasce = avisa + valor(g.quando.segundos, dificuldade);
     }
-    const tamanho = g.faz.filter(a => a.faz === 'criar').reduce((s, a) => s + a.unidades.reduce((t, u) => t + valor(u.quantos, dificuldade), 0), 0);
+    const tamanho = g.acoes.filter(a => a.faz === 'criar').reduce((s, a) => s + a.unidades.reduce((t, u) => t + valor(u.quantos, dificuldade), 0), 0);
     ondas.push({ id: g.id, nasce, tamanho });
     anterior = nasce;
   }
@@ -153,7 +158,7 @@ test('the scripted pace lands inside the E3 targets', () => {
   const mapa = mapaDe(caixa);
   const rolima = unidades.find(u => u.nome === 'rolima');
   const primeira = caixa.gatilhos.find(g => g.id === 'onda-1');
-  const rota = mapa.rotas[primeira.faz.find(a => a.faz === 'ordenar').rota];
+  const rota = mapa.rotas[primeira.acoes.find(a => a.faz === 'ordenar').rota];
   let comprimento = 0;
   for (let k = 1; k < rota.length; k++) comprimento += Math.hypot(rota[k][0] - rota[k - 1][0], rota[k][1] - rota[k - 1][1]);
   // from the end of the route to the harvesters is a few more cells; first shot = creation + walk

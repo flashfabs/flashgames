@@ -56,7 +56,7 @@
     {
       "nome": "poste-avancado", "faccao": "religadores", "papel": "posto-avancado", "asset": "religadores-construcao-poste-avancado",
       "pegada": [2, 2], "custo": 1000, "tempoMs": 40000, "vida": 1500, "blindagem": "estrutura", "eletrico": 1, "visao": 7,
-      "raioRede": 6, "deposito": 1, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "unidade",
+      "raioRede": 6, "raizRede": 1, "deposito": 1, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "unidade",
       "arma": null, "destrutivel": 1, "constroi": [], "produz": []
     },
     {
@@ -115,7 +115,7 @@
     },
     {
       "nome": "ponte-basculante", "faccao": "neutro", "papel": "religavel-passagem", "asset": "neutro-estrutura-ponte-basculante",
-      "pegada": [7, 2], "custo": 0, "tempoMs": 0, "vida": 3000, "blindagem": "estrutura", "eletrico": 1, "visao": 2,
+      "pegada": [2, 7], "custo": 0, "tempoMs": 0, "vida": 3000, "blindagem": "estrutura", "eletrico": 1, "visao": 2,
       "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 0, "constroi": [], "produz": [],
       "religavel": 1, "tempoReligarMs": 30000

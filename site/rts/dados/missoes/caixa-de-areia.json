@@ -3,260 +3,263 @@
   "id": "caixa-de-areia",
   "mapa": "caixa-de-areia",
   "titulo": "missao.caixa-de-areia.titulo",
-  "jogadores": [
-    { "time": 0, "faccao": "religadores", "controle": "humano", "carga": { "facil": 2000, "normal": 1500, "dificil": 1200 } },
-    { "time": 1, "faccao": "desligados", "controle": "roteiro", "carga": 0 }
-  ],
   "objetivos": [
-    { "id": "segurar-a-base", "texto": "missao.caixa-de-areia.objetivo.segurar", "tipo": "principal" },
-    { "id": "desmontar-acampamento", "texto": "missao.caixa-de-areia.objetivo.desmontar", "tipo": "principal" },
-    { "id": "religar-torre", "texto": "missao.caixa-de-areia.objetivo.religar_torre", "tipo": "opcional" },
-    { "id": "abrir-ferro-velho", "texto": "missao.caixa-de-areia.objetivo.ferro_velho", "tipo": "opcional" }
+    {"id": "segurar-a-base", "texto": "missao.caixa-de-areia.objetivo.segurar", "tipo": "principal"},
+    {"id": "desmontar-acampamento", "texto": "missao.caixa-de-areia.objetivo.desmontar", "tipo": "principal"},
+    {"id": "religar-torre", "texto": "missao.caixa-de-areia.objetivo.religar_torre", "tipo": "opcional"},
+    {"id": "abrir-ferro-velho", "texto": "missao.caixa-de-areia.objetivo.ferro_velho", "tipo": "opcional"}
   ],
   "grupos": {
-    "acampamento": { "etiquetas": ["acampamento-carrocao-mae", "acampamento-barracao", "acampamento-ferraria"] },
-    "guarnicao": { "etiquetas": ["guarnicao-torre-sul", "guarnicao-torre-oeste", "guarnicao-chapa-1", "guarnicao-chapa-2", "guarnicao-chapa-3", "guarnicao-chapa-4"] },
-    "canhao-fixo": { "etiquetas": ["canhao-fixo"] }
+    "acampamento": ["acampamento-carrocao-mae", "acampamento-barracao", "acampamento-ferraria"],
+    "guarnicao": ["guarnicao-torre-sul", "guarnicao-torre-oeste", "guarnicao-chapa-1", "guarnicao-chapa-2", "guarnicao-chapa-3", "guarnicao-chapa-4"]
   },
-  "variaveis": [{ "nome": "ondas-vencidas", "valor": 0 }],
+  "variaveis": {"ondas-vencidas": 0},
   "gatilhos": [
     {
       "id": "inicio",
-      "quando": { "se": "tempo", "segundos": 0 },
-      "faz": [
-        { "faz": "mensagem", "texto": "radio.supervisora.caixa_inicio" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_inicio" },
-        { "faz": "objetivo", "objetivo": "segurar-a-base", "estado": "ativo" },
-        { "faz": "objetivo", "objetivo": "desmontar-acampamento", "estado": "ativo" },
-        { "faz": "objetivo", "objetivo": "religar-torre", "estado": "ativo" },
-        { "faz": "ordenar", "grupo": "guarnicao", "ordem": "segurar" },
-        { "faz": "ordenar", "grupo": "canhao-fixo", "ordem": "segurar" }
+      "quando": {"se": "tempo", "segundos": 0},
+      "acoes": [
+        {"faz": "recursos", "jogador": 0, "somar": {"facil": 2000, "normal": 1500, "dificil": 1200}},
+        {"faz": "mensagem", "texto": "radio.supervisora.caixa_inicio"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_inicio"},
+        {"faz": "objetivo", "objetivo": "segurar-a-base", "estado": "ativo"},
+        {"faz": "objetivo", "objetivo": "desmontar-acampamento", "estado": "ativo"},
+        {"faz": "objetivo", "objetivo": "religar-torre", "estado": "ativo"},
+        {"faz": "ordenar", "grupo": "guarnicao", "ordem": "segurar"},
+        {"faz": "ordenar", "grupo": "canhao-fixo", "ordem": "segurar"}
       ]
     },
     {
       "id": "dica-ocioso",
-      "quando": { "se": "parado", "jogador": 0, "segundos": 90 },
-      "repete": 1,
+      "quando": {"se": "parado", "jogador": 0, "segundos": 90},
+      "repete": true,
       "intervaloSegundos": 90,
-      "faz": [{ "faz": "mensagem", "texto": "dica.ocioso" }]
-    },
-
-    {
-      "id": "onda-1",
-      "quando": { "se": "tempo", "segundos": 165 },
-      "faz": [
-        { "faz": "criar", "jogador": 1, "grupo": "onda-1", "area": "nascedouro-oeste", "unidades": [{ "tipo": "rolima", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } }] },
-        { "faz": "ordenar", "grupo": "onda-1", "ordem": "atacarMovendo", "rota": "rota-vau-oeste" },
-        { "faz": "ordenar", "grupo": "onda-1", "ordem": "atacarMovendo", "area": "cemiterio-sudoeste", "fila": 1 },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_onda_1" }
+      "acoes": [
+        {"faz": "mensagem", "texto": "dica.ocioso"}
       ]
     },
-
+    {
+      "id": "onda-1",
+      "quando": {"se": "tempo", "segundos": 165},
+      "acoes": [
+        {"faz": "criar", "jogador": 1, "grupo": "onda-1", "area": "nascedouro-oeste", "unidades": [{"tipo": "rolima", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}]},
+        {"faz": "ordenar", "grupo": "onda-1", "ordem": "atacarMovendo", "rota": "rota-vau-oeste"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_onda_1"}
+      ]
+    },
     {
       "id": "aviso-onda-2",
-      "quando": { "se": "todas", "condicoes": [
-        { "se": "tempo", "segundos": 300 },
-        { "se": "alguma", "condicoes": [{ "se": "grupo", "grupo": "onda-1", "vivosMaximo": 0 }, { "se": "tempo", "segundos": 360 }] }
-      ] },
-      "faz": [
-        { "faz": "aviso", "grupo": "onda-2", "area": "chegada-norte", "texto": "alerta.onda_ponte" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_aviso_2" }
+      "quando": {"se": "todas", "condicoes": [{"se": "tempo", "segundos": 300}, {"se": "alguma", "condicoes": [{"se": "vivos", "grupo": "onda-1", "maximo": 0}, {"se": "tempo", "segundos": 360}]}]},
+      "acoes": [
+        {"faz": "aviso", "grupo": "onda-2", "area": "chegada-norte", "texto": "alerta.onda_ponte"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_aviso_2"}
       ]
     },
     {
       "id": "onda-2",
-      "quando": { "se": "depoisDe", "gatilho": "aviso-onda-2", "segundos": 15 },
-      "faz": [
-        { "faz": "criar", "jogador": 1, "grupo": "onda-2", "area": "nascedouro-sul", "unidades": [
-          { "tipo": "chapa", "quantos": { "facil": 3, "normal": 4, "dificil": 5 } },
-          { "tipo": "rolima", "quantos": { "facil": 0, "normal": 1, "dificil": 2 } }
-        ] },
-        { "faz": "ordenar", "grupo": "onda-2", "ordem": "atacarMovendo", "rota": "rota-ponte" },
-        { "faz": "ordenar", "grupo": "onda-2", "ordem": "atacarMovendo", "area": "base-jogador", "fila": 1 }
+      "quando": {"se": "depoisDe", "gatilho": "aviso-onda-2", "segundos": 15},
+      "acoes": [
+        {"faz": "criar", "jogador": 1, "grupo": "onda-2", "area": "nascedouro-sul", "unidades": [{"tipo": "chapa", "quantos": {"facil": 3, "normal": 4, "dificil": 5}}, {"tipo": "rolima", "quantos": {"facil": 0, "normal": 1, "dificil": 2}}]},
+        {"faz": "ordenar", "grupo": "onda-2", "ordem": "atacarMovendo", "rota": "rota-ponte"}
       ]
     },
-
     {
       "id": "aviso-onda-3",
-      "quando": { "se": "todas", "condicoes": [
-        { "se": "tempo", "segundos": 480 },
-        { "se": "alguma", "condicoes": [{ "se": "grupo", "grupo": "onda-2", "vivosMaximo": 0 }, { "se": "tempo", "segundos": 540 }] }
-      ] },
-      "faz": [
-        { "faz": "aviso", "grupo": "onda-3", "area": "chegada-leste", "texto": "alerta.onda_vau_leste" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_aviso_3" }
+      "quando": {"se": "todas", "condicoes": [{"se": "tempo", "segundos": 480}, {"se": "alguma", "condicoes": [{"se": "vivos", "grupo": "onda-2", "maximo": 0}, {"se": "tempo", "segundos": 540}]}]},
+      "acoes": [
+        {"faz": "aviso", "grupo": "onda-3", "area": "chegada-leste", "texto": "alerta.onda_vau_leste"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_aviso_3"}
       ]
     },
     {
       "id": "onda-3",
-      "quando": { "se": "depoisDe", "gatilho": "aviso-onda-3", "segundos": 15 },
-      "faz": [
-        { "faz": "criar", "jogador": 1, "grupo": "onda-3", "area": "nascedouro-sul", "unidades": [
-          { "tipo": "chapa", "quantos": { "facil": 4, "normal": 6, "dificil": 7 } },
-          { "tipo": "arpoador", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } }
-        ] },
-        { "faz": "ordenar", "grupo": "onda-3", "ordem": "atacarMovendo", "rota": "rota-vau-leste" },
-        { "faz": "ordenar", "grupo": "onda-3", "ordem": "atacarMovendo", "area": "base-jogador", "fila": 1 }
+      "quando": {"se": "depoisDe", "gatilho": "aviso-onda-3", "segundos": 15},
+      "acoes": [
+        {"faz": "criar", "jogador": 1, "grupo": "onda-3", "area": "nascedouro-sul", "unidades": [{"tipo": "chapa", "quantos": {"facil": 4, "normal": 6, "dificil": 7}}, {"tipo": "arpoador", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}]},
+        {"faz": "ordenar", "grupo": "onda-3", "ordem": "atacarMovendo", "rota": "rota-vau-leste"}
       ]
     },
-
     {
       "id": "aviso-onda-4",
-      "quando": { "se": "todas", "condicoes": [
-        { "se": "tempo", "segundos": 660 },
-        { "se": "alguma", "condicoes": [{ "se": "grupo", "grupo": "onda-3", "vivosMaximo": 0 }, { "se": "tempo", "segundos": 720 }] }
-      ] },
-      "faz": [
-        { "faz": "aviso", "grupo": "onda-4", "area": "chegada-norte", "texto": "alerta.onda_ponte" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_aviso_4" }
+      "quando": {"se": "todas", "condicoes": [{"se": "tempo", "segundos": 660}, {"se": "alguma", "condicoes": [{"se": "vivos", "grupo": "onda-3", "maximo": 0}, {"se": "tempo", "segundos": 720}]}]},
+      "acoes": [
+        {"faz": "aviso", "grupo": "onda-4", "area": "chegada-norte", "texto": "alerta.onda_ponte"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_aviso_4"}
       ]
     },
     {
       "id": "onda-4",
-      "quando": { "se": "depoisDe", "gatilho": "aviso-onda-4", "segundos": 15 },
-      "faz": [
-        { "faz": "criar", "jogador": 1, "grupo": "onda-4", "area": "nascedouro-sul", "unidades": [
-          { "tipo": "chapa", "quantos": { "facil": 4, "normal": 6, "dificil": 8 } },
-          { "tipo": "arpoador", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } },
-          { "tipo": "carro-vela", "quantos": { "facil": 1, "normal": 2, "dificil": 2 } }
-        ] },
-        { "faz": "ordenar", "grupo": "onda-4", "ordem": "atacarMovendo", "rota": "rota-ponte" },
-        { "faz": "ordenar", "grupo": "onda-4", "ordem": "atacarMovendo", "area": "base-jogador", "fila": 1 }
+      "quando": {"se": "depoisDe", "gatilho": "aviso-onda-4", "segundos": 15},
+      "acoes": [
+        {"faz": "criar", "jogador": 1, "grupo": "onda-4", "area": "nascedouro-sul", "unidades": [{"tipo": "chapa", "quantos": {"facil": 4, "normal": 6, "dificil": 8}}, {"tipo": "arpoador", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}, {"tipo": "carro-vela", "quantos": {"facil": 1, "normal": 2, "dificil": 2}}]},
+        {"faz": "ordenar", "grupo": "onda-4", "ordem": "atacarMovendo", "rota": "rota-ponte"}
       ]
     },
-
     {
       "id": "aviso-onda-5",
-      "quando": { "se": "todas", "condicoes": [
-        { "se": "tempo", "segundos": 840 },
-        { "se": "alguma", "condicoes": [{ "se": "grupo", "grupo": "onda-4", "vivosMaximo": 0 }, { "se": "tempo", "segundos": 900 }] }
-      ] },
-      "faz": [
-        { "faz": "aviso", "grupo": "onda-5", "area": "chegada-norte", "texto": "alerta.onda_vau_oeste" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_aviso_5" }
+      "quando": {"se": "todas", "condicoes": [{"se": "tempo", "segundos": 840}, {"se": "alguma", "condicoes": [{"se": "vivos", "grupo": "onda-4", "maximo": 0}, {"se": "tempo", "segundos": 900}]}]},
+      "acoes": [
+        {"faz": "aviso", "grupo": "onda-5", "area": "chegada-norte", "texto": "alerta.onda_vau_oeste"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_aviso_5"}
       ]
     },
     {
       "id": "onda-5",
-      "quando": { "se": "depoisDe", "gatilho": "aviso-onda-5", "segundos": 20 },
-      "faz": [
-        { "faz": "criar", "jogador": 1, "grupo": "onda-5", "area": "nascedouro-oeste", "unidades": [
-          { "tipo": "chapa", "quantos": { "facil": 4, "normal": 6, "dificil": 8 } },
-          { "tipo": "arpoador", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } },
-          { "tipo": "carro-vela", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } },
-          { "tipo": "rolima", "quantos": { "facil": 1, "normal": 2, "dificil": 2 } },
-          { "tipo": "canhao-de-caldeira", "quantos": { "facil": 0, "normal": 1, "dificil": 2 } }
-        ] },
-        { "faz": "ordenar", "grupo": "onda-5", "ordem": "atacarMovendo", "rota": "rota-vau-oeste" },
-        { "faz": "ordenar", "grupo": "onda-5", "ordem": "atacarMovendo", "area": "base-jogador", "fila": 1 }
+      "quando": {"se": "depoisDe", "gatilho": "aviso-onda-5", "segundos": 20},
+      "acoes": [
+        {"faz": "criar", "jogador": 1, "grupo": "onda-5", "area": "nascedouro-oeste", "unidades": [{"tipo": "chapa", "quantos": {"facil": 4, "normal": 6, "dificil": 8}}, {"tipo": "arpoador", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}, {"tipo": "carro-vela", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}, {"tipo": "rolima", "quantos": {"facil": 1, "normal": 2, "dificil": 2}}, {"tipo": "canhao-de-caldeira", "quantos": {"facil": 0, "normal": 1, "dificil": 2}}]},
+        {"faz": "ordenar", "grupo": "onda-5", "ordem": "atacarMovendo", "rota": "rota-vau-oeste"}
       ]
     },
-
     {
       "id": "aviso-onda-6",
-      "quando": { "se": "todas", "condicoes": [
-        { "se": "tempo", "segundos": 1050 },
-        { "se": "alguma", "condicoes": [{ "se": "grupo", "grupo": "onda-5", "vivosMaximo": 0 }, { "se": "tempo", "segundos": 1110 }] }
-      ] },
-      "faz": [
-        { "faz": "aviso", "grupo": "onda-6-ponte", "area": "chegada-norte", "texto": "alerta.onda_final" },
-        { "faz": "aviso", "grupo": "onda-6-vau", "area": "chegada-leste", "texto": "alerta.onda_final" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_aviso_6" }
+      "quando": {"se": "todas", "condicoes": [{"se": "tempo", "segundos": 1050}, {"se": "alguma", "condicoes": [{"se": "vivos", "grupo": "onda-5", "maximo": 0}, {"se": "tempo", "segundos": 1110}]}]},
+      "acoes": [
+        {"faz": "aviso", "grupo": "onda-6-ponte", "area": "chegada-norte", "texto": "alerta.onda_final"},
+        {"faz": "aviso", "grupo": "onda-6-vau", "area": "chegada-leste", "texto": "alerta.onda_final"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_aviso_6"}
       ]
     },
     {
       "id": "onda-6",
-      "quando": { "se": "depoisDe", "gatilho": "aviso-onda-6", "segundos": 20 },
-      "faz": [
-        { "faz": "criar", "jogador": 1, "grupo": "onda-6-ponte", "area": "nascedouro-sul", "unidades": [
-          { "tipo": "chapa", "quantos": { "facil": 3, "normal": 5, "dificil": 7 } },
-          { "tipo": "arpoador", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } },
-          { "tipo": "locomovel", "quantos": { "facil": 1, "normal": 1, "dificil": 2 } },
-          { "tipo": "canhao-de-caldeira", "quantos": { "facil": 0, "normal": 1, "dificil": 1 } }
-        ] },
-        { "faz": "criar", "jogador": 1, "grupo": "onda-6-vau", "area": "nascedouro-sul", "unidades": [
-          { "tipo": "chapa", "quantos": { "facil": 2, "normal": 3, "dificil": 5 } },
-          { "tipo": "arpoador", "quantos": { "facil": 1, "normal": 1, "dificil": 2 } },
-          { "tipo": "carro-vela", "quantos": { "facil": 1, "normal": 2, "dificil": 3 } }
-        ] },
-        { "faz": "ordenar", "grupo": "onda-6-ponte", "ordem": "atacarMovendo", "rota": "rota-ponte" },
-        { "faz": "ordenar", "grupo": "onda-6-ponte", "ordem": "atacarMovendo", "area": "base-jogador", "fila": 1 },
-        { "faz": "ordenar", "grupo": "onda-6-vau", "ordem": "atacarMovendo", "rota": "rota-vau-leste" },
-        { "faz": "ordenar", "grupo": "onda-6-vau", "ordem": "atacarMovendo", "area": "base-jogador", "fila": 1 }
+      "quando": {"se": "depoisDe", "gatilho": "aviso-onda-6", "segundos": 20},
+      "acoes": [
+        {"faz": "criar", "jogador": 1, "grupo": "onda-6-ponte", "area": "nascedouro-sul", "unidades": [{"tipo": "chapa", "quantos": {"facil": 3, "normal": 5, "dificil": 7}}, {"tipo": "arpoador", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}, {"tipo": "locomovel", "quantos": {"facil": 1, "normal": 1, "dificil": 2}}, {"tipo": "canhao-de-caldeira", "quantos": {"facil": 0, "normal": 1, "dificil": 1}}]},
+        {"faz": "criar", "jogador": 1, "grupo": "onda-6-vau", "area": "nascedouro-sul", "unidades": [{"tipo": "chapa", "quantos": {"facil": 2, "normal": 3, "dificil": 5}}, {"tipo": "arpoador", "quantos": {"facil": 1, "normal": 1, "dificil": 2}}, {"tipo": "carro-vela", "quantos": {"facil": 1, "normal": 2, "dificil": 3}}]},
+        {"faz": "ordenar", "grupo": "onda-6-ponte", "ordem": "atacarMovendo", "rota": "rota-ponte"},
+        {"faz": "ordenar", "grupo": "onda-6-vau", "ordem": "atacarMovendo", "rota": "rota-vau-leste"}
       ]
     },
-
-    { "id": "insistir-onda-2", "quando": { "se": "depoisDe", "gatilho": "onda-2", "segundos": 150 }, "faz": [{ "faz": "ordenar", "grupo": "onda-2", "ordem": "atacarMovendo", "area": "base-jogador" }] },
-    { "id": "insistir-onda-3", "quando": { "se": "depoisDe", "gatilho": "onda-3", "segundos": 150 }, "faz": [{ "faz": "ordenar", "grupo": "onda-3", "ordem": "atacarMovendo", "area": "base-jogador" }] },
-    { "id": "insistir-onda-4", "quando": { "se": "depoisDe", "gatilho": "onda-4", "segundos": 150 }, "faz": [{ "faz": "ordenar", "grupo": "onda-4", "ordem": "atacarMovendo", "area": "base-jogador" }] },
-    { "id": "insistir-onda-5", "quando": { "se": "depoisDe", "gatilho": "onda-5", "segundos": 150 }, "faz": [{ "faz": "ordenar", "grupo": "onda-5", "ordem": "atacarMovendo", "area": "base-jogador" }] },
-    { "id": "insistir-onda-6", "quando": { "se": "depoisDe", "gatilho": "onda-6", "segundos": 150 }, "faz": [
-      { "faz": "ordenar", "grupo": "onda-6-ponte", "ordem": "atacarMovendo", "area": "base-jogador" },
-      { "faz": "ordenar", "grupo": "onda-6-vau", "ordem": "atacarMovendo", "area": "base-jogador" }
-    ] },
-
-    { "id": "onda-1-vencida", "quando": { "se": "todas", "condicoes": [{ "se": "gatilho", "gatilho": "onda-1" }, { "se": "grupo", "grupo": "onda-1", "vivosMaximo": 0 }] }, "faz": [{ "faz": "variavel", "nome": "ondas-vencidas", "somar": 1 }] },
-    { "id": "onda-2-vencida", "quando": { "se": "todas", "condicoes": [{ "se": "gatilho", "gatilho": "onda-2" }, { "se": "grupo", "grupo": "onda-2", "vivosMaximo": 0 }] }, "faz": [{ "faz": "variavel", "nome": "ondas-vencidas", "somar": 1 }, { "faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida" }] },
-    { "id": "onda-3-vencida", "quando": { "se": "todas", "condicoes": [{ "se": "gatilho", "gatilho": "onda-3" }, { "se": "grupo", "grupo": "onda-3", "vivosMaximo": 0 }] }, "faz": [{ "faz": "variavel", "nome": "ondas-vencidas", "somar": 1 }, { "faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida" }] },
-    { "id": "onda-4-vencida", "quando": { "se": "todas", "condicoes": [{ "se": "gatilho", "gatilho": "onda-4" }, { "se": "grupo", "grupo": "onda-4", "vivosMaximo": 0 }] }, "faz": [{ "faz": "variavel", "nome": "ondas-vencidas", "somar": 1 }, { "faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida" }] },
-    { "id": "onda-5-vencida", "quando": { "se": "todas", "condicoes": [{ "se": "gatilho", "gatilho": "onda-5" }, { "se": "grupo", "grupo": "onda-5", "vivosMaximo": 0 }] }, "faz": [{ "faz": "variavel", "nome": "ondas-vencidas", "somar": 1 }, { "faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida" }] },
-
+    {
+      "id": "insistir-onda-2",
+      "quando": {"se": "depoisDe", "gatilho": "onda-2", "segundos": 150},
+      "acoes": [
+        {"faz": "ordenar", "grupo": "onda-2", "ordem": "atacarMovendo", "area": "base-jogador"}
+      ]
+    },
+    {
+      "id": "insistir-onda-3",
+      "quando": {"se": "depoisDe", "gatilho": "onda-3", "segundos": 150},
+      "acoes": [
+        {"faz": "ordenar", "grupo": "onda-3", "ordem": "atacarMovendo", "area": "base-jogador"}
+      ]
+    },
+    {
+      "id": "insistir-onda-4",
+      "quando": {"se": "depoisDe", "gatilho": "onda-4", "segundos": 150},
+      "acoes": [
+        {"faz": "ordenar", "grupo": "onda-4", "ordem": "atacarMovendo", "area": "base-jogador"}
+      ]
+    },
+    {
+      "id": "insistir-onda-5",
+      "quando": {"se": "depoisDe", "gatilho": "onda-5", "segundos": 150},
+      "acoes": [
+        {"faz": "ordenar", "grupo": "onda-5", "ordem": "atacarMovendo", "area": "base-jogador"}
+      ]
+    },
+    {
+      "id": "insistir-onda-6",
+      "quando": {"se": "depoisDe", "gatilho": "onda-6", "segundos": 150},
+      "acoes": [
+        {"faz": "ordenar", "grupo": "onda-6-ponte", "ordem": "atacarMovendo", "area": "base-jogador"},
+        {"faz": "ordenar", "grupo": "onda-6-vau", "ordem": "atacarMovendo", "area": "base-jogador"}
+      ]
+    },
+    {
+      "id": "onda-1-vencida",
+      "quando": {"se": "todas", "condicoes": [{"se": "disparou", "gatilho": "onda-1"}, {"se": "vivos", "grupo": "onda-1", "maximo": 0}]},
+      "acoes": [
+        {"faz": "variavel", "nome": "ondas-vencidas", "somar": 1}
+      ]
+    },
+    {
+      "id": "onda-2-vencida",
+      "quando": {"se": "todas", "condicoes": [{"se": "disparou", "gatilho": "onda-2"}, {"se": "vivos", "grupo": "onda-2", "maximo": 0}]},
+      "acoes": [
+        {"faz": "variavel", "nome": "ondas-vencidas", "somar": 1},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida"}
+      ]
+    },
+    {
+      "id": "onda-3-vencida",
+      "quando": {"se": "todas", "condicoes": [{"se": "disparou", "gatilho": "onda-3"}, {"se": "vivos", "grupo": "onda-3", "maximo": 0}]},
+      "acoes": [
+        {"faz": "variavel", "nome": "ondas-vencidas", "somar": 1},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida"}
+      ]
+    },
+    {
+      "id": "onda-4-vencida",
+      "quando": {"se": "todas", "condicoes": [{"se": "disparou", "gatilho": "onda-4"}, {"se": "vivos", "grupo": "onda-4", "maximo": 0}]},
+      "acoes": [
+        {"faz": "variavel", "nome": "ondas-vencidas", "somar": 1},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida"}
+      ]
+    },
+    {
+      "id": "onda-5-vencida",
+      "quando": {"se": "todas", "condicoes": [{"se": "disparou", "gatilho": "onda-5"}, {"se": "vivos", "grupo": "onda-5", "maximo": 0}]},
+      "acoes": [
+        {"faz": "variavel", "nome": "ondas-vencidas", "somar": 1},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_onda_vencida"}
+      ]
+    },
     {
       "id": "vitoria-ondas",
-      "quando": { "se": "todas", "condicoes": [
-        { "se": "gatilho", "gatilho": "onda-6" },
-        { "se": "grupo", "grupo": "onda-6-ponte", "vivosMaximo": 0 },
-        { "se": "grupo", "grupo": "onda-6-vau", "vivosMaximo": 0 }
-      ] },
-      "faz": [
-        { "faz": "variavel", "nome": "ondas-vencidas", "somar": 1 },
-        { "faz": "objetivo", "objetivo": "segurar-a-base", "estado": "cumprido" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_vitoria_ondas" },
-        { "faz": "vitoria", "jogador": 0 }
+      "quando": {"se": "todas", "condicoes": [{"se": "disparou", "gatilho": "onda-6"}, {"se": "vivos", "grupo": "onda-6-ponte", "maximo": 0}, {"se": "vivos", "grupo": "onda-6-vau", "maximo": 0}]},
+      "acoes": [
+        {"faz": "variavel", "nome": "ondas-vencidas", "somar": 1},
+        {"faz": "objetivo", "objetivo": "segurar-a-base", "estado": "cumprido"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_vitoria_ondas"},
+        {"faz": "vitoria", "jogador": 0}
       ]
     },
     {
       "id": "vitoria-acampamento",
-      "quando": { "se": "grupo", "grupo": "acampamento", "vivosMaximo": 0 },
-      "faz": [
-        { "faz": "objetivo", "objetivo": "desmontar-acampamento", "estado": "cumprido" },
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_vitoria_acampamento" },
-        { "faz": "vitoria", "jogador": 0 }
+      "quando": {"se": "vivos", "grupo": "acampamento", "maximo": 0},
+      "acoes": [
+        {"faz": "objetivo", "objetivo": "desmontar-acampamento", "estado": "cumprido"},
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_vitoria_acampamento"},
+        {"faz": "vitoria", "jogador": 0}
       ]
     },
     {
       "id": "derrota",
-      "quando": { "se": "contagem", "jogador": 0, "tipos": ["escritorio-regional", "poste-avancado", "equipe-de-manutencao"], "maximo": 0 },
-      "faz": [
-        { "faz": "mensagem", "texto": "radio.locutor.caixa_derrota" },
-        { "faz": "derrota", "jogador": 0 }
+      "quando": {"se": "contagem", "jogador": 0, "tipos": ["escritorio-regional", "poste-avancado", "equipe-de-manutencao"], "maximo": 0},
+      "acoes": [
+        {"faz": "mensagem", "texto": "radio.locutor.caixa_derrota"},
+        {"faz": "derrota", "jogador": 0}
       ]
     },
-
     {
       "id": "coletor-perdido",
-      "quando": { "se": "coletores", "jogador": 0, "perdidosMinimo": 1 },
-      "faz": [{ "faz": "mensagem", "texto": "radio.locutor.coletor_perdido" }]
+      "quando": {"se": "todas", "condicoes": [{"se": "tempo", "segundos": 60}, {"se": "nao", "condicao": {"se": "coletores", "jogador": 0, "minimo": 2}}]},
+      "acoes": [
+        {"faz": "mensagem", "texto": "radio.locutor.coletor_perdido"}
+      ]
     },
     {
       "id": "cemiterio-acabando",
-      "quando": { "se": "recursos", "no": "cemiterio-sudoeste", "maximo": 1500 },
-      "faz": [
-        { "faz": "mensagem", "texto": "radio.supervisora.caixa_cemiterio_acabando", "area": "ferro-velho-sudeste" },
-        { "faz": "objetivo", "objetivo": "abrir-ferro-velho", "estado": "ativo" }
+      "quando": {"se": "recursos", "no": "cemiterio-sudoeste", "maximo": 1500},
+      "acoes": [
+        {"faz": "mensagem", "texto": "radio.supervisora.caixa_cemiterio_acabando", "area": "ferro-velho-sudeste"},
+        {"faz": "objetivo", "objetivo": "abrir-ferro-velho", "estado": "ativo"}
       ]
     },
     {
       "id": "ferro-velho-aberto",
-      "quando": { "se": "contagem", "jogador": 0, "tipos": ["poste-avancado", "acumulador"], "area": "ferro-velho-sudeste", "minimo": 1 },
-      "faz": [{ "faz": "objetivo", "objetivo": "abrir-ferro-velho", "estado": "cumprido" }]
+      "quando": {"se": "contagem", "jogador": 0, "tipos": ["poste-avancado", "acumulador"], "area": "ferro-velho-sudeste", "minimo": 1},
+      "acoes": [
+        {"faz": "objetivo", "objetivo": "abrir-ferro-velho", "estado": "cumprido"}
+      ]
     },
     {
       "id": "torre-religada",
-      "quando": { "se": "dono", "etiqueta": "torre-antiga-sul", "jogador": 0 },
-      "faz": [
-        { "faz": "objetivo", "objetivo": "religar-torre", "estado": "cumprido" },
-        { "faz": "mensagem", "texto": "radio.supervisora.caixa_torre_religada" }
+      "quando": {"se": "dono", "grupo": "torre-antiga-sul", "jogador": 0},
+      "acoes": [
+        {"faz": "objetivo", "objetivo": "religar-torre", "estado": "cumprido"},
+        {"faz": "mensagem", "texto": "radio.supervisora.caixa_torre_religada"}
       ]
     }
   ]

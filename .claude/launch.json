@@ -30,6 +30,13 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8822", "--directory", "site"],
       "port": 8822
+    },
+    {
+      "name": "rts-lockstep",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8828", "--bind", "127.0.0.1"],
+      "port": 8828,
+      "url": "http://127.0.0.1:8828"
     }
   ]
 }
