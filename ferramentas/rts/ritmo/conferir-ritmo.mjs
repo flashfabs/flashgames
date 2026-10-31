@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Command line of the pacing checker: node ferramentas/rts/ritmo/conferir-ritmo.mjs <registro.json>... [--json]
 // Prints each log's numbers and, with several logs (one per person), the median per criterion; logs named
-// novato-*.json and veterano-*.json also get the stage E4 numbers, and the lessons of the mission come from
-// site/rts/dados/missoes/<missao>.licoes.json when the design front wrote one.
+// novato-*.json and veterano-*.json also get the stage E4 numbers, and the lessons of the mission come from its
+// "licoes" field (or site/rts/dados/missoes/<missao>.licoes.json) when the design front wrote them.
 // Exit code: 0 when every criterion with data passed, 1 when one failed, 2 when a file could not be read.
 import { readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
@@ -63,12 +63,19 @@ if (e4 && !comoJson) {
   if (e4.semGrupo.length > 0) console.log(`  sem grupo no nome (novato-... ou veterano-...): ${e4.semGrupo.join(', ')}`);
 }
 
-// lessons of the mission the logs played, from the design front's list next to it
+// lessons of the mission the logs played: the mission's own "licoes" field, else a <missao>.licoes.json next to it
 const missoes = [...new Set(registros.map(r => r?.missao).filter(Boolean))];
-const licoes = missoes.length === 1 ? new URL(`../../../site/rts/dados/missoes/${missoes[0]}.licoes.json`, import.meta.url) : null;
+const pastaMissoes = new URL('../../../site/rts/dados/missoes/', import.meta.url);
+function listaDeLicoes(missao) {
+  const arquivoMissao = new URL(`${missao}.json`, pastaMissoes);
+  const dentro = existsSync(arquivoMissao) ? JSON.parse(readFileSync(arquivoMissao, 'utf8')).licoes : undefined;
+  if (dentro) return Array.isArray(dentro) ? { versao: 1, licoes: dentro } : dentro;
+  const separado = new URL(`${missao}.licoes.json`, pastaMissoes);
+  return existsSync(separado) ? JSON.parse(readFileSync(separado, 'utf8')) : null;
+}
 let resultadoLicoes = null;
-if (licoes && existsSync(licoes)) {
-  const lista = JSON.parse(readFileSync(licoes, 'utf8'));
+const lista = missoes.length === 1 ? listaDeLicoes(missoes[0]) : null;
+if (lista) {
   const problemas = validarLicoes(lista);
   if (problemas.length > 0) console.error(`lista de lições inválida: ${problemas.join('; ')}`);
   else {

@@ -1,5 +1,5 @@
 // Lessons checker for stage E4: whether each lesson of a phase shows in a play-test log (C15), by the list the design
-// front writes next to the mission (site/rts/dados/missoes/<missao>.licoes.json). A lesson is a condition over the
+// front writes in the mission's "licoes" field (or in site/rts/dados/missoes/<missao>.licoes.json). A lesson is a condition over the
 // log's events, so the list can change without touching this file:
 //   { "id": "atacar-mover", "texto": "...", "momento": "M2",
 //     "se": { "evento": "comando", "campos": { "comando": 3 }, "minimos": { "n": 3 }, "antesDeSegundos": 600, "vezes": 1 } }

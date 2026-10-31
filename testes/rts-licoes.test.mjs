@@ -58,10 +58,12 @@ test('a lesson passes when it shows in the logs of at least 4 of 6 people', () =
   assert.equal(conferirLicoesVarias([aprendeu, aprendeu, aprendeu, nao, nao, nao], LISTA)[0].passou, false);
 });
 
-test('every lesson list of a mission in the repository is valid', () => {
+test('every lesson list of a mission in the repository is valid, in the mission or next to it', () => {
   const pasta = new URL('../site/rts/dados/missoes/', import.meta.url);
   if (!existsSync(pasta)) return;
-  for (const arquivo of readdirSync(pasta).filter(nome => nome.endsWith('.licoes.json'))) {
-    assert.deepEqual(validarLicoes(JSON.parse(readFileSync(new URL(arquivo, pasta), 'utf8'))), [], arquivo);
+  for (const arquivo of readdirSync(pasta).filter(nome => nome.endsWith('.json'))) {
+    const json = JSON.parse(readFileSync(new URL(arquivo, pasta), 'utf8'));
+    const lista = arquivo.endsWith('.licoes.json') ? json : Array.isArray(json.licoes) ? { versao: 1, licoes: json.licoes } : json.licoes;
+    if (lista) assert.deepEqual(validarLicoes(lista), [], arquivo);
   }
 });
