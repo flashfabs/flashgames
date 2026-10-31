@@ -320,6 +320,8 @@ export function refazerCaminhos(cam, resumo) {
   }
   if (emCurso >= 0) calcular(emCurso, resumo.expansoes[emCurso]);
   cam.fila = [...resumo.fila];
+  // a dropped entry keeps the class it last had, and the checksum reads it
+  cam.classe.set(resumo.classe);
   cam.usos.set(resumo.usos);
   cam.ultimoUso.set(resumo.ultimoUso);
   cam.expansoes.set(resumo.expansoes);
