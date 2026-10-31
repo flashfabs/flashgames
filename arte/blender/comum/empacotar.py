@@ -165,11 +165,10 @@ def recortar_quadros(descricao, saida):
     """Trim every frame of every pass once, for uhd and hd, sharing one box per frame across passes."""
     passes = descricao["passes"]
     reusados = indices_reusados(descricao)
-    quadros = []
-    for indice, (animacao, direcao, quadro) in enumerate(ordem_dos_quadros(descricao)):
+    sequencia = list(ordem_dos_quadros(descricao))
+    proprios = {}
+    for indice, (animacao, direcao, quadro) in enumerate(sequencia):
         if indice in reusados:
-            # the very same object: the packer gives both indices one rectangle
-            quadros.append(quadros[reusados[indice]])
             continue
         config = descricao["camadas"][animacao["camada"]]
         largura, altura = config["quadro"]
@@ -196,11 +195,13 @@ def recortar_quadros(descricao, saida):
                 hd[p] = reduzir(img, np.full(img.shape[:2], 255, np.uint8))
             else:
                 hd[p] = reduzir(img, pesos)
-        quadros.append({
+        proprios[indice] = {
             "uhd": {"pixels": uhd, "deslocamento": (x0 - ancora[0], y0 - ancora[1])},
             "hd": {"pixels": hd, "deslocamento": ((x0 - ancora[0]) // 2, (y0 - ancora[1]) // 2)},
-        })
-    return quadros
+        }
+    # a reused frame is the very same object as its source, which may come later in the manifest order:
+    # the packer gives both indices one rectangle
+    return [proprios[reusados.get(indice, indice)] for indice in range(len(sequencia))]
 
 
 def bytes_gpu(paginas, tipo):
