@@ -14,7 +14,7 @@ const CLI = new URL('../ferramentas/rts/ritmo/conferir-ritmo.mjs', import.meta.u
 const EXEMPLO = new URL('./rts-registro-exemplo.json', import.meta.url).pathname;
 
 /** A 20-minute victory that meets every target unless an option changes it. */
-function registro({ duracao = 20 * 60, tiro = 200, luta = 12, lados = [10, 10], comandoACada = 7, cemiterio = 11.5 * 60, coletores = 2, aviso = 15, resultado = 'vitoria' } = {}) {
+function registro({ duracao = 20 * 60, tiro = 200, luta = 12, lados = [10, 10], comandoACada = 7, cemiterio = 11.5 * 60, coletores = 2, aviso = 15, resultado = 'vitoria', respostas = { diversao: 4, jogariaDeNovo: true, comentario: '' } } = {}) {
   const eventos = [];
   for (let t = 3; t < duracao; t += comandoACada) eventos.push({ passo: s(t), tipo: 'comando', comando: 1, n: 3, fila: 0, origem: 'mouse' });
   if (tiro !== null) eventos.push({ passo: s(tiro), tipo: 'tiro', atirador: 5, alvo: 9, x: 1, y: 1 });
@@ -28,7 +28,7 @@ function registro({ duracao = 20 * 60, tiro = 200, luta = 12, lados = [10, 10], 
   eventos.push({ passo: s(610), tipo: 'morte', dono: 1, coletor: 1 });
   if (resultado) eventos.push({ passo: s(duracao), tipo: 'fim', resultado });
   eventos.sort((a, b) => a.passo - b.passo);
-  return { versao: 1, tipo: 'registro-rts', missao: 'caixa-de-areia', jogadorLocal: 0, passosPorSegundo: PPS, duracaoPassos: s(duracao), resultado, janelaPassos: 300, eventos };
+  return { versao: 1, tipo: 'registro-rts', missao: 'caixa-de-areia', jogadorLocal: 0, passosPorSegundo: PPS, duracaoPassos: s(duracao), resultado, janelaPassos: 300, respostas, eventos };
 }
 
 const criterio = (resultado, id) => resultado.criterios.find(c => c.id === id);
@@ -54,6 +54,7 @@ test('each band edge fails on the right side', () => {
   assert.equal(criterio(conferirRegistro(registro({ coletores: 5 })), 'coletoresPerdidos').passou, false);
   assert.equal(criterio(conferirRegistro(registro({ duracao: 14 * 60, cemiterio: 11 * 60 })), 'duracao').passou, false);
   assert.equal(criterio(conferirRegistro(registro({ resultado: null })), 'duracao').passou, false, 'no end condition reached');
+  assert.equal(criterio(conferirRegistro(registro({ resultado: 'encerrada' })), 'duracao').passou, false, 'closed from the menu');
   assert.equal(criterio(conferirRegistro(registro({ aviso: 9 })), 'avisoDeAtaque').passou, false);
 });
 
@@ -85,6 +86,17 @@ test('a wave without its warning fails the warning check', () => {
   const c = criterio(conferirRegistro(r), 'avisoDeAtaque');
   assert.equal(c.passou, false);
   assert.equal(c.texto, 'onda sem aviso');
+});
+
+test('the end-screen answers give the fun median and "would play again" from everyone', () => {
+  assert.equal(criterio(conferirRegistro(registro({ respostas: null })), 'diversao').passou, null);
+  assert.equal(criterio(conferirRegistro(registro({ respostas: { diversao: 3, jogariaDeNovo: true } })), 'diversao').passou, false);
+  assert.equal(criterio(conferirRegistro(registro({ respostas: { diversao: 9, jogariaDeNovo: true } })), 'diversao').valor, null);
+  const { resumo } = conferirVarios([registro({ respostas: { diversao: 3, jogariaDeNovo: true } }), registro({ respostas: { diversao: 4, jogariaDeNovo: true } }), registro({ respostas: { diversao: 5, jogariaDeNovo: false } })]);
+  const diversao = resumo.find(c => c.id === 'diversao');
+  assert.equal(diversao.valor, 4);
+  assert.equal(diversao.passou, true);
+  assert.equal(resumo.find(c => c.id === 'jogariaDeNovo').passou, false, 'one "no" fails it');
 });
 
 test('rejects logs it cannot read', () => {
@@ -123,7 +135,7 @@ test('command line: exit 0 when all pass, 1 when one fails, 2 when unreadable', 
   assert.equal(rodar(join(pasta, 'nao-existe.json')).status, 2);
   const varios = rodar(bom, bom, ruim, '--json');
   assert.equal(varios.status, 0, 'the median of 3:20, 3:20 and 1:00 passes');
-  assert.equal(JSON.parse(varios.stdout).resumo.length, 7);
+  assert.equal(JSON.parse(varios.stdout).resumo.length, 9);
 });
 
 test('the example log the game exports reads clean', { skip: !existsSync(EXEMPLO) && 'testes/rts-registro-exemplo.json ainda não chegou da rts-design' }, () => {
