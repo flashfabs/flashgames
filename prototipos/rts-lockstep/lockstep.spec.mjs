@@ -2,8 +2,9 @@
 // playing and the artificial delay on, for LOCKSTEP_MINUTOS minutes of game. It fails on any checksum mismatch, page
 // error or member left behind, and at the end compares the checksums of every page tick by tick, independently of
 // the host's own comparison. The report (bytes per turn, latency, engines) goes to lockstep.json in the output folder.
-// Two tests: "curto" plays 1 minute (a smoke run, -g curto), "longo" plays LOCKSTEP_MINUTOS (-g longo).
-//   LOCKSTEP_MINUTOS     minutes of game of the long one (10)
+// Two tests: "curto" plays 1 minute (a smoke run, -g curto), "inteiro" plays LOCKSTEP_MINUTOS (-g inteiro; not "longo",
+// which scripts/rtx-testes.sh would take for a performance step and hold the GPU lock for).
+//   LOCKSTEP_MINUTOS     minutes of game of the whole one (10)
 //   LOCKSTEP_MOTORES     engines in order, one page each, host first (chromium,firefox,webkit,chromium,firefox)
 //   LOCKSTEP_PAGINAS     pages to fill from that list, skipping engines without WebRTC (4, the most the page allows)
 //   LOCKSTEP_EXIGIR      engines that must have WebRTC (chromium,firefox); any other one without it is left out
@@ -30,7 +31,7 @@ const opcoesDeLancamento = {
 
 const relatorioDe = pagina => pagina.evaluate(() => window.__lockstep.relatorio());
 
-for (const [nome, minutos] of [['curto', 1], ['longo', MINUTOS]]) {
+for (const [nome, minutos] of [['curto', 1], ['inteiro', MINUTOS]]) {
   test(`lockstep ${nome}: ${minutos} min of game on up to ${PAGINAS} pages without a desync`, async ({}, testInfo) => {
     test.setTimeout((minutos + 6) * 60_000);
     await jogar(minutos, testInfo);

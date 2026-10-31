@@ -8,7 +8,7 @@ import { criarTique } from '../../site/js/relogio.js';
 import { MAX_UNIDADES_ENVELOPE } from './protocolo.js';
 
 const INTERVALO_MS = 50;
-const PRIMEIRO_TIPO_DESCONHECIDO = 15;
+const PRIMEIRO_TIPO_DESCONHECIDO = 100; // well above the kinds the simulation knows
 
 export function criarRobo({ comandar, porSegundo = 3, largura, altura, sortear = Math.random, agora = () => performance.now() }) {
   let proprios = [];
