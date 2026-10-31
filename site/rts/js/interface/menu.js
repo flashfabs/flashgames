@@ -1,18 +1,47 @@
 // Start screen, the F10 menu and the notices in the middle of the screen. The match waits paused (reason 'inicio')
-// until Começar, which turns ready when the static map arrives, and that click is the only thing that turns the audio on. F10 opens and closes the menu; Esc only
-// closes it, never opens it (Esc belongs to the browser's full screen). The single-player match pauses while the menu
-// is open and, through the simulation bridge, while the tab is hidden; coming back says so for a moment.
+// until Começar, which turns ready when the static map arrives, and that click is the only thing that turns the audio
+// on; a mission's start screen shows its name and the difficulty to choose (Fácil, Normal, Difícil). F10 opens and
+// closes the menu; Esc only closes it, never opens it (Esc belongs to the browser's full screen). The single-player
+// match pauses while the menu is open and, through the simulation bridge, while the tab is hidden; coming back says so
+// for a moment. Recomeçar asks the page to play the phase again.
 
 const AVISO_DA_ABA_MS = 3000;
+/** Difficulties of a mission, as the URL and the mission's data name them. */
+export const DIFICULDADES = Object.freeze(['facil', 'normal', 'dificil']);
 
-export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, texto, simulacao, som, telaCheia, obterRegistro = () => null, mostrarInicio, aoComecar = () => {}, aoEncerrar = () => {}, podeAbrir = () => true }) {
+/**
+ * @param {object} opcoes
+ * @param {string} [opcoes.titulo] the mission's name for the start screen, '' for the prototype
+ * @param {string | null} [opcoes.dificuldade] the difficulty offered first; null hides the choice (no mission)
+ * @param {(escolha: {dificuldade: string | null}) => void} [opcoes.aoComecar] runs on Começar, before the match leaves the start pause
+ * @param {() => void} [opcoes.aoRecomecar] plays the phase again
+ */
+export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, texto, simulacao, som, telaCheia, obterRegistro = () => null, mostrarInicio, titulo = '', dificuldade = null, aoComecar = () => {}, aoEncerrar = () => {}, aoRecomecar = () => location.reload(), podeAbrir = () => true }) {
   let aberto = false;
   let comecou = !mostrarInicio;
   let pronto = false;
   let avisoDaAbaAte = 0;
   let velocidade = 100;
+  let escolhida = DIFICULDADES.includes(dificuldade) ? dificuldade : dificuldade === null ? null : 'normal';
 
   for (const elemento of document.querySelectorAll('[data-texto]')) elemento.textContent = texto(elemento.dataset.texto);
+
+  // The mission's name and the difficulty choice on the start screen.
+  const subtitulo = inicio.querySelector('.cortina-sub');
+  if (titulo) subtitulo.textContent = titulo;
+  const escolha = inicio.querySelector('[data-escolha="dificuldade"]');
+  escolha.hidden = escolhida === null;
+  function marcarDificuldade() {
+    for (const botao of escolha.querySelectorAll('[data-dificuldade]')) botao.setAttribute('aria-pressed', String(botao.dataset.dificuldade === escolhida));
+  }
+  for (const botao of escolha.querySelectorAll('[data-dificuldade]')) botao.textContent = texto(`dificuldade.${botao.dataset.dificuldade}`);
+  escolha.addEventListener('click', e => {
+    const botao = e.target instanceof Element ? e.target.closest('[data-dificuldade]') : null;
+    if (!botao) return;
+    escolhida = botao.dataset.dificuldade;
+    marcarDificuldade();
+  });
+  marcarDificuldade();
 
   // The playtest log loads on its own; its button shows once it is there.
   const copiar = document.createElement('button');
@@ -44,8 +73,9 @@ export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, 
     // The click on Começar is the user gesture the browser needs before any sound.
     som.ligar();
     inicio.hidden = true;
+    // The page may restart the match in the chosen difficulty and hold it for the briefing before it leaves the start pause.
+    aoComecar({ dificuldade: escolhida });
     simulacao.pausar(false, 'inicio');
-    aoComecar();
   }
 
   function abrir() {
@@ -91,7 +121,8 @@ export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, 
       aoEncerrar();
       return;
     } else if (botao.dataset.menu === 'recomecar') {
-      location.reload();
+      aoRecomecar();
+      return;
     } else if (botao.dataset.menu === 'registro') {
       const registro = obterRegistro();
       if (registro) Promise.resolve(registro.copiar()).catch(erro => console.error('playtest log not copied', erro));
@@ -143,6 +174,10 @@ export function criarMenu({ inicio, menu, avisoCentro, botaoMenu, botaoComecar, 
     },
     get comecou() {
       return comecou;
+    },
+    /** The difficulty chosen on the start screen, or null without a mission. */
+    get dificuldade() {
+      return escolhida;
     },
   };
 }

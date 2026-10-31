@@ -20,6 +20,11 @@
 
   <ol id="alertas" aria-live="polite" aria-label="Alertas"></ol>
   <section id="objetivos" aria-label="Objetivos" hidden></section>
+  <div id="contagem" role="status" aria-live="polite" hidden></div>
+  <aside id="radio" class="fala" aria-live="polite" aria-label="Rádio" hidden>
+    <div class="retrato" data-retrato aria-hidden="true"></div>
+    <div class="fala-texto"><b data-nome></b><p data-legenda></p></div>
+  </aside>
 
   <footer id="base" class="hud">
     <div id="area-mapa">
@@ -52,8 +57,30 @@
     <div class="cortina-caixa">
       <h1>Apagão</h1>
       <p class="cortina-sub">Fatia cinza · caixa de areia</p>
+      <fieldset class="menu-velocidade escolha-dificuldade" data-escolha="dificuldade" hidden>
+        <legend data-texto="menu.dificuldade"></legend>
+        <button type="button" class="botao" data-dificuldade="facil"></button>
+        <button type="button" class="botao" data-dificuldade="normal"></button>
+        <button type="button" class="botao" data-dificuldade="dificil"></button>
+        <p class="cortina-ajuda" data-texto="dificuldade.sem_trapaca"></p>
+      </fieldset>
       <button type="button" class="botao botao-grande" id="botao-comecar" disabled><span data-texto="menu.carregando"></span></button>
       <p class="cortina-ajuda">Arraste para selecionar · clique direito ou dois dedos para dar ordem · Q W E R A S D F na grade · B base · . coletor ocioso · V último alerta · P pausa · F10 menu</p>
+    </div>
+  </div>
+
+  <div id="briefing" class="cortina" role="dialog" aria-modal="true" aria-labelledby="briefing-titulo" hidden>
+    <div class="cortina-caixa briefing-caixa">
+      <h2 id="briefing-titulo" data-texto="briefing.titulo"></h2>
+      <div class="fala">
+        <div class="retrato" data-retrato aria-hidden="true"></div>
+        <div class="fala-texto"><b data-nome></b><p data-legenda aria-live="polite"></p></div>
+      </div>
+      <div class="briefing-botoes">
+        <span class="cortina-ajuda" data-contador></span>
+        <button type="button" class="botao" data-briefing="pular"><span data-texto="briefing.pular"></span></button>
+        <button type="button" class="botao botao-grande" data-briefing="proxima"></button>
+      </div>
     </div>
   </div>
 
@@ -79,6 +106,7 @@
     <form class="cortina-caixa" id="fim-formulario">
       <h2 id="fim-titulo"></h2>
       <p class="cortina-sub" data-fim="tempo"></p>
+      <ul class="fim-resumo" data-fim="resumo"></ul>
       <fieldset class="fim-pergunta">
         <legend data-texto="fim.diversao"></legend>
         <div class="fim-opcoes">
@@ -90,7 +118,7 @@
         </div>
       </fieldset>
       <fieldset class="fim-pergunta">
-        <legend data-texto="fim.jogaria"></legend>
+        <legend data-fim="pergunta-jogaria"></legend>
         <div class="fim-opcoes">
           <label><input type="radio" name="jogaria" value="sim"><span data-texto="fim.sim"></span></label>
           <label><input type="radio" name="jogaria" value="nao"><span data-texto="fim.nao"></span></label>

@@ -78,5 +78,13 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso =
     while (vivos.length > MAXIMO) remover(vivos[0]);
   }
 
-  return { mostrar, textoDe };
+  /** Takes every line off at once (a restarted match). */
+  function limpar() {
+    while (vivos.length) {
+      const vivo = vivos.pop();
+      vivo.item.remove();
+    }
+  }
+
+  return { mostrar, textoDe, limpar };
 }

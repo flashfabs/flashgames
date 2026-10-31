@@ -33,6 +33,10 @@ export function criarFilaVisual({ repetem = new Set() } = {}) {
     limpar(ids) {
       for (const id of ids) filas.delete(id);
     },
+    /** Drops every queue (a restarted match). */
+    esvaziar() {
+      filas.clear();
+    },
     /**
      * Follows the units: posicao(id, saida) fills saida with the unit's cell position and returns false when it is
      * gone; parada(id) tells whether the snapshot says it has no order.

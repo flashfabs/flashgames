@@ -89,6 +89,23 @@ export const PROVISORIOS = Object.freeze({
   'hud.modo_reparar': 'Clique na unidade, no prédio ou na estrutura a reparar; Shift mantém para outro; Esc ou clique direito cancela.',
   'hud.modo_chao': 'Clique no chão para {modo}; Shift mantém para enfileirar; Esc ou clique direito cancela.',
   'hud.guardar_grupo': 'Toque no número do grupo para guardar a seleção.',
+  'hud.religacao': '{nome}: religando, faltam {s} s',
+  'hud.religacao_parada': '{nome}: religação parada em {pct}%',
+  'briefing.titulo': 'Ordem de serviço',
+  'briefing.pular': 'Pular',
+  'briefing.proxima': 'Próxima',
+  'briefing.comecar': 'Ao trabalho',
+  'falante.supervisora': 'Supervisora da Regional',
+  'falante.locutor': 'Locutor',
+  'fim.jogaria_proxima': 'Jogaria a próxima fase?',
+  'resultado.objetivos': 'Objetivos: {feitos} de {total} principais, {opcionais} de {totalOpcionais} opcionais',
+  'menu.dificuldade': 'Dificuldade',
+  'dificuldade.facil': 'Fácil',
+  'dificuldade.normal': 'Normal',
+  'dificuldade.dificil': 'Difícil',
+  'resultado.tempo': 'Tempo: {tempo}',
+  'resultado.veteranos': 'Veteranos: {n}',
+  'resultado.coletores_perdidos': 'Coletores perdidos: {n}',
 });
 
 /** Flattens nested objects into dotted ids; only string leaves are texts. */
@@ -121,6 +138,8 @@ export function criarTextos(arquivo = {}) {
   }
   /** Whether the id has a text, so a caller can fall back without a warning (names of kinds without copy yet). */
   texto.tem = id => id in textos;
+  /** Every id with a text (the briefing finds a mission's lines by their id pattern). */
+  texto.ids = () => Object.keys(textos);
   return texto;
 }
 

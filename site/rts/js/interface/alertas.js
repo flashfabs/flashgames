@@ -122,6 +122,13 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
 
   return {
     registrar,
+    /** Forgets running attacks and the last alert (a restarted match). */
+    limpar() {
+      ataques.length = 0;
+      ultimo = null;
+      redeAte = -Infinity;
+      temSobAtaque = false;
+    },
     /** The latest alert with a place on the map, or null. */
     get ultimo() {
       return ultimo;

@@ -317,6 +317,16 @@
     "hud.modo_alvo": "Clique no alvo; Shift mantém para outro; Esc ou clique direito cancela.",
     "hud.modo_reparar": "Clique na unidade, no prédio ou na estrutura a reparar; Shift mantém para outro; Esc ou clique direito cancela.",
     "hud.modo_chao": "Clique no chão para {modo}; Shift mantém para enfileirar; Esc ou clique direito cancela.",
-    "hud.guardar_grupo": "Toque no número do grupo para guardar a seleção."
+    "hud.guardar_grupo": "Toque no número do grupo para guardar a seleção.",
+    "hud.religacao": "{nome}: religando, faltam {s} s",
+    "hud.religacao_parada": "{nome}: religação parada em {pct}%",
+    "briefing.titulo": "Ordem de serviço",
+    "briefing.pular": "Pular",
+    "briefing.proxima": "Próxima",
+    "briefing.comecar": "Ao trabalho",
+    "falante.supervisora": "Supervisora da Regional",
+    "falante.locutor": "Locutor",
+    "fim.jogaria_proxima": "Jogaria a próxima fase?",
+    "resultado.objetivos": "Objetivos: {feitos} de {total} principais, {opcionais} de {totalOpcionais} opcionais"
   }
 }

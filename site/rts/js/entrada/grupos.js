@@ -40,6 +40,11 @@ export function criarGrupos() {
     tamanho(grupo, existe) {
       return podar(grupo, existe).length;
     },
+    /** Forgets every group (a restarted match has new units). */
+    limpar() {
+      grupos.clear();
+      ultimaChamada = { grupo: 0, quando: -Infinity };
+    },
     /** Groups that have at least one id, in order, for the on-screen buttons. */
     ocupados() {
       return [...grupos.keys()].filter(grupo => grupos.get(grupo).size > 0).sort((a, b) => a - b);

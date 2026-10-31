@@ -109,6 +109,38 @@ kbd { font: inherit; font-size: 11px; color: var(--apagado); }
 #objetivos li[data-estado="2"] { color: var(--bom); }
 #objetivos li[data-estado="3"] { color: var(--perigo); text-decoration: line-through; }
 
+#objetivos li[data-tipo="opcional"]:not([data-estado="2"]):not([data-estado="3"]) { color: var(--apagado); }
+#objetivos li[data-novo="true"] { animation: destaque 1.2s ease-out 2; }
+@keyframes destaque { 0% { background: rgba(255, 207, 122, 0.28); } 100% { background: transparent; } }
+
+/* countdown of a structure being re-powered, top centre under the bar */
+#contagem { position: fixed; top: calc(var(--altura-topo) + 8px); left: 50%; transform: translateX(-50%); display: grid; gap: 6px; padding: 6px 12px; background: var(--painel); border: 1px solid var(--destaque); border-radius: 6px; pointer-events: none; min-width: min(360px, 60vw); text-align: center; font-size: 14px; }
+.contagem-linha { display: grid; gap: 4px; }
+.contagem-linha[data-parada="true"] { color: var(--perigo); }
+.contagem-barra { display: block; height: 5px; background: #3a2a22; border-radius: 3px; overflow: hidden; }
+.contagem-barra b { display: block; height: 100%; background: var(--destaque); }
+.contagem-linha[data-parada="true"] .contagem-barra b { background: var(--perigo); }
+
+/* a speaker with portrait frame, name and subtitle: the mission radio (bottom centre above the bar) and the briefing */
+.fala { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; text-align: left; }
+.retrato { width: 64px; height: 64px; border: 1px solid var(--botao-borda); border-radius: 6px; background: linear-gradient(160deg, #3b3833, #1b1916); display: grid; place-items: center; color: #8a8174; font-size: 26px; font-weight: 600; }
+.fala-texto b { color: #9ccfff; font-weight: 600; }
+.fala-texto p { margin: 2px 0 0; }
+#radio { position: fixed; left: 50%; bottom: calc(var(--altura-base) + 10px); transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); padding: 8px 12px; background: var(--painel); border: 1px solid var(--borda); border-left: 3px solid #5ab8ff; border-radius: 8px; animation: entra-radio 0.18s ease-out; }
+#radio[data-lugar="true"] { cursor: pointer; }
+#radio .retrato { width: 52px; height: 52px; font-size: 22px; }
+@keyframes entra-radio { from { transform: translate(-50%, 10px); opacity: 0; } }
+
+/* briefing before the match */
+.briefing-caixa { max-width: min(640px, calc(100vw - 32px)); text-align: left; }
+.briefing-caixa .retrato { width: 96px; height: 96px; font-size: 38px; }
+.briefing-caixa .fala-texto p { font-size: 15px; min-height: 4.4em; }
+.briefing-botoes { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.briefing-botoes [data-contador] { margin-right: auto; }
+.escolha-dificuldade { flex-wrap: wrap; }
+.escolha-dificuldade p { flex-basis: 100%; }
+.fim-resumo { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; color: var(--apagado); }
+
 /* debug panel (?painel=1, tests and benchmark), bottom left above the bar */
 #painel { position: fixed; bottom: calc(var(--altura-base) + 8px); left: 12px; padding: 8px 10px; background: rgba(10, 9, 8, 0.78); border: 1px solid var(--borda); border-radius: 8px; min-width: 300px; pointer-events: none; font-size: 12px; }
 #painel b { color: var(--destaque); font-weight: 600; }

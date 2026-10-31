@@ -17,7 +17,7 @@ export function criarPonteSimulacao() {
   // `cargaInicial` gives every player that Carga at the start (until the mission's start trigger runs in the simulation).
   function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, teste = false, dados, partida, dificuldade, cargaInicial, aoReceberMapa, aoReceberEstado }) {
     estado.jogadorLocal = jogadorLocal;
-    trabalhador = new Worker(new URL('./trabalhador.js', import.meta.url), { type: 'module' });
+    trabalhador ??= new Worker(new URL('./trabalhador.js', import.meta.url), { type: 'module' }); // a second iniciar restarts the match on the same worker
     const opcoes = { semente, unidadesPorTime, avancar, jogadorLocal, teste };
     if (dados) opcoes.dados = dados;
     if (partida) opcoes.partida = partida;

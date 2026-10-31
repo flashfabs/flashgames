@@ -1,12 +1,13 @@
 // Minimap on a 2D canvas, redrawn at most every 100 ms: terrain background drawn once, fog overlay, buildings as
 // squares and units as dots, pulsing rings where the player is under attack, and the camera rectangle. A click (or a
-// drag) moves the camera; a context click sends the selected units there, as on the battlefield.
+// drag) moves the camera, letting go of a scripted camera move first; a context click sends the selected units there,
+// as on the battlefield.
 import { FP, VISAO } from '../sim/contratos.js';
 
 const INTERVALO_MS = 100;
 const PERIODO_DO_PULSO_MS = 900;
 
-export function criarMinimapa({ minimapa, camera, estado, render, catalogo, alertas, aoOrdenar }) {
+export function criarMinimapa({ minimapa, camera, estado, render, catalogo, alertas, aoOrdenar, soltarCamera = () => {} }) {
   const ctxMini = minimapa.getContext('2d');
   const fundoMini = document.createElement('canvas');
   const neblinaMini = document.createElement('canvas');
@@ -89,6 +90,7 @@ export function criarMinimapa({ minimapa, camera, estado, render, catalogo, aler
     if (e.button !== 0) return;
     arrastando = true;
     minimapa.setPointerCapture(e.pointerId);
+    soltarCamera();
     Object.assign(camera, ponto);
   });
   minimapa.addEventListener('pointermove', e => {

@@ -12,11 +12,14 @@ import { criarTextos, PROVISORIOS, achatar } from '../site/rts/js/interface/text
 import { criarLeitura, lerFilas, TETO_PADRAO } from '../site/rts/js/interface/leitura.js';
 import { cantoDaPegada, criarColocacao, areaDaRede } from '../site/rts/js/entrada/colocacao.js';
 import { MOTIVOS, RAZAO_DO_MOTIVO } from '../site/rts/js/interface/comandos.js';
-import { resultadoDosEventos, nomeDoArquivo } from '../site/rts/js/interface/fim.js';
+import { resultadoDosEventos, nomeDoArquivo, linhasDoResumo } from '../site/rts/js/interface/fim.js';
+import { criarRadio, duracaoDaFala, quemFala, nomeDoFalante, FALA_MINIMA_MS, FALA_MAXIMA_MS, MAXIMO_NA_FILA } from '../site/rts/js/interface/radio.js';
+import { criarBriefing, falasDoBriefing } from '../site/rts/js/interface/briefing.js';
+import { temposDeReligar, segundosRestantes, criarContagem, PARADA_APOS_PASSOS } from '../site/rts/js/interface/contagem.js';
 import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/som-da-partida.js';
 import { relogio } from '../site/rts/js/interface/hud.js';
 import { criarIndice } from '../site/rts/js/entrada/indice.js';
-import { aplicarObjetivos, ESTADO_DO_OBJETIVO } from '../site/rts/js/interface/objetivos.js';
+import { aplicarObjetivos, contarObjetivos, ESTADO_DO_OBJETIVO } from '../site/rts/js/interface/objetivos.js';
 import { criarOrdens, MAXIMO_POR_COMANDO } from '../site/rts/js/entrada/ordens.js';
 import {
   EVENTO, TAMANHO_EVENTO, FP, BANDEIRA, CATEGORIA, MOTIVO, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE,
@@ -342,11 +345,14 @@ test('sounds of the match fade with distance from the camera', () => {
 
 test('objectives follow OBJETIVO events: index times four plus the state', () => {
   const estados = [0, 0, 0];
-  assert.ok(aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.ATIVO }), evento(EVENTO.OBJETIVO, -1, { arg: 2 * 4 + ESTADO_DO_OBJETIVO.ATIVO }))));
+  assert.deepEqual(aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.ATIVO }), evento(EVENTO.OBJETIVO, -1, { arg: 2 * 4 + ESTADO_DO_OBJETIVO.ATIVO }))), [0, 2]);
   assert.deepEqual(estados, [1, 0, 1]);
   aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.CUMPRIDO }), evento(EVENTO.OBJETIVO, -1, { arg: 9 * 4 + 1 })));
   assert.deepEqual(estados, [2, 0, 1], 'an index beyond the list is ignored');
-  assert.ok(!aplicarObjetivos(estados, eventos(evento(EVENTO.TIRO, 1))));
+  assert.deepEqual(aplicarObjetivos(estados, eventos(evento(EVENTO.TIRO, 1))), []);
+  // the end screen counts done and total by kind, hidden optional ones in the total
+  const lista = [{ tipo: 'principal' }, { tipo: 'opcional' }, { tipo: 'principal' }];
+  assert.deepEqual(contarObjetivos(lista, estados), { principais: { feitos: 1, total: 2 }, opcionais: { feitos: 0, total: 1 } });
 });
 
 test('a selection bigger than one command allows goes in parts, and building commands carry their fields', () => {
@@ -383,4 +389,123 @@ test('the match clock reads game time from the tick', () => {
 
 test('each record of the event fixture has the C3 size', () => {
   assert.equal(evento(EVENTO.TIRO, 1).length, TAMANHO_EVENTO);
+});
+
+// A stand-in for the few DOM elements the radio, the briefing and the countdown touch.
+function elemento() {
+  const ouvintes = {};
+  const filhos = {};
+  return {
+    hidden: true,
+    textContent: '',
+    innerHTML: '',
+    dataset: {},
+    focus() {},
+    addEventListener: (tipo, f) => (ouvintes[tipo] = f),
+    clicar: () => ouvintes.click?.({}),
+    querySelector: seletor => (filhos[seletor] ??= elemento()),
+  };
+}
+const textosC11 = JSON.parse(readFileSync(new URL('../site/rts/dados/textos/pt-BR.json', import.meta.url), 'utf8'));
+const textoC11 = criarTextos(textosC11);
+const missaoMorro = JSON.parse(readFileSync(new URL('../site/rts/dados/missoes/morro-aceso.json', import.meta.url), 'utf8'));
+const entidadesMorro = JSON.parse(readFileSync(new URL('../site/rts/dados/mapas/morro-aceso/entidades.json', import.meta.url), 'utf8'));
+
+test('the radio plays one line at a time for its reading time, only while the match runs, and names who speaks', () => {
+  assert.equal(quemFala('radio.supervisora.morro_chegada'), 'supervisora');
+  assert.equal(quemFala('briefing.morro-aceso.3.locutor'), 'locutor');
+  assert.equal(quemFala('alerta.morro_onda_ponte'), null, 'an attack warning is not a radio line');
+  assert.equal(nomeDoFalante('supervisora', textoC11), textoC11('falante.supervisora'));
+  assert.equal(nomeDoFalante('carteiro', textoC11), 'Carteiro');
+  assert.equal(duracaoDaFala(''), FALA_MINIMA_MS);
+  assert.equal(duracaoDaFala('x'.repeat(1000)), FALA_MAXIMA_MS);
+  const raiz = elemento();
+  const escolhidos = [];
+  const radio = criarRadio({ raiz, texto: textoC11, aoEscolher: f => escolhidos.push(f) });
+  assert.equal(radio.falar({ id: 'alerta.morro_onda_ponte' }), false, 'the caller lists it as an alert');
+  assert.equal(radio.noAr, null);
+  assert.ok(radio.falar({ id: 'radio.supervisora.morro_chegada', x: 60, y: 90, semLugar: false }));
+  assert.ok(radio.falar({ id: 'radio.locutor.morro_abertura' }));
+  assert.equal(raiz.hidden, false);
+  assert.equal(raiz.querySelector('[data-legenda]').textContent, textoC11('radio.supervisora.morro_chegada'));
+  assert.equal(raiz.querySelector('[data-nome]').textContent, textoC11('falante.supervisora'));
+  assert.equal(raiz.querySelector('[data-retrato]').dataset.quem, 'supervisora');
+  raiz.clicar();
+  assert.deepEqual([escolhidos[0].x, escolhidos[0].y], [60, 90], 'a click goes to where the line points');
+  radio.atualizar(FALA_MAXIMA_MS, true);
+  assert.equal(radio.noAr.id, 'radio.supervisora.morro_chegada', 'a paused match keeps the line up');
+  radio.atualizar(FALA_MAXIMA_MS, false);
+  assert.equal(radio.noAr.id, 'radio.locutor.morro_abertura', 'then the next one');
+  radio.atualizar(FALA_MAXIMA_MS, false);
+  assert.equal(radio.noAr, null);
+  assert.equal(raiz.hidden, true);
+  // a burst of lines keeps only the newest few waiting behind the one on air
+  for (let k = 0; k < MAXIMO_NA_FILA + 4; k++) radio.falar({ id: k % 2 ? 'radio.locutor.morro_rolimas' : 'radio.supervisora.morro_faisca' });
+  assert.equal(radio.fila.length, MAXIMO_NA_FILA);
+  radio.limpar();
+  assert.equal(radio.noAr, null);
+  assert.equal(radio.fila.length, 0);
+});
+
+test('the briefing shows the mission lines in order, moves on by itself, and tells whether it was skipped', () => {
+  const falas = falasDoBriefing('morro-aceso', textoC11.ids());
+  assert.deepEqual(falas.map(f => f.n), [1, 2, 3, 4, 5]);
+  assert.deepEqual(falas.map(f => f.quem), ['supervisora', 'supervisora', 'locutor', 'locutor', 'supervisora']);
+  assert.equal(falasDoBriefing('caixa-de-areia', textoC11.ids()).length, 0);
+  let agora = 0;
+  const fins = [];
+  const raiz = elemento();
+  const briefing = criarBriefing({ raiz, texto: textoC11, falas, aoTerminar: f => fins.push(f), agora: () => agora });
+  assert.ok(briefing.abrir());
+  assert.equal(raiz.hidden, false);
+  assert.equal(raiz.querySelector('[data-legenda]').textContent, textoC11(falas[0].id));
+  assert.equal(raiz.querySelector('[data-contador]').textContent, '1/5');
+  briefing.atualizar(FALA_MAXIMA_MS);
+  assert.equal(briefing.indice, 1, 'a line moves on after its reading time');
+  raiz.querySelector('[data-briefing="proxima"]').clicar();
+  assert.equal(briefing.indice, 2);
+  agora = 12_340;
+  raiz.querySelector('[data-briefing="pular"]').clicar();
+  assert.deepEqual(fins, [{ pulado: true, segundos: 12.3, vistas: 3, total: 5 }]);
+  assert.equal(raiz.hidden, true);
+  assert.equal(briefing.aberto, false);
+  // watched to the end: the last button starts the mission
+  const outro = criarBriefing({ raiz: elemento(), texto: textoC11, falas, aoTerminar: f => fins.push(f), agora: () => agora });
+  outro.abrir();
+  for (let k = 0; k < falas.length; k++) outro.proxima();
+  assert.equal(fins.at(-1).pulado, false);
+  assert.equal(fins.at(-1).vistas, 5);
+  assert.equal(criarBriefing({ raiz: elemento(), texto: textoC11, falas: [], aoTerminar: () => {} }).abrir(), false, 'no briefing, nothing opens');
+});
+
+test('the re-powering countdown reads the snapshot progress and the mission time of this difficulty', () => {
+  assert.equal(temposDeReligar(missaoMorro, entidadesMorro, 'facil').get('subestacao'), 60);
+  assert.equal(temposDeReligar(missaoMorro, entidadesMorro, 'dificil').get('subestacao'), 120);
+  assert.equal(temposDeReligar(missaoMorro, entidadesMorro, 'normal').get('caminhao-tombado'), 15);
+  assert.equal(temposDeReligar(null, null, 'normal', [{ nome: 'torre-antiga', tempoReligarMs: 20000 }]).get('torre-antiga'), 20, 'without the mission, the C5 time');
+  assert.equal(segundosRestantes(0, 90), 90);
+  assert.equal(segundosRestantes(127, 90), 46);
+  assert.equal(segundosRestantes(254, 90), 1);
+  const mapa = { tipos: [tipoEstatico({ nome: 'subestacao', categoria: CATEGORIA.ESTRUTURA, pegada: [5, 4] }), tipoEstatico({ nome: 'religador' })] };
+  const cat = catalogoDoMapa(mapa, textoComNomes);
+  const raiz = elemento();
+  const contagem = criarContagem({ raiz, texto: textoC11, catalogo: () => cat, tempos: () => new Map([['subestacao', 90]]) });
+  const retrato = (tick, progresso) => ({ tick, n: 2, id: Int32Array.of(7, 8), tipo: Uint16Array.of(0, 1), dono: Uint8Array.of(255, 0), progresso: Uint8Array.of(progresso, 255) });
+  assert.deepEqual(contagem.atualizar(retrato(100, 255)), [], 'nobody at it, no countdown');
+  assert.equal(raiz.hidden, true);
+  const [linha] = contagem.atualizar(retrato(130, 127));
+  assert.deepEqual([linha.segundos, linha.parada], [46, false]);
+  assert.equal(raiz.hidden, false);
+  assert.match(raiz.innerHTML, /faltam 46 s/);
+  assert.equal(contagem.atualizar(retrato(130 + PARADA_APOS_PASSOS + 1, 127))[0].parada, true, 'no progress for a moment reads as stopped');
+  assert.match(raiz.innerHTML, /parada em 49%/);
+  assert.equal(contagem.atualizar(retrato(200, 130))[0].parada, false);
+});
+
+test('the end screen summary says time, objectives, veterans and harvesters lost', () => {
+  const linhas = linhasDoResumo({ tick: 30 * 754, objetivos: { principais: { feitos: 4, total: 5 }, opcionais: { feitos: 1, total: 5 } }, veteranos: 3, coletoresPerdidos: 2 });
+  assert.deepEqual(linhas.map(([id]) => id), ['resultado.tempo', 'resultado.objetivos', 'resultado.veteranos', 'resultado.coletores_perdidos']);
+  assert.equal(textoC11(...linhas[0]), 'Tempo: 12:34');
+  assert.equal(textoC11(...linhas[1]), 'Objetivos: 4 de 5 principais, 1 de 5 opcionais');
+  assert.deepEqual(linhasDoResumo({ tick: 0 }).map(([id]) => id), ['resultado.tempo', 'resultado.veteranos'], 'the prototype has no objectives nor harvesters count');
 });
