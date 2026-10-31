@@ -99,6 +99,8 @@ test('fast-forward, commands and pause go through the bridge', async () => {
   assert.equal(rts.registro(), null);
   const comRegistro = ligarGancho({}, { simulacao: ponte, estado, obterRegistro: () => ({ versao: 1, eventos: [{ passo: 3, tipo: 'tiro' }] }) });
   assert.deepEqual(comRegistro.registro().eventos, [{ passo: 3, tipo: 'tiro' }]);
+  const instancia = { anotar() {}, exportar: () => ({ versao: 1, resultado: 'vitoria', eventos: [] }) };
+  assert.equal(ligarGancho({}, { simulacao: ponte, estado, obterRegistro: () => instancia }).registro().resultado, 'vitoria');
   assert.throws(() => ligarGancho({}, { simulacao: { ...ponte, avancar: undefined }, estado }).avancar(1), /AVANCAR/);
 });
 

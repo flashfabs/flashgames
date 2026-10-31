@@ -179,9 +179,10 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
     tipoDe: nome => estado.mapa?.tipos?.findIndex(tipo => tipo.nome === nome) ?? -1,
     FAIXA,
     celula: n => n * FP + (FP >> 1),
-    /** The play-test log (C15) as plain data, or null while the page has none. */
+    /** The play-test log (C15) as plain data, or null while the page has none; the page's log instance exports it. */
     registro: () => {
-      const registro = obterRegistro?.() ?? null;
+      const fonte = obterRegistro?.() ?? null;
+      const registro = typeof fonte?.exportar === 'function' ? fonte.exportar() : fonte;
       return registro === null ? null : JSON.parse(JSON.stringify(registro));
     },
     comando,

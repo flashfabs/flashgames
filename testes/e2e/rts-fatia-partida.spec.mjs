@@ -144,7 +144,7 @@ test('defeat: without headquarters, forward post and maintenance crew the player
   }
 });
 
-test('victory: holding the base through the six waves wins, and the log reads in the pacing checker', async ({ page }) => {
+test('victory: an army built at the base takes the camp down, and the log reads in the pacing checker', async ({ page }) => {
   test.setTimeout(10 * 60 * 1000);
   await abrirCaixa(page);
   const inicio = await retrato(page);
@@ -157,15 +157,21 @@ test('victory: holding the base through the six waves wins, and the log reads in
   const turma = await tipoDe(page, 'turma-de-linha');
   const guarda = { x: qg.x + 6 * 1024, y: qg.y - 6 * 1024 };
   await comando(page, { tipo: 'PONTO_DE_ENCONTRO', unidades: [alojamento.id], x: guarda.x, y: guarda.y });
-  // a plain defensive plan: keep the barracks busy, keep everyone at the guard point, let the waves come
+  const acampamento = ['barracao', 'ferraria-a-vapor', 'carrocao-mae'];
+  // a plain plan: keep the barracks busy, gather a dozen squads at the guard point, then take the camp building by building
   const fim = inicio.tick + 25 * MINUTO;
+  let atacando = false;
   let r = await retrato(page);
   while ((await eventos(page, 'VITORIA')).length === 0 && (await eventos(page, 'DERROTA')).length === 0 && r.tick < fim) {
     const fila = r.filas.find(f => f.produtor === alojamento.id);
     if (fila && fila.faixas.UNIDADES.itens.length < 2 && r.recursos[0] >= 100) await comando(page, { tipo: 'PRODUZIR', unidades: [alojamento.id], arg: turma });
-    const paradas = r.entidades.filter(e => e.dono === 0 && e.nome === 'turma-de-linha' && (e.bandeiras & 1) && Math.hypot(e.x - guarda.x, e.y - guarda.y) > 4 * 1024).map(e => e.id);
-    if (paradas.length > 0) await comando(page, { tipo: 'ATACAR_MOVENDO', unidades: paradas, x: guarda.x, y: guarda.y });
-    r = await avancar(page, 15 * SEGUNDO);
+    const exercito = minhas(r, 'turma-de-linha');
+    atacando ||= exercito.length >= 12 || r.tick - inicio.tick > 12 * MINUTO;
+    const alvo = acampamento.map(nome => deles(r, nome)[0]).find(Boolean);
+    const paradas = exercito.filter(e => e.bandeiras & 1).map(e => e.id);
+    if (atacando && alvo && paradas.length > 0) await comando(page, { tipo: 'ATACAR', unidades: paradas, alvo: alvo.id });
+    else if (!atacando && paradas.length > 0) await comando(page, { tipo: 'ATACAR_MOVENDO', unidades: paradas, x: guarda.x, y: guarda.y });
+    r = await avancar(page, 10 * SEGUNDO);
   }
   expect((await eventos(page, 'DERROTA')).length, 'derrota antes da vitória').toBe(0);
   expect((await eventos(page, 'VITORIA')).length, 'VITORIA em até 25 min de jogo').toBeGreaterThan(0);
