@@ -4,7 +4,8 @@
 // the evaluator's state (fired triggers, variables, timers, objectives, labels, result) lives in sim.extras.missao.
 //
 // Mission format, integers only, positions in cells, times in seconds; any number may instead be
-// { "facil": a, "normal": b, "dificil": c }, picked by opcoes.dificuldade (0, 1 or 2; 1 by default):
+// { "facil": a, "normal": b, "dificil": c }, picked by opcoes.dificuldade ('facil', 'normal' or 'dificil', or 0, 1 or
+// 2; normal by default):
 //   { "versao": 1, "id": "caixa-de-areia", "mapa"?, "titulo"?, "jogadores"? (read by the match setup),
 //     "objetivos": [{ "id": "montar", "texto": "<C11 id>", "tipo": "principal" | "opcional" }],
 //     "areas": { "<nome>": { "x", "y", "largura", "altura" } }, "pontos": { "<nome>": [x, y] },
@@ -57,6 +58,11 @@ export const RESULTADO = Object.freeze({ JOGANDO: 0, VITORIA: 1, DERROTA: 2 });
 const NOMES_ESTADO = { ativo: ESTADO_OBJETIVO.ATIVO, cumprido: ESTADO_OBJETIVO.CUMPRIDO, falhou: ESTADO_OBJETIVO.FALHOU };
 const ORDENS = { mover: TIPO_COMANDO.MOVER, atacarMovendo: TIPO_COMANDO.ATACAR_MOVENDO, patrulhar: TIPO_COMANDO.PATRULHAR, parar: TIPO_COMANDO.PARAR, segurar: TIPO_COMANDO.SEGURAR_POSICAO };
 const DIFICULDADES = ['facil', 'normal', 'dificil'];
+/** Difficulty index 0..2 from its name or index; normal for anything else. */
+export function indiceDificuldade(d) {
+  const k = typeof d === 'string' ? DIFICULDADES.indexOf(d) : Number.isInteger(d) && d >= 0 && d <= 2 ? d : -1;
+  return k < 0 ? 1 : k;
+}
 const MAX_VALOR = 0x3fffffff;
 const segundosParaPassos = s => s * PASSOS_POR_SEGUNDO;
 
@@ -124,18 +130,17 @@ export function cronometrosDaMissao(missao) {
   return nomes;
 }
 
-const DIFICULDADES_DE = ['facil', 'normal', 'dificil'];
-
 /**
  * Sizes and starting values of the evaluator's state, from the mission JSON alone (no kinds, places or nodes), so the
  * state can be made before the map is in: triggers and whether each starts active, variables' starting values at the
  * difficulty, timers and objectives. compilarMissao checks the same file in full.
  */
-export function formaDaMissao(missao, dificuldade = 1) {
+export function formaDaMissao(missao, dificuldade) {
+  const indice = indiceDificuldade(dificuldade);
   const gatilhos = Array.isArray(missao?.gatilhos) ? missao.gatilhos : [];
   const declaradas = Array.isArray(missao?.variaveis) ? missao.variaveis : Object.entries(missao?.variaveis ?? {}).map(([nome, valor]) => ({ nome, valor }));
   const valor = v => {
-    const escolhido = v && typeof v === 'object' ? v[DIFICULDADES_DE[dificuldade]] : v;
+    const escolhido = v && typeof v === 'object' ? v[DIFICULDADES[indice]] : v;
     return Number.isInteger(escolhido) ? escolhido : 0;
   };
   return {
@@ -168,7 +173,7 @@ export function compilarMissao(missao, contexto) {
   const erros = [];
   const { tipos, times, largura, altura } = contexto;
   const lugares = contexto.lugares ?? {};
-  const dificuldade = contexto.dificuldade ?? 1;
+  const dificuldade = indiceDificuldade(contexto.dificuldade);
   if (!missao || typeof missao !== 'object') throw new Error('missão: não é um objeto');
   if (missao.versao !== VERSAO_MISSAO) erros.push(`versao: ${missao.versao}, esperava ${VERSAO_MISSAO}`);
 
@@ -489,7 +494,7 @@ export function missaoDe(sim) {
  * to, and each player's result. Sized from the mission JSON alone.
  */
 export function criarExtrasMissao(sim) {
-  const f = formaDaMissao(sim.opcoes?.missao ?? null, sim.opcoes?.dificuldade ?? 1);
+  const f = formaDaMissao(sim.opcoes?.missao ?? null, sim.opcoes?.dificuldade);
   return {
     disparos: new Int32Array(f.gatilhos),
     ultimoDisparo: new Int32Array(f.gatilhos).fill(-1),
