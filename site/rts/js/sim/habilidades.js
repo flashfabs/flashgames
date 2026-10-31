@@ -17,11 +17,15 @@ import { limparOrdens } from './ordens.js';
 import { celulaVisivel } from './neblina.js';
 import { msParaPassos, decimosParaMundo } from './armas.js';
 import { ordenarReligar } from './religar.js';
+import { faseDe, FASE } from './empacotar.js';
 
 /** Ability codes of the HABILIDADE command's `arg`. */
 export const HABILIDADE = Object.freeze({ RELIGAR: 1, ERGUER: 2, LEITURA: 3 });
-/** Snapshot flag bits the combat module owns (contratos.js BANDEIRA reserves 512 and up). */
-export const BANDEIRA_COMBATE = Object.freeze({ IMPLANTADO: 512, ATORDOADO: 1024, OCULTO: 2048, LENTO: 4096 });
+/**
+ * Snapshot flag bits the combat module owns (contratos.js BANDEIRA reserves 512 and up). EMPACOTANDO: a building packing
+ * up or a packed one setting up again; EMPACOTADO: a building packed into a unit (empacotar.js), also while it sets up.
+ */
+export const BANDEIRA_COMBATE = Object.freeze({ IMPLANTADO: 512, ATORDOADO: 1024, OCULTO: 2048, LENTO: 4096, EMPACOTANDO: 8192, EMPACOTADO: 16384 });
 /** How far set up a unit is (sim.extras.habilidades.estado). */
 export const ESTADO = Object.freeze({ NORMAL: 0, SUBINDO: 1, IMPLANTADO: 2, DESCENDO: 3 });
 
@@ -193,8 +197,11 @@ export function bandeirasDeCombate(sim, i) {
     if (ex.atordoadoAte[i] > sim.tick) b |= BANDEIRA_COMBATE.ATORDOADO;
     if (ocultoPara(sim, i, -1)) b |= BANDEIRA_COMBATE.OCULTO;
   }
-  const lento = sim.extras?.combate?.lentoAte[i] > sim.tick;
-  return lento ? b | BANDEIRA_COMBATE.LENTO : b;
+  if (sim.extras?.combate?.lentoAte[i] > sim.tick) b |= BANDEIRA_COMBATE.LENTO;
+  const fase = faseDe(sim, i);
+  if (fase === FASE.EMPACOTANDO || fase === FASE.DESEMPACOTANDO) b |= BANDEIRA_COMBATE.EMPACOTANDO;
+  if (fase === FASE.EMPACOTADO || fase === FASE.DESEMPACOTANDO) b |= BANDEIRA_COMBATE.EMPACOTADO;
+  return b;
 }
 
 /** Slot of the enemy building team `time` is reading now, or -1. */

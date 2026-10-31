@@ -5,6 +5,7 @@ import { visaoDoTime } from './neblina.js';
 import { tipoEstatico } from './dados.js';
 import { bandeirasDe } from './bandeiras.js';
 import { trabalhoDaObra } from './pegadas.js';
+import { progressoDoRetrato } from './religar.js';
 import { ocupacaoDosNos } from './economia.js';
 import { lotacaoUsada, registrosDeFila } from './producao.js';
 import { fantasmasDoTime } from './fantasmas.js';
@@ -66,7 +67,7 @@ export function copiarEntidade(sim, i, r, k, ocupacao = null) {
   r.bandeiras[k] = bandeirasDe(sim, i);
   r.alvo[k] = alvo >= 0 ? idDe(alvo, sim.geracao[alvo]) : SEM_ENTIDADE;
   const tipo = sim.tipos[sim.tipo[i]];
-  r.progresso[k] = sim.obra[i] > 0 ? Math.min(254, Math.trunc(((trabalhoDaObra(tipo) - sim.obra[i]) * 255) / trabalhoDaObra(tipo))) : 255;
+  r.progresso[k] = sim.obra[i] > 0 ? Math.min(254, Math.trunc(((trabalhoDaObra(tipo) - sim.obra[i]) * 255) / trabalhoDaObra(tipo))) : progressoDoRetrato(sim, i);
   r.carga[k] = fracaoDeCarga(sim, i, tipo);
   r.ocupacao[k] = ocupacao && tipo.categoria === CATEGORIA.RECURSO && sim.no[i] >= 0 ? Math.min(255, ocupacao[sim.no[i]]) : 0;
   r.ligacao[k] = sim.ligacao[i] >= 0 ? idDe(sim.ligacao[i], sim.geracao[sim.ligacao[i]]) : SEM_ENTIDADE;

@@ -805,7 +805,7 @@ test('shots, hits and deaths spawn the effects of their damage kind; LUZ goes to
 
 test('lit buildings cast a pool of light as the evening reaches them, searchlights a cone along their turret', () => {
   const projecao = criarProjecao(copia());
-  const tipos = [...TIPOS_TESTE, { nome: 'torre-de-holofote', categoria: CATEGORIA.PREDIO, asset: '', pegada: [2, 2], holofote: { alcance: 10, abertura: 30 } }];
+  const tipos = [...TIPOS_TESTE, { nome: 'torre-de-holofote', categoria: CATEGORIA.PREDIO, asset: '', pegada: [2, 2], holofote: { alcance: 100, abertura: 24, giroPorSegundo: 16 } }];
   const folhas = folhasDePredios();
   const torre = { ...folhas.folha('ficha-poste'), asset: 'ficha-torre-de-holofote' };
   let forcaDaLuz = 0;
@@ -829,5 +829,5 @@ test('lit buildings cast a pool of light as the evening reaches them, searchligh
   assert.equal(m.cones.n, 1);
   const c = m.cones.dados;
   assert.ok(Math.abs(c[2]) < 1e-9 && Math.abs(c[3] - 10) < 1e-9, 'pointing south (turret 64) for its reach');
-  assert.ok(Math.abs(c[6] - (15 * Math.PI) / 180) < 1e-6, "half its opening");
+  assert.ok(Math.abs(c[6] - (12 / 256) * 2 * Math.PI) < 1e-6, "half its opening, in 256ths of a turn");
 });

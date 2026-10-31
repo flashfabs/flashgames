@@ -63,6 +63,8 @@ export function criarExtrasCombate(sim) {
       pocaTime: new Uint8Array(MAX_POCAS), // team of the shooter: the patch slows its enemies
       pocaSoVeiculo: new Uint8Array(MAX_POCAS), // 1: only vehicles (caltrops catch wheels)
       pocaDuracao: new Int32Array(MAX_POCAS), // ticks the slow lasts after leaving the patch
+      atingidoEm: new Int32Array(sim.capacidade), // last tick the entity took damage
+      atingidoGeracao: new Uint16Array(sim.capacidade), // the generation that was
   };
 }
 // saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
@@ -73,6 +75,12 @@ export function extrasCombate(sim) {
   sim.extras ??= {};
   sim.extras.combate ??= criarExtrasCombate(sim);
   return sim.extras.combate;
+}
+
+/** Last tick live entity i took damage, or a very old tick when it never did (missions read it). */
+export function atingidoEm(sim, i) {
+  const ex = sim.extras?.combate;
+  return ex && ex.atingidoGeracao[i] === sim.geracao[i] && ex.atingidoEm[i] > 0 ? ex.atingidoEm[i] : -0x40000000;
 }
 
 /** Event record at a point of the ground (contratos.js layout), for blasts and mission events; i may be -1. */
@@ -224,6 +232,8 @@ function acertar(sim, c, ex, j, arma, danoBase, autor, nivelOrigem, fator) {
   const dano = calcularDano(sim, arma, danoBase, nivelOrigem, j, fator);
   const antes = sim.vida[j];
   sim.vida[j] = antes - dano;
+  ex.atingidoEm[j] = sim.tick;
+  ex.atingidoGeracao[j] = sim.geracao[j];
   emitirEvento(sim, EVENTO.IMPACTO, j, autor, arma);
   alertar(sim, ex, j, autor);
   const lentidao = c.armas[arma].lentidao;

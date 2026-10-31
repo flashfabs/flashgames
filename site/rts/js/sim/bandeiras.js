@@ -2,6 +2,7 @@
 import { BANDEIRA, CATEGORIA, FAIXA_ESTADO } from './contratos.js';
 import { TAREFA } from './estado.js';
 import { LIMITE_SEM_PROGRESSO } from './movimento.js';
+import { bandeirasDeCombate } from './habilidades.js';
 
 /** BANDEIRA.* bits of a live entity. */
 export function bandeirasDe(sim, i) {
@@ -16,5 +17,5 @@ export function bandeirasDe(sim, i) {
   if (categoria === CATEGORIA.RECURSO && sim.carga[i] === 0) b |= BANDEIRA.ESGOTADO;
   const filas = sim.extras.producao;
   if (filas && (filas.estado[2 * i] === FAIXA_ESTADO.PRODUZINDO || filas.estado[2 * i + 1] === FAIXA_ESTADO.PRODUZINDO)) b |= BANDEIRA.PRODUZINDO;
-  return b;
+  return b | bandeirasDeCombate(sim, i);
 }
