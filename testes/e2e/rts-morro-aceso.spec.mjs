@@ -17,6 +17,11 @@ const MISSAO = ler('missoes/morro-aceso.json');
 const ENTIDADES_DO_MAPA = ler(`mapas/${MISSAO.mapa}/entidades.json`);
 // the mission's dusk, the latest a match can last, in minutes per difficulty
 const ANOITECER = { facil: 45, normal: 40, dificil: 35 };
+// A whole match in the page takes about 10 min of wall clock on GitHub's runner (against seconds on the PC), too long for
+// the Action's 30 min: there the browser victory is left to the PC runs, and rts-missoes-node.spec.mjs plays the same
+// scripted matches in Node.
+const NO_GITHUB = process.env.CI === 'true';
+const PULO_NO_GITHUB = 'a vitória no navegador roda no PC; no GitHub, a mesma partida no Node (rts-missoes-node.spec.mjs)';
 
 /** Opens the mission with the hook and the clock paused. */
 async function abrirMissao(page, dificuldade) {
@@ -55,6 +60,7 @@ for (const dificuldade of ['facil', 'normal', 'dificil']) {
 
 test('morro-aceso, normal: escorting the Religador to the substation wins, its replay matches, and the log reads in both checkers', async ({ page }) => {
   test.setTimeout(15 * 60 * 1000);
+  test.skip(NO_GITHUB, PULO_NO_GITHUB);
   await abrirMissao(page, 'normal');
   const mapa = await page.evaluate(() => ({ tipos: window.__rts.estado.mapa.tipos.map(({ nome, custo, categoria }) => ({ nome, custo, categoria })) }));
   const roteiro = criarRoteiro(opcoesDaMissao('morro-aceso', ENTIDADES_DO_MAPA));

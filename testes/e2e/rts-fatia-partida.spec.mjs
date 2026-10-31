@@ -11,6 +11,11 @@ import { criarRoteiro, decidir, DECISAO_SEGUNDOS } from './rts-roteiro.mjs';
 
 const SEGUNDO = 30;
 const MINUTO = 60 * SEGUNDO;
+// A whole match in the page takes about 10 min of wall clock on GitHub's runner (against seconds on the PC), too long for
+// the Action's 30 min: there the browser victory is left to the PC runs, and rts-missoes-node.spec.mjs plays the same
+// scripted matches in Node.
+const NO_GITHUB = process.env.CI === 'true';
+const PULO_NO_GITHUB = 'a vitória no navegador roda no PC; no GitHub, a mesma partida no Node (rts-missoes-node.spec.mjs)';
 
 /** Opens the sandbox with the hook and the clock paused; skips while the page does not open the sandbox yet. */
 async function abrirCaixa(page) {
@@ -152,6 +157,7 @@ test('defeat: without headquarters, forward post, garage and maintenance crew th
 
 test('victory: holding the base and the harvested yard through the six waves wins, its replay matches, and the log reads in the pacing checker', async ({ page }) => {
   test.setTimeout(10 * 60 * 1000);
+  test.skip(NO_GITHUB, PULO_NO_GITHUB);
   await abrirCaixa(page);
   // the scripted player of rts-roteiro.mjs, tuned against the real simulation in Node: it wins on Normal at about 20 min
   const mapa = await page.evaluate(() => ({ tipos: window.__rts.estado.mapa.tipos.map(({ nome, custo, categoria }) => ({ nome, custo, categoria })) }));
