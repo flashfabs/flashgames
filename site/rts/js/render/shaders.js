@@ -545,7 +545,7 @@ uniform vec2 uOrigem;      // top-left pixel of the frame cell in the layer
 uniform float uCelula;     // frame cell size in px
 uniform float uPxNivel;    // px per cell the frames are drawn at
 uniform float uAngulo;     // map angle of this frame, radians clockwise on screen from east
-uniform int uForma;        // 0 light vehicle body, 1 tank body, 2 light vehicle gun, 3 tank turret
+uniform int uForma;        // 0 light vehicle body, 1 tank body, 2 light vehicle gun, 3 tank turret, 4 soldier, 5 spark
 layout(location = 0) out vec4 cor;
 layout(location = 1) out vec4 time;
 float caixa(vec2 p, vec2 b, float r) { vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
@@ -579,6 +579,18 @@ void main() {
     c = vec3(0.12);
     if (chassi < 0.0) { c = vec3(0.55); mascara = 0.55; }
     if (gaiola < 0.0) { c = vec3(0.25, 0.22, 0.2); mascara = 0.0; }
+  } else if (uForma == 4) {
+    float ombros = caixa(p, vec2(0.07, 0.14), 0.065);
+    float cabeca = length(p - vec2(0.02, 0.0)) - 0.07;
+    float arma = caixa(p - vec2(0.13, 0.07), vec2(0.13, 0.016), 0.006);
+    dist = min(min(ombros, cabeca), arma);
+    c = vec3(0.2);
+    if (ombros < 0.0) { c = vec3(0.5); mascara = 0.9; }
+    if (cabeca < 0.0) { c = vec3(0.62, 0.56, 0.48); mascara = 0.0; }
+  } else if (uForma == 5) {
+    float r = length(local);
+    dist = r - 0.2;
+    c = mix(vec3(1.0, 0.95, 0.6), vec3(1.0, 0.6, 0.15), smoothstep(0.0, 0.2, r)) * (1.0 - smoothstep(0.05, 0.2, r)) * 2.0;
   } else {
     dist = caixa(p - vec2(0.14, 0.0), vec2(0.15, 0.022), 0.01);
     c = vec3(0.18);
@@ -587,6 +599,120 @@ void main() {
   float largura = 1.2 / uPxNivel;
   c = mix(c, vec3(0.05), smoothstep(-largura * 1.6, -largura * 0.2, dist));
   float a = 1.0 - smoothstep(-largura * 0.5, largura * 0.5, dist);
+  cor = vec4(c * a, a);
+  time = vec4(mascara * a, 0.0, 0.0, 1.0);
+}`;
+
+// Placeholder buildings drawn on the GPU into the sprite layers (colour and team mask at once), until the grey kit
+// arrives: a box with the footprint (uPegada cells) and height (uAlturaPredio metres) seen by the game's camera, so only its
+// top and its south face show. uAncora is the anchor (footprint centre on the ground) inside the frame, in px from the
+// frame's first row (the sprite's top). Shapes: 0 building, 1 pole, 2 battery pile, 3 lattice tower, 4 windmill.
+export const FORMA_PREDIO = Object.freeze({ PREDIO: 0, POSTE: 1, PILHA: 2, TORRE: 3, CATA_VENTO: 4 });
+export const FRAG_FICHA_PREDIO = `${CABECALHO}${RUIDO}
+uniform vec2 uOrigem;
+uniform vec2 uAncora;
+uniform float uPxNivel;
+uniform vec2 uPegada;
+uniform float uAlturaPredio;
+uniform int uForma;
+uniform float uSemente;
+layout(location = 0) out vec4 cor;
+layout(location = 1) out vec4 time;
+
+// What the camera sees of an axis-aligned box centred at (cx, cy) on the ground plane, half sizes (hx, hy), from z0 to
+// z1 metres: 1 on the top, 2 on the south face, 0 outside; local is (cells across, screen cells down) from the anchor,
+// and q receives the map point hit (x, y, z).
+int caixa(vec2 local, vec2 c, vec2 meia, float z0, float z1, out vec3 q) {
+  float s = uCamPx.w, k = uRes.z / uRes.w;
+  float dx = local.x - c.x;
+  if (abs(dx) > meia.x) return 0;
+  float yTopo = (local.y + z1 * k) / s;
+  if (abs(yTopo - c.y) <= meia.y) { q = vec3(local.x, yTopo, z1); return 1; }
+  float z = ((c.y + meia.y) * s - local.y) / k;
+  if (z >= z0 && z <= z1) { q = vec3(local.x, c.y + meia.y, z); return 2; }
+  return 0;
+}
+
+void main() {
+  vec2 local = (gl_FragCoord.xy - uOrigem - uAncora) / uPxNivel;
+  vec3 q;
+  vec3 c = vec3(0.0);
+  float a = 0.0;
+  float mascara = 0.0;
+  vec2 meia = uPegada * 0.5;
+  if (uForma == 0) {
+    // body inset from the footprint, a parapet on the roof, a door and a team band on the front
+    vec2 corpo = meia - 0.12;
+    int f = caixa(local, vec2(0.0), corpo, 0.0, uAlturaPredio, q);
+    if (f == 1) {
+      vec2 borda = corpo - abs(q.xy);
+      float parapeito = 1.0 - smoothstep(0.08, 0.12, min(borda.x, borda.y));
+      c = mix(vec3(0.6, 0.6, 0.58), vec3(0.74, 0.73, 0.7), parapeito);
+      c *= 0.92 + 0.12 * ruido(q.xy * 3.0 + uSemente);
+      // a vent box on the roof
+      vec2 v = q.xy - vec2(corpo.x * 0.4, -corpo.y * 0.3);
+      if (all(lessThan(abs(v), vec2(0.22, 0.16)))) c *= 0.75;
+      a = 1.0;
+    } else if (f == 2) {
+      float zRel = q.z / uAlturaPredio;
+      c = vec3(0.47, 0.47, 0.46) * (0.9 + 0.1 * ruido(vec2(q.x * 4.0, q.z) + uSemente));
+      if (zRel > 0.78 && zRel < 0.9) { c = vec3(0.55); mascara = 1.0; }
+      bool porta = abs(q.x) < min(0.45, corpo.x * 0.35) && q.z < min(2.6, uAlturaPredio * 0.55);
+      if (porta) c = vec3(0.16, 0.16, 0.17);
+      float janela = step(0.5, fract(q.x * 1.6)) * step(0.45, zRel) * step(zRel, 0.62);
+      if (!porta && janela > 0.5 && abs(q.x) < corpo.x - 0.25) c = vec3(0.24, 0.27, 0.3);
+      a = 1.0;
+    }
+  } else if (uForma == 1 || uForma == 4) {
+    // concrete base, a post, and a crossarm (pole) or three blades (windmill) at the top
+    if (caixa(local, vec2(0.0), vec2(0.22), 0.0, 0.25, q) > 0) { c = vec3(0.55); a = 1.0; }
+    float topoPx = -uAlturaPredio * uRes.z / uRes.w;
+    if (abs(local.x) < 0.05 && local.y > topoPx && local.y < 0.0) { c = vec3(0.42, 0.36, 0.3) * (0.8 + 0.4 * smoothstep(0.05, -0.05, local.x)); a = 1.0; }
+    if (uForma == 1) {
+      vec2 braco = local - vec2(0.0, topoPx + 0.12);
+      if (abs(braco.x) < 0.36 && abs(braco.y) < 0.035) { c = vec3(0.3); a = 1.0; }
+      for (int i = -1; i <= 1; i += 2) {
+        vec2 iso = braco - vec2(float(i) * 0.28, -0.06);
+        if (length(iso) < 0.045) { c = vec3(0.85, 0.85, 0.8); a = 1.0; }
+      }
+      if (local.y > topoPx * 0.55 && local.y < topoPx * 0.45 && abs(local.x) < 0.06) { c = vec3(0.6); mascara = 1.0; a = 1.0; }
+    } else {
+      vec2 cubo = local - vec2(0.0, topoPx);
+      float ang = atan(cubo.y, cubo.x);
+      float pa = abs(fract(ang / 6.2831853 * 3.0 + 0.1) - 0.5);
+      float r = length(cubo);
+      if (r < 0.75 && pa < 0.06 + 0.04 * (1.0 - r)) { c = vec3(0.78, 0.77, 0.72); mascara = r > 0.5 ? 1.0 : 0.0; a = 1.0; }
+      if (r < 0.08) { c = vec3(0.3); a = 1.0; }
+    }
+  } else if (uForma == 2) {
+    // a cluster of battery crates, darker, with bright terminals; no team
+    for (int i = 0; i < 6; i++) {
+      float fi = float(i);
+      vec2 centro = (vec2(hash(vec2(fi, uSemente)), hash(vec2(uSemente, fi + 3.0))) - 0.5) * (meia * 1.2);
+      vec2 tam = vec2(0.28, 0.2) + 0.1 * hash(vec2(fi * 7.0, uSemente));
+      float alt = 0.9 + 1.1 * hash(vec2(fi, uSemente * 3.0));
+      vec3 qi;
+      int f = caixa(local, centro, tam, 0.0, alt, qi);
+      if (f > 0 && (a == 0.0 || qi.y + qi.z * 0.01 > q.y + q.z * 0.01)) {
+        q = qi;
+        c = f == 1 ? vec3(0.36, 0.38, 0.36) : vec3(0.25, 0.27, 0.26);
+        if (f == 1 && length(fract(qi.xy * 4.0) - 0.5) < 0.16) c = vec3(0.86, 0.9, 0.45);
+        a = 1.0;
+      }
+    }
+  } else {
+    // lattice tower: four legs narrowing to a cabin with a lamp
+    float k = uRes.z / uRes.w;
+    float topoPx = -uAlturaPredio * k;
+    float t = clamp(local.y / topoPx, 0.0, 1.0);
+    float meiaBase = min(meia.x, 0.6) * mix(1.0, 0.35, t);
+    float perna = min(abs(abs(local.x) - meiaBase), abs(local.x));
+    float travessa = abs(fract(t * 6.0) - 0.5);
+    if (local.y < 0.0 && local.y > topoPx && (perna < 0.03 || (travessa < 0.04 && abs(local.x) < meiaBase))) { c = vec3(0.4); a = 1.0; }
+    if (caixa(local, vec2(0.0, 0.0), vec2(0.42, 0.32), uAlturaPredio, uAlturaPredio + 1.6, q) > 0) { c = vec3(0.55); mascara = 0.8; a = 1.0; }
+    vec2 luz = local - vec2(0.0, -(uAlturaPredio + 1.9) * k);
+    if (length(luz) < 0.13) { c = vec3(1.0, 0.95, 0.7); a = 1.0; }
+  }
   cor = vec4(c * a, a);
   time = vec4(mascara * a, 0.0, 0.0, 1.0);
 }`;

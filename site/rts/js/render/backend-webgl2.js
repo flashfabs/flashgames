@@ -112,6 +112,7 @@ export function criarBackendWebGL2(canvas) {
   const efeito = programa(gl, F.VERT_EFEITO, F.FRAG_EFEITO);
   const ampliar = programa(gl, F.VERT_TELA, F.FRAG_AMPLIAR, { uCena: 5 });
   const ficha = programa(gl, F.VERT_TELA, F.FRAG_FICHA);
+  const fichaPredio = programa(gl, F.VERT_TELA, F.FRAG_FICHA_PREDIO);
 
   const blocoQuadro = gl.createBuffer();
   gl.bindBuffer(gl.UNIFORM_BUFFER, blocoQuadro);
@@ -379,6 +380,43 @@ export function criarBackendWebGL2(canvas) {
         gl.uniform1f(ficha.u.uPxNivel, q.pxNivel);
         gl.uniform1f(ficha.u.uAngulo, q.angulo);
         gl.uniform1i(ficha.u.uForma, q.forma);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      gl.disable(gl.SCISSOR_TEST);
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, null, 0, 0);
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, null, 0, 0);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    },
+
+    /**
+     * Draws placeholder buildings on the GPU into a layer (colour and mask together).
+     * @param {number} camada
+     * @param {{ x: number, y: number, largura: number, altura: number, ancoraX: number, ancoraY: number, pxNivel: number,
+     *   pegada: number[], alturaMetros: number, forma: number, semente: number }[]} quadros
+     * @param {Float32Array} quadroComum uniform block contents (the projection is read)
+     */
+    desenharFichasPredio(camada, quadros, quadroComum) {
+      escreverQuadro(quadroComum);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, escrita);
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, camadas.cor, 0, camada);
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, camadas.time, 0, camada);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.disable(gl.BLEND);
+      gl.disable(gl.DEPTH_TEST);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.useProgram(fichaPredio.p);
+      gl.bindVertexArray(vaoTela);
+      for (const q of quadros) {
+        gl.viewport(q.x, q.y, q.largura, q.altura);
+        gl.scissor(q.x, q.y, q.largura, q.altura);
+        gl.uniform2f(fichaPredio.u.uOrigem, q.x, q.y);
+        gl.uniform2f(fichaPredio.u.uAncora, q.ancoraX, q.ancoraY);
+        gl.uniform1f(fichaPredio.u.uPxNivel, q.pxNivel);
+        gl.uniform2f(fichaPredio.u.uPegada, q.pegada[0], q.pegada[1]);
+        gl.uniform1f(fichaPredio.u.uAlturaPredio, q.alturaMetros);
+        gl.uniform1i(fichaPredio.u.uForma, q.forma);
+        gl.uniform1f(fichaPredio.u.uSemente, q.semente);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
       gl.disable(gl.SCISSOR_TEST);

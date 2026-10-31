@@ -473,3 +473,124 @@ test('per-cell bounds cover the cells a view ray or a sun ray can meet', () => {
   assert.equal(sol[5 * 24 + 9], 0, 'the sun comes from the north-west, the plateau is to the east');
   assert.equal(sol[5 * 24 + 14], 2);
 });
+
+// ---------- buildings: footprint order, construction, ghosts, cables, fog memory ----------
+
+import { aparenciasDosTipos, CATEGORIA } from '../site/rts/js/render/unidades.js';
+import { empacotar, formaDoPredio } from '../site/rts/js/render/sprites.js';
+import { FLAGS_SPRITE, FORMA_PREDIO } from '../site/rts/js/render/shaders.js';
+
+const TIPOS_TESTE = [
+  { nome: 'turma', categoria: CATEGORIA.UNIDADE, asset: 'religadores-infantaria-turma-de-linha', pegada: [1, 1], lotacao: 1 },
+  { nome: 'escritorio', categoria: CATEGORIA.PREDIO, asset: '', pegada: [4, 3] },
+  { nome: 'poste', categoria: CATEGORIA.PREDIO, asset: '', pegada: [1, 1] },
+  { nome: 'pilha', categoria: CATEGORIA.RECURSO, asset: '', pegada: [2, 2] },
+];
+
+function folhasDePredios() {
+  const parado = direcoes => ({ nome: 'parado', camada: 'corpo', quadros: 1, fps: 0, laco: true, direcoes, base: 0 });
+  const lista = new Map();
+  const add = (asset, primeiroQuadro, direcoes, pontos = {}) => lista.set(asset, { asset, primeiroQuadro, direcoes, pxNivel: 96, nivel: 'uhd', animacoes: new Map([['parado', parado(direcoes)]]), pontos, alturaBarraMetros: 3, temSombra: false });
+  add('ficha-infantaria', 0, 16);
+  add('ficha-escritorio', 20, 1, { cabo: Float32Array.of(0, -50) });
+  add('ficha-poste', 21, 1, { cabo: Float32Array.of(0, -100) });
+  add('ficha-pilha', 22, 1);
+  return { folha: nome => lista.get(nome) ?? null, totalQuadros: 23 };
+}
+
+function montarPredios(entidades, extras = {}, opcoes = {}) {
+  const projecao = criarProjecao(copia());
+  const m = criarMontagemUnidades({ projecao, folhas: folhasDePredios() });
+  m.definirAparencias(aparenciasDosTipos(TIPOS_TESTE));
+  if (opcoes.fantasma) m.definirFantasma(opcoes.fantasma);
+  const r = retrato(10, entidades);
+  const n = entidades.length;
+  r.bandeiras = Uint16Array.from(entidades, e => e.bandeiras ?? 0);
+  r.progresso = Uint8Array.from(entidades, e => e.progresso ?? 255);
+  r.ligacao = Int32Array.from(entidades, e => e.ligacao ?? -1);
+  Object.assign(r, extras);
+  assert.equal(r.n, n);
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 100, 100], selecionadas: opcoes.selecionadas ?? new Set(), agora: 0 });
+  return m;
+}
+
+const quadrosEmOrdem = m => Array.from({ length: m.sprites.n }, (_, i) => m.sprites.dados[i * 8 + 4]);
+
+test('kinds without art get a placeholder by category; buildings keep their footprint', () => {
+  const a = aparenciasDosTipos(TIPOS_TESTE);
+  assert.deepEqual(a[0].variantes.map(v => v.corpo), ['religadores-infantaria-turma-de-linha', 'ficha-infantaria']);
+  assert.ok(a[1].predio && a[1].pegada[0] === 4 && a[1].variantes[0].corpo === 'ficha-escritorio');
+  assert.equal(formaDoPredio(TIPOS_TESTE[2], CATEGORIA.RECURSO).forma, FORMA_PREDIO.POSTE);
+  assert.equal(formaDoPredio(TIPOS_TESTE[3], CATEGORIA.RECURSO).forma, FORMA_PREDIO.PILHA);
+});
+
+test('a unit just north of a building front draws behind it, one just south in front of it', () => {
+  // office centred at y = 50 with 3 rows: front edge at 51.5
+  const m = montarPredios([
+    { id: idDe(1, 1), tipo: 1, x: 50, y: 50 },
+    { id: idDe(2, 1), tipo: 0, x: 50.5, y: 51.2 },
+    { id: idDe(3, 1), tipo: 0, x: 50.5, y: 51.8 },
+  ]);
+  const quadros = quadrosEmOrdem(m);
+  assert.equal(quadros.length, 3);
+  assert.ok(quadros[0] < 20 && quadros[1] === 20 && quadros[2] < 20, `order ${quadros}`);
+});
+
+test('a building under construction packs its progress; a finished one packs none', () => {
+  const m = montarPredios([
+    { id: idDe(1, 1), tipo: 1, x: 40, y: 40, bandeiras: 8, progresso: 100 },
+    { id: idDe(2, 1), tipo: 1, x: 60, y: 60, bandeiras: 0, progresso: 255 },
+  ]);
+  const empacotados = Array.from({ length: m.sprites.n }, (_, i) => m.sprites.dados[i * 8 + 5]);
+  assert.equal((empacotados[0] >> 3) & 255, 100);
+  assert.equal((empacotados[1] >> 3) & 255, 0);
+  assert.equal(empacotados[0] >> 15, 6, 'a building reaches its front edge: three rows, half of it in quarter cells');
+});
+
+test('enemy buildings hide in the fog unless a footprint corner is visible; memories come grey', () => {
+  const ve = (x, y) => x === 31 && y === 31;
+  const r = retrato(10, [{ id: idDe(1, 1), tipo: 1, x: 30, y: 30, dono: 1 }, { id: idDe(2, 1), tipo: 1, x: 70, y: 70, dono: 1 }], ve);
+  const m = criarMontagemUnidades({ projecao: criarProjecao(copia()), folhas: folhasDePredios() });
+  m.definirAparencias(aparenciasDosTipos(TIPOS_TESTE));
+  r.fantasmas = { n: 1, id: Int32Array.of(idDe(9, 1)), tipo: Uint16Array.of(1), dono: Uint8Array.of(1), x: Int32Array.of(20 * FP), y: Int32Array.of(20 * FP), vida: Uint8Array.of(255), carga: Uint8Array.of(0) };
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  assert.equal(m.sprites.n, 2, 'the one with a visible corner and the memory');
+  const flags = Array.from({ length: m.sprites.n }, (_, i) => (m.sprites.dados[i * 8 + 5] >> 11) & 15);
+  assert.deepEqual(flags.sort(), [0, FLAGS_SPRITE.MEMORIA]);
+});
+
+test('a cable runs from each connected building to its network node, live when powered', () => {
+  const m = montarPredios([
+    { id: idDe(1, 1), tipo: 1, x: 40, y: 40, bandeiras: 16 },
+    { id: idDe(2, 1), tipo: 2, x: 46, y: 40, bandeiras: 16, ligacao: idDe(1, 1) },
+    { id: idDe(3, 1), tipo: 2, x: 52, y: 40, bandeiras: 0, ligacao: idDe(2, 1) },
+    { id: idDe(4, 1), tipo: 2, x: 58, y: 40, ligacao: idDe(77, 1) },
+  ]);
+  assert.equal(m.cabos.n, 2, 'a cable to a node that is gone is dropped');
+  const c = m.cabos.dados;
+  assert.deepEqual([c[0], c[1], c[2], c[3]], [46, 40, 40, 40]);
+  assert.ok(c[4] > c[5], 'the pole hangs its cable higher than the office roof');
+  assert.equal(c[6], 1);
+  assert.equal(c[8 + 6], 0, 'a pole without power has a dead cable');
+});
+
+test('the placement ghost draws its footprint, red cells and a tinted sprite in the sorted draw', () => {
+  const celulas = new Uint8Array(12);
+  celulas[5] = 1;
+  const m = montarPredios([], {}, { fantasma: { tipo: 1, cx: 10, cy: 10, largura: 4, altura: 3, valido: false, celulas } });
+  assert.equal(m.pegadas.n, 2);
+  assert.deepEqual(Array.from(m.pegadas.dados.subarray(8, 12)), [11, 11, 1, 1]);
+  assert.equal(m.sprites.n, 1);
+  assert.deepEqual([m.sprites.dados[0], m.sprites.dados[1]], [12, 11.5]);
+  assert.equal((m.sprites.dados[5] >> 11) & 15, FLAGS_SPRITE.FANTASMA | FLAGS_SPRITE.INVALIDO);
+});
+
+test('selected buildings get a footprint outline instead of a ring', () => {
+  const id = idDe(1, 1);
+  const m = montarPredios([{ id, tipo: 1, x: 40, y: 40 }], {}, { selecionadas: new Set([id]) });
+  assert.equal(m.aneis.n, 0);
+  assert.equal(m.pegadas.n, 1);
+  assert.deepEqual(Array.from(m.pegadas.dados.subarray(0, 4)), [38, 38.5, 4, 3]);
+  assert.equal(m.barras.n, 1);
+  assert.equal(empacotar(7, 255, 15, 63), 7 | (255 << 3) | (15 << 11) | (63 << 15));
+});

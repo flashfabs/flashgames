@@ -2,18 +2,19 @@
 // unit and effect instance builders, and the frame plan. The page gives it the camera once ({ x, y, zoom }, zoom
 // being the factor of projecao.json, which the page moves) and, every frame, the simulation state and the selection.
 //
-// Frame plan: scene at the render scale (terrain with fog, ground decals and order markers, selection rings,
-// shadows, every sprite in one sorted draw, smoke, additive glow), upscale to the canvas, then health bars at
-// native resolution so they stay crisp.
+// Frame plan: scene at the render scale (terrain with height and fog, ground decals and order markers, building
+// footprints, selection rings, shadows, every sprite in one sorted draw, power cables, smoke, additive glow), upscale
+// to the canvas, then health bars at native resolution so they stay crisp.
 import { criarBackendWebGL2, FLOATS_QUADRO, INICIO_CORES_QUADRO } from './backend-webgl2.js';
 import { pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from './projecao.js';
 import { criarControleDeEscala, DEGRAUS } from './escala.js';
 import { criarFolhas } from './sprites.js';
-import { criarMontagemUnidades } from './unidades.js';
+import { criarMontagemUnidades, aparenciasDosTipos, CATEGORIA } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
 import { criarRelevo, limitesPorCelula } from './relevo.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
+import { carregarIndice } from '../ativos/indice.js';
 
 export { EFEITO };
 
@@ -43,6 +44,35 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   let relevo = null;
   // cells the view of a raised point can come from south of the visible ground
   const margemDoRelevo = () => (relevo ? relevo.alturaMaxima * projecao.celulasPorMetroDeAltura : 0);
+  /** @type {Uint8Array | null} build area scaled for the texture */
+  let areaConstrucao = null;
+  let tiposAtuais = null;
+
+  /**
+   * Kinds of the match (MapaEstatico.tipos): placeholders for the buildings, then the art of every kind the art
+   * index lists, loaded in the background (each kind switches to its art as its sheet arrives).
+   */
+  function definirTipos(tipos) {
+    if (tiposAtuais === tipos) return;
+    tiposAtuais = tipos;
+    const fixos = tipos.filter(t => t.categoria === CATEGORIA.PREDIO || t.categoria === CATEGORIA.ESTRUTURA || t.categoria === CATEGORIA.RECURSO);
+    folhas.adicionarFichasPredios(fixos.filter(t => !folhas.folha(`ficha-${t.nome}`)), CATEGORIA.RECURSO);
+    unidades.definirAparencias(aparenciasDosTipos(tipos));
+    const nivel = nivelDoCanvas();
+    carregarIndice()
+      .then(indice =>
+        Promise.all(
+          [...new Set(tipos.map(t => t.asset).filter(Boolean))]
+            .filter(asset => !folhas.folha(asset) && indice.urlDo(asset))
+            .map(asset =>
+              carregarManifesto(indice.urlDo(asset))
+                .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
+                .catch(erro => console.warn(`arte de ${asset} indisponível, fica a ficha`, erro)),
+            ),
+        ),
+      )
+      .catch(erro => console.warn('arte dos tipos indisponível', erro));
+  }
 
   // drawing on the CPU, the scene starts at the lowest step and probes up only if the frames allow
   const escala = criarControleDeEscala({ degrauInicial: backend.info.software ? DEGRAUS.length - 1 : 0 });
@@ -90,9 +120,11 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     backend.definirQuadroComum(preencherQuadro(camera, vista.px * (alvo[0] / vista.largura), alvo[0], alvo[1], tempo));
     backend.desenharTerreno();
     backend.desenharEfeitos(efeitos.decalques, nD, false);
+    if (listas.pegadas) backend.desenharPegadas(listas.pegadas.dados, listas.pegadas.n);
     backend.desenharAneis(listas.aneis.dados, listas.aneis.n);
     backend.desenharSombras(listas.sombras.dados, listas.sombras.n);
     backend.desenharSprites(listas.sprites.dados, listas.sprites.n);
+    if (listas.cabos) backend.desenharCabos(listas.cabos.dados, listas.cabos.n);
     backend.desenharEfeitos(efeitos.fumaca, nF, false);
     backend.desenharEfeitos(efeitos.brilho, nB, true);
     backend.terminarCena(Math.min(0.25, (1 - s) * 0.6));
@@ -145,7 +177,32 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       backend.definirMapa(mapa.largura, mapa.altura, rgba, relevo.fina, relevo.larguraFina, relevo.alturaFina);
       mapaLargura = mapa.largura;
       mapaAltura = mapa.altura;
+      areaConstrucao = null;
       camera.relevo = relevo;
+      if (mapa.tipos) definirTipos(mapa.tipos);
+    },
+
+    /**
+     * Placement ghost of the building being placed: kind, top-left cell, footprint in cells, validity and,
+     * optionally, `celulas` (one byte per footprint cell, 1 = a cell that makes it invalid); null removes it.
+     * @param {{ tipo: number, cx: number, cy: number, largura: number, altura: number, valido: boolean, celulas?: Uint8Array } | null} fantasma
+     */
+    definirFantasma(fantasma) {
+      unidades.definirFantasma(fantasma);
+    },
+
+    /**
+     * Where the local player may build (one byte per map cell, nonzero = yes), shaded while placing; null hides it.
+     * @param {Uint8Array | null} grade
+     */
+    definirAreaDeConstrucao(grade) {
+      if (!grade) {
+        backend.definirArea(null);
+        return;
+      }
+      if (!areaConstrucao || areaConstrucao.length !== mapaLargura * mapaAltura) areaConstrucao = new Uint8Array(mapaLargura * mapaAltura);
+      for (let i = 0; i < areaConstrucao.length; i++) areaConstrucao[i] = grade[i] ? 255 : 0;
+      backend.definirArea(areaConstrucao);
     },
 
     /** Height field of the current map (relevo.js), or null before the map arrives. */
@@ -189,7 +246,13 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
 
     folhas,
 
-    /** Shadows from the sprite alpha ('alfa', the default until the style gate decides) or the rendered layer ('camada'). */
+    /** Kinds of the match, when they do not come with the static map (MapaEstatico.tipos). */
+    definirTipos,
+
+    /**
+     * Shadows: 'recomendado' (the default until the style gate decides: derived from the sprite alpha on units, the
+     * rendered layer on buildings that have it), 'alfa' or 'camada' for every sheet.
+     */
     definirModoSombra(modo) {
       unidades.definirModoSombra(modo);
     },
