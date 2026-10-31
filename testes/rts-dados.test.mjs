@@ -138,6 +138,8 @@ test('buildings reference existing kinds and the faction trees close', () => {
     const qgs = predios.predios.filter(p => p.faccao === faccao && p.papel === 'qg');
     assert.equal(qgs.length, 1, `${faccao}: um QG`);
     assert.ok(predios.predios.some(p => p.faccao === faccao && p.deposito), `${faccao}: sem depósito`);
+    // every headquarters opens a building area: a network for one faction, a plain radius for the other
+    assert.ok(qgs[0].raioRede > 0 || qgs[0].raioConstrucao > 0, `${faccao}: o QG não abre área de construção`);
   }
 });
 

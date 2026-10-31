@@ -8,6 +8,7 @@ import { FLOATS_INSTANCIA } from './backend-webgl2.js';
 import { criarOrdenacao } from './ordenacao.js';
 import { pontoDeEncaixe, empacotar } from './sprites.js';
 import { FLAGS_SPRITE } from './shaders.js';
+import { EFEITO } from './efeitos.js';
 import { FP, FP_BITS, PASSOS_POR_SEGUNDO, VISAO, MAX_SLOTS, SEM_ENTIDADE, BANDEIRA, CATEGORIA, DONO_NEUTRO, slotDe } from '../sim/contratos.js';
 
 export { CATEGORIA };
@@ -39,6 +40,19 @@ const ASSET_PADRAO = new Map([
   [CATEGORIA.RECURSO, 'neutro-recurso-pilha-de-baterias'],
   [CATEGORIA.FAISCA, 'neutro-recurso-faisca-de-carga'],
 ]);
+
+/**
+ * Searchlight of a kind, from its data block as predios.json writes it (alcance in tenths of a cell, abertura in
+ * 256ths of a turn, 256 lighting all around) or, for a searchlight kind whose data has no block yet, a default; null
+ * for kinds without one. `emVolta` marks a light all around, drawn as a pool instead of a cone.
+ */
+export function holofoteDoTipo(tipo) {
+  const h = tipo.holofote;
+  if (!h && !/holofote/.test(tipo.nome)) return null;
+  const alcance = (h?.alcance ?? 90) / 10;
+  const abertura = h?.abertura ?? 24;
+  return { alcance, meiaAbertura: (abertura / 256) * Math.PI, emVolta: abertura >= 256 };
+}
 
 /** Art asset of a kind: the data's, else the built-in one for its category, else ''. */
 export const assetDoTipo = tipo => tipo.asset || ASSET_PADRAO.get(tipo.categoria) || '';
@@ -72,6 +86,7 @@ export function aparenciasDosTipos(tipos) {
       conecta: /palicada/.test(tipo.nome),
       estrutura: tipo.categoria === CATEGORIA.ESTRUTURA,
       pilha: tipo.categoria === CATEGORIA.RECURSO,
+      holofote: holofoteDoTipo(tipo),
     };
   });
 }
@@ -118,9 +133,11 @@ class Instancias {
  *   projecao: ReturnType<typeof import('./projecao.js').criarProjecao>,
  *   folhas: ReturnType<typeof import('./sprites.js').criarFolhas>,
  *   alturaEm?: (x: number, y: number) => number,
- * }} deps alturaEm gives the terrain height in metres (flat ground without it)
+ *   luz?: { estado: { luzes: number }, acesa: (x: number, y: number, semente: number) => number },
+ * }} deps alturaEm gives the terrain height in metres (flat ground without it); luz the lighting scene, whose evening
+ *   switches the buildings' lights on
  */
-export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) {
+export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0, luz = null }) {
   let aparencias = APARENCIAS_PADRAO;
   // 'recomendado' derives unit shadows from the sprite alpha and uses the rendered layer on buildings that have it;
   // 'alfa' and 'camada' force one way for every sheet (the style gate compares them)
@@ -141,6 +158,9 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
   const barras = new Instancias(1024);
   const pegadas = new Instancias(64);
   const cabos = new Instancias(256);
+  // added light on the ground, in the effects' layout: pools around lit buildings, searchlight cones
+  const luzes = new Instancias(256);
+  const cones = new Instancias(32);
   const ordenacao = criarOrdenacao(4096);
   const encaixe = new Float64Array(3);
   // snapshot index of each slot this frame (checked against the id, so stale entries never match)
@@ -211,7 +231,7 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
    * @param {number} p.agora
    */
   function montar({ estado, area, selecionadas, agora }) {
-    brutos.n = sprites.n = sombras.n = aneis.n = barras.n = pegadas.n = cabos.n = 0;
+    brutos.n = sprites.n = sombras.n = aneis.n = barras.n = pegadas.n = cabos.n = luzes.n = cones.n = 0;
     const { anterior, atual } = estado;
     if (!atual) return;
     resolver();
@@ -343,16 +363,30 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
         emitirSprite(quadroDe(aparencia.corpo, anim, 0, passo), empacotar(time, obra, fuligem, aparencia.vies), aparencia, chavePredio, 1);
         if (aparencia.torre && aparencia.animTorre && obra === 0) emitirTorre(aparencia, x, y, chao, torre, tempoS, (b & BANDEIRA.EM_COMBATE) !== 0, empacotar(time, 0, 0, aparencia.vies), chavePredio);
         // lights add over the body with the same depth, while the building has power; a pile's glow pulses
-        const luzes = aparencia.pilha ? aparencia.animBrilho[degrau] : aparencia.animLuzes;
-        if (luzes && obra === 0 && (aparencia.pilha || !bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0)) {
-          const passoLuz = luzes.fps > 0 && tempoS > 0 ? Math.floor(tempoS * luzes.fps) : 0;
+        const camadaLuz = aparencia.pilha ? aparencia.animBrilho[degrau] : aparencia.animLuzes;
+        if (camadaLuz && obra === 0 && (aparencia.pilha || !bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0)) {
+          const passoLuz = camadaLuz.fps > 0 && tempoS > 0 ? Math.floor(tempoS * camadaLuz.fps) : 0;
           if (aparencia.pilha) posicao[3] = 0.65 + 0.35 * Math.sin(tempoS * 2.4 + (id & 15));
-          emitirSprite(quadroDe(aparencia.corpo, luzes, 0, passoLuz), empacotar(time, 0, 0, aparencia.vies), aparencia, chavePredio, -1);
+          emitirSprite(quadroDe(aparencia.corpo, camadaLuz, 0, passoLuz), empacotar(time, 0, 0, aparencia.vies), aparencia, chavePredio, -1);
           posicao[3] = 1;
         }
         if (selecionada) emitirPegada(x, y, aparencia.pegada, VERDE_SELECAO[0], VERDE_SELECAO[1], VERDE_SELECAO[2], 0.5);
         if (selecionada || atual.vida[k] < 255) emitirBarra(x, y, chao + aparencia.corpo.alturaBarraMetros, atual.vida[k] / 255, aparencia.pegada[0] * 0.6, time, selecionada);
         if (ligacao && ligacao[k] !== SEM_ENTIDADE) anotarCabo(k, x + aparencia.caboDx, y, chao + aparencia.alturaCabo);
+        const energizado = obra === 0 && dono !== DONO_NEUTRO && (!bandeiras || (b & BANDEIRA.ENERGIZADO) !== 0);
+        if (energizado && luz) {
+          const forca = luz.acesa(x, y, (id & 255) / 255);
+          if (forca > 0.01) luzes.escrever(x, y + aparencia.pegada[1] * 0.3, 0, 0, EFEITO.LUZ_NO_CHAO, forca, Math.max(aparencia.pegada[0], aparencia.pegada[1]) * 0.9 + 1.4, (id & 255) / 255);
+        }
+        const h = aparencia.holofote;
+        if (h && energizado) {
+          const forca = 0.22 + 0.78 * (luz ? luz.estado.luzes : 0);
+          if (h.emVolta) luzes.escrever(x, y, 0, 0, EFEITO.LUZ_NO_CHAO, forca, h.alcance, (id & 255) / 255);
+          else {
+            const angulo = (torre / 256) * 2 * Math.PI;
+            cones.escrever(x, y, Math.cos(angulo) * h.alcance, Math.sin(angulo) * h.alcance, EFEITO.CONE, forca, h.meiaAbertura, (id & 255) / 255);
+          }
+        }
         continue;
       }
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
@@ -619,5 +653,7 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
     barras,
     pegadas,
     cabos,
+    luzes,
+    cones,
   };
 }

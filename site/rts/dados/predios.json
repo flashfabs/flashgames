@@ -63,7 +63,7 @@
     {
       "nome": "carrocao-mae", "faccao": "desligados", "papel": "qg", "asset": "desligados-construcao-carrocao-mae",
       "pegada": [4, 3], "custo": 0, "tempoMs": 0, "vida": 2250, "blindagem": "estrutura", "eletrico": 0, "visao": 8,
-      "raioRede": 0, "deposito": 1, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
+      "raioRede": 0, "raioConstrucao": 12, "deposito": 1, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1,
       "constroi": ["paiol", "barracao", "ferraria-a-vapor", "torre-de-vigia", "palicada"],
       "produz": ["carroca-de-pedal"]

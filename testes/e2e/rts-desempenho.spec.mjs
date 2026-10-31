@@ -1,5 +1,6 @@
 // RTS renderer performance in 4K: the game's own benchmark (?bench=1) with 2,000 units and the buildings of a match
-// (&predios=60: offices, garages, poles with cables, some under construction) at a 3840x2160 canvas (a 1920x1080
+// (&predios=60: offices, garages, poles with cables, some under construction), and a mission's match with 2,000 units
+// on its map (&partida=...&tropas=2000), at a 3840x2160 canvas (a 1920x1080
 // window at twice the pixel density), the render scale pinned at 100% and the camera orbiting the battle. Runs in the
 // performance project, with the GPU (Metal on the Mac, the NVIDIA card through ANGLE on the RTX 4090 PC); every run
 // prints the measured JSON (frame interval percentiles, frames over 20 ms, CPU time per frame, GPU time per frame where
@@ -13,9 +14,12 @@
 import { test, expect } from '@playwright/test';
 
 const PREDIOS = 60;
+// the mission measured with 2,000 units on its map: the sandbox until the phase 1 mission's map is in
+const MISSAO = 'caixa-de-areia';
 const CENARIOS = [
   { nome: '2000 unidades e prédios, zoom padrão', consulta: `unidades=2000&predios=${PREDIOS}` },
   { nome: '2000 unidades e prédios, zoom afastado', consulta: `unidades=2000&predios=${PREDIOS}&zoom=0.75` },
+  { nome: `missão ${MISSAO} com 2000 unidades`, consulta: `partida=${MISSAO}&inicio=0&tropas=2000` },
 ];
 const LIMITES = { fracaoAcimaDe20ms: 0.05, quadroP50Ms: 20, cpuQuadroP95Ms: 8 };
 

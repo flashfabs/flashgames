@@ -9,9 +9,9 @@
 import * as F from './shaders.js';
 
 export const FLOATS_INSTANCIA = 8;
-// per-pass uniform block: 5 vec4 + 8 team colours
-export const FLOATS_QUADRO = 52;
-export const INICIO_CORES_QUADRO = 20;
+// per-pass uniform block: 6 vec4 + 8 team colours
+export const FLOATS_QUADRO = 56;
+export const INICIO_CORES_QUADRO = 24;
 const UNIDADE_ALTURA = 8;
 const UNIDADE_AREA = 9;
 const LARGURA_TABELA = 256; // texels per row of the frame table, two per frame
@@ -110,6 +110,7 @@ export function criarBackendWebGL2(canvas) {
   const anel = programa(gl, F.VERT_ANEL, F.FRAG_ANEL);
   const barra = programa(gl, F.VERT_BARRA, F.FRAG_BARRA);
   const efeito = programa(gl, F.VERT_EFEITO, F.FRAG_EFEITO);
+  const cone = programa(gl, F.VERT_CONE, F.FRAG_CONE);
   const ampliar = programa(gl, F.VERT_TELA, F.FRAG_AMPLIAR, { uCena: 5 });
   const ficha = programa(gl, F.VERT_TELA, F.FRAG_FICHA);
   const fichaPredio = programa(gl, F.VERT_TELA, F.FRAG_FICHA_PREDIO);
@@ -127,6 +128,7 @@ export function criarBackendWebGL2(canvas) {
     barras: criarLote(gl, 2048),
     efeitos: criarLote(gl, 4096),
     pegadas: criarLote(gl, 64),
+    cones: criarLote(gl, 64),
   };
   // cables are drawn from gl_VertexID alone, so their vertex array has only the per-instance attributes
   const cabos = criarLote(gl, 1024);
@@ -565,6 +567,12 @@ export function criarBackendWebGL2(canvas) {
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.enable(gl.BLEND);
       testarProfundidade(true);
+    },
+
+    /** Searchlight cones on the ground (added light), in the effects' instance layout with kind 7. */
+    desenharCones(dados, quantidade) {
+      gl.blendFunc(gl.ONE, gl.ONE);
+      desenharLote(cone, lotes.cones, dados, quantidade);
     },
 
     /** Building footprints on the ground (placement ghost): x, y, width, height in cells, then rgba. */

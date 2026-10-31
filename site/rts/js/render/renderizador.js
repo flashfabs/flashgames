@@ -12,6 +12,7 @@ import { criarFolhas } from './sprites.js';
 import { criarMontagemUnidades, aparenciasDosTipos, assetDoTipo } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
 import { criarRelevo, limitesPorCelula } from './relevo.js';
+import { criarLuz } from './luz.js';
 import { soloDoMapa, tabelaDeSolos, mascaraDeAgua, LADRILHO_BASE, LADRILHO_FACE, prefixoLadrilho } from './solos.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
@@ -31,6 +32,8 @@ export { EFEITO };
 export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa = null, terreno = 'ladrilhos' }) {
   const backend = criarBackendWebGL2(canvas);
   const quadro = new Float32Array(FLOATS_QUADRO);
+  const luz = criarLuz(projecao);
+  luz.atualizar(0);
   // team colours are RGB triplets in projecao; the block wants vec4
   for (let t = 0; t < 8; t++) {
     quadro[INICIO_CORES_QUADRO + t * 4] = projecao.coresTime[t * 3];
@@ -144,6 +147,8 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     if (mapa.tipos) definirTipos(mapa.tipos);
     // without kinds (the atlas viewer, the prototype's old flow) the placeholders stand in for every unit
     else folhas.adicionarFichas(nivelDoCanvas());
+    luz.definirNomes(mapa.cenasLuz ?? []);
+    efeitos.definirTipos(mapa.tipos ?? [], mapa.armas ?? []);
   }
 
   // Decoration art from the index; once some arrives, the terrain is rebuilt without the blocks it replaces.
@@ -204,8 +209,21 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   const escala = criarControleDeEscala({ degrauInicial: backend.info.software ? DEGRAUS.length - 1 : 0 });
   if (escalaFixa !== null) escala.fixar(escalaFixa);
   const folhas = criarFolhas(backend, projecao, () => preencherQuadro(camera0, 1, vista.largura, vista.altura, 0));
-  const unidades = criarMontagemUnidades({ projecao, folhas, alturaEm: (x, y) => (relevo ? relevo.alturaEm(x, y) : 0) });
-  const efeitos = criarEfeitos({ visivel });
+  const unidades = criarMontagemUnidades({ projecao, folhas, alturaEm: (x, y) => (relevo ? relevo.alturaEm(x, y) : 0), luz });
+  // the mission's LUZ event: the lights switch on outwards from its point, or from the camera without one
+  const efeitos = criarEfeitos({ visivel, aoLuz: (cena, x, y) => luz.definirCena(cena, performance.now(), x || camera.x, y || camera.y) });
+  // scripted camera move: from, to, start and duration; null when the camera is free
+  const animacao = { ativa: false, x0: 0, y0: 0, z0: 1, x1: 0, y1: 0, z1: 1, inicio: 0, duracao: 1 };
+
+  function conduzirCamera(agora) {
+    if (!animacao.ativa) return;
+    const t = Math.min(1, (agora - animacao.inicio) / animacao.duracao);
+    const e = t * t * (3 - 2 * t);
+    camera.x = animacao.x0 + (animacao.x1 - animacao.x0) * e;
+    camera.y = animacao.y0 + (animacao.y1 - animacao.y0) * e;
+    camera.zoom = animacao.z0 + (animacao.z1 - animacao.z0) * e;
+    if (t >= 1) animacao.ativa = false;
+  }
   const estatisticas = { escala: 1, alvoLargura: 0, alvoAltura: 0, sprites: 0, gpuMs: -1, nivel: '', bytesTexturas: 0 };
 
   function preencherQuadro(camera, px, largura, altura, tempo) {
@@ -217,9 +235,9 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     quadro[5] = altura;
     quadro[6] = projecao.cosseno;
     quadro[7] = projecao.metrosPorCelula;
-    quadro[8] = projecao.sol[0];
-    quadro[9] = projecao.sol[1];
-    quadro[10] = projecao.sol[2];
+    quadro[8] = luz.estado.sol[0];
+    quadro[9] = luz.estado.sol[1];
+    quadro[10] = luz.estado.sol[2];
     quadro[11] = tempo;
     quadro[12] = mapaLargura;
     quadro[13] = mapaAltura;
@@ -227,6 +245,10 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     quadro[15] = backend.areaVisivel ? 1 : 0;
     quadro[16] = relevo ? relevo.alturaMaxima : 0;
     quadro[17] = projecao.celulasPorMetroDeAltura;
+    quadro[20] = luz.estado.tinta[0];
+    quadro[21] = luz.estado.tinta[1];
+    quadro[22] = luz.estado.tinta[2];
+    quadro[23] = luz.estado.luzes;
     return quadro;
   }
 
@@ -239,6 +261,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   // Frame plan shared by the game and the atlas viewer; listas holds sprites, sombras, aneis and barras.
   function desenharCena(agora, dt, listas) {
     const s = escala.registrar(agora, dt);
+    luz.atualizar(agora);
     const { nD, nF, nB } = efeitos.contagem;
     const tempo = agora / 1000;
     backend.comecarCena(s, alvo);
@@ -250,6 +273,8 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     backend.desenharSombras(listas.sombras.dados, listas.sombras.n);
     backend.desenharSprites(listas.sprites.dados, listas.sprites.n);
     if (listas.cabos) backend.desenharCabos(listas.cabos.dados, listas.cabos.n);
+    if (listas.luzes) backend.desenharEfeitos(listas.luzes.dados, listas.luzes.n, true);
+    if (listas.cones) backend.desenharCones(listas.cones.dados, listas.cones.n);
     backend.desenharEfeitos(efeitos.fumaca, nF, false);
     backend.desenharEfeitos(efeitos.brilho, nB, true);
     backend.terminarCena(Math.min(0.25, (1 - s) * 0.6));
@@ -377,6 +402,37 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     definirTipos,
 
     /**
+     * Fades the lighting to a scene: 'dia', 'entardecer' or 'noite', or the index of a mission scene as the LUZ event
+     * counts them; evening lights switch on outwards from (x, y) cells (the camera by default).
+     */
+    definirLuz(cena, x = camera.x, y = camera.y) {
+      luz.definirCena(cena, performance.now(), x, y);
+    },
+
+    /** Lighting now: tint, lights strength and sun vector (read only). */
+    get luz() {
+      return luz.estado;
+    },
+
+    /**
+     * Scripted camera move (the mission's CAMERA event, the briefing and the closing scene): eases the camera the
+     * page gave the renderer to (x, y) cells, and to `zoom` when given, over `duracaoMs`.
+     */
+    animarCamera({ x, y, zoom = camera.zoom, duracaoMs = 1500 }) {
+      Object.assign(animacao, { ativa: true, x0: camera.x, y0: camera.y, z0: camera.zoom, x1: x, y1: y, z1: zoom, inicio: performance.now(), duracao: Math.max(1, duracaoMs) });
+    },
+
+    /** Lets go of the camera now, where it is. */
+    pararCamera() {
+      animacao.ativa = false;
+    },
+
+    /** Whether a scripted camera move is still running. */
+    get cameraAnimando() {
+      return animacao.ativa;
+    },
+
+    /**
      * Loads every sprite asset the art index lists for a phase (the memory check of the art budget); resolves to how
      * many loaded.
      */
@@ -400,6 +456,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
      * @param {{ agora: number, dt: number, estado: any, selecionadas: Set<number> }} p
      */
     desenhar({ agora, dt, estado, selecionadas }) {
+      conduzirCamera(agora);
       vista.px = pxPorCelula(projecao, vista.largura, vista.altura, camera.zoom);
       areaVisivel(projecao, camera, vista, 0, area);
       area[3] += margemDoRelevo();

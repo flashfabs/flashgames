@@ -719,3 +719,115 @@ test('a pile shows the step of charge it has left, dark once dry', () => {
   const porX = new Map(Array.from({ length: m.sprites.n }, (_, i) => [m.sprites.dados[i * 8], m.sprites.dados[i * 8 + 4] - 300]));
   assert.deepEqual([10, 13, 16, 19].map(x => porX.get(x)), [2, 4, 1, 0]);
 });
+
+// ---------- lighting scenes and effects by damage kind ----------
+
+import { criarLuz, cenaDoNome } from '../site/rts/js/render/luz.js';
+import { criarEfeitos, perfisDosTipos, tamanhoDaExplosao, EFEITO, DANO } from '../site/rts/js/render/efeitos.js';
+import { EVENTO, TAMANHO_EVENTO } from '../site/rts/js/sim/contratos.js';
+
+test('mission scene names map onto the renderer scenes', () => {
+  assert.equal(cenaDoNome('entardecer'), 'entardecer');
+  assert.equal(cenaDoNome('noite-no-vale'), 'noite');
+  assert.equal(cenaDoNome('qualquer'), 'dia');
+});
+
+test('dusk fades in, lowers the sun and switches the lights on outwards from where it started', () => {
+  const p = criarProjecao(copia());
+  const luz = criarLuz(p);
+  luz.definirNomes(['entardecer']);
+  const dia = luz.atualizar(0);
+  assert.deepEqual(Array.from(dia.tinta), [1, 1, 1]);
+  assert.equal(dia.luzes, 0);
+  const elevacaoDia = dia.sol[2];
+  luz.definirCena(0, 1000, 10, 10);
+  luz.atualizar(1000 + 4000);
+  const meio = luz.estado.tinta[2];
+  assert.ok(meio < 1 && meio > 0.56, 'half way through the fade');
+  luz.atualizar(1000 + 20000);
+  assert.ok(Math.abs(luz.estado.tinta[2] - 0.56) < 1e-6 && luz.estado.sol[2] < elevacaoDia, 'warm tint and a lower sun');
+  assert.ok(luz.acesa(10, 10, 0) > 0.8, 'the light at the start is on');
+  // a light 200 cells away is still dark 20 s in, since the front moves 9 cells a second
+  assert.equal(luz.acesa(210, 10, 0), 0);
+});
+
+test('weapons give each kind its shot, and area weapons three blast sizes', () => {
+  const armas = [{ tipoDano: 'bala', raioArea: 0, emArco: 0 }, { tipoDano: 'explosivo', raioArea: 12, emArco: 1 }, { tipoDano: 'pane', raioArea: 0, emArco: 0 }];
+  const perfis = perfisDosTipos(
+    [
+      { nome: 'chapa', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 0, asset: 'desligados-infantaria-chapa' },
+      { nome: 'canhao-de-caldeira', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 1, asset: 'desligados-veiculo-canhao-de-caldeira' },
+      { nome: 'garagem', categoria: CATEGORIA.PREDIO, pegada: [4, 3], arma: -1, asset: '' },
+    ],
+    armas,
+  );
+  assert.deepEqual([perfis[0].dano, perfis[0].porte, perfis[0].emArco], [DANO.BALA, 0, false]);
+  assert.deepEqual([perfis[1].dano, perfis[1].emArco, perfis[1].vapor], [DANO.EXPLOSIVO, true, true]);
+  assert.equal(perfis[2].porte, 2);
+  assert.deepEqual([0, 8, 12].map(tamanhoDaExplosao), [0.7, 1.1, 1.6]);
+});
+
+function eventos(lista) {
+  const e = new Int32Array(lista.length * TAMANHO_EVENTO);
+  lista.forEach(([tipo, x, y, ax, ay, arg], i) => e.set([tipo, 0, 1, -1, x * FP, y * FP, ax * FP, ay * FP, arg], i * TAMANHO_EVENTO));
+  return { eventos: e };
+}
+
+test('shots, hits and deaths spawn the effects of their damage kind; LUZ goes to the lighting', () => {
+  const luzes = [];
+  const ef = criarEfeitos({ visivel: () => true, aoLuz: (cena, x, y) => luzes.push([cena, x, y]) });
+  ef.definirTipos(
+    [
+      { nome: 'chapa', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 0, asset: 'desligados-infantaria-chapa' },
+      { nome: 'canhao-de-caldeira', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 1, asset: '' },
+      { nome: 'lanca', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 2, asset: '' },
+    ],
+    [{ tipoDano: 'bala', raioArea: 0, emArco: 0 }, { tipoDano: 'explosivo', raioArea: 12, emArco: 1 }, { tipoDano: 'perfurante', raioArea: 0, emArco: 0 }],
+  );
+  ef.registrarEventos(
+    eventos([
+      [EVENTO.TIRO, 10, 10, 15, 10, 1],
+      [EVENTO.TIRO, 10, 12, 15, 12, 2],
+      [EVENTO.EXPLOSAO, 15, 10, 15, 10, 1],
+      [EVENTO.LUZ, 30, 40, 30, 40, 0],
+    ]),
+  );
+  const agora = performance.now() + 10;
+  const c = ef.montar(agora);
+  const tipos = [];
+  for (let i = 0; i < c.nB; i++) tipos.push(ef.brilho[i * 8 + 4]);
+  for (let i = 0; i < c.nF; i++) tipos.push(ef.fumaca[i * 8 + 4]);
+  for (const t of [EFEITO.OBUS, EFEITO.VAPOR, EFEITO.RAIO, EFEITO.EXPLOSAO, EFEITO.FAISCAS]) assert.ok(tipos.includes(t), `kind ${t} in ${tipos}`);
+  assert.ok(!tipos.includes(EFEITO.TRACADO), 'no bullet tracer for these weapons');
+  assert.equal(c.nD, 1, 'the blast leaves a scorch mark');
+  assert.deepEqual(luzes, [[0, 30, 40]]);
+});
+
+test('lit buildings cast a pool of light as the evening reaches them, searchlights a cone along their turret', () => {
+  const projecao = criarProjecao(copia());
+  const tipos = [...TIPOS_TESTE, { nome: 'torre-de-holofote', categoria: CATEGORIA.PREDIO, asset: '', pegada: [2, 2], holofote: { alcance: 100, abertura: 24, giroPorSegundo: 16 } }];
+  const folhas = folhasDePredios();
+  const torre = { ...folhas.folha('ficha-poste'), asset: 'ficha-torre-de-holofote' };
+  let forcaDaLuz = 0;
+  const luz = { estado: { luzes: 1 }, acesa: () => forcaDaLuz };
+  const m = criarMontagemUnidades({ projecao, folhas: { folha: nome => (nome === 'ficha-torre-de-holofote' ? torre : folhas.folha(nome)), totalQuadros: 23 }, luz });
+  m.definirAparencias(aparenciasDosTipos(tipos));
+  const r = retrato(10, [
+    { id: idDe(1, 1), tipo: 1, x: 40, y: 40 },
+    { id: idDe(2, 1), tipo: 4, x: 50, y: 40, dir: 0 },
+    { id: idDe(3, 1), tipo: 1, x: 60, y: 40 },
+  ]);
+  r.bandeiras = Uint16Array.of(16, 16, 0);
+  r.progresso = Uint8Array.of(255, 255, 255);
+  r.dirTorre = Uint8Array.of(0, 64, 0);
+  const estado = { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 };
+  m.montar({ estado, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  assert.equal(m.luzes.n, 0, 'by day nothing is lit yet');
+  forcaDaLuz = 0.8;
+  m.montar({ estado, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  assert.equal(m.luzes.n, 2, 'the two buildings with power, not the one without');
+  assert.equal(m.cones.n, 1);
+  const c = m.cones.dados;
+  assert.ok(Math.abs(c[2]) < 1e-9 && Math.abs(c[3] - 10) < 1e-9, 'pointing south (turret 64) for its reach');
+  assert.ok(Math.abs(c[6] - (12 / 256) * 2 * Math.PI) < 1e-6, "half its opening, in 256ths of a turn");
+});
