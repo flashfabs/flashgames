@@ -11,10 +11,14 @@ export function criarPonteSimulacao() {
   let salvando = null;
 
   // Starts the worker; aoReceberMapa gets the static map once, aoReceberEstado every snapshot.
-  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, aoReceberMapa, aoReceberEstado }) {
+  // `teste` (only with ?teste=1) enables avancar(); `dados` and `mapa` (C5 and C6, already read) pick the match.
+  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, teste = false, dados, mapa, aoReceberMapa, aoReceberEstado }) {
     estado.jogadorLocal = jogadorLocal;
     trabalhador = new Worker(new URL('./trabalhador.js', import.meta.url), { type: 'module' });
-    trabalhador.postMessage({ t: PARA_TRABALHADOR.INICIAR, opcoes: { semente, unidadesPorTime, avancar, jogadorLocal } });
+    const opcoes = { semente, unidadesPorTime, avancar, jogadorLocal, teste };
+    if (dados) opcoes.dados = dados;
+    if (mapa) opcoes.mapa = mapa;
+    trabalhador.postMessage({ t: PARA_TRABALHADOR.INICIAR, opcoes });
     trabalhador.onmessage = ({ data }) => {
       if (data.t === DO_TRABALHADOR.PRONTO) {
         estado.mapa = data;
@@ -89,5 +93,7 @@ export function criarPonteSimulacao() {
     velocidade: percentual => trabalhador?.postMessage({ t: PARA_TRABALHADOR.VELOCIDADE, percentual }),
     salvar,
     carregar: bytes => trabalhador?.postMessage({ t: PARA_TRABALHADOR.CARREGAR, bytes }, [bytes]),
+    /** Test hook (iniciar with teste): runs `passos` ticks at once and answers one snapshot with all their events. */
+    avancar: passos => trabalhador?.postMessage({ t: PARA_TRABALHADOR.AVANCAR, passos }),
   };
 }
