@@ -470,6 +470,7 @@ Onda 2 (E3), a partir de 30/10/2026:
 | Orçamento da fase 1 com o kit cinza no atlas de fase | textura uhd 271 MiB contra 256 (atlas 224, solos 44, ícones e retrato 3), hd 75,8 contra 96; download uhd 6,6 MiB (assets 5,8, código e dados 0,7) contra 30, hd 2,8 contra 12 | `testes/rts-orcamento.test.mjs` em `76712e3`, 31/10/2026 |
 | Fila do PC com as sessões da onda 2 | uma execução completa segura a trava de 8 a 15 minutos; às 00h35 de 31/10/2026 havia uma rodando e três esperando, com esperas de 5 a 16 minutos | registros das execuções em `D:\rts\testes\*\execucoes`, 31/10/2026 |
 | Espera na fila do PC, sem a fila por ordem de chegada | 25 min 47 s de espera para 22 s de teste: duas execuções que chegaram depois passaram na frente (a trava era disputada a cada 15 s); daí a fila por senha | execução `20261031-011951` |
+| Espera na fila do PC com o modo `rts` e a fila por ordem de chegada | as 12 execuções de 02h08 a 02h49 de 31/10/2026 (rts-arte, rts-interface, rts-motor-combate e rts-qualidade) esperaram de 0 a 7 min, mediana de cerca de 80 s, contra 10 a 26 min antes | `D:\rts\testes\fila.log` |
 | Modo `rts` do executor | 14 min 15 s no total, dos quais 10 min esperando a trava; funcionais do RTS em 39 s (10 passaram, 6 pularam à espera da caixa de areia), desempenho em 52 s (4 de 4) e determinismo em 2 min 40 s (12 de 12): cerca de 4,5 min de trava contra 8 a 15 do completo | execução `20261031-003610` |
 
 ### F9 Rede (`rts-rede`)
