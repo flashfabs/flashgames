@@ -176,15 +176,15 @@ function gerarObjetos() {
   for (const [x, y] of [[14, 76], [16, 76], [14, 78], [16, 78]]) entidade('turma-de-linha', x, y, [1, 1], { dono: 0 });
 
   // player 1, Desligados: the scripted camp on the mirrored plateau
-  entidade('carrocao-mae', 87, 11, [4, 3], { dono: 1, etiqueta: 'acampamento' });
-  entidade('barracao', 80, 5, [3, 3], { dono: 1, etiqueta: 'acampamento' });
-  entidade('ferraria-a-vapor', 84, 16, [4, 3], { dono: 1, etiqueta: 'acampamento' });
+  entidade('carrocao-mae', 87, 11, [4, 3], { dono: 1, etiqueta: 'acampamento-carrocao-mae' });
+  entidade('barracao', 80, 5, [3, 3], { dono: 1, etiqueta: 'acampamento-barracao' });
+  entidade('ferraria-a-vapor', 84, 16, [4, 3], { dono: 1, etiqueta: 'acampamento-ferraria' });
   entidade('paiol', 76, 10, [3, 2], { dono: 1 });
-  entidade('torre-de-vigia', 80, 25, [2, 2], { dono: 1, etiqueta: 'guarnicao' });
-  entidade('torre-de-vigia', 67, 13, [2, 2], { dono: 1, etiqueta: 'guarnicao' });
+  entidade('torre-de-vigia', 80, 25, [2, 2], { dono: 1, etiqueta: 'guarnicao-torre-sul' });
+  entidade('torre-de-vigia', 67, 13, [2, 2], { dono: 1, etiqueta: 'guarnicao-torre-oeste' });
   for (const x of [76, 77, 78, 84, 85, 86]) entidade('palicada', x, 27, [1, 1], { dono: 1 });
   entidade('canhao-de-caldeira', 85, 22, [1, 1], { dono: 1, etiqueta: 'canhao-fixo' });
-  for (const [x, y] of [[79, 23], [82, 23], [70, 15], [70, 21]]) entidade('chapa', x, y, [1, 1], { dono: 1, etiqueta: 'guarnicao' });
+  for (const [k, [x, y]] of [[79, 23], [82, 23], [70, 15], [70, 21]].entries()) entidade('chapa', x, y, [1, 1], { dono: 1, etiqueta: `guarnicao-chapa-${k + 1}` });
 
   const areas = {
     'base-jogador': [1, 66, 29, 29],

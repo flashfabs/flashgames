@@ -14,8 +14,8 @@
     { "id": "abrir-ferro-velho", "texto": "missao.caixa-de-areia.objetivo.ferro_velho", "tipo": "opcional" }
   ],
   "grupos": {
-    "acampamento": { "etiquetas": ["acampamento"] },
-    "guarnicao": { "etiquetas": ["guarnicao"] },
+    "acampamento": { "etiquetas": ["acampamento-carrocao-mae", "acampamento-barracao", "acampamento-ferraria"] },
+    "guarnicao": { "etiquetas": ["guarnicao-torre-sul", "guarnicao-torre-oeste", "guarnicao-chapa-1", "guarnicao-chapa-2", "guarnicao-chapa-3", "guarnicao-chapa-4"] },
     "canhao-fixo": { "etiquetas": ["canhao-fixo"] }
   },
   "variaveis": [{ "nome": "ondas-vencidas", "valor": 0 }],

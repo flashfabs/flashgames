@@ -2,12 +2,11 @@
   "versao": 1,
   "lotacaoMaxima": 60,
   "saturacao": 3,
-  "distanciaMinimaPilha": 5,
-  "cargaDerramada": { "porcento": 100, "duracaoMs": 90000, "cargaPorFaisca": 25 },
+  "cargaDerramada": { "porcento": 100, "duracaoMs": 90000 },
+  "faiscaCarga": 25,
   "vento": { "intervaloMs": 120000, "lote": 80, "avisoMs": 15000, "primeiraMs": 120000 },
   "foraDaRede": { "producaoPorcento": 50, "defesasParam": 1 },
   "reciclarPorcento": 50,
   "reparoCustoPorcento": 50,
-  "veteraniaColetor": { "viagens": [12, 30], "velocidadePorcento": [110, 120] },
-  "veteraniaSuporte": { "vidaReparada": [1500, 4000] }
+  "pilhaCarga": 1500
 }

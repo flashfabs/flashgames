@@ -181,13 +181,13 @@ test('harvesters lost, yard dry, warned attacks', () => {
   assert.equal(porGrupo['onda-1'].avisoPasso, null, 'o assédio de 2 não tem aviso');
 });
 
-test('windows without a command count whole 10 s windows of game time', () => {
+test('windows without a command count whole 15 s windows of game time', () => {
   const { janelas } = exportado.resumo;
-  assert.equal(janelas.total, 120);
-  // two windows during the scripted harassment and five of the 60 s lull (the order sent at its last tick runs on the
-  // next one, inside the sixth window)
-  assert.equal(janelas.semComando, 7);
-  assert.equal(janelas.porcentoSemComando, 5.8);
+  assert.equal(janelas.total, 80);
+  // one window during the scripted harassment and three of the 60 s lull (the order sent at its last tick runs on the
+  // next one, inside the fourth window)
+  assert.equal(janelas.semComando, 4);
+  assert.equal(janelas.porcentoSemComando, 5);
 });
 
 test('group indexes follow the mission: declared groups first, then created ones in trigger order', () => {

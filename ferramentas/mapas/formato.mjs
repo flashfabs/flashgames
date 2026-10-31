@@ -2,7 +2,8 @@
 // Source: arte/mapas-fonte/<id>.tmj (tile layers solo, altura and decoracao; object layers entidades, nos, ventosas,
 // areas, pontos and rotas) with the tileset terreno.tsj. Output: site/rts/dados/mapas/<id>/ with mapa.json (header and
 // tables), camadas.bin (one byte per cell per layer, row by row, in the order of mapa.json camadas.ordem) and
-// entidades.json (nodes, start entities, windy spots, areas, points and routes, all in cells).
+// entidades.json (nodes, start entities, windy cells, areas, points and routes, all in cells; a pile names its node by
+// index in `nos`, and every tag is unique).
 // Everything here is plain integer work so the same source always yields the same bytes.
 
 export const VERSAO_MAPA = 1;
@@ -104,14 +105,15 @@ export function converterTiled(tmj, tsj) {
     if (p.etiqueta) entidade.etiqueta = p.etiqueta;
     if (o.type === 'pilha') {
       entidade.carga = p.carga;
-      entidade.no = p.no;
+      // the source names the node; the C6 file carries its index in `nos`
+      entidade.no = indiceNo.has(p.no) ? indiceNo.get(p.no) : -1;
     }
     return entidade;
   });
   // resource area: Chebyshev distance up to 3 cells around each pile, marked with the node index plus one
   for (const e of entidades) {
     if (e.tipo !== 'pilha') continue;
-    const valor = indiceNo.get(e.no) + 1;
+    const valor = e.no + 1;
     for (let y = Math.max(0, e.y - 3); y <= Math.min(altura - 1, e.y + 3); y++) {
       for (let x = Math.max(0, e.x - 3); x <= Math.min(largura - 1, e.x + 3); x++) if (!recurso[y * largura + x]) recurso[y * largura + x] = valor;
     }
@@ -119,7 +121,12 @@ export function converterTiled(tmj, tsj) {
   const retangulos = nome => Object.fromEntries(objetos(nome).map(o => [o.name, { x: celula(o.x), y: celula(o.y), largura: celula(o.width), altura: celula(o.height) }]));
   const pontos = Object.fromEntries(objetos('pontos').map(o => [o.name, [celula(o.x), celula(o.y)]]));
   const rotas = Object.fromEntries(objetos('rotas').map(o => [o.name, o.polyline.map(p => [celula(o.x + p.x), celula(o.y + p.y)])]));
-  const ventosas = objetos('ventosas').map(o => [celula(o.x), celula(o.y)]);
+  // a windy spot is drawn as a rectangle; the C6 file lists every cell of it
+  const ventosas = objetos('ventosas').flatMap(o => {
+    const celulas = [];
+    for (let y = celula(o.y); y < celula(o.y + o.height); y++) for (let x = celula(o.x); x < celula(o.x + o.width); x++) celulas.push([x, y]);
+    return celulas;
+  });
 
   const p = propriedades(tmj);
   const mapa = {
@@ -223,14 +230,18 @@ export function validarMapa({ mapa, camadas, entidades }, dados) {
 
   const tipos = new Map([...dados.predios.map(p => [p.nome, { pegada: p.pegada, predio: true }]), ...dados.unidades.map(u => [u.nome, { pegada: [1, 1], predio: false }])]);
   const ocupado = new Uint8Array(total);
-  const nomesNos = new Set(entidades.nos.map(n => n.id));
+  const etiquetas = new Set();
   for (const e of entidades.entidades) {
     const tipo = e.tipo === 'pilha' ? { pegada: [1, 1], predio: true } : tipos.get(e.tipo);
     if (!tipo) {
       erros.push(`entidade de tipo ${e.tipo} desconhecido`);
       continue;
     }
-    if (e.tipo === 'pilha' && (!nomesNos.has(e.no) || !(e.carga > 0))) erros.push(`pilha em ${e.x},${e.y} sem nó ou carga`);
+    if (e.tipo === 'pilha' && (!(e.no >= 0 && e.no < entidades.nos.length) || !(e.carga > 0))) erros.push(`pilha em ${e.x},${e.y} sem nó ou carga`);
+    if (e.etiqueta !== undefined) {
+      if (etiquetas.has(e.etiqueta)) erros.push(`etiqueta ${e.etiqueta} repetida`);
+      etiquetas.add(e.etiqueta);
+    }
     const [w, h] = tipo.pegada;
     for (let y = e.y; y < e.y + h; y++) {
       for (let x = e.x; x < e.x + w; x++) {
@@ -243,10 +254,8 @@ export function validarMapa({ mapa, camadas, entidades }, dados) {
     }
   }
   for (const [x, y] of entidades.ventosas) {
-    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-      const i = (y + dy) * largura + x + dx;
-      if (bloqueado[i] || alt[i] < 1) erros.push(`ventosa em ${x},${y} fora do alto ou bloqueada`);
-    }
+    const i = y * largura + x;
+    if (bloqueado[i] || alt[i] < 1) erros.push(`ventosa em ${x},${y} fora do alto ou bloqueada`);
   }
 
   // reachability from the first player's base: every node, entity, area centre, point and route waypoint

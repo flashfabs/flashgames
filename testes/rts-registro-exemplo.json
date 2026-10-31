@@ -18,7 +18,7 @@
   "jogariaDeNovo": true,
   "comentario": ""
  },
- "janelaPassos": 300,
+ "janelaPassos": 450,
  "resumo": {
   "primeiroTiroPasso": 5790,
   "lutas": [
@@ -60,9 +60,9 @@
    }
   ],
   "janelas": {
-   "total": 120,
-   "semComando": 7,
-   "porcentoSemComando": 5.8
+   "total": 80,
+   "semComando": 4,
+   "porcentoSemComando": 5
   },
   "cemiteriosEsgotados": [
    {

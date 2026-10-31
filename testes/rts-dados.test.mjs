@@ -72,7 +72,9 @@ test('damage matrix, cover and veterancy follow the plan', () => {
   }
   // explosive ignores cover
   assert.equal(armas.cobertura.ruina[TIPOS_DANO.indexOf('explosivo')], 100);
-  const { limiares, dano, resistencia, recarga } = armas.veterania;
+  const { limiares, dano, resistencia, recarga, coletor, suporte } = armas.veterania;
+  assert.equal(coletor.viagens.length, coletor.velocidade.length);
+  assert.ok(suporte.vidaReparada.length >= 1);
   assert.equal(limiares.length, 3);
   for (const serie of [dano, resistencia, recarga]) assert.equal(serie.length, limiares.length + 1);
   for (let i = 1; i < limiares.length; i++) assert.ok(limiares[i] > limiares[i - 1]);
@@ -152,10 +154,10 @@ test('research points at real kinds and the technical building', () => {
   for (const pesquisa of pesquisas.pesquisas) {
     assert.match(pesquisa.nome, NOME);
     assert.ok(porNome.has(pesquisa.predio), `${pesquisa.nome}: predio`);
-    for (const efeito of pesquisa.efeitos) for (const t of efeito.tipos ?? []) assert.ok(nomesUnidades.has(t), `${pesquisa.nome}: ${t}`);
+    for (const t of pesquisa.efeito.tipos ?? []) assert.ok(nomesUnidades.has(t), `${pesquisa.nome}: ${t}`);
   }
   // the second tier is unlocked by the technical building of the player faction
-  assert.ok(pesquisas.pesquisas.some(p => p.automatica && p.efeitos.some(e => e.efeito === 'nivel' && e.nivel === 2)));
+  assert.ok(pesquisas.pesquisas.some(p => p.efeito.automatica && p.efeito.efeito === 'nivel' && p.efeito.nivel === 2));
 });
 
 test('economy numbers stay in the ranges the plan argues for', () => {

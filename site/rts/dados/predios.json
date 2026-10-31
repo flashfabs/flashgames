@@ -4,7 +4,7 @@
     {
       "nome": "escritorio-regional", "faccao": "religadores", "papel": "qg", "asset": "religadores-construcao-escritorio-regional",
       "pegada": [4, 3], "custo": 0, "tempoMs": 0, "vida": 3000, "blindagem": "estrutura", "eletrico": 1, "visao": 8,
-      "raioRede": 8, "deposito": 0, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "inicio",
+      "raioRede": 8, "deposito": 0, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1,
       "constroi": ["poste", "acumulador", "alojamento-da-turma", "torre-de-holofote", "cata-vento", "garagem", "almoxarifado-tecnico"],
       "produz": ["guincho-de-celulas", "equipe-de-manutencao"]
@@ -45,8 +45,7 @@
       "nome": "torre-de-holofote", "faccao": "religadores", "papel": "defesa", "asset": "religadores-construcao-torre-de-holofote",
       "pegada": [2, 2], "custo": 400, "tempoMs": 20000, "vida": 700, "blindagem": "estrutura", "eletrico": 1, "visao": 7,
       "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": ["alojamento-da-turma"], "ventosa": 0, "construidoPor": "fila",
-      "arma": "refletor-armado", "destrutivel": 1, "constroi": [], "produz": [],
-      "holofote": { "alcance": 80, "abertura": 24, "giroPorSegundo": 16, "revelaTocaia": 1 }
+      "arma": "refletor-armado", "destrutivel": 1, "constroi": [], "produz": []
     },
     {
       "nome": "almoxarifado-tecnico", "faccao": "religadores", "papel": "tecnico", "asset": "religadores-construcao-almoxarifado-tecnico",
@@ -63,7 +62,7 @@
     {
       "nome": "carrocao-mae", "faccao": "desligados", "papel": "qg", "asset": "desligados-construcao-carrocao-mae",
       "pegada": [4, 3], "custo": 0, "tempoMs": 0, "vida": 2250, "blindagem": "estrutura", "eletrico": 0, "visao": 8,
-      "raioRede": 0, "deposito": 1, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "inicio",
+      "raioRede": 0, "deposito": 1, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1,
       "constroi": ["paiol", "barracao", "ferraria-a-vapor", "torre-de-vigia", "palicada"],
       "produz": ["carroca-de-pedal"]
@@ -103,29 +102,28 @@
     {
       "nome": "torre-antiga", "faccao": "neutro", "papel": "religavel-defesa", "asset": "neutro-estrutura-torre-antiga",
       "pegada": [2, 2], "custo": 0, "tempoMs": 0, "vida": 1200, "blindagem": "estrutura", "eletrico": 1, "visao": 10,
-      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "mapa",
+      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": "metralhadora-antiga", "destrutivel": 1, "constroi": [], "produz": [],
       "religavel": 1, "tempoReligarMs": 20000
     },
     {
       "nome": "holofote-de-estrada", "faccao": "neutro", "papel": "religavel-visao", "asset": "neutro-estrutura-holofote-de-estrada",
       "pegada": [1, 1], "custo": 0, "tempoMs": 0, "vida": 400, "blindagem": "estrutura", "eletrico": 1, "visao": 6,
-      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "mapa",
+      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1, "constroi": [], "produz": [],
-      "religavel": 1, "tempoReligarMs": 5000,
-      "holofote": { "alcance": 60, "abertura": 256, "giroPorSegundo": 0, "revelaTocaia": 1 }
+      "religavel": 1, "tempoReligarMs": 5000
     },
     {
       "nome": "ponte-basculante", "faccao": "neutro", "papel": "religavel-passagem", "asset": "neutro-estrutura-ponte-basculante",
       "pegada": [7, 2], "custo": 0, "tempoMs": 0, "vida": 3000, "blindagem": "estrutura", "eletrico": 1, "visao": 2,
-      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "mapa",
+      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 0, "constroi": [], "produz": [],
       "religavel": 1, "tempoReligarMs": 30000
     },
     {
       "nome": "subestacao", "faccao": "neutro", "papel": "religavel-objetivo", "asset": "neutro-estrutura-subestacao",
       "pegada": [5, 4], "custo": 0, "tempoMs": 0, "vida": 5000, "blindagem": "estrutura", "eletrico": 1, "visao": 6,
-      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0, "construidoPor": "mapa",
+      "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 0, "constroi": [], "produz": [],
       "religavel": 1, "tempoReligarMs": 90000
     }

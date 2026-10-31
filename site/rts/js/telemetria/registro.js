@@ -6,8 +6,8 @@
 import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_TICK, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG, PASSOS_POR_SEGUNDO, BITS_SLOT, MAX_JOGADORES, FP } from '../sim/contratos.js';
 
 export const VERSAO_REGISTRO = 1;
-/** Window for the "no command" ratio: 10 s of game time. */
-export const JANELA_PASSOS = 10 * PASSOS_POR_SEGUNDO;
+/** Window for the "no command" ratio: 15 s of game time, the same as the pace checker's. */
+export const JANELA_PASSOS = 15 * PASSOS_POR_SEGUNDO;
 // A shot joins an open fight whose centre is within this distance and which saw a shot in the last LUTA_PAUSA ticks.
 const LUTA_RAIO = 10 * FP;
 const LUTA_PAUSA = 5 * PASSOS_POR_SEGUNDO;
@@ -47,7 +47,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
   const nomeTipo = tipo => listaTipos[tipo]?.nome ?? `tipo-${tipo}`;
   const ehColetor = tipo => listaTipos[tipo]?.coletor === 1;
   const nos = mapa?.nos ?? [];
-  const pilhasPorNo = nos.map(no => (mapa.entidades ?? []).filter(e => e.tipo === 'pilha' && e.no === no.id).length);
+  const pilhasPorNo = nos.map((_, k) => (mapa.entidades ?? []).filter(e => e.tipo === 'pilha' && e.no === k).length);
   const esgotadasPorNo = nos.map(() => 0);
   const grupos = nomesDosGrupos(missaoDados);
 

@@ -55,7 +55,7 @@ test('resources, neutral structures and windy spots come in mirrored pairs', () 
     const [w, h] = pegada(e.tipo);
     assert.ok(neutras.some(o => o.tipo === e.tipo && o.x === N - e.x - w && o.y === N - e.y - h), `${e.tipo} em ${e.x},${e.y} sem par`);
   }
-  for (const [x, y] of entidades.ventosas) assert.ok(entidades.ventosas.some(([a, b]) => a === N - 2 - x && b === N - 2 - y), `ventosa ${x},${y} sem par`);
+  for (const [x, y] of entidades.ventosas) assert.ok(entidades.ventosas.some(([a, b]) => a === N - 1 - x && b === N - 1 - y), `ventosa ${x},${y} sem par`);
 });
 
 test('every pile can be reached from at least three sides', () => {
@@ -85,8 +85,10 @@ test('the base yard of the sandbox runs dry in about 10 to 13 minutes with satur
   const guincho = dados.unidades.find(u => u.nome === 'guincho-de-celulas');
   const bloqueado = bloqueio(mapa, camadas);
   const alt = camada(mapa, camadas, 'altura');
-  const pilhas = entidades.entidades.filter(e => e.no === 'cemiterio-sudoeste');
-  const longe = (x, y) => pilhas.every(p => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) >= economia.distanciaMinimaPilha);
+  const pilhas = entidades.entidades.filter(e => e.tipo === 'pilha' && entidades.nos[e.no].id === 'cemiterio-sudoeste');
+  // depots keep this many cells from any pile (rule asked of the motor; until economia.json carries it, the plan's 5)
+  const distanciaMinima = economia.distanciaMinimaPilha ?? 5;
+  const longe = (x, y) => pilhas.every(p => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) >= distanciaMinima);
   let somaViagensMs = 0;
   for (const pilha of pilhas) {
     const dist = distancias(mapa, bloqueado, [pilha.x + 1, pilha.y]);

@@ -15,7 +15,9 @@
     "limiares": [100, 250, 500],
     "dano": [0, 5, 10, 15],
     "resistencia": [0, 5, 10, 13],
-    "recarga": [0, 0, 5, 10]
+    "recarga": [0, 0, 5, 10],
+    "coletor": { "viagens": [12, 30], "velocidade": [10, 20] },
+    "suporte": { "vidaReparada": [1500, 4000] }
   },
   "armas": [
     { "nome": "pregadeira", "tipoDano": "bala", "dano": 10, "recargaMs": 1000, "alcance": 40, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
