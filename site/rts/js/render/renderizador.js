@@ -12,6 +12,7 @@ import { criarFolhas } from './sprites.js';
 import { criarMontagemUnidades, aparenciasDosTipos, CATEGORIA } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
 import { criarRelevo, limitesPorCelula } from './relevo.js';
+import { soloDoMapa, tabelaDeSolos, LADRILHO_BASE, prefixoLadrilho } from './solos.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
 import { carregarIndice } from '../ativos/indice.js';
@@ -21,9 +22,12 @@ export { EFEITO };
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {ReturnType<typeof import('./projecao.js').criarProjecao>} projecao
- * @param {{ camera: { x: number, y: number, zoom: number }, visivel: (x: number, y: number) => boolean, escalaFixa?: number | null }} opcoes
+ * @param {{
+ *   camera: { x: number, y: number, zoom: number }, visivel: (x: number, y: number) => boolean, escalaFixa?: number | null,
+ *   terreno?: 'ladrilhos' | 'procedural',
+ * }} opcoes terreno: ground splatted from the art's tiles by soil (the default, once a tile arrives) or procedural
  */
-export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa = null }) {
+export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa = null, terreno = 'ladrilhos' }) {
   const backend = criarBackendWebGL2(canvas);
   const quadro = new Float32Array(FLOATS_QUADRO);
   // team colours are RGB triplets in projecao; the block wants vec4
@@ -47,6 +51,64 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   /** @type {Uint8Array | null} build area scaled for the texture */
   let areaConstrucao = null;
   let tiposAtuais = null;
+  // soil names of the map, the tile layer of each soil that has its own tile, and how many tiles repeat per cell
+  let nomesSolos = [LADRILHO_BASE];
+  let camadasLadrilho = new Map();
+  let celulasPorLadrilho = 8;
+  let modoTerreno = terreno;
+  let ladrilhosPedidos = false;
+
+  function atualizarSolos() {
+    backend.definirSolos(tabelaDeSolos(nomesSolos, camadasLadrilho), celulasPorLadrilho, modoTerreno === 'ladrilhos' && camadasLadrilho.size > 0 ? 1 : 0);
+  }
+
+  /**
+   * Ground tiles for the map's soils, from the art index: the base tile and every `terreno-<soil>` it lists, all of
+   * the base tile's size, in one texture array. Until they arrive the ground stays procedural.
+   * @param {Map<string, string | URL>} urls tile manifest URL by soil name
+   */
+  async function carregarLadrilhos(urls, nivel) {
+    const lidos = [];
+    for (const [nome, url] of urls) {
+      try {
+        const resposta = await fetch(url);
+        if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+        const manifesto = lerManifestoTerreno(await resposta.json(), resposta.url || url);
+        const pagina = manifesto.niveis[nivel] ?? manifesto.niveis.uhd ?? manifesto.niveis.hd;
+        lidos.push({ nome, manifesto, imagem: await carregarImagem(pagina.cor, true) });
+      } catch (erro) {
+        console.warn(`ladrilho de ${nome} indisponível`, erro);
+      }
+    }
+    if (lidos.length === 0) return;
+    const tamanho = lidos[0].imagem.width;
+    const cabem = lidos.filter(l => l.imagem.width === tamanho && l.imagem.height === tamanho && l.manifesto.celulasPorLadrilho === lidos[0].manifesto.celulasPorLadrilho);
+    backend.prepararLadrilhos(tamanho, cabem.length);
+    camadasLadrilho = new Map();
+    cabem.forEach((l, i) => {
+      backend.enviarLadrilho(i, l.imagem);
+      camadasLadrilho.set(l.nome, i);
+    });
+    for (const l of lidos) l.imagem.close();
+    celulasPorLadrilho = lidos[0].manifesto.celulasPorLadrilho;
+    atualizarSolos();
+  }
+
+  function pedirLadrilhos() {
+    if (ladrilhosPedidos) return;
+    ladrilhosPedidos = true;
+    const nivel = nivelDoCanvas();
+    carregarIndice()
+      .then(indice => {
+        const urls = new Map();
+        for (const nome of [LADRILHO_BASE, ...nomesSolos]) {
+          const url = indice.urlDo(prefixoLadrilho(nome));
+          if (url && !urls.has(nome)) urls.set(nome, url);
+        }
+        return carregarLadrilhos(urls, nivel);
+      })
+      .catch(erro => console.warn('ladrilhos de terreno indisponíveis', erro));
+  }
 
   /**
    * Kinds of the match (MapaEstatico.tipos): placeholders for the buildings, then the art of every kind the art
@@ -179,7 +241,23 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       mapaAltura = mapa.altura;
       areaConstrucao = null;
       camera.relevo = relevo;
+      const solo = soloDoMapa(mapa);
+      nomesSolos = solo.nomes;
+      backend.definirSolo(solo.grade);
+      atualizarSolos();
+      if (modoTerreno === 'ladrilhos') pedirLadrilhos();
       if (mapa.tipos) definirTipos(mapa.tipos);
+    },
+
+    /** Ground splatted from the tiles by soil ('ladrilhos') or procedural; the measurement compares the two. */
+    definirModoTerreno(modo) {
+      modoTerreno = modo;
+      if (modo === 'ladrilhos') pedirLadrilhos();
+      atualizarSolos();
+    },
+
+    get modoTerreno() {
+      return backend.modoSolo === 1 ? 'ladrilhos' : 'procedural';
     },
 
     /**
@@ -222,20 +300,22 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       return folha;
     },
 
-    /** Loads a terrain manifest as the ground texture (null goes back to the procedural ground). */
+    /**
+     * Shows one terrain manifest as the whole ground, every soil on that tile untinted (the atlas viewer); null goes
+     * back to the procedural ground.
+     */
     async carregarTerreno(url, nivel = nivelDoCanvas()) {
+      ladrilhosPedidos = true;
       if (!url) {
-        backend.definirLadrilho(null, 0);
+        modoTerreno = 'procedural';
+        atualizarSolos();
         return null;
       }
-      const resposta = await fetch(url);
-      if (!resposta.ok) throw new Error(`terreno ${url}: HTTP ${resposta.status}`);
-      const terreno = lerManifestoTerreno(await resposta.json(), resposta.url || url);
-      const pagina = terreno.niveis[nivel] ?? terreno.niveis.uhd ?? terreno.niveis.hd;
-      const imagem = await carregarImagem(pagina.cor, true);
-      backend.definirLadrilho(imagem, terreno.celulasPorLadrilho);
-      imagem.close();
-      return terreno;
+      modoTerreno = 'ladrilhos';
+      await carregarLadrilhos(new Map([[LADRILHO_BASE, url]]), nivel);
+      nomesSolos = [LADRILHO_BASE];
+      atualizarSolos();
+      return { url };
     },
 
     /** Loads the prototype's Blender tank; resolves to null when it is missing. */

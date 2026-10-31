@@ -102,7 +102,7 @@ export function criarBackendWebGL2(canvas) {
     tempoDeGpu: Boolean(temporizador),
   };
 
-  const terreno = programa(gl, F.VERT_TELA, F.FRAG_TERRENO, { uMapa: 0, uNeblina: 1, uLadrilho: 7 });
+  const terreno = programa(gl, F.VERT_TELA, F.FRAG_TERRENO, { uMapa: 0, uNeblina: 1, uLadrilhos: 7, uSolo: 10 });
   const pegada = programa(gl, F.VERT_PEGADA, F.FRAG_PEGADA);
   const cabo = programa(gl, F.VERT_CABO, F.FRAG_CABO);
   const sprite = programa(gl, F.VERT_SPRITE, F.FRAG_SPRITE, { uQuadros: 2, uCor: 3, uTime: 4 });
@@ -140,8 +140,12 @@ export function criarBackendWebGL2(canvas) {
   let areaVisivel = false;
   const texNeblina = textura2D(gl, gl.LINEAR);
   const texQuadros = textura2D(gl, gl.NEAREST);
-  const texLadrilho = textura2D(gl, gl.LINEAR);
-  let celulasPorLadrilho = 0;
+  const texSolo = textura2D(gl, gl.NEAREST);
+  // tileable ground textures, one layer per tile, created when the first tiles are known
+  const ladrilhos = { textura: null, tamanho: 0, quantidade: 0 };
+  let celulasPorLadrilho = 8;
+  let modoSolo = 0;
+  const solos = new Float32Array(F.MAX_SOLOS * 4);
   let mapaLargura = 1;
   let mapaAltura = 1;
 
@@ -268,6 +272,8 @@ export function criarBackendWebGL2(canvas) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, larguraFina, alturaFina, 0, gl.RED, gl.UNSIGNED_BYTE, fina);
       gl.bindTexture(gl.TEXTURE_2D, texArea);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, largura, altura, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+      gl.bindTexture(gl.TEXTURE_2D, texSolo);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8UI, largura, altura, 0, gl.RED_INTEGER, gl.UNSIGNED_BYTE, new Uint8Array(largura * altura));
       areaVisivel = false;
       gl.bindTexture(gl.TEXTURE_2D, texNeblina);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, largura, altura, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(largura * altura));
@@ -275,22 +281,50 @@ export function criarBackendWebGL2(canvas) {
       mapaAltura = altura;
     },
 
-    /**
-     * Tileable ground texture (premultiplied ImageBitmap) repeating every `celulas` cells; null goes back to the
-     * procedural ground.
-     */
-    definirLadrilho(imagem, celulas) {
-      if (!imagem) {
-        celulasPorLadrilho = 0;
-        return;
+    /** Soil index per cell (0..MAX_SOLOS-1), for the splatted ground. */
+    definirSolo(grade) {
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.bindTexture(gl.TEXTURE_2D, texSolo);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, mapaLargura, mapaAltura, gl.RED_INTEGER, gl.UNSIGNED_BYTE, grade);
+    },
+
+    /** Makes room for `quantidade` square ground tiles of `tamanho` px, dropping the ones there were. */
+    prepararLadrilhos(tamanho, quantidade) {
+      if (ladrilhos.textura && ladrilhos.tamanho === tamanho && ladrilhos.quantidade >= quantidade) return;
+      if (ladrilhos.textura) gl.deleteTexture(ladrilhos.textura);
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+      const niveis = Math.floor(Math.log2(tamanho)) + 1;
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, niveis, gl.RGBA8, tamanho, tamanho, quantidade);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      Object.assign(ladrilhos, { textura: t, tamanho, quantidade });
+    },
+
+    /** Uploads a tile (premultiplied ImageBitmap of the prepared size) into a layer and rebuilds the mipmaps. */
+    enviarLadrilho(camada, imagem) {
+      if (!ladrilhos.textura || imagem.width !== ladrilhos.tamanho || imagem.height !== ladrilhos.tamanho || camada >= ladrilhos.quantidade) {
+        throw new Error(`ladrilho ${imagem.width}x${imagem.height} não cabe nas camadas de ${ladrilhos.tamanho} px`);
       }
-      gl.bindTexture(gl.TEXTURE_2D, texLadrilho);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, imagem);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-      gl.generateMipmap(gl.TEXTURE_2D);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, ladrilhos.textura);
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, camada, ladrilhos.tamanho, ladrilhos.tamanho, 1, gl.RGBA, gl.UNSIGNED_BYTE, imagem);
+      gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+    },
+
+    /**
+     * How each soil looks: per soil, a tint (rgb) and its tile layer, MAX_SOLOS entries of 4 floats; the tiles repeat
+     * every `celulas` cells. modo 1 splats the tiles by soil, 0 draws the procedural ground.
+     */
+    definirSolos(tabela, celulas, modo) {
+      solos.set(tabela.subarray(0, solos.length));
       celulasPorLadrilho = celulas;
+      modoSolo = modo && ladrilhos.textura ? 1 : 0;
+    },
+
+    get modoSolo() {
+      return modoSolo;
     },
 
     /** Where the local player may build (one byte per cell, 255 = yes), shaded while placing; null hides it. */
@@ -504,12 +538,16 @@ export function criarBackendWebGL2(canvas) {
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, texNeblina);
       gl.activeTexture(gl.TEXTURE7);
-      gl.bindTexture(gl.TEXTURE_2D, texLadrilho);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, ladrilhos.textura);
+      gl.activeTexture(gl.TEXTURE10);
+      gl.bindTexture(gl.TEXTURE_2D, texSolo);
       gl.activeTexture(gl.TEXTURE0 + UNIDADE_ALTURA);
       gl.bindTexture(gl.TEXTURE_2D, texAltura);
       gl.activeTexture(gl.TEXTURE0 + UNIDADE_AREA);
       gl.bindTexture(gl.TEXTURE_2D, texArea);
       gl.uniform1f(terreno.u.uCelulasPorLadrilho, celulasPorLadrilho);
+      gl.uniform1i(terreno.u.uModoSolo, modoSolo);
+      gl.uniform4fv(terreno.u['uSolos[0]'], solos);
       gl.bindVertexArray(vaoTela);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.enable(gl.BLEND);

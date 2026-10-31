@@ -2,7 +2,8 @@
 // measurement together, and draws one frame per requestAnimationFrame.
 // Options: unidades, res=nativa|4k|1080p, bench&seg (measurement), escala=auto|1|0.85|0.75|0.67|0.5 (render scale; the
 // benchmark pins 1 unless told otherwise), semente, zoom (factor of projecao.json, 0.75 to 1.25), atlas=0, avancar,
-// roda=auto|zoom|arrastar (what a wheel without Ctrl does), teste=1 (exposes window.__rts for the end-to-end tests).
+// roda=auto|zoom|arrastar (what a wheel without Ctrl does), teste=1 (exposes window.__rts for the end-to-end tests),
+// terreno=ladrilhos|procedural (ground splatted from the art's tiles by soil, the default, or procedural noise).
 import { criarRenderizador } from './render/renderizador.js';
 import { carregarProjecao } from './render/projecao.js';
 import { criarResolucao } from './render/resolucao.js';
@@ -49,7 +50,7 @@ const selecionadas = new Set();
 const simulacao = criarPonteSimulacao();
 const { estado, visivel } = simulacao;
 const escalaFixa = opcoes.escala === 'auto' ? null : Number(opcoes.escala);
-const render = criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa });
+const render = criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa, terreno: parametros.get('terreno') === 'procedural' ? 'procedural' : 'ladrilhos' });
 const efeitos = render.efeitos;
 criarResolucao({ canvas, palco, modo: opcoes.resolucao, aoMudar: render.redimensionar });
 

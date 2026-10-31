@@ -167,27 +167,40 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
 
   /**
    * @param {object} p
-   * @param {{ anterior: any, atual: any, mapa: any, chegadaAtual: number, jogadorLocal: number }} p.estado
+   * @param {{ anterior: any, atual: any, mapa: any, chegadaAtual: number, jogadorLocal: number, extras?: any }} p.estado
+   *   extras: still entities in the snapshot's layout drawn as well (the benchmark's buildings)
    * @param {Float64Array | number[]} p.area visible ground [x0, y0, x1, y1] in cells
    * @param {Set<number>} p.selecionadas ids with generation
    * @param {number} p.agora
    */
   function montar({ estado, area, selecionadas, agora }) {
     brutos.n = sprites.n = sombras.n = aneis.n = barras.n = pegadas.n = cabos.n = 0;
-    nPendentes = 0;
-    const { anterior, atual, mapa } = estado;
+    const { anterior, atual } = estado;
     if (!atual) return;
     resolver();
     const alfa = Math.min(1, (agora - estado.chegadaAtual) / PASSO_MS);
-    const x0 = (quadroArea[0] = area[0] - MARGEM_CELULAS);
-    const y0 = (quadroArea[1] = area[1] - MARGEM_CELULAS);
-    const x1 = (quadroArea[2] = area[2] + MARGEM_CELULAS);
-    const y1 = (quadroArea[3] = area[3] + MARGEM_CELULAS);
-    quadroArea[4] = 65535 / (y1 - y0);
-    const tempoTick = atual.tick + alfa;
-    const visao = atual.visao;
-    const largura = mapa ? mapa.largura : 0;
-    const altura = mapa ? mapa.altura : 0;
+    quadroArea[0] = area[0] - MARGEM_CELULAS;
+    quadroArea[1] = area[1] - MARGEM_CELULAS;
+    quadroArea[2] = area[2] + MARGEM_CELULAS;
+    quadroArea[3] = area[3] + MARGEM_CELULAS;
+    quadroArea[4] = 65535 / (quadroArea[3] - quadroArea[1]);
+    percorrer(estado, atual, anterior, atual.tick + alfa, alfa, selecionadas);
+    if (estado.extras) percorrer(estado, estado.extras, null, atual.tick + alfa, alfa, selecionadas);
+    montarMemorias(atual.fantasmas);
+    montarFantasma();
+    ordenar();
+  }
+
+  // Every entity of one snapshot-like source (the snapshot, or the benchmark's still extras), then its cables.
+  function percorrer(estado, atual, anterior, tempoTick, alfa, selecionadas) {
+    nPendentes = 0;
+    const x0 = quadroArea[0];
+    const y0 = quadroArea[1];
+    const x1 = quadroArea[2];
+    const y1 = quadroArea[3];
+    const visao = estado.atual.visao;
+    const largura = estado.mapa ? estado.mapa.largura : 0;
+    const altura = estado.mapa ? estado.mapa.altura : 0;
     const bandeiras = atual.bandeiras ?? null;
     const progresso = atual.progresso ?? null;
     const ligacao = atual.ligacao ?? null;
@@ -279,9 +292,6 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0 }) 
       if (selecionada || atual.vida[k] < 255) emitirBarra(x, y, chao + aparencia.corpo.alturaBarraMetros, atual.vida[k] / 255, aparencia.raio * 1.5, time, selecionada);
     }
     resolverCabos(atual);
-    montarMemorias(atual.fantasmas);
-    montarFantasma();
-    ordenar();
   }
 
   // Sort key of a ground y (cells) in the frame's visible band: integer 0..65535.

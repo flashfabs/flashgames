@@ -62,16 +62,36 @@ void main() {
 
 // Terrain with height, fog of war and the depth the instanced passes test against. Each pixel follows its view ray
 // down from the highest terrain its column can meet to the first terrain point (seguirRaio in projecao.js does the
-// same steps for clicks); flat ground skips the march. The ground is the art's tileable texture when one is loaded
-// (uCelulasPorLadrilho > 0) or procedural noise otherwise; rock and cliff faces stay procedural. Slopes and faces
-// are lit by the sun and shaded by terrain between them and the sun.
+// same steps for clicks); flat ground skips the march. The ground is either splatted from the art's tileable textures
+// by the soil of each cell (uModoSolo 1: the four nearest cells blend over a noisy border) or procedural noise
+// (uModoSolo 0, with rock on blocked cells); cliff faces are procedural in both. Slopes and faces are lit by the sun
+// and shaded by terrain between them and the sun.
+export const MAX_SOLOS = 16;
 export const FRAG_TERRENO = `${CABECALHO}${RUIDO}
 uniform sampler2D uMapa;   // R blocked, G relief, B highest level the view ray can meet here, A highest level that can shade here
 uniform sampler2D uNeblina;
-uniform sampler2D uLadrilho;
+uniform mediump sampler2DArray uLadrilhos;
+uniform highp usampler2D uSolo;      // soil index per cell
+uniform vec4 uSolos[${MAX_SOLOS}];   // per soil: tint (rgb), tile layer
 uniform sampler2D uArea;   // R = 1 where the local player may build
 uniform float uCelulasPorLadrilho;
+uniform int uModoSolo;
 out vec4 cor;
+uint soloEm(ivec2 c) { return texelFetch(uSolo, clamp(c, ivec2(0), ivec2(uDimMapa.xy) - 1), 0).r; }
+vec3 ladrilho(uint s, vec2 w) {
+  vec4 t = uSolos[s & ${MAX_SOLOS - 1}u];
+  return texture(uLadrilhos, vec3(w / uCelulasPorLadrilho, t.w)).rgb * t.rgb;
+}
+// The four cells around the point blend with sharpened bilinear weights over a noisy border; one tile read where
+// they agree, which is most of the map.
+vec3 espalhar(vec2 w) {
+  vec2 q = w - 0.5 + (vec2(ruido(w * 1.7), ruido(w * 1.7 + 7.3)) - 0.5) * 0.7;
+  ivec2 c = ivec2(floor(q));
+  vec2 f = smoothstep(0.25, 0.75, fract(q));
+  uint s00 = soloEm(c), s10 = soloEm(c + ivec2(1, 0)), s01 = soloEm(c + ivec2(0, 1)), s11 = soloEm(c + ivec2(1, 1));
+  if (s00 == s10 && s00 == s01 && s00 == s11) return ladrilho(s00, w);
+  return mix(mix(ladrilho(s00, w), ladrilho(s10, w), f.x), mix(ladrilho(s01, w), ladrilho(s11, w), f.x), f.y);
+}
 float rocha(vec2 w) { return texture(uMapa, w / uDimMapa.xy).r; }
 vec4 limites(vec2 w) { return texelFetch(uMapa, clamp(ivec2(floor(w)), ivec2(0), ivec2(uDimMapa.xy) - 1), 0); }
 
@@ -124,35 +144,44 @@ void main() {
   vec2 uv = w / uDimMapa.xy;
   float relevo = texture(uMapa, uv).g;
 
-  float n1 = fbm(w * 0.18);
-  float n2 = fbm(w * 1.1 + 5.3);
-  float n3 = ruido(w * 11.0);
-  vec3 solo = mix(vec3(0.76, 0.63, 0.44), vec3(0.50, 0.40, 0.29), smoothstep(0.30, 0.78, n1 + (relevo - 0.5) * 0.7));
-  solo = mix(solo, vec3(0.66, 0.60, 0.48), smoothstep(0.55, 0.85, n2) * 0.45);
-  float rachadura = 1.0 - smoothstep(0.0, 0.03, abs(fbm(w * 0.7 + 3.7) - 0.5));
-  solo *= 1.0 - rachadura * 0.32 * smoothstep(0.42, 0.66, n1);
-  solo *= 0.9 + n3 * 0.14;
-  vec2 grao = fract(w * 5.0) - 0.5;
-  float pedrinha = step(0.94, hash(floor(w * 5.0))) * smoothstep(0.32, 0.12, length(grao));
-  solo = mix(solo, solo * 0.62, pedrinha);
-  if (uCelulasPorLadrilho > 0.0) solo = texture(uLadrilho, w / uCelulasPorLadrilho).rgb * (0.94 + (n1 - 0.5) * 0.16);
-  // higher ground reads a little lighter, so the levels separate even under flat light
-  solo *= 1.0 + p.z * 0.012;
+  vec3 c;
+  if (uModoSolo == 1) {
+    c = espalhar(w) * (0.94 + (ruido(w * 0.21) - 0.5) * 0.14);
+    c *= 1.0 + p.z * 0.012;
+    // blocked ground keeps a bevel where it meets open ground
+    float e = 0.45;
+    vec2 g = vec2(rocha(w + vec2(e, 0)) - rocha(w - vec2(e, 0)), rocha(w + vec2(0, e)) - rocha(w - vec2(0, e)));
+    c *= 1.0 + clamp(dot(normalize(vec3(-g * 2.2, 1.0)), uSol.xyz) - uSol.z, -0.35, 0.25) * rocha(w);
+  } else {
+    float n1 = fbm(w * 0.18);
+    float n2 = fbm(w * 1.1 + 5.3);
+    float n3 = ruido(w * 11.0);
+    vec3 solo = mix(vec3(0.76, 0.63, 0.44), vec3(0.50, 0.40, 0.29), smoothstep(0.30, 0.78, n1 + (relevo - 0.5) * 0.7));
+    solo = mix(solo, vec3(0.66, 0.60, 0.48), smoothstep(0.55, 0.85, n2) * 0.45);
+    float rachadura = 1.0 - smoothstep(0.0, 0.03, abs(fbm(w * 0.7 + 3.7) - 0.5));
+    solo *= 1.0 - rachadura * 0.32 * smoothstep(0.42, 0.66, n1);
+    solo *= 0.9 + n3 * 0.14;
+    vec2 grao = fract(w * 5.0) - 0.5;
+    float pedrinha = step(0.94, hash(floor(w * 5.0))) * smoothstep(0.32, 0.12, length(grao));
+    solo = mix(solo, solo * 0.62, pedrinha);
+    // higher ground reads a little lighter, so the levels separate even under flat light
+    solo *= 1.0 + p.z * 0.012;
 
-  float r = rocha(w);
-  float pedraMascara = smoothstep(0.40, 0.56, r + (fbm(w * 0.9) - 0.5) * 0.35);
-  float e = 0.45;
-  float gx = rocha(w + vec2(e, 0)) - rocha(w - vec2(e, 0));
-  float gy = rocha(w + vec2(0, e)) - rocha(w - vec2(0, e));
-  vec3 normalRocha = normalize(vec3(-gx * 2.2, -gy * 2.2, 1.0));
-  float difusa = clamp(dot(normalRocha, uSol.xyz), 0.0, 1.0);
-  vec3 pedra = mix(vec3(0.40, 0.34, 0.29), vec3(0.63, 0.56, 0.48), fbm(w * 0.9 + 9.1));
-  pedra *= 0.5 + difusa * 0.75;
-  pedra *= 0.82 + ruido(w * 6.0) * 0.3;
-  pedra = mix(pedra, pedra * 0.7, smoothstep(0.55, 0.7, fbm(w * 2.6)) * 0.6);
-  float sombraRocha = smoothstep(0.35, 0.7, rocha(w + normalize(uSol.xy) * 1.2)) * (1.0 - pedraMascara);
-  solo *= 1.0 - sombraRocha * 0.42;
-  vec3 c = mix(solo, pedra, pedraMascara);
+    float r = rocha(w);
+    float pedraMascara = smoothstep(0.40, 0.56, r + (fbm(w * 0.9) - 0.5) * 0.35);
+    float e = 0.45;
+    float gx = rocha(w + vec2(e, 0)) - rocha(w - vec2(e, 0));
+    float gy = rocha(w + vec2(0, e)) - rocha(w - vec2(0, e));
+    vec3 normalRocha = normalize(vec3(-gx * 2.2, -gy * 2.2, 1.0));
+    float difusa = clamp(dot(normalRocha, uSol.xyz), 0.0, 1.0);
+    vec3 pedra = mix(vec3(0.40, 0.34, 0.29), vec3(0.63, 0.56, 0.48), fbm(w * 0.9 + 9.1));
+    pedra *= 0.5 + difusa * 0.75;
+    pedra *= 0.82 + ruido(w * 6.0) * 0.3;
+    pedra = mix(pedra, pedra * 0.7, smoothstep(0.55, 0.7, fbm(w * 2.6)) * 0.6);
+    float sombraRocha = smoothstep(0.35, 0.7, rocha(w + normalize(uSol.xy) * 1.2)) * (1.0 - pedraMascara);
+    solo *= 1.0 - sombraRocha * 0.42;
+    c = mix(solo, pedra, pedraMascara);
+  }
 
   // slopes, cliff faces and the shade of higher ground, only where there is relief nearby
   vec4 limP = limites(w);

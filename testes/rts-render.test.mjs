@@ -594,3 +594,23 @@ test('selected buildings get a footprint outline instead of a ring', () => {
   assert.equal(m.barras.n, 1);
   assert.equal(empacotar(7, 255, 15, 63), 7 | (255 << 3) | (15 << 11) | (63 << 15));
 });
+
+// ---------- ground soils for the splatted terrain ----------
+
+import { soloDoMapa, tabelaDeSolos, SOLOS_PADRAO } from '../site/rts/js/render/solos.js';
+
+test('a map soil layer is kept; a generated map gets soils from its relief, rock where blocked', () => {
+  const proprio = soloDoMapa({ largura: 2, altura: 1, bloqueado: new Uint8Array(2), relevo: new Uint8Array(2), solo: Uint8Array.of(1, 7), solos: ['terra-batida', 'lama'] });
+  assert.deepEqual(Array.from(proprio.grade), [1, 1], 'indices past the table clamp to its last soil');
+  assert.deepEqual(proprio.nomes, ['terra-batida', 'lama']);
+  const gerado = soloDoMapa({ largura: 3, altura: 1, bloqueado: Uint8Array.of(1, 0, 0), relevo: Uint8Array.of(0, 120, 200) });
+  assert.deepEqual(Array.from(gerado.grade, i => gerado.nomes[i]), ['rocha', 'capim', 'cascalho']);
+});
+
+test('soils with their own tile show it untinted; the rest tint the base tile', () => {
+  const nomes = SOLOS_PADRAO.map(([nome]) => nome);
+  const t = tabelaDeSolos(nomes, new Map([['terra-batida', 0], ['capim', 1]]));
+  assert.deepEqual(Array.from(t.subarray(4, 8)), [1, 1, 1, 1], 'grass on its own layer');
+  assert.equal(t[2 * 4 + 3], 0, 'gravel on the base tile');
+  assert.ok(t[2 * 4] < 1, 'with its tint');
+});
