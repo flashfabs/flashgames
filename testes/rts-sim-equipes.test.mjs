@@ -42,7 +42,7 @@ test('a team decides once every PERIODO_EQUIPES ticks, on its own phase, and its
   const antes = sim.x[carroca];
   for (let k = 0; k < 3 * PERIODO_EQUIPES; k++) passo(sim);
   assert.deepEqual(registro.map(r => r.tick), [1, 1 + PERIODO_EQUIPES, 1 + 2 * PERIODO_EQUIPES]);
-  assert.deepEqual(registro[0].chaves, ['comandar', 'dificuldade', 'estado', 'lugares', 'mapa', 'rotuloDe', 'tick', 'time', 'vista'], 'no simulation in the context');
+  assert.deepEqual(registro[0].chaves, ['comandar', 'dificuldade', 'disparou', 'emitir', 'estado', 'lugares', 'mapa', 'missao', 'rotular', 'rotuloDe', 'tick', 'time', 'vista'], 'no simulation in the context');
   assert.notEqual(sim.x[carroca], antes, 'the cart moves towards the centre');
 });
 
@@ -88,6 +88,7 @@ test('no cheating: changing what the team cannot see changes none of its decisio
 test('without behaviours the hook costs nothing and changes nothing', () => {
   const sim = novaCaixa();
   for (let k = 0; k < 2 * PERIODO_EQUIPES; k++) passo(sim);
-  assert.equal(sim.extras.comportamentos, undefined);
+  // the teams state group exists empty: nothing saved or hashed for it
+  assert.deepEqual(sim.extras.comportamentos, {});
   assert.ok(sim.x.every((_, i) => !sim.ativo[i] || (sim.x[i] >> FP_BITS) < sim.mapa.largura));
 });

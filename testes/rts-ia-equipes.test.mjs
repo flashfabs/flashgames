@@ -2,7 +2,8 @@
 // errors and difficulty values; each behaviour (guard, patrol, attack along a route with a warning, harvesters by
 // difficulty, wave size by the army seen, fall back, rebuild with the player's own Carga, start and stop triggers)
 // does what it says on a small open map; the teams act only by their player's commands; and they do not cheat:
-// two matches that differ only in enemy units the team cannot see give the same decisions, tick by tick.
+// two matches that differ only in enemy units the team cannot see give the same decisions, tick by tick. The teams
+// run behind the step seam (sim/equipes.js); the tests record each decision through usarComportamentos.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,7 +15,25 @@ import { rotulosDaMissao, rotular, temRotulo } from '../site/rts/js/sim/gatilhos
 import { matar, criarEntidade, idDoSlot } from '../site/rts/js/sim/entidades.js';
 import { celulaVisivel } from '../site/rts/js/sim/neblina.js';
 import { salvar, carregar } from '../site/rts/js/sim/persistencia.js';
-import { compilarEquipes, decisaoDoJogador, COMPORTAMENTO, FASE, INTERVALO_DECISAO } from '../site/rts/js/sim/comportamentos/equipes.js';
+import { compilarEquipes, COMPORTAMENTO, FASE } from '../site/rts/js/sim/comportamentos/formato.js';
+import * as comportamentos from '../site/rts/js/sim/comportamentos/indice.js';
+import { usarComportamentos, PERIODO_EQUIPES } from '../site/rts/js/sim/equipes.js';
+
+const INTERVALO_DECISAO = PERIODO_EQUIPES;
+// every decision of every match of this file, by match (its teams state), as the behaviours returned it
+const gravacoes = new WeakMap();
+usarComportamentos({
+  ativo: comportamentos.ativo,
+  decidir(ctx) {
+    const saida = comportamentos.decidir(ctx);
+    if (!gravacoes.has(ctx.estado)) gravacoes.set(ctx.estado, []);
+    gravacoes.get(ctx.estado).push({ tick: ctx.tick, time: ctx.time, ...saida });
+  },
+});
+const decisoesDe = sim => {
+  if (!gravacoes.has(sim.extras.comportamentos)) gravacoes.set(sim.extras.comportamentos, []);
+  return gravacoes.get(sim.extras.comportamentos);
+};
 
 const infantaria = { classe: 'infantaria', blindagem: 'pessoal', lotacao: 1, raio: 2, giroCorpo: 16, giroTorre: 16, tempoMs: 12000 };
 const veiculo = { classe: 'veiculo', blindagem: 'leve', lotacao: 2, raio: 2, giroCorpo: 16, giroTorre: 16, tempoMs: 15000 };
@@ -73,20 +92,21 @@ function partida({ equipes, unidades, gatilhos = [], dificuldade, cargaInicial =
 const fileira = (tipo, time, x, y, n, rotulo) => Array.from({ length: n }, (_, k) => ({ tipo, time, x: x + (k % 4), y: y + Math.trunc(k / 4), rotulo }));
 const segundos = s => s * 30;
 
-// Runs `passos` ticks, collecting the computer player's commands (as scheduled) and the events of every tick.
+// Runs `passos` ticks, collecting the computer player's commands (with the tick they were given on) and the warning
+// events of every tick.
 function jogar(sim, passos, { parar = () => false } = {}) {
-  const comandos = [];
+  const decisoes = decisoesDe(sim);
+  const desde = decisoes.length;
   const eventos = [];
   for (let k = 0; k < passos && !parar(sim); k++) {
-    const antes = sim.comandos.length;
     passo(sim);
-    for (const c of sim.comandos.slice(antes)) if (c.jogador === IA) comandos.push({ ...c, emitidoEm: sim.tick });
     for (let o = 0; o < sim.eventos.length; o += TAMANHO_EVENTO) {
       const tipo = sim.eventos[o + E_TIPO];
       if (tipo === EVENTO.AVISO_ATAQUE || tipo === EVENTO.ONDA) eventos.push({ tipo, tick: sim.tick, arg: sim.eventos[o + E_ARG], x: sim.eventos[o + E_X], y: sim.eventos[o + E_Y] });
     }
   }
-  return { comandos, eventos };
+  const novas = decisoes.slice(desde);
+  return { comandos: novas.flatMap(d => d.comandos.map(c => ({ ...c, emitidoEm: d.tick }))), eventos, decisoes: novas };
 }
 
 const vivos = (sim, time, tipo) => {
@@ -122,8 +142,8 @@ test('the teams block compiles places, triggers and numbers by difficulty, with 
   assert.equal(facil.equipes[1].aviso, segundos(20));
   assert.equal(a.coletores, 50, 'hard sends half the wave at harvesters by default');
   assert.equal(facil.equipes[1].coletores, 0, 'easy leaves harvesters alone by default');
-  assert.equal(a.desde, 0);
-  assert.equal(a.ate, -1);
+  assert.equal(a.desde, 'comeca');
+  assert.equal(a.ate, null);
   assert.equal(a.escala.porcento, 150);
   assert.equal(a.rota.length, 2);
   assert.equal(a.recuo.cx0, 26);
@@ -183,7 +203,7 @@ test('a patrol team walks its route to the end and back', () => {
   const pontos = [];
   for (let k = 0; k < 120; k++) {
     jogar(sim, segundos(1));
-    const ponto = sim.extras.equipes.ponto[0];
+    const ponto = sim.extras.comportamentos.ponto[0];
     if (pontos.at(-1) !== ponto) pontos.push(ponto);
   }
   assert.deepEqual(pontos.slice(0, 5), [0, 1, 2, 1, 0], 'out to the third point and back to the first');
@@ -205,7 +225,7 @@ test('an attack warns at least its warning time before leaving, follows its rout
   assert.equal(rotulosDaMissao(missao)[aviso.arg], 'onda');
   assert.equal(onda.arg, aviso.arg);
   assert.deepEqual([celula(aviso.x), celula(aviso.y)], [32, 54], 'the warning points at the destination');
-  assert.ok(aviso.tick >= segundos(2) && aviso.tick <= segundos(2) + INTERVALO_DECISAO + 3);
+  assert.ok(aviso.tick >= segundos(2) && aviso.tick <= segundos(2) + INTERVALO_DECISAO + 3, `warned at tick ${aviso.tick}`);
   assert.ok(onda.tick - aviso.tick >= segundos(12), `left ${(onda.tick - aviso.tick) / 30} s after the warning`);
   assert.ok(comandos.every(c => c.emitidoEm >= onda.tick || c.tipo !== TIPO_COMANDO.ATACAR_MOVENDO), 'nobody moves during the warning');
   const primeiroPasso = comandos.find(c => c.tipo === TIPO_COMANDO.ATACAR_MOVENDO);
@@ -265,7 +285,7 @@ test('a beaten attack falls back to its fallback place and guards it', () => {
   const recuo = comandos.find(c => c.tipo === TIPO_COMANDO.MOVER);
   assert.ok(recuo, 'it fell back');
   assert.deepEqual([celula(recuo.x), celula(recuo.y)], [32, 5], 'to the centre of the fallback area');
-  assert.equal(sim.extras.equipes.recuado[0], 1);
+  assert.equal(sim.extras.comportamentos.recuado[0], 1);
   const sobreviventes = vivos(sim, IA);
   if (sobreviventes.length > 0) assert.ok(centro(sim, sobreviventes).y < 16, 'what is left of the team is back home');
 });
@@ -313,21 +333,19 @@ test('a team waits for its start trigger and stops at its stop trigger', () => {
   const { comandos } = jogar(sim, segundos(30));
   assert.ok(comandos.length > 0);
   assert.ok(comandos.every(c => c.emitidoEm > segundos(5) && c.emitidoEm < segundos(15) + INTERVALO_DECISAO), comandos.map(c => c.emitidoEm).join(' '));
-  assert.equal(sim.extras.equipes.fase[0], FASE.PARADA);
+  assert.equal(sim.extras.comportamentos.fase[0], FASE.PARADA);
 });
 
-test('the teams act only through their player commands, one tick later, with their own sequence', () => {
+test('the teams command only their own units, and only through the context', () => {
   const sim = partida({
     equipes: [{ id: 'a', grupo: 'onda', jogador: IA, faz: 'atacar', rota: 'ida', area: 'base' }],
     unidades: [...fileira(ROLIMA, IA, 30, 5, 4, 'onda'), { tipo: ESCRITORIO, time: JOGADOR, x: 31, y: 53 }],
   });
+  const proprias = new Set(vivos(sim, IA).map(i => idDoSlot(sim, i)));
   const { comandos } = jogar(sim, segundos(30));
   assert.ok(comandos.length > 0);
-  for (const c of comandos) {
-    assert.equal(c.jogador, IA);
-    assert.equal(c.tick, c.emitidoEm + 1);
-  }
-  assert.deepEqual(comandos.map(c => c.seq), comandos.map((_, k) => k + 1));
+  for (const c of comandos) for (const id of c.unidades) assert.ok(proprias.has(id), `unit ${id} is the team's`);
+  assert.equal(sim.comandos.length, 0, 'nothing waits in the command queue: commands apply on their tick');
 });
 
 // ---------- no cheating ----------
@@ -358,8 +376,8 @@ function partidaComExercitoEscondido(escondidos) {
 }
 
 // Changes the player's units on cells the computer team does not see (with `canto`, only those in the far corner,
-// which no team ever comes near): moves each one a cell and halves its health and, with `contagem`, also removes one
-// and adds six. Returns how many changed.
+// which no team ever comes near): moves each one a cell and halves its health and, with `contagem`, also changes the
+// kind of one, removes another and adds six. Returns how many changed.
 function mexerNoEscondido(sim, { contagem = false, canto = false } = {}) {
   const escondido = i => !celulaVisivel(sim, IA, celula(sim.y[i]) * sim.mapa.largura + celula(sim.x[i]));
   const noCanto = i => !canto || (celula(sim.x[i]) < 12 && celula(sim.y[i]) > 54);
@@ -368,14 +386,16 @@ function mexerNoEscondido(sim, { contagem = false, canto = false } = {}) {
     if (contagem && k === 0) return matar(sim, i, -1);
     sim.x[i] = Math.max(FP, sim.x[i] - FP);
     sim.vida[i] = 1 + (sim.vida[i] >> 1);
+    // and, counting too, one of a different kind
+    if (contagem && k === 1) sim.tipo[i] = GUINCHO;
   });
   if (contagem) for (let k = 0; k < 6; k++) criarEntidade(sim, TURMA, JOGADOR, (1 + k) * FP + FP / 2, 62 * FP + FP / 2);
   assert.ok(lista.every(i => !sim.ativo[i] || escondido(i)), 'still hidden');
   return lista.length + (contagem ? 6 : 0);
 }
 
-// Two matches from the same saved state, one of them changed where the team cannot see: the decision at that tick is
-// the same with every hidden unit moved and hurt, one removed and six added. Over the next seconds the matches are
+// Two matches from the same saved state, one of them changed where the team cannot see: the next decision is the
+// same with every hidden unit moved and hurt, one changed in kind, one removed and six added. Over the next seconds the matches are
 // compared with only the far-corner army moved and hurt: a unit hidden now may come into sight later at the place it
 // was moved to (a different visible world), and a removed or added unit shifts the slots of everything created later
 // (sparks, new units) and with them the order the rules visit entities in.
@@ -386,10 +406,13 @@ test('no cheating: units the computer team cannot see change none of its decisio
   for (let ponto = 0; ponto < 14; ponto++) {
     jogar(base, segundos(5));
     const bytes = salvar(base);
+    // the next decision, with every hidden unit moved, hurt and changed in kind, one removed and six added
     const contada = [carregar(bytes), carregar(bytes)];
     assert.ok(mexerNoEscondido(contada[1], { contagem: true }) > 0);
-    assert.deepEqual(decisaoDoJogador(contada[1], IA), decisaoDoJogador(contada[0], IA), `decision at tick ${base.tick}`);
-    assert.deepEqual(contada[1].extras.equipes, contada[0].extras.equipes);
+    const proxima = contada.map(sim => jogar(sim, INTERVALO_DECISAO).decisoes[0]);
+    assert.ok(proxima[0], 'a decision came');
+    assert.deepEqual(proxima[1], proxima[0], `decision after tick ${base.tick}`);
+    assert.deepEqual(contada[1].extras.comportamentos, contada[0].extras.comportamentos);
     const igual = carregar(bytes);
     const mexida = carregar(bytes);
     assert.ok(mexerNoEscondido(mexida, { canto: true }) > 0);
@@ -397,7 +420,7 @@ test('no cheating: units the computer team cannot see change none of its decisio
     const b = jogar(mexida, segundos(5));
     assert.deepEqual(b.comandos, a.comandos, `commands after tick ${base.tick}`);
     assert.deepEqual(b.eventos, a.eventos);
-    assert.deepEqual(mexida.extras.equipes, igual.extras.equipes, 'the teams state, the army seen included');
+    assert.deepEqual(mexida.extras.comportamentos, igual.extras.comportamentos, 'the teams state, the army seen included');
     comparadas++;
     ativas += a.comandos.length;
   }
@@ -435,11 +458,11 @@ test('a match with teams saved and loaded midway ends with the same checksum', (
   jogar(corrida, segundos(25));
   jogar(meio, segundos(25));
   assert.equal(somaDeVerificacao(meio), somaDeVerificacao(corrida));
-  assert.ok(Object.keys(corrida.extras.equipes).length > 0, 'the teams state is saved');
+  assert.ok(Object.keys(corrida.extras.comportamentos).length > 0, 'the teams state is saved');
 });
 
 test('a match without teams keeps no teams state, so its checksums stay as they were', () => {
   const sim = criarSimulacao({ mapa: { largura: 32, altura: 32, bases: [{ x: 8, y: 8 }, { x: 24, y: 24 }] }, dados: DADOS, regras: REGRAS_LIVRES, capacidade: 16, unidades: [{ tipo: TURMA, time: 0, x: 8 * FP, y: 8 * FP }] });
-  assert.deepEqual(sim.extras.equipes, {});
+  assert.deepEqual(sim.extras.comportamentos, {});
   assert.equal(idDe(0, 1) > 0, true);
 });

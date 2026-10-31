@@ -64,19 +64,19 @@ const centroDaCelula = c => c * FP + (FP >> 1);
 
 /** Strength of one unit: its cost scaled by its health (vida is 1..255 of its maximum). */
 const poderDe = (tipos, tipo, vida) => (tipos[tipo].custo * vida) >> 8;
-const armado = (tipos, tipo) => tipos[tipo].categoria === CATEGORIA.UNIDADE && tipos[tipo].dano > 0;
+const armado = (tipos, tipo) => tipos[tipo].categoria === CATEGORIA.UNIDADE && tipos[tipo].arma >= 0;
 
 /**
  * Decides one tick for the teams of `jogador`.
  * @param {object} entrada
  * @param {number} entrada.tick
  * @param {number} entrada.jogador
- * @param {object} entrada.vista       vistaDoTime(sim, jogador)
+ * @param {object} entrada.vista       the team's view (VistaDoTime)
  * @param {Int32Array} entrada.rotulos mission label index of each own entity of the vista, -1 none
  * @param {Uint8Array} entrada.ativas  1 for each team whose start trigger fired and whose stop trigger did not
  * @param {object[]} entrada.equipes   compiled teams (equipes.js), all players'
- * @param {object} entrada.estado      the teams' state (sim.extras.equipes), changed in place
- * @param {object[]} entrada.tipos     the static kinds
+ * @param {object} entrada.estado      the teams' state (formato.js), changed in place
+ * @param {object[]} entrada.tipos     the static kinds (MapaEstatico.tipos)
  * @returns {{ comandos: object[], eventos: object[], rotulos: object[] }} commands of the player (no tick, player or
  *   seq), events { tipo, x, y, arg } and labels { id, rotulo } for the step to apply, in order
  */

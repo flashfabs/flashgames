@@ -1,10 +1,11 @@
 // Harness of the computer teams (front F6): plays a mission on its real map and data with its "equipes" block (or,
 // for the design front's sandbox, which has none yet, a block made from its waves: each wave attacks along the route
 // its trigger gives, the garrison guards the camp and the camp rebuilds), with nobody at the controls or with a
-// defending army at the player's base, and measures what the teams cost: for each computer player, the decision
-// (vistaDoTime plus the behaviours) timed on the state the step is about to decide on, then restored, so the match
-// plays exactly as without the measurement. Prints JSON: decisions, mean cost per step, p50, p99 and worst decision,
-// the view's share, commands, warnings and waves, and how the match ended.
+// defending army at the player's base, and measures what the teams cost: for each computer player, each decision
+// timed inside the step, from the seam's ativo() through its context (the team's view) and decidir() to the commands
+// applied, by wrapping the behaviours module (usarComportamentos), so the match plays exactly as without the
+// measurement. Prints JSON: decisions, mean cost per step, p50, p99 and worst decision, commands, warnings and
+// waves, and how the match ended.
 // Run long or heavy measurements on the RTX 4090 PC: ferramentas/rts/rtx-node.sh -- ferramentas/rts/ia-harness.mjs ...
 //   node ferramentas/rts/ia-harness.mjs [--missao caixa-de-areia] [--dificuldade normal] [--minutos 20]
 //        [--exercito 0] (player infantry holding the base) [--reforco 0] (extra garrison units guarding the camp)
@@ -17,8 +18,9 @@ import { compilarDados } from '../../site/rts/js/sim/dados.js';
 import { celulaLivreMaisProxima } from '../../site/rts/js/sim/mapa.js';
 import { criarEntidade } from '../../site/rts/js/sim/entidades.js';
 import { rotular, resultadoDaMissao, RESULTADO } from '../../site/rts/js/sim/gatilhos.js';
-import { vistaDoTime } from '../../site/rts/js/sim/vista.js';
-import { equipesDe, decisaoDoJogador, INTERVALO_DECISAO } from '../../site/rts/js/sim/comportamentos/equipes.js';
+import { usarComportamentos } from '../../site/rts/js/sim/equipes.js';
+import { equipesDaPartida } from '../../site/rts/js/sim/comportamentos/formato.js';
+import * as comportamentos from '../../site/rts/js/sim/comportamentos/indice.js';
 
 const dadosUrl = new URL('../../site/rts/dados/', import.meta.url);
 const json = url => JSON.parse(readFileSync(url, 'utf8'));
@@ -89,41 +91,32 @@ const percentil = (lista, p) => {
 };
 const ms = v => Math.round(v * 1000) / 1000;
 
-// The arrays of the teams' state, copied, so a measured decision can be undone.
-const copiarEstado = sim => Object.fromEntries(Object.entries(sim.extras.equipes).map(([nome, a]) => [nome, a.slice()]));
-const restaurarEstado = (sim, copia) => {
-  for (const [nome, a] of Object.entries(copia)) sim.extras.equipes[nome].set(a);
-};
-
 /** Plays `minutos` of the match and measures each computer player's decisions. */
 export function medir(sim, minutos) {
-  const c = equipesDe(sim);
+  const c = equipesDaPartida(sim);
   if (!c) throw new Error('a missão não tem equipes');
-  const porJogador = new Map(c.jogadores.map(j => [j, { decisoes: [], vistas: [], comandos: 0 }]));
+  const porJogador = new Map(c.jogadores.map(j => [j, { decisoes: [], comandos: 0 }]));
   const eventos = { avisos: 0, ondas: 0 };
   const passos = minutos * 60 * 30;
   const relogio = () => performance.now();
+  // a decision runs from ativo() returning true, through the context the seam builds, to decidir() returning
+  let inicio = 0;
+  const anterior = usarComportamentos({
+    ativo(s, time) {
+      const ativo = comportamentos.ativo(s, time);
+      if (ativo) inicio = relogio();
+      return ativo;
+    },
+    decidir(ctx) {
+      const saida = comportamentos.decidir(ctx);
+      const m = porJogador.get(ctx.time);
+      m.decisoes.push(relogio() - inicio);
+      m.comandos += saida.comandos.length;
+    },
+  });
   let fim = null;
   for (let k = 0; k < passos; k++) {
-    // the decisions the next step makes, timed on the state it starts from, then undone
-    const proximo = sim.tick + 1;
-    for (const j of c.jogadores) {
-      if ((proximo + 3 * j) % INTERVALO_DECISAO !== 0) continue;
-      const copia = copiarEstado(sim);
-      sim.tick = proximo;
-      const t0 = relogio();
-      vistaDoTime(sim, j);
-      const t1 = relogio();
-      decisaoDoJogador(sim, j);
-      const t2 = relogio();
-      sim.tick = proximo - 1;
-      restaurarEstado(sim, copia);
-      porJogador.get(j).vistas.push(t1 - t0);
-      porJogador.get(j).decisoes.push(t2 - t1);
-    }
-    const antes = sim.comandos.length;
     passo(sim);
-    for (const cmd of sim.comandos.slice(antes)) if (porJogador.has(cmd.jogador)) porJogador.get(cmd.jogador).comandos++;
     for (let o = 0; o < sim.eventos.length; o += TAMANHO_EVENTO) {
       if (sim.eventos[o + E_TIPO] === EVENTO.AVISO_ATAQUE) eventos.avisos++;
       if (sim.eventos[o + E_TIPO] === EVENTO.ONDA) eventos.ondas++;
@@ -134,13 +127,13 @@ export function medir(sim, minutos) {
       break;
     }
   }
+  usarComportamentos(anterior);
   const unidades = time => {
     let n = 0;
     for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.time[i] === time && sim.categoriaPorTipo[sim.tipo[i]] === CATEGORIA.UNIDADE) n++;
     return n;
   };
   const jogadores = [...porJogador].map(([jogador, m]) => {
-    // the view is built once per decision: its share counts once, inside the decision's total
     const totais = m.decisoes;
     const soma = totais.reduce((a, b) => a + b, 0);
     return {
@@ -150,7 +143,6 @@ export function medir(sim, minutos) {
       msDecisaoP50: ms(percentil(totais, 50)),
       msDecisaoP99: ms(percentil(totais, 99)),
       msDecisaoMaximo: ms(Math.max(0, ...totais)),
-      msVistaP50: ms(percentil(m.vistas, 50)),
       comandos: m.comandos,
       unidadesNoFim: unidades(jogador),
     };

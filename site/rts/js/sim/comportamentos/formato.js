@@ -1,9 +1,7 @@
 // Computer teams of a mission (C7, the "equipes" block, front F6): each team is a mission group of one computer player
-// with a behaviour: guard a zone, patrol a route, attack along a route, fall back, or rebuild its buildings.
-// Deterministic, inside the step, right after the mission triggers: every INTERVALO_DECISAO ticks each computer
-// player reads only vistaDoTime (what its team sees and the ghosts of what it saw, its own Carga and queues) plus its
-// own units' mission labels, decides (decisoes.js), and acts only by ordinary commands of its player for the next
-// tick. It gets no sight, Carga or production a player would not have, at any difficulty.
+// with a behaviour: guard a zone, patrol a route, attack along a route, fall back, or rebuild its buildings. This file
+// holds the format, its compiler and the teams' saved state; indice.js runs them behind the step seam (sim/equipes.js)
+// and decisoes.js decides, from the team's view alone.
 //
 // Format, in the mission next to "gatilhos". Every number may be { "facil", "normal", "dificil" } as in the triggers;
 // positions in cells, times in seconds; places by name, looked up in the mission first and then in the map; groups are
@@ -26,18 +24,13 @@
 //     share of its strength, with more armed enemy strength in sight than its own, the team falls back there and
 //     guards it }]
 // A unit is in the first active team, in file order, whose group it carries.
-import { FP, PASSOS_POR_SEGUNDO, MAX_UNIDADES_POR_COMANDO, comandoValido } from '../contratos.js';
+import { FP, PASSOS_POR_SEGUNDO, MAX_UNIDADES_POR_COMANDO } from '../contratos.js';
 import * as estado from '../estado.js';
-import { slotVivo } from '../entidades.js';
-import { emitirEventoNoPonto } from '../combate.js';
-import { vistaDoTime } from '../vista.js';
-import { missaoDe, extrasMissao, indiceDificuldade, rotulosDaMissao, rotular, RESULTADO } from '../gatilhos.js';
-import { COMPORTAMENTO, FASE, PREDIO, MAX_PREDIOS_EQUIPE, CAMPOS_PREDIO, decidirJogador } from './decisoes.js';
+import { missaoDe, indiceDificuldade, rotulosDaMissao } from '../gatilhos.js';
+import { COMPORTAMENTO, FASE, PREDIO, MAX_PREDIOS_EQUIPE, CAMPOS_PREDIO } from './decisoes.js';
 
 export { COMPORTAMENTO, FASE, PREDIO, MAX_PREDIOS_EQUIPE };
 
-/** Each computer player decides on every this many ticks, the players a few ticks apart. */
-export const INTERVALO_DECISAO = 10;
 /** Most teams one mission may have. */
 export const MAX_EQUIPES = 64;
 const NOMES = { guardar: COMPORTAMENTO.GUARDAR, patrulhar: COMPORTAMENTO.PATRULHAR, atacar: COMPORTAMENTO.ATACAR, recuar: COMPORTAMENTO.RECUAR, reconstruir: COMPORTAMENTO.RECONSTRUIR };
@@ -100,11 +93,11 @@ export function compilarEquipes(missao, contexto) {
     return { grupo: marcas, rotulo: principal, nome: rotulos[principal] ?? '' };
   };
   const gatilhos = Array.isArray(missao.gatilhos) ? missao.gatilhos : [];
+  // a trigger id the mission has, or null
   const gatilho = (onde, id) => {
-    if (id === undefined) return -1;
-    const k = gatilhos.findIndex(g => g?.id === id);
-    if (k < 0) erros.push(`${onde}: gatilho ${id} não existe`);
-    return k;
+    if (id === undefined) return null;
+    if (!gatilhos.some(g => g?.id === id)) erros.push(`${onde}: gatilho ${id} não existe`);
+    return id;
   };
   const procurar = (colecao, nome) => missao[colecao]?.[nome] ?? lugares[colecao]?.[nome];
   const area = (onde, nome) => {
@@ -218,7 +211,7 @@ export function compilarEquipes(missao, contexto) {
 }
 
 /** The compiled teams of a simulation's mission, or null; rebuilt from the saved options after a load. */
-export function equipesDe(sim) {
+export function equipesDaPartida(sim) {
   if (sim.equipesCompiladas !== undefined) return sim.equipesCompiladas;
   const missao = sim.opcoes?.missao;
   // off wherever the mission is off (another map: missaoDe gives null)
@@ -232,11 +225,25 @@ export function equipesDe(sim) {
   return sim.equipesCompiladas;
 }
 
+// compiled once per match, keyed by the match's teams state (a new one after a load)
+const doContexto = new WeakMap();
+
+/** The same compiled teams from a seam context (sim/equipes.js): the mission, places, difficulty and static map. */
+export function equipesDoContexto(ctx) {
+  let c = doContexto.get(ctx.estado);
+  if (c === undefined) {
+    c = compilarEquipes(ctx.missao, { lugares: ctx.lugares ?? {}, dificuldade: ctx.dificuldade, times: ctx.vista.recursos.length, largura: ctx.mapa.largura, altura: ctx.mapa.altura });
+    doContexto.set(ctx.estado, c);
+  }
+  return c;
+}
+
 /**
- * The teams' state, only typed arrays sized from the mission JSON alone: per team its phase and the tick it began,
- * route point and direction, strength at the start, last enemy contact, last order (kind, target, tick), whether it
- * fell back, the harvester it hunts and since when, and the buildings it remembers; per player the seq of its
- * commands and the army it has seen. Empty without teams, so matches without them hash as before.
+ * The teams' state (sim.extras.comportamentos, the seam's ctx.estado), only typed arrays sized from the mission JSON
+ * alone: per team its phase and the tick it began, route point and direction, strength at the start, last enemy
+ * contact, last order (kind, target, tick), whether it fell back, the harvester it hunts and since when, and the
+ * buildings it remembers; per player the army it has seen. Empty without teams, so matches without them hash as
+ * before.
  */
 export function criarExtrasEquipes(sim) {
   const n = Math.min(listaDeEquipes(sim.opcoes?.missao).length, MAX_EQUIPES);
@@ -256,67 +263,7 @@ export function criarExtrasEquipes(sim) {
     presa: new Int32Array(n).fill(-1),
     presaTick: new Int32Array(n),
     predios: new Int32Array(n * MAX_PREDIOS_EQUIPE * CAMPOS_PREDIO),
-    seq: new Int32Array(sim.times),
     exercito: new Int32Array(sim.times),
   };
 }
-estado.registrarExtras('equipes', criarExtrasEquipes);
-
-/** Mission label index of each own entity of a vista (-1 none): the team's own labels, from the mission state. */
-function rotulosProprios(sim, proprias, mex) {
-  const rotulos = new Int32Array(proprias.n).fill(-1);
-  for (let k = 0; k < proprias.n; k++) {
-    const i = slotVivo(sim, proprias.id[k]);
-    if (i >= 0 && mex.rotuloGeracao[i] === sim.geracao[i]) rotulos[k] = mex.rotulo[i] - 1;
-  }
-  return rotulos;
-}
-
-/** Teams whose start trigger fired (or that have none) and whose stop trigger did not. */
-function equipesAtivas(equipes, mex) {
-  return Uint8Array.from(equipes, eq => ((eq.desde < 0 || mex.disparos[eq.desde] > 0) && (eq.ate < 0 || mex.disparos[eq.ate] === 0) ? 1 : 0));
-}
-
-/**
- * The step of the computer teams, right after the mission triggers: on its decision tick each computer player decides
- * from its team's view and its decisions become its commands for the next tick, its events and its units' labels.
- * Nothing runs without teams or after the match ended.
- */
-export function passoDasEquipes(sim) {
-  const ex = sim.extras.equipes;
-  if (!ex?.fase) return;
-  const c = equipesDe(sim);
-  if (!c) return;
-  const mex = extrasMissao(sim);
-  if (mex.resultado.some(r => r !== RESULTADO.JOGANDO)) return;
-  for (const jogador of c.jogadores) {
-    if ((sim.tick + 3 * jogador) % INTERVALO_DECISAO === 0) aplicarSaida(sim, c, jogador, decisaoDoJogador(sim, jogador));
-  }
-}
-
-/**
- * One decision of a computer player's teams on the current tick, from its team's view alone: what decidirJogador
- * returns (commands, events, labels), with the teams' state updated in place and nothing applied. The step applies it;
- * the "no cheating" test compares it across matches that differ only in what the team cannot see.
- */
-export function decisaoDoJogador(sim, jogador) {
-  const c = equipesDe(sim);
-  const mex = extrasMissao(sim);
-  const vista = vistaDoTime(sim, jogador);
-  return decidirJogador({ tick: sim.tick, jogador, vista, rotulos: rotulosProprios(sim, vista.proprias, mex), ativas: equipesAtivas(c.equipes, mex), equipes: c.equipes, estado: sim.extras.equipes, tipos: sim.tipos });
-}
-
-function aplicarSaida(sim, c, jogador, saida) {
-  for (const { tipo, x, y, arg } of saida.eventos) emitirEventoNoPonto(sim, tipo, -1, x, y, arg);
-  for (const { id, rotulo } of saida.rotulos) {
-    const i = slotVivo(sim, id);
-    if (i >= 0 && sim.time[i] === jogador) rotular(sim, i, c.rotulos[rotulo]);
-  }
-  const ex = sim.extras.equipes;
-  for (const o of saida.comandos) {
-    for (let k = 0; k < o.unidades.length; k += MAX_UNIDADES_POR_COMANDO) {
-      const comando = { tick: sim.tick + 1, jogador, seq: ++ex.seq[jogador], tipo: o.tipo, alvo: o.alvo, x: o.x, y: o.y, arg: o.arg, fila: o.fila, unidades: o.unidades.slice(k, k + MAX_UNIDADES_POR_COMANDO) };
-      if (comandoValido(comando)) sim.comandos.push(comando);
-    }
-  }
-}
+estado.registrarExtras('comportamentos', criarExtrasEquipes);
