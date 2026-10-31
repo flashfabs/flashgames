@@ -5,7 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/religadores_construcao_escritorio_regional_portao.py",
-  "commit": "1c21051",
+  "commit": "73e8b81",
+  "execucao": "20261031-023749",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -32,10 +33,10 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.3207,
-      "time": 0.0939,
-      "sombra": 0.4589
+      "cor": 0.3523,
+      "time": 0.1048,
+      "sombra": 0.4887
     }
   },
-  "edicaoHumana": "nenhuma ainda; o painel usa a fonte padrão embutida no Blender; renomeado de religadores-construcao-escritorio-regional em 31/10/2026, quando o kit cinza passou a usar os ids de site/rts/dados (só nomes e campos do manifesto, sem render novo)"
+  "edicaoHumana": "nenhuma ainda; o painel de senha usa dígitos de 7 segmentos montados por script, sem fonte"
 }
