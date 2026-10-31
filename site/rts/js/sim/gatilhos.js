@@ -14,7 +14,9 @@
 //     "grupos": { "<nome>": { "etiquetas": ["<rotulo>", ...] } },   (unions of labels under one name; a plain list too)
 //     "variaveis": [{ "nome", "valor" }],            (or { "<nome>": <valor> })
 //     "gatilhos": [{ "id", "quando": <condição>, "faz": [<ação>, ...], "repete": 0 | 1, "intervaloSegundos": 0,
-//                    "ativo": 1 }] }                 ("acoes" works for "faz", and true and false for 1 and 0)
+//                    "ativo": 1 }],                  ("acoes" works for "faz", and true and false for 1 and 0)
+//     "equipes"?, "licoes"? }                        (read by the computer teams and by the lessons checker, not here;
+//                                                    the teams' grupo and reserva get labels after the triggers' ones)
 // A label (rótulo) names entities: the `etiqueta` of map entities (several may share one) and the `grupo` of a
 // criar action; each entity has one label at most. A "grupo" in a condition or action is a label or a union name, and
 // "etiqueta" works wherever "grupo" does.
@@ -42,8 +44,8 @@
 //   dono { grupo, jogador }; destruir { grupo }; gatilho { gatilho, ativo }; religavel { grupo, segundos,
 //   por?: religa | reparo };
 //   pesquisa { jogador, pesquisa }; veterania { grupo, nivel }; luz { cena, area | ponto? }; camera { area | ponto };
-//   empacotar { grupo, em: <unit kind>, segundos } each building of the group becomes, after N s standing still, a unit
-//   of that kind with the same label; desempacotar { grupo, area?, segundos } packed members (inside the area) turn
+//   empacotar { grupo, em?: <unit kind>, segundos } each building of the group becomes, after N s standing still, a unit
+//   of that kind (without `em`, the kind named "<building>-empacotado") with the same label; desempacotar { grupo, area?, segundos } packed members (inside the area) turn
 //   back into their building after N s (empacotar.js);
 //   vitoria { jogador }; derrota { jogador }.
 // Events (C3): MENSAGEM_MISSAO arg = index in textosDaMissao(missao), x and y at the area's centre (0 without one);
@@ -58,7 +60,7 @@ import { emitirEventoNoPonto, atingidoEm } from './combate.js';
 import { definirVeterania } from './veterania.js';
 import { trocarDono, sendoReligada, definirTempoReligar, avancarReligar, progressoReligar, POR } from './religar.js';
 import { avancarReparo } from './reparo.js';
-import { iniciarEmpacotar, iniciarDesempacotar, avancarEmpacotar, faseDe, FASE } from './empacotar.js';
+import { iniciarEmpacotar, iniciarDesempacotar, avancarEmpacotar, tipoEmpacotado, faseDe, FASE } from './empacotar.js';
 import { pesquisaFeita, concluirPesquisa, liberarTipos, avancarPesquisas } from './pesquisas.js';
 
 export const VERSAO_MISSAO = 1;
@@ -128,6 +130,12 @@ export function rotulosDaMissao(missao) {
     if (item.faz === 'atacar') somar(item.alvo);
   };
   percorrer(missao, doItem, doItem);
+  // the computer teams' groups and reserves (comportamentos/, F6), after the triggers' so no index above moves
+  const equipes = missao.equipes ?? [];
+  for (const equipe of Array.isArray(equipes) ? equipes : Object.values(equipes)) {
+    somar(equipe?.grupo);
+    somar(equipe?.reserva);
+  }
   return rotulos;
 }
 
@@ -481,7 +489,7 @@ export function compilarMissao(missao, contexto) {
       case 'veterania':
         return { faz: 'veterania', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), nivel: numero(`${onde}.nivel`, a.nivel, 0, 3) };
       case 'empacotar':
-        return { faz: 'empacotar', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), tipo: indiceDoTipo(`${onde}.em`, a.em), passos: segundos(`${onde}.segundos`, a.segundos) };
+        return { faz: 'empacotar', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), tipo: a.em === undefined ? -1 : indiceDoTipo(`${onde}.em`, a.em), passos: segundos(`${onde}.segundos`, a.segundos) };
       case 'desempacotar':
         return { faz: 'desempacotar', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), area: a.area === undefined ? null : area(`${onde}.area`, a.area), passos: segundos(`${onde}.segundos`, a.segundos) };
       case 'luz':
@@ -511,7 +519,8 @@ export function compilarMissao(missao, contexto) {
       ativo: g?.ativo === false || g?.ativo === 0 ? 0 : 1,
     };
   });
-  for (const campo of Object.keys(missao)) if (!['versao', 'id', 'mapa', 'titulo', 'jogadores', 'objetivos', 'areas', 'pontos', 'rotas', 'grupos', 'variaveis', 'gatilhos'].includes(campo)) erros.push(`${campo}: campo desconhecido`);
+  // equipes belongs to the computer teams (comportamentos/) and licoes to the lessons checker (ferramentas/rts/ritmo/)
+  for (const campo of Object.keys(missao)) if (!['versao', 'id', 'mapa', 'titulo', 'jogadores', 'objetivos', 'areas', 'pontos', 'rotas', 'grupos', 'variaveis', 'gatilhos', 'equipes', 'licoes'].includes(campo)) erros.push(`${campo}: campo desconhecido`);
   if (erros.length > 0) throw new Error(`missão ${missao.id ?? ''} inválida:\n${erros.join('\n')}`);
   return Object.freeze({ id: missao.id, gatilhos, objetivos, textos, rotulos, cenas, variaveis, valoresIniciais, cronometros });
 }
@@ -890,7 +899,7 @@ function executar(sim, m, ex, a) {
       for (const i of membros(sim, ex, a.grupo)) definirVeterania(sim, i, a.nivel);
       return;
     case 'empacotar':
-      for (const i of membros(sim, ex, a.grupo)) iniciarEmpacotar(sim, i, a.tipo, a.passos);
+      for (const i of membros(sim, ex, a.grupo)) iniciarEmpacotar(sim, i, a.tipo >= 0 ? a.tipo : tipoEmpacotado(sim, sim.tipo[i]), a.passos);
       return;
     case 'desempacotar':
       for (const i of membros(sim, ex, a.grupo)) if (faseDe(sim, i) === FASE.EMPACOTADO && (!a.area || dentroDaArea(sim, i, a.area))) iniciarDesempacotar(sim, i, a.passos);

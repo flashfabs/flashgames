@@ -52,6 +52,12 @@ function marcar(sim, ex, i, fase, ate, tipo) {
   ex.geracao[i] = sim.geracao[i];
 }
 
+/** The unit kind building kind `tipo` packs into by default: the one named "<building>-empacotado", or -1. */
+export function tipoEmpacotado(sim, tipo) {
+  const nome = `${sim.tipos[tipo].nome}-empacotado`;
+  return sim.tipos.findIndex(t => t.nome === nome);
+}
+
 /** Starts packing building i into a unit of kind `tipoUnidade` in `passos` ticks; false when it cannot. */
 export function iniciarEmpacotar(sim, i, tipoUnidade, passos) {
   if (!sim.ativo[i] || sim.categoriaPorTipo[sim.tipo[i]] !== CATEGORIA.PREDIO || faseDe(sim, i) !== FASE.NADA) return false;

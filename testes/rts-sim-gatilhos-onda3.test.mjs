@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { criarSimulacao, passo, agendarComando, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
 import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, E_X, E_Y, E_ARG, TIPO_COMANDO, CATEGORIA, DONO_NEUTRO, criarComando, idDe } from '../site/rts/js/sim/contratos.js';
 import { REGRAS_COMBATE_PADRAO } from '../site/rts/js/sim/armas.js';
-import { extrasMissao, rotular, temRotulo, INTERVALO_GATILHOS } from '../site/rts/js/sim/gatilhos.js';
+import { extrasMissao, rotular, temRotulo, rotulosDaMissao, compilarMissao, INTERVALO_GATILHOS } from '../site/rts/js/sim/gatilhos.js';
 import { progressoReligar, religandoQual } from '../site/rts/js/sim/religar.js';
 import { comandoReparar, reparandoQual } from '../site/rts/js/sim/reparo.js';
 import { faseDe, FASE } from '../site/rts/js/sim/empacotar.js';
@@ -26,6 +26,7 @@ const DADOS = {
       { nome: 'equipe', faccao: 'religadores', ...roda, custo: 350, vida: 250, reparo: { vidaPorSegundo: 12, alcance: 15 } },
       { nome: 'cesto', faccao: 'religadores', ...roda, classe: 'veiculoGrande', blindagem: 'pesada', custo: 600, vida: 900, arma: 'carabina' },
       { nome: 'carroca', faccao: 'desligados', ...roda, custo: 200, vida: 400 },
+      { nome: 'barracao-empacotado', faccao: 'desligados', ...roda, classe: 'veiculoGrande', custo: 400, vida: 600, velocidade: 90 },
     ],
   },
   predios: {
@@ -39,7 +40,7 @@ const DADOS = {
   economia: { versao: 1, lotacaoMaxima: 60, saturacao: 3, cargaDerramada: { porcento: 100, duracaoMs: 90000 }, vento: { intervaloMs: 120000, lote: 80, avisoMs: 15000 }, foraDaRede: { producaoPorcento: 50, defesasParam: 1 }, reciclarPorcento: 50, reparoCustoPorcento: 50, faiscaCarga: 25, cargaInicial: 1000 },
   armas: { ...REGRAS_COMBATE_PADRAO, armas: [{ nome: 'carabina', tipoDano: 'bala', dano: 10, recargaMs: 1000, alcance: 40 }] },
 };
-const [TURMA, RELIGADOR, EQUIPE, CESTO, CARROCA, BARRACAO, SUBESTACAO, TOMBADO] = [0, 1, 2, 3, 4, 5, 6, 7];
+const [TURMA, RELIGADOR, EQUIPE, CESTO, CARROCA, BARRACAO_EMPACOTADO, BARRACAO, SUBESTACAO, TOMBADO] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 function partida(missao, unidades) {
   return criarSimulacao({
@@ -381,4 +382,20 @@ test('a mission drains a resource node, pile by pile, and can fill it back up to
   assert.equal(total(1), 0, 'gone dark');
   assert.equal(extrasMissao(sim).ativo[0], 0, 'and the drain stopped');
   assert.ok(sul.every(i => sim.carga[i] === sim.cargaMaxima[i]), 'the other node filled back to its start, no more');
+});
+
+test('without em, a building packs into the kind named after it, and the teams block is accepted and labelled last', () => {
+  const m = missao([{ id: 'empacota', quando: { se: 'tempo', segundos: 0 }, acoes: [{ faz: 'empacotar', grupo: 'acampamento', segundos: 1 }] }], {
+    equipes: [{ grupo: 'guarda-ponte', jogador: 1, faz: 'guardar' }, { grupo: 'acampamento', reserva: 'reserva-norte', jogador: 1, faz: 'reconstruir' }],
+    licoes: { versao: 1, licoes: [] },
+  });
+  assert.deepEqual(rotulosDaMissao(m), ['acampamento', 'guarda-ponte', 'reserva-norte']);
+  const sim = partida(m, [{ tipo: BARRACAO, time: 1, x: 20, y: 20 }]);
+  rotular(sim, 0, 'acampamento');
+  avancar(sim, 30 + 2 * INTERVALO_GATILHOS);
+  let empacotado = -1;
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.tipo[i] === BARRACAO_EMPACOTADO) empacotado = i;
+  assert.ok(empacotado >= 0, 'its own packed kind');
+  assert.ok(temRotulo(sim, id(sim, empacotado), 'acampamento'));
+  assert.throws(() => compilarMissao({ ...m, outra: 1 }, { tipos: sim.tipos, times: 2, largura: 64, altura: 64 }), /outra: campo desconhecido/);
 });
