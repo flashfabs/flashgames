@@ -42,15 +42,16 @@ const ASSET_PADRAO = new Map([
 ]);
 
 /**
- * Searchlight of a kind, from its data block (alcance in cells, abertura in degrees) or, for a searchlight kind whose
- * data has no block yet, a default; null for kinds without one.
+ * Searchlight of a kind, from its data block as predios.json writes it (alcance in tenths of a cell, abertura in
+ * 256ths of a turn, 256 lighting all around) or, for a searchlight kind whose data has no block yet, a default; null
+ * for kinds without one. `emVolta` marks a light all around, drawn as a pool instead of a cone.
  */
 export function holofoteDoTipo(tipo) {
   const h = tipo.holofote;
   if (!h && !/holofote/.test(tipo.nome)) return null;
-  const alcance = h?.alcance ?? h?.raio ?? h?.comprimento ?? 9;
-  const abertura = h?.abertura ?? h?.angulo ?? 24;
-  return { alcance, meiaAbertura: ((abertura / 2) * Math.PI) / 180 };
+  const alcance = (h?.alcance ?? 90) / 10;
+  const abertura = h?.abertura ?? 24;
+  return { alcance, meiaAbertura: (abertura / 256) * Math.PI, emVolta: abertura >= 256 };
 }
 
 /** Art asset of a kind: the data's, else the built-in one for its category, else ''. */
@@ -379,9 +380,12 @@ export function criarMontagemUnidades({ projecao, folhas, alturaEm = () => 0, lu
         }
         const h = aparencia.holofote;
         if (h && energizado) {
-          const angulo = (torre / 256) * 2 * Math.PI;
           const forca = 0.22 + 0.78 * (luz ? luz.estado.luzes : 0);
-          cones.escrever(x, y, Math.cos(angulo) * h.alcance, Math.sin(angulo) * h.alcance, EFEITO.CONE, forca, h.meiaAbertura, (id & 255) / 255);
+          if (h.emVolta) luzes.escrever(x, y, 0, 0, EFEITO.LUZ_NO_CHAO, forca, h.alcance, (id & 255) / 255);
+          else {
+            const angulo = (torre / 256) * 2 * Math.PI;
+            cones.escrever(x, y, Math.cos(angulo) * h.alcance, Math.sin(angulo) * h.alcance, EFEITO.CONE, forca, h.meiaAbertura, (id & 255) / 255);
+          }
         }
         continue;
       }
