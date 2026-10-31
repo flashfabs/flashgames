@@ -104,8 +104,15 @@ kbd { font: inherit; font-size: 11px; color: var(--apagado); }
 .comandos-aviso { color: var(--apagado); min-height: 18px; max-width: 440px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #utilidades .botao { min-height: 24px; padding: 2px 7px; font-size: 12px; }
 
-/* debug panel (?painel=1, tests and benchmark) */
-#painel { position: fixed; top: calc(var(--altura-topo) + 8px); left: 12px; padding: 8px 10px; background: rgba(10, 9, 8, 0.78); border: 1px solid var(--borda); border-radius: 8px; min-width: 300px; pointer-events: none; font-size: 12px; }
+/* mission objectives, top left under the bar */
+#objetivos { position: fixed; top: calc(var(--altura-topo) + 8px); left: 12px; max-width: min(340px, 40vw); padding: 6px 10px; background: var(--painel); border: 1px solid var(--borda); border-radius: 6px; pointer-events: none; }
+#objetivos b { color: var(--destaque); font-weight: 600; }
+#objetivos ul { margin: 4px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+#objetivos li[data-estado="2"] { color: var(--bom); }
+#objetivos li[data-estado="3"] { color: var(--perigo); text-decoration: line-through; }
+
+/* debug panel (?painel=1, tests and benchmark), bottom left above the bar */
+#painel { position: fixed; bottom: calc(var(--altura-base) + 8px); left: 12px; padding: 8px 10px; background: rgba(10, 9, 8, 0.78); border: 1px solid var(--borda); border-radius: 8px; min-width: 300px; pointer-events: none; font-size: 12px; }
 #painel b { color: var(--destaque); font-weight: 600; }
 #painel div { white-space: nowrap; }
 

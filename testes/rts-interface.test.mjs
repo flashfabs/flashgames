@@ -15,6 +15,7 @@ import { resultadoDosEventos, nomeDoArquivo } from '../site/rts/js/interface/fim
 import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/som-da-partida.js';
 import { relogio } from '../site/rts/js/interface/hud.js';
 import { criarIndice } from '../site/rts/js/entrada/indice.js';
+import { aplicarObjetivos, ESTADO_DO_OBJETIVO } from '../site/rts/js/interface/objetivos.js';
 import {
   EVENTO, TAMANHO_EVENTO, FP, BANDEIRA, CATEGORIA, MOTIVO, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE,
   FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, TAMANHO_FAIXA, TAMANHO_REGISTRO_FILA,
@@ -289,6 +290,15 @@ test('sounds of the match fade with distance from the camera', () => {
   assert.equal(volumePelaDistancia(10 + ALCANCE_DO_SOM, 10, 10, 10), 0);
   const meio = volumePelaDistancia(10 + 24, 10, 10, 10);
   assert.ok(meio > 0 && meio < 1);
+});
+
+test('objectives follow OBJETIVO events: index times four plus the state', () => {
+  const estados = [0, 0, 0];
+  assert.ok(aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.ATIVO }), evento(EVENTO.OBJETIVO, -1, { arg: 2 * 4 + ESTADO_DO_OBJETIVO.ATIVO }))));
+  assert.deepEqual(estados, [1, 0, 1]);
+  aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.CUMPRIDO }), evento(EVENTO.OBJETIVO, -1, { arg: 9 * 4 + 1 })));
+  assert.deepEqual(estados, [2, 0, 1], 'an index beyond the list is ignored');
+  assert.ok(!aplicarObjetivos(estados, eventos(evento(EVENTO.TIRO, 1))));
 });
 
 test('the match clock reads game time from the tick', () => {

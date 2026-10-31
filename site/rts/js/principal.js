@@ -37,6 +37,7 @@ import { criarPainelDeSelecao } from './interface/selecao-painel.js';
 import { criarMenu } from './interface/menu.js';
 import { criarSomDaPartida } from './interface/som-da-partida.js';
 import { criarFim } from './interface/fim.js';
+import { criarObjetivos } from './interface/objetivos.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
 import { criarRegistro, nomesDosGrupos } from './telemetria/registro.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
@@ -280,6 +281,7 @@ function encontros() {
   }
   return linhas;
 }
+const objetivos = criarObjetivos({ raiz: document.getElementById('objetivos'), objetivos: arquivosDaPartida?.missao.objetivos ?? [], texto });
 const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, fantasma: () => (render.definirFantasma ? null : fantasma), encontros });
 const minimapa = criarMinimapa({
   minimapa: document.getElementById('minimapa'),
@@ -360,6 +362,7 @@ simulacao.iniciar({
     if (colocacao.ativa) atualizarArea();
     colocacao.revalidar();
     registro?.anotarRetrato(retrato);
+    objetivos.registrar(retrato.eventos);
     fim.verificar(retrato.eventos);
   },
 });
@@ -442,6 +445,7 @@ if (opcoes.teste) {
     alertas,
     menu,
     fim,
+    objetivos,
     colocacao,
     /** The playtest log (C15) once it loaded, or null. */
     obterRegistro: () => registro,

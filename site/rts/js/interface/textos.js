@@ -38,6 +38,7 @@ export const PROVISORIOS = Object.freeze({
   'hud.rajada': 'Rajada de vento em {s} s',
   'hud.rajada_em': 'Rajada de vento em {s} s',
   'hud.aviso_ataque': 'Ataque a caminho',
+  'hud.objetivos': 'Objetivos',
   'alerta.sob_ataque': 'Sob ataque',
   'alerta.base_sob_ataque': 'A base está sob ataque',
   'alerta.coletor_sob_ataque': 'Coletor sob ataque',
