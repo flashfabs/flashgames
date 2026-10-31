@@ -37,7 +37,8 @@ function Dono-Da-Trava([string]$caminho) {
 
 function Soltar-Trava([string]$caminho) {
     $dono = Dono-Da-Trava $caminho
-    if ($dono -and $dono.Contains($Execucao)) {
+    # only our own: two sessions can launch runs with the same name in the same second
+    if ($dono -and $dono.StartsWith("$Sessao ") -and $dono.Contains($Execucao)) {
         Remove-Item "$caminho\dono" -ErrorAction SilentlyContinue
         Remove-Item $caminho -ErrorAction SilentlyContinue
     }
@@ -80,6 +81,8 @@ function Esperar-Trava([string]$caminho, [string]$dono, [string]$rotulo, [int]$l
         }
         try {
             New-Item -ItemType Directory -Path $caminho -ErrorAction Stop | Out-Null
+            # the owner line carries the time the lock was taken, not the time the wait began
+            $dono = "$dono $(Get-Date -Format o)"
             [IO.File]::WriteAllText("$caminho\dono", $dono, $utf8)
             Registrar "TRAVA $rotulo pegou: $dono"
             return $true
@@ -140,7 +143,7 @@ function Rodar-Passo([string]$nome, [string[]]$argumentosPlaywright, [bool]$usaG
             $angle = Escolher-Angle
             if (-not $angle) { $codigo = 4; return }
             $env:SALINHA_ANGLE = $angle
-            if (-not (Esperar-Trava $travaGpu "$Sessao testes/$Execucao $(Get-Date -Format o)" "gpu" 60 $false)) {
+            if (-not (Esperar-Trava $travaGpu "$Sessao testes/$Execucao" "gpu" 60 $false)) {
                 Registrar "ERRO the GPU lock stayed busy for 60 min"
                 $codigo = 5
                 return
@@ -180,7 +183,7 @@ try {
     New-Item -ItemType Directory -Force -Path $pastaSenhas | Out-Null
     $senha = Join-Path $pastaSenhas ("{0}-{1}-{2}" -f $inicioGeral.ToUniversalTime().ToString("yyyyMMddTHHmmssfff"), $Sessao, $Execucao)
     [IO.File]::WriteAllText($senha, "pid=$PID", $utf8)
-    $pegou = Esperar-Trava $travaTestes "$Sessao $Execucao pid=$PID $(Get-Date -Format o)" "testes" 180 $true $senha
+    $pegou = Esperar-Trava $travaTestes "$Sessao $Execucao pid=$PID" "testes" 180 $true $senha
     Remove-Item $senha -ErrorAction SilentlyContinue
     $senha = $null
     if (-not $pegou) { throw "the test lock stayed busy for 180 min" }
@@ -205,6 +208,8 @@ try {
     $env:PLAYWRIGHT_BROWSERS_PATH = "D:\rts\playwright"
     $env:SALINHA_PYTHON = "python"
     $env:SALINHA_PROCESSOS = "$Processos"
+    # the functional tests draw on the NVIDIA card too; without it Chrome falls back to SwiftShader here (playwright.config.mjs)
+    $env:SALINHA_GPU_FUNCIONAIS = "1"
     # As on the Action: a Playwright browser missing here must fail the run, not be skipped.
     $env:CI = "1"
 
