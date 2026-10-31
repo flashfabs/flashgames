@@ -439,3 +439,20 @@ test('the design sandbox plays by commands alone: harvest, build in the network,
   assert.ok(slotsDo(sim, 'turma-de-linha', 0).length >= 5);
   assert.equal(lotacaoUsada(sim)[0] <= 60, true);
 });
+
+test('no cheating with ghosts: what happens to a hidden enemy building does not change the team view', () => {
+  const montar = () => {
+    const sim = novaCaixa();
+    const batedor = colocarUnidade(sim, 'turma-de-linha', 0, 36, 10);
+    rodar(sim, 2);
+    ordenar(sim, { tipo: TIPO_COMANDO.MOVER, unidades: [id(sim, batedor)], x: celula(12), y: celula(34) });
+    rodar(sim, 900);
+    return sim;
+  };
+  const emTexto = valor => JSON.stringify(valor, (_, v) => (ArrayBuffer.isView(v) ? Array.from(v) : v));
+  const intacto = montar();
+  const mexido = montar();
+  const barracao = mexido.etiquetas['barracao-norte'];
+  mexido.vida[barracao] = 1;
+  assert.equal(emTexto(vistaDoTime(mexido, 0)), emTexto(vistaDoTime(intacto, 0)), 'the ghost keeps the health seen, not the health now');
+});
