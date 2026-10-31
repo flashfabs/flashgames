@@ -190,8 +190,11 @@ test('windows without a command count whole 15 s windows of game time', () => {
   assert.equal(janelas.porcentoSemComando, 5);
 });
 
-test('group indexes follow the mission: declared groups first, then created ones in trigger order', () => {
-  assert.deepEqual(nomesDosGrupos(missao).slice(0, 5), ['acampamento', 'guarnicao', 'canhao-fixo', 'onda-1', 'onda-2']);
+test('group indexes follow the evaluator: union members first, then the groups the triggers name, in order', () => {
+  const rotulos = nomesDosGrupos(missao);
+  assert.deepEqual(rotulos.slice(0, 3), ['acampamento-carrocao-mae', 'acampamento-barracao', 'acampamento-ferraria']);
+  assert.deepEqual(rotulos.slice(9, 12), ['canhao-fixo', 'onda-1', 'onda-2']);
+  assert.ok(!rotulos.includes('acampamento') && !rotulos.includes('guarnicao'), 'nomes de união não são rótulos');
 });
 
 test('the committed example is this match', () => {
