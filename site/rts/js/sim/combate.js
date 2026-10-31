@@ -9,6 +9,7 @@ import { raizInteira } from './matematica.js';
 import { celulaVisivel } from './neblina.js';
 import { combateDe, BLINDAGEM, NIVEIS_VETERANIA } from './armas.js';
 import { ganharExperiencia, experienciaPorDano } from './veterania.js';
+import { desligar } from './religar.js';
 
 // retarget every few ticks per unit, staggered by slot, so the search cost spreads over time
 const INTERVALO_BUSCA = 6;
@@ -63,9 +64,10 @@ function pesquisa(sim, campo, time, tipo) {
   return pq ? pq[campo][time * sim.tipos.length + tipo] : 0;
 }
 
-// Whether i can shoot j now: a live enemy on a cell i's team sees, within the weapon's reach from i's height.
+// Whether i can shoot j now: a live enemy (never the neutral side) on a cell i's team sees, within the weapon's reach
+// from i's height.
 function podeAcertar(sim, c, i, j, alcance, arma, nivelI) {
-  if (!sim.ativo[j] || sim.time[j] === sim.time[i]) return false;
+  if (!sim.ativo[j] || sim.time[j] === sim.time[i] || sim.time[j] === c.neutro) return false;
   const cj = celulaDe(sim, j);
   if (!celulaVisivel(sim, sim.time[i], cj)) return false;
   const acima = nivelI - sim.mapa.nivel[cj];
@@ -155,7 +157,8 @@ function acertar(sim, ex, j, arma, danoBase, autor, nivelOrigem, fator) {
   emitirEvento(sim, EVENTO.IMPACTO, j, autor, arma);
   alertar(sim, ex, j, autor);
   if (autor >= 0) ganharExperiencia(sim, autor, experienciaPorDano(sim, j, Math.min(dano, antes)));
-  if (sim.vida[j] <= 0) matar(sim, j, autor);
+  // a re-powered structure goes dead again instead of dying
+  if (sim.vida[j] <= 0 && !desligar(sim, j)) matar(sim, j, autor);
 }
 
 // victims of one blast, sorted by slot before the damage is applied
@@ -174,7 +177,7 @@ function explodir(sim, c, ex, px, py, arma, danoBase, autor, time, nivelOrigem) 
   for (let yb = Math.max(0, by - r); yb <= Math.min(linhas - 1, by + r); yb++) {
     for (let xb = Math.max(0, bx - r); xb <= Math.min(baldeLargura - 1, bx + r); xb++) {
       for (let j = baldeCabeca[yb * baldeLargura + xb]; j >= 0; j = baldeProximo[j]) {
-        if (!ativo[j] || sim.time[j] === time) continue;
+        if (!ativo[j] || sim.time[j] === time || sim.time[j] === c.neutro) continue;
         const dx = (x[j] - px) >> 4;
         const dy = (y[j] - py) >> 4;
         const alcance = raio + (raioPorTipo[tipo[j]] >> 4);
@@ -264,7 +267,7 @@ export function combater(sim) {
     if (!sim.ativo[i]) continue;
     if (sim.recarga[i] > 0) sim.recarga[i]--;
     const arma = c.armaDoTipo[sim.tipo[i]];
-    if (arma < 0) continue;
+    if (arma < 0 || sim.time[i] === c.neutro) continue;
     const alcance = c.alcance[arma] + pesquisa(sim, 'alcance', sim.time[i], sim.tipo[i]);
     const nivelI = nivel[celulaDe(sim, i)];
     let alvo = sim.alvo[i];

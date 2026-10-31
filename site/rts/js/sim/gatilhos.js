@@ -1,0 +1,753 @@
+// Mission triggers (C7): conditions and actions in JSON from site/rts/dados/missoes/, compiled once against the unit
+// kinds and the map's places, and evaluated inside the deterministic step right after the commands. The mission and
+// the map's places come in the simulation options (opcoes.missao, opcoes.lugares), so saves and replays carry them;
+// the evaluator's state (fired triggers, variables, timers, objectives, labels, result) lives in sim.extras.missao.
+//
+// Mission format, integers only, positions in cells, times in seconds; any number may instead be
+// { "facil": a, "normal": b, "dificil": c }, picked by opcoes.dificuldade (0, 1 or 2; 1 by default):
+//   { "versao": 1, "id": "caixa-de-areia",
+//     "objetivos": [{ "id": "montar", "texto": "<C11 id>", "tipo": "principal" | "opcional" }],
+//     "areas": { "<nome>": { "x", "y", "largura", "altura" } }, "pontos": { "<nome>": [x, y] },
+//     "rotas": { "<nome>": [[x, y], ...] },          (looked up in the mission first, then in the map's places)
+//     "grupos": { "<nome>": ["<rotulo>", ...] },     (optional unions of labels under one name)
+//     "variaveis": { "<nome>": <valor inicial> },
+//     "gatilhos": [{ "id", "quando": <condição>, "acoes": [<ação>, ...], "repete": false, "intervaloSegundos": 0,
+//                    "ativo": true }] }
+// A label (rótulo) names entities: the `etiqueta` of map entities (several may share one) and the `grupo` of a
+// criar action; each entity has one label at most. A "grupo" in a condition or action is a label or a union name.
+// Conditions, { "se": <tipo>, ... }:
+//   todas | alguma { condicoes: [...] }; nao { condicao }; tempo { segundos } since the start;
+//   depoisDe { gatilho, segundos } since that trigger last fired; cronometro { nome } ran out;
+//   contagem { jogador?, tipos?, area?, grupo?, minimo?, maximo? } live entities; vivos { grupo, jogador?, minimo?,
+//   maximo? }; dono { grupo, jogador } every live member owned by the player; vida { grupo, maximoPorcento } some live
+//   member at or below that health; religando { grupo, jogador? }; recursos { jogador, minimo?, maximo? };
+//   coletores { jogador, minimo }; objetivo { objetivo, estado }; disparou { gatilho }; variavel { nome, minimo?,
+//   maximo?, igual? }; parado { jogador, segundos } without a command; visto { jogador, area } some cell visible now;
+//   pesquisa { jogador, pesquisa }; dificuldade { minimo?, maximo? }.
+// Actions, { "faz": <tipo>, ... }:
+//   mensagem { texto, area? }; aviso { grupo, area, texto? } (AVISO_ATAQUE); objetivo { objetivo, estado: ativo |
+//   cumprido | falhou }; criar { jogador, unidades: [{ tipo, quantos }], area | ponto, grupo?, veterania? } (ONDA with
+//   a group, SURGIMENTO per unit); ordenar { grupo, ordem: mover | atacarMovendo | patrulhar | parar | segurar,
+//   rota | area | ponto }; atacar { grupo, alvo }; variavel { nome, valor | somar }; cronometro { nome, segundos |
+//   parar }; liberar | bloquear { jogador, tipos }; revelar { jogador, area }; recursos { jogador, somar };
+//   dono { grupo, jogador }; destruir { grupo }; gatilho { gatilho, ativo }; religavel { grupo, segundos };
+//   pesquisa { jogador, pesquisa }; veterania { grupo, nivel }; luz { cena }; camera { area | ponto };
+//   vitoria { jogador }; derrota { jogador }.
+// Events (C3): MENSAGEM_MISSAO arg = index in textosDaMissao(missao), x and y at the area's centre (0 without one);
+// OBJETIVO arg = objective index * 4 + state (1 active, 2 done, 3 failed); AVISO_ATAQUE and ONDA arg = index in
+// rotulosDaMissao(missao); LUZ arg = index in cenasDaMissao(missao); VITORIA and DERROTA arg = player.
+import { EVENTO, FP, FP_BITS, PASSOS_POR_SEGUNDO, TIPO_COMANDO } from './contratos.js';
+import { criarEntidade, emitirEvento, matar, slotVivo, idDoSlot } from './entidades.js';
+import { ordenarGrupo, ordenarPatrulha, limparOrdens } from './ordens.js';
+import { celulaVisivel } from './neblina.js';
+import { emitirEventoNoPonto } from './combate.js';
+import { definirVeterania } from './veterania.js';
+import { trocarDono, sendoReligada, definirTempoReligar, avancarReligar } from './religar.js';
+import { pesquisaFeita, concluirPesquisa, liberarTipos, avancarPesquisas } from './pesquisas.js';
+
+export const VERSAO_MISSAO = 1;
+/** Triggers are evaluated on every this many ticks, starting at tick 1. */
+export const INTERVALO_GATILHOS = 3;
+export const ESTADO_OBJETIVO = Object.freeze({ OCULTO: 0, ATIVO: 1, CUMPRIDO: 2, FALHOU: 3 });
+export const RESULTADO = Object.freeze({ JOGANDO: 0, VITORIA: 1, DERROTA: 2 });
+const NOMES_ESTADO = { ativo: ESTADO_OBJETIVO.ATIVO, cumprido: ESTADO_OBJETIVO.CUMPRIDO, falhou: ESTADO_OBJETIVO.FALHOU };
+const ORDENS = { mover: TIPO_COMANDO.MOVER, atacarMovendo: TIPO_COMANDO.ATACAR_MOVENDO, patrulhar: TIPO_COMANDO.PATRULHAR, parar: TIPO_COMANDO.PARAR, segurar: TIPO_COMANDO.SEGURAR_POSICAO };
+const DIFICULDADES = ['facil', 'normal', 'dificil'];
+const MAX_VALOR = 0x3fffffff;
+const segundosParaPassos = s => s * PASSOS_POR_SEGUNDO;
+
+// ---------- names the presentation needs, from the mission JSON alone ----------
+
+// Walks every condition and action of the mission in file order.
+function percorrer(missao, naCondicao, naAcao) {
+  const condicao = c => {
+    if (!c || typeof c !== 'object') return;
+    naCondicao(c);
+    if (Array.isArray(c.condicoes)) c.condicoes.forEach(condicao);
+    if (c.condicao) condicao(c.condicao);
+  };
+  for (const g of Array.isArray(missao?.gatilhos) ? missao.gatilhos : []) {
+    condicao(g?.quando);
+    for (const a of Array.isArray(g?.acoes) ? g.acoes : []) if (a && typeof a === 'object') naAcao(a);
+  }
+}
+
+/** C11 text ids in the order MENSAGEM_MISSAO counts them: objectives first, then messages and warnings. */
+export function textosDaMissao(missao) {
+  const textos = [];
+  const somar = t => {
+    if (typeof t === 'string' && !textos.includes(t)) textos.push(t);
+  };
+  for (const o of Array.isArray(missao?.objetivos) ? missao.objetivos : []) somar(o?.texto);
+  percorrer(missao, () => {}, a => {
+    if (a.faz === 'mensagem' || a.faz === 'aviso') somar(a.texto);
+  });
+  return textos;
+}
+
+/** Labels in the order AVISO_ATAQUE and ONDA count them: union members first, then every group named in triggers. */
+export function rotulosDaMissao(missao) {
+  const unioes = missao?.grupos && typeof missao.grupos === 'object' ? missao.grupos : {};
+  const rotulos = [];
+  const somar = nome => {
+    if (typeof nome === 'string' && !(nome in unioes) && !rotulos.includes(nome)) rotulos.push(nome);
+  };
+  for (const membros of Object.values(unioes)) if (Array.isArray(membros)) membros.forEach(somar);
+  const doItem = item => {
+    somar(item.grupo);
+    if (item.faz === 'atacar') somar(item.alvo);
+  };
+  percorrer(missao, doItem, doItem);
+  return rotulos;
+}
+
+/** Light scenes in the order LUZ counts them. */
+export function cenasDaMissao(missao) {
+  const cenas = [];
+  percorrer(missao, () => {}, a => {
+    if (a.faz === 'luz' && typeof a.cena === 'string' && !cenas.includes(a.cena)) cenas.push(a.cena);
+  });
+  return cenas;
+}
+
+// ---------- compilation ----------
+
+/**
+ * Validates a mission and turns it into the evaluator's form: numbers picked by difficulty and converted to ticks and
+ * world units, names resolved to indices. Throws one error listing every problem.
+ * @param {object} missao
+ * @param {{ tipos: readonly object[], lugares?: object, dificuldade?: number, times: number, largura: number, altura: number }} contexto
+ */
+export function compilarMissao(missao, contexto) {
+  const erros = [];
+  const { tipos, times, largura, altura } = contexto;
+  const lugares = contexto.lugares ?? {};
+  const dificuldade = contexto.dificuldade ?? 1;
+  if (!missao || typeof missao !== 'object') throw new Error('missão: não é um objeto');
+  if (missao.versao !== VERSAO_MISSAO) erros.push(`versao: ${missao.versao}, esperava ${VERSAO_MISSAO}`);
+
+  const numero = (onde, v, minimo = -MAX_VALOR, maximo = MAX_VALOR) => {
+    let valor = v;
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      if (!DIFICULDADES.every(d => d in v)) {
+        erros.push(`${onde}: o valor por dificuldade precisa de ${DIFICULDADES.join(', ')}`);
+        return 0;
+      }
+      valor = v[DIFICULDADES[dificuldade]];
+    }
+    if (!Number.isInteger(valor)) {
+      erros.push(`${onde}: ${JSON.stringify(v)} não é inteiro`);
+      return 0;
+    }
+    if (valor < minimo || valor > maximo) erros.push(`${onde}: ${valor} fora de ${minimo}..${maximo}`);
+    return valor;
+  };
+  const opcional = (onde, v, padrao, minimo, maximo) => (v === undefined ? padrao : numero(onde, v, minimo, maximo));
+  const jogador = (onde, v) => numero(onde, v, 0, times - 1);
+  const segundos = (onde, v) => segundosParaPassos(numero(onde, v, 0, 24 * 3600));
+
+  const textos = textosDaMissao(missao);
+  const rotulos = rotulosDaMissao(missao);
+  const cenas = cenasDaMissao(missao);
+  const unioes = missao.grupos ?? {};
+  const grupo = (onde, nome) => {
+    if (typeof nome !== 'string') {
+      erros.push(`${onde}: falta o nome do grupo`);
+      return new Uint8Array(rotulos.length);
+    }
+    const membros = new Uint8Array(rotulos.length);
+    for (const r of Array.isArray(unioes[nome]) ? unioes[nome] : [nome]) membros[rotulos.indexOf(r)] = 1;
+    return membros;
+  };
+  const indiceDoTipo = (onde, nome) => {
+    const k = tipos.findIndex(t => t.nome === nome);
+    if (k < 0) erros.push(`${onde}: tipo ${nome} não existe`);
+    return k;
+  };
+  const listaDeTipos = (onde, lista) => {
+    if (lista === undefined) return null;
+    if (!Array.isArray(lista) || lista.length === 0) {
+      erros.push(`${onde}: esperava uma lista de tipos`);
+      return null;
+    }
+    const marcados = new Uint8Array(tipos.length);
+    lista.forEach((nome, k) => {
+      const t = indiceDoTipo(`${onde}[${k}]`, nome);
+      if (t >= 0) marcados[t] = 1;
+    });
+    return marcados;
+  };
+  const celula = (onde, x, y) => {
+    const cx = numero(`${onde}.x`, x, 0, largura - 1);
+    const cy = numero(`${onde}.y`, y, 0, altura - 1);
+    return { x: cx * FP + (FP >> 1), y: cy * FP + (FP >> 1), cx, cy };
+  };
+  const procurarLugar = (colecao, nome) => missao[colecao]?.[nome] ?? lugares[colecao]?.[nome];
+  const area = (onde, nome) => {
+    const a = procurarLugar('areas', nome);
+    if (!a) {
+      erros.push(`${onde}: área ${nome} não existe na missão nem no mapa`);
+      return null;
+    }
+    const x0 = numero(`${onde}.x`, a.x, 0, largura - 1);
+    const y0 = numero(`${onde}.y`, a.y, 0, altura - 1);
+    const x1 = x0 + numero(`${onde}.largura`, a.largura, 1, largura - x0);
+    const y1 = y0 + numero(`${onde}.altura`, a.altura, 1, altura - y0);
+    return { cx0: x0, cy0: y0, cx1: x1, cy1: y1, x: ((x0 + x1) * FP) >> 1, y: ((y0 + y1) * FP) >> 1 };
+  };
+  const ponto = (onde, nome) => {
+    const p = procurarLugar('pontos', nome);
+    if (!Array.isArray(p) || p.length !== 2) {
+      erros.push(`${onde}: ponto ${nome} não existe na missão nem no mapa`);
+      return null;
+    }
+    return celula(onde, p[0], p[1]);
+  };
+  const rota = (onde, nome) => {
+    const r = procurarLugar('rotas', nome);
+    if (!Array.isArray(r) || r.length === 0) {
+      erros.push(`${onde}: rota ${nome} não existe na missão nem no mapa`);
+      return [];
+    }
+    return r.map((p, k) => celula(`${onde}[${k}]`, p?.[0], p?.[1]));
+  };
+  const destino = (onde, item) => {
+    if (item.rota !== undefined) return { rota: rota(`${onde}.rota`, item.rota) };
+    if (item.area !== undefined) return { area: area(`${onde}.area`, item.area) };
+    if (item.ponto !== undefined) return { ponto: ponto(`${onde}.ponto`, item.ponto) };
+    erros.push(`${onde}: falta rota, área ou ponto`);
+    return {};
+  };
+  const limites = (onde, item) => ({ minimo: opcional(`${onde}.minimo`, item.minimo, -MAX_VALOR), maximo: opcional(`${onde}.maximo`, item.maximo, MAX_VALOR) });
+
+  const objetivos = (Array.isArray(missao.objetivos) ? missao.objetivos : []).map((o, k) => {
+    if (typeof o?.id !== 'string') erros.push(`objetivos[${k}]: falta o id`);
+    if (typeof o?.texto !== 'string') erros.push(`objetivos[${k}]: falta o texto`);
+    if (o?.tipo !== 'principal' && o?.tipo !== 'opcional') erros.push(`objetivos[${k}].tipo: principal ou opcional`);
+    return { id: o?.id, texto: textos.indexOf(o?.texto), principal: o?.tipo === 'principal' ? 1 : 0 };
+  });
+  const indiceDoObjetivo = (onde, id) => {
+    const k = objetivos.findIndex(o => o.id === id);
+    if (k < 0) erros.push(`${onde}: objetivo ${id} não existe`);
+    return k;
+  };
+  const variaveis = Object.keys(missao.variaveis ?? {});
+  const valoresIniciais = variaveis.map(nome => numero(`variaveis.${nome}`, missao.variaveis[nome]));
+  const indiceDaVariavel = (onde, nome) => {
+    const k = variaveis.indexOf(nome);
+    if (k < 0) erros.push(`${onde}: variável ${nome} não declarada`);
+    return k;
+  };
+  const cronometros = [];
+  const indiceDoCronometro = nome => {
+    if (!cronometros.includes(nome)) cronometros.push(nome);
+    return cronometros.indexOf(nome);
+  };
+  const listaGatilhos = Array.isArray(missao.gatilhos) ? missao.gatilhos : [];
+  if (!Array.isArray(missao.gatilhos)) erros.push('gatilhos: esperava uma lista');
+  const ids = listaGatilhos.map(g => g?.id);
+  ids.forEach((id, k) => {
+    if (typeof id !== 'string') erros.push(`gatilhos[${k}]: falta o id`);
+    else if (ids.indexOf(id) !== k) erros.push(`gatilhos[${k}]: id repetido ${id}`);
+  });
+  const indiceDoGatilho = (onde, id) => {
+    const k = ids.indexOf(id);
+    if (k < 0) erros.push(`${onde}: gatilho ${id} não existe`);
+    return k;
+  };
+  const pesquisas = contexto.pesquisas ?? [];
+  const indiceDaPesquisa = (onde, nome) => {
+    const k = pesquisas.findIndex(p => p.nome === nome);
+    if (k < 0) erros.push(`${onde}: pesquisa ${nome} não existe`);
+    return k;
+  };
+
+  const compilarCondicao = (onde, c) => {
+    if (!c || typeof c !== 'object') {
+      erros.push(`${onde}: condição ausente`);
+      return { se: 'nunca' };
+    }
+    switch (c.se) {
+      case 'todas':
+      case 'alguma':
+        if (!Array.isArray(c.condicoes) || c.condicoes.length === 0) erros.push(`${onde}.condicoes: esperava uma lista`);
+        return { se: c.se, condicoes: (c.condicoes ?? []).map((x, k) => compilarCondicao(`${onde}.condicoes[${k}]`, x)) };
+      case 'nao':
+        return { se: 'nao', condicao: compilarCondicao(`${onde}.condicao`, c.condicao) };
+      case 'tempo':
+        return { se: 'tempo', passos: segundos(`${onde}.segundos`, c.segundos) };
+      case 'depoisDe':
+        return { se: 'depoisDe', gatilho: indiceDoGatilho(`${onde}.gatilho`, c.gatilho), passos: segundos(`${onde}.segundos`, c.segundos) };
+      case 'cronometro':
+        return { se: 'cronometro', cronometro: indiceDoCronometro(c.nome) };
+      case 'contagem':
+      case 'vivos':
+        if (c.se === 'vivos' && c.grupo === undefined) erros.push(`${onde}: vivos precisa do grupo`);
+        if (c.minimo === undefined && c.maximo === undefined) erros.push(`${onde}: falta minimo ou maximo`);
+        return {
+          se: 'contagem',
+          jogador: c.jogador === undefined ? -1 : jogador(`${onde}.jogador`, c.jogador),
+          tipos: listaDeTipos(`${onde}.tipos`, c.tipos),
+          area: c.area === undefined ? null : area(`${onde}.area`, c.area),
+          grupo: c.grupo === undefined ? null : grupo(`${onde}.grupo`, c.grupo),
+          ...limites(onde, c),
+        };
+      case 'dono':
+        return { se: 'dono', grupo: grupo(`${onde}.grupo`, c.grupo), jogador: jogador(`${onde}.jogador`, c.jogador) };
+      case 'vida':
+        return { se: 'vida', grupo: grupo(`${onde}.grupo`, c.grupo), porcento: numero(`${onde}.maximoPorcento`, c.maximoPorcento, 0, 100) };
+      case 'religando':
+        return { se: 'religando', grupo: grupo(`${onde}.grupo`, c.grupo), jogador: c.jogador === undefined ? -1 : jogador(`${onde}.jogador`, c.jogador) };
+      case 'recursos':
+        return { se: 'recursos', jogador: jogador(`${onde}.jogador`, c.jogador), ...limites(onde, c) };
+      case 'coletores':
+        return { se: 'coletores', jogador: jogador(`${onde}.jogador`, c.jogador), minimo: numero(`${onde}.minimo`, c.minimo, 0) };
+      case 'objetivo':
+        if (!(c.estado in NOMES_ESTADO)) erros.push(`${onde}.estado: ativo, cumprido ou falhou`);
+        return { se: 'objetivo', objetivo: indiceDoObjetivo(`${onde}.objetivo`, c.objetivo), estado: NOMES_ESTADO[c.estado] ?? 0 };
+      case 'disparou':
+        return { se: 'disparou', gatilho: indiceDoGatilho(`${onde}.gatilho`, c.gatilho) };
+      case 'variavel':
+        return {
+          se: 'variavel',
+          variavel: indiceDaVariavel(`${onde}.nome`, c.nome),
+          minimo: opcional(`${onde}.minimo`, c.igual ?? c.minimo, -MAX_VALOR),
+          maximo: opcional(`${onde}.maximo`, c.igual ?? c.maximo, MAX_VALOR),
+        };
+      case 'parado':
+        return { se: 'parado', jogador: jogador(`${onde}.jogador`, c.jogador), passos: segundos(`${onde}.segundos`, c.segundos) };
+      case 'visto':
+        return { se: 'visto', jogador: jogador(`${onde}.jogador`, c.jogador), area: area(`${onde}.area`, c.area) };
+      case 'pesquisa':
+        return { se: 'pesquisa', jogador: jogador(`${onde}.jogador`, c.jogador), pesquisa: indiceDaPesquisa(`${onde}.pesquisa`, c.pesquisa) };
+      case 'dificuldade': {
+        const { minimo, maximo } = limites(onde, c);
+        return { se: dificuldade >= minimo && dificuldade <= maximo ? 'sempre' : 'nunca' };
+      }
+      default:
+        erros.push(`${onde}.se: condição desconhecida ${c.se}`);
+        return { se: 'nunca' };
+    }
+  };
+
+  const compilarAcao = (onde, a) => {
+    switch (a?.faz) {
+      case 'mensagem':
+        if (typeof a.texto !== 'string') erros.push(`${onde}: falta o texto`);
+        return { faz: 'mensagem', texto: textos.indexOf(a.texto), area: a.area === undefined ? null : area(`${onde}.area`, a.area) };
+      case 'aviso':
+        return { faz: 'aviso', rotulo: grupo(`${onde}.grupo`, a.grupo).indexOf(1), texto: a.texto === undefined ? -1 : textos.indexOf(a.texto), area: area(`${onde}.area`, a.area) };
+      case 'objetivo':
+        if (!(a.estado in NOMES_ESTADO)) erros.push(`${onde}.estado: ativo, cumprido ou falhou`);
+        return { faz: 'objetivo', objetivo: indiceDoObjetivo(`${onde}.objetivo`, a.objetivo), estado: NOMES_ESTADO[a.estado] ?? 0 };
+      case 'criar': {
+        if (!Array.isArray(a.unidades) || a.unidades.length === 0) erros.push(`${onde}.unidades: esperava uma lista`);
+        const unidades = (a.unidades ?? []).map((u, k) => ({ tipo: indiceDoTipo(`${onde}.unidades[${k}].tipo`, u?.tipo), quantos: numero(`${onde}.unidades[${k}].quantos`, u?.quantos, 0, 200) }));
+        const lugar = a.area !== undefined ? { area: area(`${onde}.area`, a.area) } : { ponto: ponto(`${onde}.ponto`, a.ponto) };
+        if (typeof a.grupo === 'string' && a.grupo in unioes) erros.push(`${onde}.grupo: criar precisa de um rótulo, não de uma união`);
+        return {
+          faz: 'criar',
+          jogador: jogador(`${onde}.jogador`, a.jogador),
+          unidades,
+          ...lugar,
+          rotulo: typeof a.grupo === 'string' ? rotulos.indexOf(a.grupo) : -1,
+          veterania: opcional(`${onde}.veterania`, a.veterania, 0, 0, 3),
+        };
+      }
+      case 'ordenar':
+        if (!(a.ordem in ORDENS)) erros.push(`${onde}.ordem: ${Object.keys(ORDENS).join(', ')}`);
+        return { faz: 'ordenar', grupo: grupo(`${onde}.grupo`, a.grupo), ordem: ORDENS[a.ordem] ?? 0, ...(a.ordem === 'parar' || a.ordem === 'segurar' ? {} : destino(onde, a)) };
+      case 'atacar':
+        return { faz: 'atacar', grupo: grupo(`${onde}.grupo`, a.grupo), alvo: grupo(`${onde}.alvo`, a.alvo) };
+      case 'variavel':
+        if ((a.valor === undefined) === (a.somar === undefined)) erros.push(`${onde}: valor ou somar`);
+        return { faz: 'variavel', variavel: indiceDaVariavel(`${onde}.nome`, a.nome), valor: opcional(`${onde}.valor`, a.valor, 0), somar: a.somar === undefined ? null : numero(`${onde}.somar`, a.somar) };
+      case 'cronometro':
+        return { faz: 'cronometro', cronometro: indiceDoCronometro(a.nome), passos: a.parar ? 0 : segundos(`${onde}.segundos`, a.segundos) };
+      case 'liberar':
+      case 'bloquear':
+        return { faz: a.faz, jogador: jogador(`${onde}.jogador`, a.jogador), tipos: listaDeTipos(`${onde}.tipos`, a.tipos) ?? new Uint8Array(tipos.length) };
+      case 'revelar':
+        return { faz: 'revelar', jogador: jogador(`${onde}.jogador`, a.jogador), area: area(`${onde}.area`, a.area) };
+      case 'recursos':
+        return { faz: 'recursos', jogador: jogador(`${onde}.jogador`, a.jogador), somar: numero(`${onde}.somar`, a.somar) };
+      case 'dono':
+        return { faz: 'dono', grupo: grupo(`${onde}.grupo`, a.grupo), jogador: jogador(`${onde}.jogador`, a.jogador) };
+      case 'destruir':
+        return { faz: 'destruir', grupo: grupo(`${onde}.grupo`, a.grupo) };
+      case 'gatilho':
+        return { faz: 'gatilho', gatilho: indiceDoGatilho(`${onde}.gatilho`, a.gatilho), ativo: a.ativo === false ? 0 : 1 };
+      case 'religavel':
+        return { faz: 'religavel', grupo: grupo(`${onde}.grupo`, a.grupo), passos: segundos(`${onde}.segundos`, a.segundos) };
+      case 'pesquisa':
+        return { faz: 'pesquisa', jogador: jogador(`${onde}.jogador`, a.jogador), pesquisa: indiceDaPesquisa(`${onde}.pesquisa`, a.pesquisa) };
+      case 'veterania':
+        return { faz: 'veterania', grupo: grupo(`${onde}.grupo`, a.grupo), nivel: numero(`${onde}.nivel`, a.nivel, 0, 3) };
+      case 'luz':
+        return { faz: 'luz', cena: cenas.indexOf(a.cena) };
+      case 'camera':
+        return { faz: 'camera', ...(a.area !== undefined ? { area: area(`${onde}.area`, a.area) } : { ponto: ponto(`${onde}.ponto`, a.ponto) }) };
+      case 'vitoria':
+      case 'derrota':
+        return { faz: a.faz, jogador: jogador(`${onde}.jogador`, a.jogador) };
+      default:
+        erros.push(`${onde}.faz: ação desconhecida ${a?.faz}`);
+        return { faz: 'nada' };
+    }
+  };
+
+  const gatilhos = listaGatilhos.map((g, k) => {
+    const onde = `gatilhos[${k}]${typeof g?.id === 'string' ? ` (${g.id})` : ''}`;
+    if (!Array.isArray(g?.acoes)) erros.push(`${onde}.acoes: esperava uma lista`);
+    for (const campo of Object.keys(g ?? {})) if (!['id', 'quando', 'acoes', 'repete', 'intervaloSegundos', 'ativo'].includes(campo)) erros.push(`${onde}.${campo}: campo desconhecido`);
+    return {
+      id: g?.id,
+      quando: compilarCondicao(`${onde}.quando`, g?.quando),
+      acoes: (g?.acoes ?? []).map((a, j) => compilarAcao(`${onde}.acoes[${j}]`, a)),
+      repete: g?.repete === true ? 1 : 0,
+      intervalo: g?.intervaloSegundos === undefined ? 0 : segundos(`${onde}.intervaloSegundos`, g.intervaloSegundos),
+      ativo: g?.ativo === false ? 0 : 1,
+    };
+  });
+  for (const campo of Object.keys(missao)) if (!['versao', 'id', 'objetivos', 'areas', 'pontos', 'rotas', 'grupos', 'variaveis', 'gatilhos'].includes(campo)) erros.push(`${campo}: campo desconhecido`);
+  if (erros.length > 0) throw new Error(`missão ${missao.id ?? ''} inválida:\n${erros.join('\n')}`);
+  return Object.freeze({ id: missao.id, gatilhos, objetivos, textos, rotulos, cenas, variaveis, valoresIniciais, cronometros });
+}
+
+/** The compiled mission of a simulation (opcoes.missao), or null; rebuilt from the saved options after a load. */
+export function missaoDe(sim) {
+  if (sim.missaoCompilada !== undefined) return sim.missaoCompilada;
+  const missao = sim.opcoes?.missao;
+  sim.missaoCompilada = missao
+    ? compilarMissao(missao, { tipos: sim.tipos, lugares: sim.opcoes.lugares, dificuldade: sim.opcoes.dificuldade, times: sim.times, largura: sim.mapa.largura, altura: sim.mapa.altura, pesquisas: sim.opcoes.pesquisas?.pesquisas })
+    : null;
+  return sim.missaoCompilada;
+}
+
+/**
+ * Evaluator state, only typed arrays, in sim.extras.missao: per trigger (times fired, tick of the last firing,
+ * active), variables, timers (tick they run out, 0 stopped), objective states, each slot's label (index + 1) with the
+ * generation it was given to, and each player's result.
+ */
+export function extrasMissao(sim) {
+  sim.extras ??= {};
+  if (!sim.extras.missao) {
+    const m = missaoDe(sim);
+    const n = m ? m.gatilhos.length : 0;
+    sim.extras.missao = {
+      disparos: new Int32Array(n),
+      ultimoDisparo: new Int32Array(n).fill(-1),
+      ativo: Uint8Array.from(m ? m.gatilhos : [], g => g.ativo),
+      variaveis: Int32Array.from(m ? m.valoresIniciais : []),
+      cronometros: new Int32Array(m ? m.cronometros.length : 0),
+      objetivos: new Uint8Array(m ? m.objetivos.length : 0),
+      rotulo: new Uint16Array(sim.capacidade),
+      rotuloGeracao: new Uint16Array(sim.capacidade),
+      resultado: new Uint8Array(sim.times),
+    };
+  }
+  return sim.extras.missao;
+}
+
+/** Gives entity i the label `nome` (map entities with an etiqueta); names the mission never uses are ignored. */
+export function rotular(sim, i, nome) {
+  const m = missaoDe(sim);
+  const k = m ? m.rotulos.indexOf(nome) : -1;
+  if (k < 0) return;
+  const ex = extrasMissao(sim);
+  ex.rotulo[i] = k + 1;
+  ex.rotuloGeracao[i] = sim.geracao[i];
+}
+
+/** Each player's RESULTADO.* so far. */
+export const resultadoDaMissao = sim => extrasMissao(sim).resultado;
+
+// ---------- evaluation ----------
+
+// whether slot i is alive and carries one of the labels marked in `grupo`
+function membro(sim, ex, grupo, i) {
+  if (!sim.ativo[i] || ex.rotuloGeracao[i] !== sim.geracao[i]) return false;
+  const r = ex.rotulo[i];
+  return r > 0 && grupo[r - 1] === 1;
+}
+
+/** Live slots carrying one of the labels marked in `grupo`, in slot order. */
+function membros(sim, ex, grupo) {
+  const lista = [];
+  for (let i = 0; i < sim.capacidade; i++) if (membro(sim, ex, grupo, i)) lista.push(i);
+  return lista;
+}
+
+const dentroDaArea = (sim, i, a) => {
+  const cx = sim.x[i] >> FP_BITS;
+  const cy = sim.y[i] >> FP_BITS;
+  return cx >= a.cx0 && cx < a.cx1 && cy >= a.cy0 && cy < a.cy1;
+};
+
+// economy reads and writes, through whatever the economy front exposes
+const recursosDe = (sim, jogador) => sim.recursos?.[jogador] ?? 0;
+function darRecursos(sim, jogador, quantidade) {
+  if (sim.recursos) sim.recursos[jogador] = Math.max(0, Math.min(MAX_VALOR, sim.recursos[jogador] + quantidade));
+}
+function coletoresAtivos(sim, jogador) {
+  let n = 0;
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.time[i] === jogador && sim.coletorPorTipo[sim.tipo[i]] && !sim.parada[i]) n++;
+  return n;
+}
+
+function avaliar(sim, ex, c) {
+  switch (c.se) {
+    case 'sempre':
+      return true;
+    case 'nunca':
+      return false;
+    case 'todas':
+      return c.condicoes.every(x => avaliar(sim, ex, x));
+    case 'alguma':
+      return c.condicoes.some(x => avaliar(sim, ex, x));
+    case 'nao':
+      return !avaliar(sim, ex, c.condicao);
+    case 'tempo':
+      return sim.tick >= c.passos;
+    case 'depoisDe':
+      return ex.ultimoDisparo[c.gatilho] >= 0 && sim.tick - ex.ultimoDisparo[c.gatilho] >= c.passos;
+    case 'cronometro':
+      return ex.cronometros[c.cronometro] > 0 && sim.tick >= ex.cronometros[c.cronometro];
+    case 'contagem': {
+      let n = 0;
+      for (let i = 0; i < sim.capacidade; i++) {
+        if (!sim.ativo[i]) continue;
+        if (c.jogador >= 0 && sim.time[i] !== c.jogador) continue;
+        if (c.tipos && !c.tipos[sim.tipo[i]]) continue;
+        if (c.area && !dentroDaArea(sim, i, c.area)) continue;
+        if (c.grupo && !membro(sim, ex, c.grupo, i)) continue;
+        n++;
+      }
+      return n >= c.minimo && n <= c.maximo;
+    }
+    case 'dono': {
+      const lista = membros(sim, ex, c.grupo);
+      return lista.length > 0 && lista.every(i => sim.time[i] === c.jogador);
+    }
+    case 'vida':
+      return membros(sim, ex, c.grupo).some(i => sim.vida[i] * 100 <= c.porcento * sim.tipos[sim.tipo[i]].vida);
+    case 'religando':
+      return membros(sim, ex, c.grupo).some(i => sendoReligada(sim, i, c.jogador));
+    case 'recursos': {
+      const r = recursosDe(sim, c.jogador);
+      return r >= c.minimo && r <= c.maximo;
+    }
+    case 'coletores':
+      return coletoresAtivos(sim, c.jogador) >= c.minimo;
+    case 'objetivo':
+      return ex.objetivos[c.objetivo] === c.estado;
+    case 'disparou':
+      return ex.disparos[c.gatilho] > 0;
+    case 'variavel': {
+      const v = ex.variaveis[c.variavel];
+      return v >= c.minimo && v <= c.maximo;
+    }
+    case 'parado':
+      return sim.tick - (sim.ultimoComando?.[c.jogador] ?? 0) >= c.passos;
+    case 'visto': {
+      const { largura } = sim.mapa;
+      for (let cy = c.area.cy0; cy < c.area.cy1; cy++) for (let cx = c.area.cx0; cx < c.area.cx1; cx++) if (celulaVisivel(sim, c.jogador, cy * largura + cx)) return true;
+      return false;
+    }
+    case 'pesquisa':
+      return pesquisaFeita(sim, c.jogador, c.pesquisa);
+    default:
+      return false;
+  }
+}
+
+// Open cells to spawn n units on: the area's cells in row order, or rings around the point, cycling when short.
+function lugaresDeSurgimento(sim, a, n) {
+  const { largura, altura, bloqueado } = sim.mapa;
+  const celulas = [];
+  if (a.area) {
+    for (let cy = a.area.cy0; cy < a.area.cy1; cy++) for (let cx = a.area.cx0; cx < a.area.cx1; cx++) if (!bloqueado[cy * largura + cx]) celulas.push(cy * largura + cx);
+  } else if (a.ponto) {
+    for (let r = 0; r < 12 && celulas.length < n; r++) {
+      for (let cy = a.ponto.cy - r; cy <= a.ponto.cy + r; cy++) {
+        for (let cx = a.ponto.cx - r; cx <= a.ponto.cx + r; cx++) {
+          if (cx < 1 || cy < 1 || cx >= largura - 1 || cy >= altura - 1) continue;
+          if (Math.max(Math.abs(cx - a.ponto.cx), Math.abs(cy - a.ponto.cy)) !== r) continue;
+          if (!bloqueado[cy * largura + cx]) celulas.push(cy * largura + cx);
+        }
+      }
+    }
+  }
+  return celulas;
+}
+
+const centro = a => (a.area ? a.area : a.ponto ?? { x: 0, y: 0 });
+
+function emitirSeExiste(sim, tipo, x, y, arg) {
+  if (tipo) emitirEventoNoPonto(sim, tipo, -1, x, y, arg);
+}
+
+function ordenar(sim, unidades, a) {
+  if (unidades.length === 0) return;
+  for (const i of unidades) sim.segurando[i] = 0;
+  if (a.ordem === TIPO_COMANDO.PARAR || a.ordem === TIPO_COMANDO.SEGURAR_POSICAO) {
+    for (const i of unidades) {
+      limparOrdens(sim, i);
+      sim.parada[i] = 1;
+      sim.segurando[i] = a.ordem === TIPO_COMANDO.SEGURAR_POSICAO ? 1 : 0;
+    }
+    return;
+  }
+  const pontos = a.rota ?? [a.area ?? a.ponto];
+  if (a.ordem === TIPO_COMANDO.PATRULHAR) {
+    ordenarPatrulha(sim, unidades, pontos[0].x, pontos[0].y);
+    return;
+  }
+  pontos.forEach((p, k) => ordenarGrupo(sim, unidades, a.ordem, p.x, p.y, { fila: k > 0 ? 1 : 0 }));
+}
+
+function executar(sim, m, ex, a) {
+  switch (a.faz) {
+    case 'mensagem': {
+      const p = a.area ?? { x: 0, y: 0 };
+      emitirSeExiste(sim, EVENTO.MENSAGEM_MISSAO, p.x, p.y, a.texto);
+      return;
+    }
+    case 'aviso':
+      emitirSeExiste(sim, EVENTO.AVISO_ATAQUE, a.area.x, a.area.y, a.rotulo);
+      if (a.texto >= 0) emitirSeExiste(sim, EVENTO.MENSAGEM_MISSAO, a.area.x, a.area.y, a.texto);
+      return;
+    case 'objetivo':
+      if (ex.objetivos[a.objetivo] === a.estado) return;
+      ex.objetivos[a.objetivo] = a.estado;
+      emitirSeExiste(sim, EVENTO.OBJETIVO, 0, 0, a.objetivo * 4 + a.estado);
+      return;
+    case 'criar': {
+      const total = a.unidades.reduce((s, u) => s + u.quantos, 0);
+      const celulas = lugaresDeSurgimento(sim, a, total);
+      if (celulas.length === 0) return;
+      const { largura } = sim.mapa;
+      const c = centro(a);
+      if (a.rotulo >= 0) emitirSeExiste(sim, EVENTO.ONDA, c.x, c.y, a.rotulo);
+      let k = 0;
+      for (const u of a.unidades) {
+        for (let q = 0; q < u.quantos; q++, k++) {
+          const celula = celulas[k % celulas.length];
+          const i = criarEntidade(sim, u.tipo, a.jogador, (celula % largura) * FP + (FP >> 1), Math.trunc(celula / largura) * FP + (FP >> 1), 0);
+          if (i < 0) return;
+          if (a.rotulo >= 0) {
+            ex.rotulo[i] = a.rotulo + 1;
+            ex.rotuloGeracao[i] = sim.geracao[i];
+          }
+          if (a.veterania > 0) definirVeterania(sim, i, a.veterania);
+          emitirEvento(sim, EVENTO.SURGIMENTO, i, -1, u.tipo);
+        }
+      }
+      return;
+    }
+    case 'ordenar':
+      ordenar(sim, membros(sim, ex, a.grupo), a);
+      return;
+    case 'atacar': {
+      const alvos = membros(sim, ex, a.alvo);
+      const unidades = membros(sim, ex, a.grupo);
+      if (alvos.length === 0 || unidades.length === 0) return;
+      const alvo = alvos[0];
+      for (const i of unidades) sim.segurando[i] = 0;
+      ordenarGrupo(sim, unidades, TIPO_COMANDO.ATACAR, sim.x[alvo], sim.y[alvo], { alvo: idDoSlot(sim, alvo) });
+      return;
+    }
+    case 'variavel':
+      ex.variaveis[a.variavel] = a.somar === null ? a.valor : Math.max(-MAX_VALOR, Math.min(MAX_VALOR, ex.variaveis[a.variavel] + a.somar));
+      return;
+    case 'cronometro':
+      ex.cronometros[a.cronometro] = a.passos > 0 ? sim.tick + a.passos : 0;
+      return;
+    case 'liberar':
+    case 'bloquear':
+      liberarTipos(sim, a.jogador, a.tipos, a.faz === 'liberar' ? 1 : 0);
+      return;
+    case 'revelar': {
+      const explorado = sim.neblina.explorado[a.jogador];
+      const { largura } = sim.mapa;
+      for (let cy = a.area.cy0; cy < a.area.cy1; cy++) for (let cx = a.area.cx0; cx < a.area.cx1; cx++) explorado[cy * largura + cx] = 1;
+      return;
+    }
+    case 'recursos':
+      darRecursos(sim, a.jogador, a.somar);
+      return;
+    case 'dono':
+      for (const i of membros(sim, ex, a.grupo)) trocarDono(sim, i, a.jogador);
+      return;
+    case 'destruir':
+      for (const i of membros(sim, ex, a.grupo)) if (sim.ativo[i]) matar(sim, i, -1);
+      return;
+    case 'gatilho':
+      ex.ativo[a.gatilho] = a.ativo;
+      return;
+    case 'religavel':
+      for (const i of membros(sim, ex, a.grupo)) definirTempoReligar(sim, i, a.passos);
+      return;
+    case 'pesquisa':
+      concluirPesquisa(sim, a.jogador, a.pesquisa);
+      return;
+    case 'veterania':
+      for (const i of membros(sim, ex, a.grupo)) definirVeterania(sim, i, a.nivel);
+      return;
+    case 'luz':
+      emitirSeExiste(sim, EVENTO.LUZ, 0, 0, a.cena);
+      return;
+    case 'camera': {
+      const c = centro(a);
+      emitirSeExiste(sim, EVENTO.CAMERA, c.x, c.y, 0);
+      return;
+    }
+    case 'vitoria':
+    case 'derrota':
+      if (ex.resultado[a.jogador] !== RESULTADO.JOGANDO) return;
+      ex.resultado[a.jogador] = a.faz === 'vitoria' ? RESULTADO.VITORIA : RESULTADO.DERROTA;
+      emitirSeExiste(sim, a.faz === 'vitoria' ? EVENTO.VITORIA : EVENTO.DERROTA, 0, 0, a.jogador);
+      return;
+    default:
+      return;
+  }
+}
+
+/**
+ * Runs the mission's triggers in file order every INTERVALO_GATILHOS ticks: an active trigger whose condition holds
+ * fires its actions in order (later triggers see their effects), counts the firing, and either turns off or, when it
+ * repeats, waits its interval. A finished match (any player's result set) runs no more triggers.
+ */
+export function avaliarGatilhos(sim) {
+  const m = missaoDe(sim);
+  if (!m || (sim.tick - 1) % INTERVALO_GATILHOS !== 0) return;
+  const ex = extrasMissao(sim);
+  if (ex.resultado.some(r => r !== RESULTADO.JOGANDO)) return;
+  for (let k = 0; k < m.gatilhos.length; k++) {
+    const g = m.gatilhos[k];
+    if (!ex.ativo[k]) continue;
+    if (g.repete && ex.ultimoDisparo[k] >= 0 && sim.tick - ex.ultimoDisparo[k] < g.intervalo) continue;
+    if (!avaliar(sim, ex, g.quando)) continue;
+    ex.disparos[k]++;
+    ex.ultimoDisparo[k] = sim.tick;
+    if (!g.repete) ex.ativo[k] = 0;
+    for (const a of g.acoes) executar(sim, m, ex, a);
+    if (ex.resultado.some(r => r !== RESULTADO.JOGANDO)) return;
+  }
+}
+
+/** The entity with id `id`, if it carries one of the labels of the union or label `nome` (tests and tools). */
+export function temRotulo(sim, id, nome) {
+  const m = missaoDe(sim);
+  const i = slotVivo(sim, id);
+  if (!m || i < 0) return false;
+  const ex = extrasMissao(sim);
+  return ex.rotuloGeracao[i] === sim.geracao[i] && m.rotulos[ex.rotulo[i] - 1] === nome;
+}
+
+/** The rules step of this front, right after the commands: mission triggers, then re-powering, then research. */
+export function passoDaMissao(sim) {
+  avaliarGatilhos(sim);
+  avancarReligar(sim);
+  avancarPesquisas(sim);
+}

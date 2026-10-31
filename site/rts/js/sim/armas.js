@@ -184,6 +184,8 @@ export function combateDe(sim) {
     blindagemDoTipo,
     custoDoTipo,
     vidaDoTipo,
+    // the neutral side (dead structures waiting to be re-powered) neither shoots nor is shot
+    neutro: sim.opcoes?.timeNeutro ?? -1,
     tipoDano: coluna('tipoDano'),
     dano: coluna('dano'),
     recarga: coluna('recarga'),

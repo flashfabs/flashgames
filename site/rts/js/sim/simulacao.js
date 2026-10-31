@@ -12,6 +12,7 @@ import { criarEstado } from './estado.js';
 import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrupo, ordenarPatrulha } from './ordens.js';
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
+import { passoDaMissao } from './gatilhos.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento } from './entidades.js';
 
 export { FP_BITS, FP, PASSOS_POR_SEGUNDO };
@@ -174,6 +175,7 @@ export function passo(sim) {
   sim.tick++;
   sim.eventos.length = 0;
   aplicarComandos(sim);
+  passoDaMissao(sim);
   conduzirComputador(sim);
   renascer(sim);
   avancarCaminhos(sim.caminhos, sim.expansoesPorPasso);
