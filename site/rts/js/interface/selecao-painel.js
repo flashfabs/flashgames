@@ -6,8 +6,8 @@
 import { BANDEIRA, FAIXA, FAIXA_ESTADO } from '../sim/contratos.js';
 
 const MAXIMO_DO_BYTE = 255;
-/** Harvesters a node serves at once (the "3/3" of the panel); the design's saturation. */
-const SATURACAO = 3;
+/** Harvesters a node serves at once (the "3/3" of the panel) when the static map does not say. */
+const SATURACAO_PADRAO = 3;
 
 export function criarPainelDeSelecao({ raiz, selecionadas, indice, estado, catalogo, leitura, texto, controles, ordens, canvasAlvo, aoMudar }) {
   let anterior = '';
@@ -80,7 +80,8 @@ export function criarPainelDeSelecao({ raiz, selecionadas, indice, estado, catal
       return semEnergia + htmlDaFila(id);
     }
     if (cat.ehRecurso(tipo)) {
-      const ocupacao = cat.categoria(tipo) === 'recurso' ? `${texto('hud.saturacao', { n: atual.ocupacao[k], max: SATURACAO })} · ` : '';
+      const max = estado.mapa?.economia?.saturacao ?? SATURACAO_PADRAO;
+      const ocupacao = cat.categoria(tipo) === 'recurso' ? `${texto('hud.saturacao', { n: atual.ocupacao[k], max })} · ` : '';
       return `<div class="selecao-detalhe">${ocupacao}${Math.round((atual.carga[k] / MAXIMO_DO_BYTE) * 100)}%</div>${barra(atual.carga[k] / MAXIMO_DO_BYTE, 'progresso')}`;
     }
     const vida = barra(atual.vida[k] / MAXIMO_DO_BYTE);
