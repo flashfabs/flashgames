@@ -233,7 +233,7 @@ function encostaNoGrupoParado(sim, i) {
 /** Moves every live unit one tick, in slot order. */
 export function mover(sim) {
   // hot loop: everything it touches in locals
-  const { baldeCabeca, baldeProximo, baldeLargura, tipos, capacidade, ativo, tipo: tipoDe, x, y, vx, vy, parada, segurando } = sim;
+  const { baldeCabeca, baldeProximo, baldeLargura, tipos, capacidade, ativo, tipo: tipoDe, x, y, vx, vy, parada, segurando, fase, semProgresso } = sim;
   const ordem = sim.ordens.ordem;
   const { largura, bloqueado } = sim.grade;
   const linhas = Math.trunc(baldeCabeca.length / baldeLargura);
@@ -261,8 +261,9 @@ export function mover(sim) {
       const meuTipo = tipoDe[i];
       const meuRaio = raioDe[meuTipo];
       const passaColetor = coletorDe[meuTipo] === 1 && andando;
-      const atravessa = andando && sim.semProgresso[i] > ESPERA_ATRAVESSAR;
-      const furaFila = atravessa && sim.fase[i] === FASE_CAMPO;
+      const meuSemProgresso = semProgresso[i];
+      const atravessa = andando && meuSemProgresso > ESPERA_ATRAVESSAR;
+      const furaFila = atravessa && fase[i] === FASE_CAMPO;
       const bx = nx >> TAMANHO_BALDE_BITS;
       const by = ny >> TAMANHO_BALDE_BITS;
       const y0b = by > 0 ? by - 1 : 0;
@@ -299,7 +300,7 @@ export function mover(sim) {
             if (outroGrupo && atravessa) continue;
             // a stuck unit on its way cuts into the stream of its own group: it is not pushed back by the ones getting
             // ahead (near the destination the formation sorts the group out instead)
-            if (furaFila && !outroParado && ordem[j] === ordem[i] && sim.fase[j] === FASE_CAMPO && sim.semProgresso[j] < sim.semProgresso[i]) continue;
+            if (furaFila && !outroParado && ordem[j] === ordem[i] && fase[j] === FASE_CAMPO && semProgresso[j] < meuSemProgresso) continue;
             const contraFluxo = outroGrupo && desejoX * vx[j] + desejoY * vy[j] < 0;
             // who gives way: standing still yields to moving, nobody pushes a unit that holds position
             const divisor = segurando[j] ? 1 : outroGrupo || (andando && outroParado) ? 6 : !andando && !outroParado ? 2 : 3;
