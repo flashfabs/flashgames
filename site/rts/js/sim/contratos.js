@@ -110,6 +110,7 @@ export const MOTIVO = Object.freeze({
   CELULA_NAO_VENTOSA: 10, // the kind needs a windy cell under its footprint
   FORA_DO_MAPA: 11,
   LIMITE: 12, // the player already has the most of that kind the rules allow
+  PERTO_DO_RECURSO: 13, // a depot too close to a battery pile (economy data, distanciaMinimaPilha)
 });
 
 /**
@@ -397,6 +398,10 @@ export function transferiveisDoRetrato(retrato) {
  * @property {TipoEstatico[]} tipos every kind, indexed by the snapshot's `tipo`
  * @property {{nome: string, predio: number, custo: number, tempo: number}[]} pesquisas research, by index
  * @property {{x: number, y: number}[]} nos resource nodes of the map (cells), by index
+ * @property {string[]} solos     names of the ground kinds of the `solo` layer, by value (empty for a generated map)
+ * @property {string[]} decoracoes names of the decorations, the `decoracao` layer's value minus one
+ * @property {object} economia    economy rules: lotacaoMaxima, saturacao, distanciaMinimaPilha (cells), faiscaCarga,
+ *                                duracaoFaisca, intervaloRajada, avisoRajada (ticks), loteRajada, reciclarPorcento
  */
 
 /**
