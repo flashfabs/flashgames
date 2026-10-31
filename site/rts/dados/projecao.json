@@ -8,6 +8,8 @@
     "blenderRotacaoGraus": [35, 0, 0]
   },
   "metrosPorCelula": 4,
+  "metrosPorNivel": 4,
+  "nivelMaximo": 3,
   "pxPorCelula": { "hd": 64, "uhd": 128 },
   "campoDeVisao": {
     "colunasReferencia": 30,
@@ -48,6 +50,7 @@
   "notas": [
     "Axes: map x points east (screen right) and map y points south (screen down); Blender x is east, y is north, z is up, and the camera looks north.",
     "A ground offset of d cells shows as d*px horizontally and d*px*sin(elevation) vertically; a height of h metres shows h*(px/metrosPorCelula)*cos(elevation) up.",
+    "Height levels of the map (0..nivelMaximo) stand metrosPorNivel apart: one level rises about 0.7 cell on screen at 55 degrees, and the ground point under a pixel moves up to nivelMaximo*metrosPorNivel*cos/(metrosPorCelula*sin) cells north on a plateau.",
     "Default zoom: px = canvasHeight / (colunasReferencia * 9/16), then clamped so the visible columns stay in [colunasMin, colunasMax]; the zoom factor multiplies the clamped value.",
     "Blender ortho_scale = frameWidthPx / pxPorCelula[level] * metrosPorCelula (a 256 px uhd frame gives 8 m).",
     "Sun azimuth is where the light comes from, counter-clockwise from east with north up; vetorParaOSol is in Blender axes.",
