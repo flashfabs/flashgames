@@ -76,6 +76,7 @@ uniform vec4 uSolos[${MAX_SOLOS}];   // per soil: tint (rgb), tile layer
 uniform sampler2D uArea;   // R = 1 where the local player may build
 uniform float uCelulasPorLadrilho;
 uniform int uModoSolo;
+uniform float uCamadaFace;           // tile layer of the cliff face, -1 for the procedural one
 out vec4 cor;
 uint soloEm(ivec2 c) { return texelFetch(uSolo, clamp(c, ivec2(0), ivec2(uDimMapa.xy) - 1), 0).r; }
 vec3 ladrilho(uint s, vec2 w) {
@@ -188,8 +189,12 @@ void main() {
   if (lim.b > 0.0 || limP.a > 0.0) {
     vec3 n = normalDoTerreno(w);
     float ingreme = smoothstep(0.42, 0.72, 1.0 - n.z);
-    vec3 face = mix(vec3(0.36, 0.31, 0.27), vec3(0.55, 0.49, 0.42), ruido(vec2(w.x * 2.3, p.z * 1.4)));
-    face *= 0.85 + 0.3 * ruido(vec2(w.x * 7.0, p.z * 5.0));
+    vec3 face;
+    if (uModoSolo == 1 && uCamadaFace >= 0.0) face = texture(uLadrilhos, vec3(vec2(w.x, -p.z / uRes.w) / uCelulasPorLadrilho, uCamadaFace)).rgb;
+    else {
+      face = mix(vec3(0.36, 0.31, 0.27), vec3(0.55, 0.49, 0.42), ruido(vec2(w.x * 2.3, p.z * 1.4)));
+      face *= 0.85 + 0.3 * ruido(vec2(w.x * 7.0, p.z * 5.0));
+    }
     c = mix(c, face, ingreme);
     float luz = clamp(0.64 + 0.36 * clamp(dot(n, uSol.xyz), 0.0, 1.0) / uSol.z, 0.55, 1.12);
     if (limP.a * uRelevo.x > p.z + 0.2) luz *= mix(0.68, 1.0, luzDoSol(p));

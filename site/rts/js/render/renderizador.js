@@ -9,10 +9,10 @@ import { criarBackendWebGL2, FLOATS_QUADRO, INICIO_CORES_QUADRO } from './backen
 import { pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from './projecao.js';
 import { criarControleDeEscala, DEGRAUS } from './escala.js';
 import { criarFolhas } from './sprites.js';
-import { criarMontagemUnidades, aparenciasDosTipos } from './unidades.js';
+import { criarMontagemUnidades, aparenciasDosTipos, assetDoTipo } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
 import { criarRelevo, limitesPorCelula } from './relevo.js';
-import { soloDoMapa, tabelaDeSolos, mascaraDeAgua, LADRILHO_BASE, prefixoLadrilho } from './solos.js';
+import { soloDoMapa, tabelaDeSolos, mascaraDeAgua, LADRILHO_BASE, LADRILHO_FACE, prefixoLadrilho } from './solos.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
 import { carregarIndice } from '../ativos/indice.js';
@@ -60,7 +60,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
   let ladrilhosPedidos = false;
 
   function atualizarSolos() {
-    backend.definirSolos(tabelaDeSolos(nomesSolos, camadasLadrilho), celulasPorLadrilho, modoTerreno === 'ladrilhos' && camadasLadrilho.size > 0 ? 1 : 0);
+    backend.definirSolos(tabelaDeSolos(nomesSolos, camadasLadrilho), celulasPorLadrilho, modoTerreno === 'ladrilhos' && camadasLadrilho.size > 0 ? 1 : 0, camadasLadrilho.get(LADRILHO_FACE) ?? -1);
   }
 
   /**
@@ -102,13 +102,69 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     carregarIndice()
       .then(indice => {
         const urls = new Map();
-        for (const nome of [LADRILHO_BASE, ...nomesSolos]) {
+        for (const nome of [LADRILHO_BASE, ...nomesSolos, LADRILHO_FACE]) {
           const url = indice.urlDo(prefixoLadrilho(nome));
           if (url && !urls.has(nome)) urls.set(nome, url);
         }
         return carregarLadrilhos(urls, nivel);
       })
       .catch(erro => console.warn('ladrilhos de terreno indisponíveis', erro));
+  }
+
+  let mapaAtual = null;
+  // decorations whose art arrived: they stand as sprites instead of blocks in the terrain
+  let decoComArte = new Set();
+
+  function aplicarMapa(mapa) {
+    const solo = soloDoMapa(mapa);
+    // a blocked cell with a decoration is a blocking one (wall, wreck), a block until its art arrives
+    const blocos = mapa.decoracao ? Uint8Array.from(mapa.decoracao, (d, i) => (d && mapa.bloqueado[i] && !decoComArte.has(d) ? 1 : 0)) : null;
+    relevo = criarRelevo(mapa, projecao, mascaraDeAgua(solo.grade, solo.nomes), blocos);
+    const k = projecao.celulasPorMetroDeAltura;
+    const alcanceSol = projecao.sol[2] > 0 ? relevo.alturaMaxima / ((projecao.sol[2] / Math.hypot(projecao.sol[0], projecao.sol[1])) * projecao.metrosPorCelula) : 0;
+    const limites = limitesPorCelula(mapa, relevo.topos, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
+    const total = mapa.largura * mapa.altura;
+    const rgba = new Uint8Array(total * 4);
+    const escalaNivel = 255 / projecao.nivelMaximo;
+    for (let i = 0; i < total; i++) {
+      rgba[i * 4] = mapa.bloqueado[i] ? 255 : 0;
+      rgba[i * 4 + 1] = mapa.relevo[i];
+      rgba[i * 4 + 2] = Math.round(limites.coluna[i] * escalaNivel);
+      rgba[i * 4 + 3] = Math.round(limites.sol[i] * escalaNivel);
+    }
+    backend.definirMapa(mapa.largura, mapa.altura, rgba, relevo.fina, relevo.larguraFina, relevo.alturaFina);
+    mapaLargura = mapa.largura;
+    mapaAltura = mapa.altura;
+    areaConstrucao = null;
+    camera.relevo = relevo;
+    nomesSolos = solo.nomes;
+    backend.definirSolo(solo.grade);
+    atualizarSolos();
+    if (modoTerreno === 'ladrilhos') pedirLadrilhos();
+    if (mapa.tipos) definirTipos(mapa.tipos);
+  }
+
+  // Decoration art from the index; once some arrives, the terrain is rebuilt without the blocks it replaces.
+  function pedirDecoracoes(nomes) {
+    const nivel = nivelDoCanvas();
+    const mapa = mapaAtual;
+    carregarIndice()
+      .then(indice =>
+        Promise.all(
+          nomes.map((nome, i) => {
+            const url = indice.urlDo(`neutro-decoracao-${nome}`);
+            if (!url) return null;
+            return carregarManifesto(url)
+              .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
+              .then(() => decoComArte.add(i + 1))
+              .catch(erro => console.warn(`arte da decoração ${nome} indisponível`, erro));
+          }),
+        ),
+      )
+      .then(() => {
+        if (decoComArte.size > 0 && mapaAtual === mapa) aplicarMapa(mapa);
+      })
+      .catch(erro => console.warn('decorações indisponíveis', erro));
   }
 
   /**
@@ -125,7 +181,7 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     carregarIndice()
       .then(indice =>
         Promise.all(
-          [...new Set(tipos.flatMap(t => (t.asset ? [t.asset, `${t.asset}-cinza`] : [])))]
+          [...new Set(tipos.map(assetDoTipo).filter(Boolean))]
             .filter(asset => !folhas.folha(asset) && indice.urlDo(asset))
             .map(asset =>
               carregarManifesto(indice.urlDo(asset))
@@ -225,33 +281,19 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
      * @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array, nivel?: Uint8Array }} mapa
      */
     definirMapa(mapa) {
-      const solo = soloDoMapa(mapa);
-      // a blocked cell with a decoration is a blocking one (wall, wreck)
-      const blocos = mapa.decoracao ? Uint8Array.from(mapa.decoracao, (d, i) => (d && mapa.bloqueado[i] ? 1 : 0)) : null;
-      relevo = criarRelevo(mapa, projecao, mascaraDeAgua(solo.grade, solo.nomes), blocos);
-      const k = projecao.celulasPorMetroDeAltura;
-      const alcanceSol = projecao.sol[2] > 0 ? relevo.alturaMaxima / ((projecao.sol[2] / Math.hypot(projecao.sol[0], projecao.sol[1])) * projecao.metrosPorCelula) : 0;
-      const limites = limitesPorCelula(mapa, relevo.topos, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
-      const total = mapa.largura * mapa.altura;
-      const rgba = new Uint8Array(total * 4);
-      const escalaNivel = 255 / projecao.nivelMaximo;
-      for (let i = 0; i < total; i++) {
-        rgba[i * 4] = mapa.bloqueado[i] ? 255 : 0;
-        rgba[i * 4 + 1] = mapa.relevo[i];
-        rgba[i * 4 + 2] = Math.round(limites.coluna[i] * escalaNivel);
-        rgba[i * 4 + 3] = Math.round(limites.sol[i] * escalaNivel);
-      }
-      backend.definirMapa(mapa.largura, mapa.altura, rgba, relevo.fina, relevo.larguraFina, relevo.alturaFina);
-      mapaLargura = mapa.largura;
-      mapaAltura = mapa.altura;
-      areaConstrucao = null;
-      camera.relevo = relevo;
-      nomesSolos = solo.nomes;
-      backend.definirSolo(solo.grade);
-      atualizarSolos();
-      if (modoTerreno === 'ladrilhos') pedirLadrilhos();
-      if (mapa.tipos) definirTipos(mapa.tipos);
+      mapaAtual = mapa;
+      decoComArte = new Set();
+      aplicarMapa(mapa);
+      const nomes = (mapa.decoracoes ?? []).map(d => (typeof d === 'string' ? d : d.nome));
+      unidades.definirDecoracoes(mapa.decoracao && nomes.length ? { largura: mapa.largura, altura: mapa.altura, decoracao: mapa.decoracao, nomes } : null);
+      if (nomes.length) pedirDecoracoes(nomes);
     },
+
+    /** Height field of the current map (relevo.js), or null before the map arrives. */
+    get relevo() {
+      return relevo;
+    },
+
 
     /** Ground splatted from the tiles by soil ('ladrilhos') or procedural; the measurement compares the two. */
     definirModoTerreno(modo) {
@@ -285,11 +327,6 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       if (!areaConstrucao || areaConstrucao.length !== mapaLargura * mapaAltura) areaConstrucao = new Uint8Array(mapaLargura * mapaAltura);
       for (let i = 0; i < areaConstrucao.length; i++) areaConstrucao[i] = grade[i] ? 255 : 0;
       backend.definirArea(areaConstrucao);
-    },
-
-    /** Height field of the current map (relevo.js), or null before the map arrives. */
-    get relevo() {
-      return relevo;
     },
 
     atualizarNeblina(visao) {
@@ -332,6 +369,25 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
 
     /** Kinds of the match, when they do not come with the static map (MapaEstatico.tipos). */
     definirTipos,
+
+    /**
+     * Loads every sprite asset the art index lists for a phase (the memory check of the art budget); resolves to how
+     * many loaded.
+     */
+    async carregarFase(fase, nivel = nivelDoCanvas()) {
+      const indice = await carregarIndice();
+      const nomes = indice.daFase(fase).filter(nome => !folhas.folha(nome));
+      const lidos = await Promise.all(
+        nomes.map(nome =>
+          carregarManifesto(indice.urlDo(nome))
+            .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
+            .then(() => 1)
+            .catch(erro => (console.warn(`arte de ${nome} indisponível`, erro), 0)),
+        ),
+      );
+      estatisticas.bytesTexturas = backend.bytesTexturas;
+      return lidos.reduce((a, b) => a + b, 0);
+    },
 
     /**
      * Shadows: 'recomendado' (the default until the style gate decides: derived from the sprite alpha on units, the

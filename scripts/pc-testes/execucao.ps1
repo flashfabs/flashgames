@@ -22,6 +22,7 @@ $resumo = "$saida\resumo.txt"
 $travaTestes = "D:\rts\trava-testes"
 $travaGpu = "D:\rts\trava-gpu"
 $fila = "D:\rts\testes\fila.log"
+$pastaSenhas = "D:\rts\testes\senhas"
 New-Item -ItemType Directory -Force -Path $saida, "D:\rts\cache\tmp-testes", "D:\rts\npm-cache", "D:\rts\playwright" | Out-Null
 [IO.File]::WriteAllText($log, "", $utf8)
 
@@ -42,11 +43,41 @@ function Soltar-Trava([string]$caminho) {
     }
 }
 
+# Runs waiting for the test lock queue by ticket, first come first served: a file in D:\rts\testes\senhas named by the
+# time it started waiting, holding the waiting process id. Only the oldest live ticket tries the lock. A ticket whose
+# process is gone, or older than the longest wait, is dropped; one still being written (no id yet) counts as alive.
+function Primeira-Senha {
+    $agora = Get-Date
+    foreach ($senha in (Get-ChildItem $pastaSenhas -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $conteudo = Get-Content $senha.FullName -Raw -ErrorAction SilentlyContinue
+        $viva = if ($conteudo -match "pid=(\d+)") { [bool](Get-Process -Id $Matches[1] -ErrorAction SilentlyContinue) } else { $senha.LastWriteTime -gt $agora.AddMinutes(-1) }
+        if ($viva -and $senha.LastWriteTime -gt $agora.AddHours(-4)) { return $senha.FullName }
+        Remove-Item $senha.FullName -ErrorAction SilentlyContinue
+    }
+    return $null
+}
+
 # Creating a folder is atomic, so two runs can never both get the lock. A test lock whose owner process is gone (the PC restarted mid-run) is taken over.
-function Esperar-Trava([string]$caminho, [string]$dono, [string]$rotulo, [int]$limiteMinutos, [bool]$retomarOrfa) {
+# With a ticket ($senha), the run also waits for its turn in the queue before trying the lock.
+function Esperar-Trava([string]$caminho, [string]$dono, [string]$rotulo, [int]$limiteMinutos, [bool]$retomarOrfa, [string]$senha = "") {
     $limite = (Get-Date).AddMinutes($limiteMinutos)
     $avisado = ""
+    $avisadoSenha = ""
     while ($true) {
+        if ($senha) {
+            if (-not (Test-Path $senha)) { [IO.File]::WriteAllText($senha, "pid=$PID", $utf8) }
+            $primeira = Primeira-Senha
+            if ($primeira -and $primeira -ne $senha) {
+                if ($primeira -ne $avisadoSenha) {
+                    Registrar "FILA waiting for the turn of: $(Split-Path $primeira -Leaf)"
+                    Gravar-Estado ([ordered]@{ estado = "esperando a vez na fila"; primeiro = (Split-Path $primeira -Leaf); pid = $PID })
+                    $avisadoSenha = $primeira
+                }
+                if ((Get-Date) -gt $limite) { return $false }
+                Start-Sleep -Seconds 15
+                continue
+            }
+        }
         try {
             New-Item -ItemType Directory -Path $caminho -ErrorAction Stop | Out-Null
             [IO.File]::WriteAllText("$caminho\dono", $dono, $utf8)
@@ -143,11 +174,16 @@ $inicioGeral = Get-Date
 $codigoGeral = 0
 $comTrava = $false
 $esperaTestes = $null
+$senha = $null
 try {
     Gravar-Estado ([ordered]@{ estado = "esperando testes"; pid = $PID })
-    if (-not (Esperar-Trava $travaTestes "$Sessao $Execucao pid=$PID $(Get-Date -Format o)" "testes" 180 $true)) {
-        throw "the test lock stayed busy for 180 min"
-    }
+    New-Item -ItemType Directory -Force -Path $pastaSenhas | Out-Null
+    $senha = Join-Path $pastaSenhas ("{0}-{1}-{2}" -f $inicioGeral.ToUniversalTime().ToString("yyyyMMddTHHmmssfff"), $Sessao, $Execucao)
+    [IO.File]::WriteAllText($senha, "pid=$PID", $utf8)
+    $pegou = Esperar-Trava $travaTestes "$Sessao $Execucao pid=$PID $(Get-Date -Format o)" "testes" 180 $true $senha
+    Remove-Item $senha -ErrorAction SilentlyContinue
+    $senha = $null
+    if (-not $pegou) { throw "the test lock stayed busy for 180 min" }
     $comTrava = $true
     $esperaTestes = [math]::Round(((Get-Date) - $inicioGeral).TotalSeconds, 1)
     Registrar "FILA waited $esperaTestes s for the test lock"
@@ -203,6 +239,7 @@ try {
     Registrar "ERRO $_"
     $codigoGeral = -1
 } finally {
+    if ($senha) { Remove-Item $senha -ErrorAction SilentlyContinue }
     if ($comTrava) { Soltar-Trava $travaTestes }
     $fim = Get-Date
     $final = [ordered]@{
