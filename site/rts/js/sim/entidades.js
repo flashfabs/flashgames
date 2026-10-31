@@ -2,7 +2,7 @@
 // and presentation events.
 import { EVENTO, SEM_ENTIDADE, idDe, slotDe, geracaoDe, proximaGeracao } from './contratos.js';
 import { limparOrdens } from './ordens.js';
-import { temPegada, carimbarPegada } from './pegadas.js';
+import { temPegada, carimbarPegada, trocarDonoNaGrade } from './pegadas.js';
 import { retirarVisao } from './neblina.js';
 
 /** Id with generation of the entity in a slot. */
@@ -126,5 +126,5 @@ export function removerEntidade(sim, i) {
 /** Hands entity i to another owner (a structure brought back): its sight moves to the new team on the next update. */
 export function trocarDono(sim, i, dono) {
   retirarVisao(sim, i);
-  sim.time[i] = dono;
+  trocarDonoNaGrade(sim, i, dono);
 }

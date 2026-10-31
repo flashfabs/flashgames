@@ -58,7 +58,7 @@ function contextoDaEquipe(sim, time, aplicar) {
     tick: sim.tick,
     time,
     dificuldade: indiceDificuldade(sim.opcoes.dificuldade),
-    vista: vistaDoTime(sim, time),
+    vista: vistaDoTime(sim, time, { reaproveitar: true }),
     mapa: mapaEstaticoDe(sim),
     lugares: sim.opcoes.lugares ?? null,
     estado: sim.extras.comportamentos ?? null,
@@ -80,6 +80,19 @@ function contextoDaEquipe(sim, time, aplicar) {
       if (comandoValido(comando)) aplicar(sim, comando);
     },
   };
+}
+
+/**
+ * At match start and after a load: builds what a first decision would otherwise build inside a step (the static map,
+ * and the behaviours module's own preparation when it has one), so the first decision costs what the others do.
+ * Caches only, never state.
+ */
+export function prepararEquipes(sim) {
+  let alguma = false;
+  for (let time = 0; time < sim.times; time++) if (comportamentos.ativo(sim, time)) alguma = true;
+  if (!alguma) return;
+  mapaEstaticoDe(sim);
+  comportamentos.preparar?.(sim);
 }
 
 /**

@@ -752,7 +752,7 @@ test('dusk fades in, lowers the sun and switches the lights on outwards from whe
 });
 
 test('weapons give each kind its shot, and area weapons three blast sizes', () => {
-  const armas = [{ tipoDano: 'bala', raioArea: 0, emArco: 0 }, { tipoDano: 'explosivo', raioArea: 12, emArco: 1 }, { tipoDano: 'pane', raioArea: 0, emArco: 0 }];
+  const armas = [{ tipoDano: 'bala', raioArea: 0, emArco: 0 }, { tipoDano: 'explosivo', raioArea: 1228, emArco: 1 }, { tipoDano: 'pane', raioArea: 0, emArco: 0 }];
   const perfis = perfisDosTipos(
     [
       { nome: 'chapa', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 0, asset: 'desligados-infantaria-chapa' },
@@ -764,7 +764,7 @@ test('weapons give each kind its shot, and area weapons three blast sizes', () =
   assert.deepEqual([perfis[0].dano, perfis[0].porte, perfis[0].emArco], [DANO.BALA, 0, false]);
   assert.deepEqual([perfis[1].dano, perfis[1].emArco, perfis[1].vapor], [DANO.EXPLOSIVO, true, true]);
   assert.equal(perfis[2].porte, 2);
-  assert.deepEqual([0, 8, 12].map(tamanhoDaExplosao), [0.7, 1.1, 1.6]);
+  assert.deepEqual([0, 819, 1228].map(tamanhoDaExplosao), [0.7, 1.1, 1.6], 'radius in world units: none, 0.8 and 1.2 cells');
 });
 
 function eventos(lista) {
@@ -782,7 +782,7 @@ test('shots, hits and deaths spawn the effects of their damage kind; LUZ goes to
       { nome: 'canhao-de-caldeira', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 1, asset: '' },
       { nome: 'lanca', categoria: CATEGORIA.UNIDADE, pegada: [1, 1], arma: 2, asset: '' },
     ],
-    [{ tipoDano: 'bala', raioArea: 0, emArco: 0 }, { tipoDano: 'explosivo', raioArea: 12, emArco: 1 }, { tipoDano: 'perfurante', raioArea: 0, emArco: 0 }],
+    [{ tipoDano: 'bala', raioArea: 0, emArco: 0 }, { tipoDano: 'explosivo', raioArea: 1228, emArco: 1 }, { tipoDano: 'perfurante', raioArea: 0, emArco: 0 }],
   );
   ef.registrarEventos(
     eventos([

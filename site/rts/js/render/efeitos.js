@@ -83,9 +83,13 @@ export function perfisDosTipos(tipos, armas) {
   });
 }
 
-/** Size of the fireball of an area weapon, in cells: three sizes by its blast radius (tenths of a cell). */
+/**
+ * Size of the fireball of an area weapon, in cells: three sizes by its blast radius, in world units as
+ * MapaEstatico.armas gives it (1/1,024 of a cell).
+ */
 export function tamanhoDaExplosao(raioArea) {
-  return raioArea >= 12 ? 1.6 : raioArea >= 8 ? 1.1 : 0.7;
+  const celulas = raioArea / FP;
+  return celulas >= 1.15 ? 1.6 : celulas >= 0.75 ? 1.1 : 0.7;
 }
 
 export function criarEfeitos({ visivel, aoLuz = () => {} }) {
