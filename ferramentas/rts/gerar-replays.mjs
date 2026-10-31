@@ -1,10 +1,12 @@
-// Generates the golden replays in testes/rts-replays/: four scripted matches of 18,000 ticks (ten minutes of game)
-// with combat, orders of every kind, fog and, in the sandbox one, the whole economy (harvesting, building, production,
-// spilled charge, gusts), recorded as seed, options and commands, plus the checksums they must give.
+// Generates the golden replays in testes/rts-replays/: five scripted matches of 18,000 ticks (ten minutes of game)
+// with combat, orders of every kind, fog, in the example sandbox the whole economy (harvesting, building, production,
+// spilled charge, gusts), and in the design sandbox its mission (triggers, waves, objectives, re-powering, veterancy)
+// against the end-to-end tests' scripted player, recorded as seed, options and commands, plus the checksums they must
+// give. Data, map and mission travel inside the replay, so a later change of the design files does not touch it.
 // The checksums come from playing the saved JSON back, so the files prove themselves. Run after a deliberate change to
 // the simulation (with VERSAO_SIMULACAO bumped when the formats change) and commit the output:
 //   node ferramentas/rts/gerar-replays.mjs
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { criarSimulacao, passo, agendarComando, somaDeVerificacao, REGRAS_LIVRES, REGRAS_PROTOTIPO } from '../../site/rts/js/sim/simulacao.js';
 import { executarReplay, criarGravador } from '../../site/rts/js/sim/replay.js';
@@ -13,7 +15,10 @@ import { criarSorteio, sortear } from '../../site/rts/js/sim/matematica.js';
 import { gerarMapa, camadasEmTexto } from '../../site/rts/js/sim/mapa.js';
 import { motivoPosicaoNaSimulacao } from '../../site/rts/js/sim/construcao.js';
 import { cabecaDaFaixa } from '../../site/rts/js/sim/producao.js';
+import { montarRetrato, montarMapaEstatico } from '../../site/rts/js/sim/retrato.js';
+import { decodificarRetrato } from '../../site/rts/js/teste/gancho.js';
 import { dadosExemplo, mapaExemplo } from '../../testes/rts-sim-exemplo.mjs';
+import { criarRoteiro, decidir, DECISAO_SEGUNDOS } from '../../testes/e2e/rts-roteiro.mjs';
 
 const PASSOS = 18000;
 const A_CADA = 600;
@@ -163,6 +168,29 @@ function inventarEconomia(sim, sorteio, jogador, seq) {
   return null;
 }
 
+// The design sandbox with its mission, as the page starts it: data, map and mission files read now and embedded.
+function missaoDaCaixa() {
+  const dadosUrl = new URL('../../site/rts/dados/', import.meta.url);
+  const json = caminho => JSON.parse(readFileSync(new URL(caminho, dadosUrl), 'utf8'));
+  const dados = Object.fromEntries(['unidades', 'predios', 'economia', 'pesquisas', 'armas'].map(nome => [nome, json(`${nome}.json`)]));
+  const cabecalho = json('mapas/caixa-de-areia/mapa.json');
+  const camadas = new Uint8Array(readFileSync(new URL(`mapas/caixa-de-areia/${cabecalho.camadas.arquivo}`, dadosUrl)));
+  const arquivosMapa = { cabecalho, camadas: camadasEmTexto(camadas), entidades: json('mapas/caixa-de-areia/entidades.json') };
+  return { semente: 3, dados, arquivosMapa, missao: json('missoes/caixa-de-areia.json'), dificuldade: 'normal' };
+}
+
+// The end-to-end tests' scripted player (testes/e2e/rts-roteiro.mjs) as player 0: every few seconds it reads the
+// player's snapshot and gives its commands, the way the browser test plays.
+function criarJogadorRoteirizado() {
+  const roteiro = criarRoteiro();
+  let mapa = null;
+  return (sim, _sorteio, jogador, seq) => {
+    mapa ??= montarMapaEstatico(sim, jogador);
+    const r = decodificarRetrato(montarRetrato(sim, { jogadorLocal: jogador }), mapa);
+    return decidir(r, roteiro, mapa).map((c, k) => criarComando({ ...c, tipo: TIPO_COMANDO[c.tipo], tick: sim.tick + 1, jogador, seq: seq + k }));
+  };
+}
+
 const CENARIOS = [
   {
     nome: 'prototipo-um-comandante',
@@ -199,6 +227,15 @@ const CENARIOS = [
     intervalo: 45,
     inventar: inventarEconomia,
   },
+  {
+    nome: 'missao-caixa',
+    descricao: 'The design sandbox (site/rts/dados/, data, map and mission embedded) on Normal: its mission\'s triggers, waves, objectives and re-powering against the end-to-end tests\' scripted player, who builds, harvests, trains and defends.',
+    opcoes: missaoDaCaixa(),
+    jogadores: [0],
+    intervalo: DECISAO_SEGUNDOS * 30,
+    inventar: null,
+    jogador: criarJogadorRoteirizado,
+  },
 ];
 
 mkdirSync(destino, { recursive: true });
@@ -208,15 +245,16 @@ for (const cenario of CENARIOS) {
   const gravador = criarGravador(cenario.opcoes);
   const sorteio = criarSorteio(0x2f6b3a1d ^ cenario.opcoes.semente);
   const seqs = new Map();
+  // a scenario's player gives one command (inventar) or a list of them (jogador)
+  const inventar = cenario.jogador ? cenario.jogador() : (sim2, sorteio2, jogador, seq) => [(cenario.inventar ?? inventarComando)(sim2, sorteio2, jogador, seq)].filter(Boolean);
   for (let k = 0; k < PASSOS; k++) {
     if ((sim.tick + 1) % cenario.intervalo === 0) {
       for (const jogador of cenario.jogadores) {
-        const seq = seqs.get(jogador) ?? 0;
-        const comando = (cenario.inventar ?? inventarComando)(sim, sorteio, jogador, seq);
-        if (!comando) continue;
-        seqs.set(jogador, seq + 1);
-        agendarComando(sim, comando);
-        gravador.registrar(comando);
+        for (const comando of inventar(sim, sorteio, jogador, seqs.get(jogador) ?? 0)) {
+          seqs.set(jogador, comando.seq + 1);
+          agendarComando(sim, comando);
+          gravador.registrar(comando);
+        }
       }
     }
     passo(sim);
