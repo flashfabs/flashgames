@@ -11,6 +11,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 - Etapa: E0 (pré-produção e higiene) junto com a onda 1 (E1 motor de produção e E2 fábrica de arte), por pedido do Victor em 30/10/2026.
 - Integração: branch `rts/base`, criada em 30/10/2026 a partir da `main` em `94d4631`; nada do RTS foi para a `main` nem para a Netlify.
 - Guarda da produção, conferida de novo no fim da onda 1 (30/10/2026): `salinha-jogos.netlify.app/versao.json` em `45b1664`, `/rts/` responde 404, a `rts/base` não tem deploy de branch na Netlify e a `main` segue em `94d4631`.
+- Página de diagnóstico para os amigos, com aprovação do Victor em 30/10/2026: deploy de rascunho na Netlify, fora da produção, em https://diagnostico-rts--salinha-jogos.netlify.app (deploy `6ae537f4a4f10013b680a403`, feito com `netlify deploy --no-build --alias diagnostico-rts` sem `--prod`), só com `prototipos/diagnostico` e o protótipo de `3faef0e`; a raiz leva a `/diagnostico/`. Conferido no Chromium: placa, Opus e a soma `897f4ba5` no Worker. A produção seguiu em `45b1664`. Um deploy novo com o mesmo `--alias` atualiza esse endereço.
 - Fim da onda 1 (30/10/2026): as seis frentes integraram na `rts/base` e o Action ficou verde em `f609c18` (run 41147192783); o que falta da E0 depende do Victor (roteiro de medições, endereço da página de diagnóstico) e está em "Medições que esperam o Mac".
 - Sessões da onda 1: `rts-qualidade`, `rts-arte`, `rts-design`, `rts-motor`, `rts-render` e `rts-interface`.
 - Regra do Victor de 30/10/2026, 20h17: o que exige esforço roda no PC da RTX 4090 e o Mac fica com editar, git e `npm test`; os testes de ponta a ponta rodam no PC por `scripts/rtx-testes.sh` (detalhes em [frentes.md](frentes.md), seção Onde roda o quê).
@@ -46,7 +47,7 @@ Mundo provisório: Apagão. Uma tempestade solar queimou a rede elétrica e a ca
 | Safari 26 de verdade: soma no Worker | MacBook Pro M5 Pro | não deu nesta onda: precisa do Victor na frente do Mac; o [roteiro](roteiro-medicoes.md) está pronto e a medição entrou em "Medições que esperam o Mac" | — |
 | Chrome e Edge no Windows: bench em 4K, soma e a string da placa | PC da RTX 4090, com o Victor no PC (pelo SSH os navegadores podem rodar sem GPU) | não deu nesta onda: precisa do Victor sentado no PC ([roteiro](roteiro-medicoes.md), Parte 3); servir as páginas em localhost pelo Python do Blender foi testado pelo SSH em 30/10/2026 | — |
 | Firefox no Windows | PC da RTX 4090 | não deu: o Firefox não está instalado no PC (conferido em 30/10/2026), e instalar depende do Victor | — |
-| Notebook comum com GPU integrada | máquina de um amigo | não deu nesta onda: a página de diagnóstico está pronta, mas ainda não tem endereço para os amigos abrirem (decisão do Victor; nada do RTS vai à Netlify antes de um marco) | — |
+| Notebook comum com GPU integrada | máquina de um amigo | não deu nesta onda: falta um amigo abrir a página de diagnóstico, que desde 30/10/2026 está em https://diagnostico-rts--salinha-jogos.netlify.app e colar o resultado | — |
 | Extensões de textura e MAX_TEXTURE_SIZE | MacBook Pro M5 Pro, Playwright | Chromium 153 (ANGLE Metal, Apple M5 Pro): S3TC, RGTC, BPTC (BC7), ETC2, ASTC e PVRTC, 16384; Firefox 153 ("Apple M1, or similar"): só S3TC e RGTC, 8192; WebKit 26.5: todas, 16384 | `prototipos/diagnostico/`, 30/10/2026 |
 | Extensões de textura | Safari 26, Chrome e Edge do Windows, notebook comum | não deu nesta onda: sai da página de diagnóstico no [roteiro](roteiro-medicoes.md) (Safari e PC) e no notebook de um amigo, que dependem do Victor | — |
 | `decodeAudioData` de Opus em Ogg e de AAC em MP4 | Playwright no Mac | Opus decodifica no Chromium 153, no Firefox 153 e no WebKit 26.5; AAC decodifica no Chromium e no Firefox e falha no WebKit do Playwright, que vem sem os codecs proprietários (não vale pelo Safari) | `prototipos/diagnostico/`, 30/10/2026 |
@@ -278,7 +279,8 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 - 30/10/2026: primeiro Action com os três motores na `rts/base` (`c51ffb0`) verde em 6,5 minutos: 35 funcionais e `rts-determinismo` no Chromium, no Firefox e no WebKit; Firefox 155 e WebKit 26.6 instalados no Mac (D16).
 - 30/10/2026: os 3 replays dourados da `rts-motor` entraram no `rts-determinismo` sem mudança no spec.
 - 30/10/2026: executor de testes no PC da RTX 4090 (`scripts/rtx-testes.sh` e `scripts/pc-testes/`), com trava própria `D:\rts\trava-testes`, a trava da GPU nos passos de desempenho, lançamento pelo WMI e conferência da placa; números na seção Testes no PC da RTX 4090.
-- Pendente: endereço para a página de diagnóstico chegar aos amigos, as respostas do roteiro e as medições que esperam o Mac.
+- 30/10/2026: página de diagnóstico publicada como rascunho na Netlify para os amigos (seção Onde estamos).
+- Pendente: as respostas dos amigos pela página, as do roteiro e as medições que esperam o Mac.
 
 ### F4, F6 e F9
 
