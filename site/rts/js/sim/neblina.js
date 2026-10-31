@@ -2,7 +2,7 @@
 // enters a cell and removes it when it leaves or dies, so only units that changed cell cost anything. A cell is visible
 // while its count is above zero, and explored forever after. Height: a unit on level h sees a higher cell (the cliff
 // edge) but nothing behind it, by walking each disc cell back to the centre along a precomputed ray.
-import { VISAO, FP_BITS } from './contratos.js';
+import { VISAO, FP_BITS, DONO_NEUTRO } from './contratos.js';
 
 const MAX_RAIO = 15;
 
@@ -77,7 +77,8 @@ export function atualizarNeblina(sim) {
   const { neblina, mapa, celulaVisao, raioVisao } = sim;
   const largura = mapa.largura;
   for (let i = 0; i < sim.capacidade; i++) {
-    const vivo = sim.ativo[i] === 1;
+    // neutral entities and kinds without sight (piles, sparks) see nothing
+    const vivo = sim.ativo[i] === 1 && sim.time[i] !== DONO_NEUTRO && sim.tipos[sim.tipo[i]].visao > 0;
     const celula = vivo ? (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS) : -1;
     if (celula === celulaVisao[i]) continue;
     const time = sim.time[i];
@@ -89,6 +90,13 @@ export function atualizarNeblina(sim) {
     }
     celulaVisao[i] = celula;
   }
+}
+
+/** Removes the sight entity i has stamped (before it changes owner); the next update stamps it again. */
+export function retirarVisao(sim, i) {
+  if (sim.celulaVisao[i] < 0) return;
+  carimbar(sim.neblina, sim.mapa, sim.time[i], sim.celulaVisao[i], sim.raioVisao[i], -1);
+  sim.celulaVisao[i] = -1;
 }
 
 /** VISAO.* grid of one team, in the snapshot format. */

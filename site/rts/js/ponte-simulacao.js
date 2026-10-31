@@ -11,13 +11,18 @@ export function criarPonteSimulacao() {
   let salvando = null;
 
   // Starts the worker; aoReceberMapa gets the static map once, aoReceberEstado every snapshot.
-  // `teste` (only with ?teste=1) enables avancar(); `dados` and `mapa` (C5 and C6, already read) pick the match.
-  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, teste = false, dados, mapa, aoReceberMapa, aoReceberEstado }) {
+  // `teste` (only with ?teste=1) enables avancar(). A match on the design files passes them as read: `dados` (the C5
+  // files), `partida` ({ missao, cabecalho, camadas: ArrayBuffer, entidades }: the mission and its map's C6 files) and
+  // `dificuldade`; without them, the prototype match (semente, unidadesPorTime) runs, as the benchmarks use.
+  // `cargaInicial` gives every player that Carga at the start (until the mission's start trigger runs in the simulation).
+  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, teste = false, dados, partida, dificuldade, cargaInicial, aoReceberMapa, aoReceberEstado }) {
     estado.jogadorLocal = jogadorLocal;
     trabalhador = new Worker(new URL('./trabalhador.js', import.meta.url), { type: 'module' });
     const opcoes = { semente, unidadesPorTime, avancar, jogadorLocal, teste };
     if (dados) opcoes.dados = dados;
-    if (mapa) opcoes.mapa = mapa;
+    if (partida) opcoes.partida = partida;
+    if (dificuldade) opcoes.dificuldade = dificuldade;
+    if (Number.isInteger(cargaInicial)) opcoes.cargaInicial = cargaInicial;
     trabalhador.postMessage({ t: PARA_TRABALHADOR.INICIAR, opcoes });
     trabalhador.onmessage = ({ data }) => {
       if (data.t === DO_TRABALHADOR.PRONTO) {
