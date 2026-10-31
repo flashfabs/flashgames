@@ -3,7 +3,8 @@
 // simulation. The player exports it as JSON with a copy button; nothing goes to the network.
 // The pace checker reads `resumo`; the raw `eventos` let it recount with other rules.
 
-import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_TICK, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG, PASSOS_POR_SEGUNDO, BITS_SLOT, MAX_JOGADORES, FP } from '../sim/contratos.js';
+import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_TICK, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG, PASSOS_POR_SEGUNDO, BITS_SLOT, MAX_JOGADORES, FP, ITEM_PESQUISA } from '../sim/contratos.js';
+import { rotulosDaMissao } from '../sim/gatilhos.js';
 
 export const VERSAO_REGISTRO = 1;
 /** Window for the "no command" ratio: 15 s of game time, the same as the pace checker's. */
@@ -12,34 +13,15 @@ export const JANELA_PASSOS = 15 * PASSOS_POR_SEGUNDO;
 const LUTA_RAIO = 10 * FP;
 const LUTA_PAUSA = 5 * PASSOS_POR_SEGUNDO;
 const MASCARA_SLOT = (1 << BITS_SLOT) - 1;
+// the local player's units are checked against the map's areas this often, for the "entered an area" entries
+const AREAS_PASSOS = PASSOS_POR_SEGUNDO >> 1;
 
 /**
- * Labels of the mission in the order AVISO_ATAQUE and ONDA count them, the same walk as rotulosDaMissao in the
- * trigger evaluator: the members of every union first, then every group a condition or an action names, in trigger
- * order (conditions before actions), union names left out.
+ * Labels of the mission in the order AVISO_ATAQUE and ONDA count them: the trigger evaluator's own list
+ * (rotulosDaMissao), with the unions' members first, then every group the triggers name, then the computer teams'.
  */
 export function nomesDosGrupos(missao) {
-  const unioes = missao?.grupos && typeof missao.grupos === 'object' ? missao.grupos : {};
-  const rotulos = [];
-  const somar = nome => {
-    if (typeof nome === 'string' && !(nome in unioes) && !rotulos.includes(nome)) rotulos.push(nome);
-  };
-  for (const membros of Object.values(unioes)) if (Array.isArray(membros)) membros.forEach(somar);
-  const doItem = item => {
-    somar(item.grupo);
-    if (item.faz === 'atacar') somar(item.alvo);
-  };
-  const condicao = c => {
-    if (!c || typeof c !== 'object') return;
-    doItem(c);
-    if (Array.isArray(c.condicoes)) c.condicoes.forEach(condicao);
-    if (c.condicao) condicao(c.condicao);
-  };
-  for (const g of Array.isArray(missao?.gatilhos) ? missao.gatilhos : []) {
-    condicao(g?.quando);
-    for (const a of Array.isArray(g?.acoes) ? g.acoes : []) if (a && typeof a === 'object') doItem(a);
-  }
-  return rotulos;
+  return missao && typeof missao === 'object' ? rotulosDaMissao(missao) : [];
 }
 
 /**
@@ -72,6 +54,11 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
   const donoPorSlot = new Int16Array(1 << BITS_SLOT).fill(-1);
   const tipoPorSlot = new Int32Array(1 << BITS_SLOT).fill(-1);
   const idPorSlot = new Int32Array(1 << BITS_SLOT);
+  const veteraniaPorSlot = new Uint8Array(1 << BITS_SLOT);
+  // the map's named areas (rectangles in cells), and the ones the local player already entered
+  const areas = Object.entries(mapa?.areas ?? {});
+  const areasVisitadas = new Set();
+  let proximaConferenciaDeAreas = 0;
 
   const eventos = [];
   const comandos = [];
@@ -181,11 +168,44 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
     return ataques.get(grupo);
   };
 
-  /** Records an order the local player sent; the worker runs it on the next tick. */
+  // kind name and veterancy of a live entity the log has seen, by id
+  const conhecido = id => Number.isInteger(id) && id > 0 && idPorSlot[id & MASCARA_SLOT] === id;
+  const tipoDoId = id => (conhecido(id) ? nomeTipo(tipoPorSlot[id & MASCARA_SLOT]) : null);
+  const veteraniaDoId = id => (conhecido(id) ? veteraniaPorSlot[id & MASCARA_SLOT] : 0);
+
+  /**
+   * Records an order the local player sent; the worker runs it on the next tick. Besides the kind, the count and the
+   * queue flag, it keeps the argument (an ability's code), the target's kind and veterancy, and the highest veterancy
+   * among the units, so a lesson can ask for "a harvester sent to a spark" or "a veteran pulled back".
+   */
   function anotarComando(comando, origem = 'mouse') {
     const t = passo + 1;
     comandos.push(t);
-    anotar('comando', { passo: t, comando: comando.tipo, n: comando.unidades?.length ?? 0, fila: comando.fila ?? 0, origem });
+    const registro = { passo: t, comando: comando.tipo, n: comando.unidades?.length ?? 0, fila: comando.fila ?? 0, origem };
+    if (Number.isInteger(comando.arg)) registro.arg = comando.arg;
+    const alvoTipo = tipoDoId(comando.alvo);
+    if (alvoTipo) {
+      registro.alvoTipo = alvoTipo;
+      registro.alvoVeterania = veteraniaDoId(comando.alvo);
+    }
+    registro.veterania = (comando.unidades ?? []).reduce((maior, id) => Math.max(maior, veteraniaDoId(id)), 0);
+    anotar('comando', registro);
+  }
+
+  // first entry of a local unit or building into each named area of the map ("took the gorge", "reached the Hill")
+  function conferirAreas(retrato) {
+    if (areas.length === 0 || !retrato.x || !retrato.y || retrato.tick < proximaConferenciaDeAreas) return;
+    proximaConferenciaDeAreas = retrato.tick + AREAS_PASSOS;
+    for (let k = 0; k < retrato.n; k++) {
+      if (retrato.dono[k] !== jogadorLocal) continue;
+      const cx = Math.trunc(retrato.x[k] / FP);
+      const cy = Math.trunc(retrato.y[k] / FP);
+      for (const [nome, a] of areas) {
+        if (areasVisitadas.has(nome) || cx < a.x || cy < a.y || cx >= a.x + a.largura || cy >= a.y + a.altura) continue;
+        areasVisitadas.add(nome);
+        anotar('area', { passo: retrato.tick, area: nome, tipoUnidade: nomeTipo(retrato.tipo[k]) });
+      }
+    }
   }
 
   /** Reads one snapshot (C2) and its events (C3). */
@@ -197,6 +217,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
       idPorSlot[slot] = id;
       donoPorSlot[slot] = retrato.dono[k];
       tipoPorSlot[slot] = retrato.tipo[k];
+      veteraniaPorSlot[slot] = retrato.veterania?.[k] ?? 0;
     }
     const ev = retrato.eventos;
     const surgidos = [];
@@ -208,6 +229,16 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
       else if (tipo === EVENTO.MORTE) morte(t, ev[o + E_ENTIDADE], ev[o + E_ARG], ev[o + E_X], ev[o + E_Y]);
       else if (tipo === EVENTO.RECURSO_ESGOTADO) recursoEsgotado(t, ev[o + E_ARG]);
       else if (tipo === EVENTO.SURGIMENTO) surgidos.push([t, ev[o + E_ENTIDADE]]);
+      else if (tipo === EVENTO.CONSTRUCAO_CONCLUIDA && donoDe(ev[o + E_ENTIDADE]) === jogadorLocal) {
+        anotar('construcao', { passo: t, tipoUnidade: nomeTipo(ev[o + E_ARG]), x: Math.trunc(ev[o + E_X] / FP), y: Math.trunc(ev[o + E_Y] / FP) });
+      } else if (tipo === EVENTO.PRODUCAO_CONCLUIDA && ev[o + E_ARG] < ITEM_PESQUISA && donoDe(ev[o + E_ENTIDADE]) === jogadorLocal) {
+        anotar('producao', { passo: t, tipoUnidade: nomeTipo(ev[o + E_ARG]) });
+      } else if (tipo === EVENTO.RELIGADO && donoDe(ev[o + E_ENTIDADE]) === jogadorLocal) {
+        // the structure is the local player's now; alvo is the unit that did it
+        anotar('religado', { passo: t, tipoUnidade: nomeTipo(tipoPorSlot[ev[o + E_ENTIDADE] & MASCARA_SLOT]), por: tipoDoId(ev[o + E_ALVO]) });
+      } else if (tipo === EVENTO.PROMOCAO && donoDe(ev[o + E_ENTIDADE]) === jogadorLocal) {
+        anotar('promocao', { passo: t, tipoUnidade: tipoDoId(ev[o + E_ENTIDADE]), nivel: ev[o + E_ARG] });
+      }
       else if (tipo === AVISO_ATAQUE) {
         const ataque = ataqueDe(ev[o + E_ARG]);
         ataque.avisoPasso ??= t;
@@ -232,6 +263,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
       }
     }
     fecharLutasParadas(passo);
+    conferirAreas(retrato);
   }
 
   function janelas() {
@@ -244,6 +276,11 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
     const semComando = total - comComando.reduce((a, b) => a + b, 0);
     return { total, semComando, porcentoSemComando: total ? Math.round((semComando * 1000) / total) / 10 : 0 };
   }
+
+  // the pace target counts battery yards ("cemiterio-*" nodes) when the map names them so; a map whose starter rubble
+  // or scrap runs dry first (the first mission) keeps that in cemiteriosEsgotados
+  const temCemiterios = nos.some(no => no.id?.startsWith('cemiterio'));
+  const primeiroCemiterio = () => (temCemiterios ? cemiteriosEsgotados.find(c => c.no.startsWith('cemiterio')) : cemiteriosEsgotados[0]);
 
   /** The whole log as a plain object; open fights are closed at their last shot. */
   function exportar() {
@@ -269,7 +306,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
         lutas: [...lutas].sort((a, b) => a.inicioPasso - b.inicioPasso || a.luta - b.luta),
         janelas: janelas(),
         cemiteriosEsgotados: [...cemiteriosEsgotados],
-        primeiroCemiterioEsgotadoPasso: cemiteriosEsgotados[0]?.passo ?? null,
+        primeiroCemiterioEsgotadoPasso: primeiroCemiterio()?.passo ?? null,
         coletoresPerdidos,
         ataques: listaAtaques,
       },
