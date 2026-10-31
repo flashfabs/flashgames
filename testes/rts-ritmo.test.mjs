@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { conferirRegistro, conferirVarios, validarRegistro, mediana, JANELA_SEGUNDOS } from '../ferramentas/rts/ritmo/ritmo.mjs';
+import { conferirRegistro, conferirVarios, conferirE4, grupoDoArquivo, validarRegistro, mediana, JANELA_SEGUNDOS } from '../ferramentas/rts/ritmo/ritmo.mjs';
 
 const PPS = 30;
 const s = segundos => Math.round(segundos * PPS);
@@ -142,4 +142,36 @@ test('the example log the game exports reads clean', { skip: !existsSync(EXEMPLO
   const r = conferirRegistro(JSON.parse(readFileSync(EXEMPLO, 'utf8')));
   assert.deepEqual(r.problemas, []);
   assert.equal(r.valido, true);
+});
+
+test('stage E4: novices and veterans by file name, briefings skipped, next phase and fun', () => {
+  assert.equal(grupoDoArquivo('/x/novato-ana.json'), 'novato');
+  assert.equal(grupoDoArquivo('C:\\x\\Veterana-bia.json'), 'veterano');
+  assert.equal(grupoDoArquivo('registro-rts.json'), null);
+  const comBriefing = r => ({ ...r, eventos: [{ passo: 1, tipo: 'briefingPulado', segundos: 3 }, ...r.eventos] });
+  const proxima = (r, sim) => ({ ...r, respostas: { diversao: 4, jogariaProximaFase: sim } });
+  const itens = [
+    { nome: 'novato-a.json', registro: comBriefing(proxima(registro({ duracao: 21 * 60 }), true)) },
+    { nome: 'novato-b.json', registro: proxima(registro({ duracao: 23 * 60 }), true) },
+    { nome: 'novato-c.json', registro: proxima(registro({ duracao: 26 * 60, cemiterio: 11 * 60 }), false) },
+    { nome: 'veterano-a.json', registro: proxima(registro({ duracao: 16 * 60 }), true) },
+    { nome: 'veterano-b.json', registro: proxima(registro({ duracao: 17 * 60 }), true) },
+    { nome: 'veterano-c.json', registro: proxima(registro({ duracao: 20 * 60 }), true) },
+  ];
+  const { criterios, semGrupo } = conferirE4(itens);
+  const c = id => criterios.find(x => x.id === id);
+  assert.equal(c('duracao-novato').valor, 23 * 60);
+  assert.equal(c('duracao-novato').passou, true);
+  assert.equal(c('duracao-veterano').valor, 17 * 60);
+  assert.equal(c('duracao-veterano').passou, true);
+  assert.equal(c('briefings').valor, 1);
+  assert.equal(c('briefings').passou, true);
+  assert.equal(c('proximaFase').valor, 5);
+  assert.equal(c('proximaFase').passou, true, '5 of 6 is enough');
+  assert.equal(c('diversao').passou, true);
+  assert.deepEqual(semGrupo, []);
+  const doisPularam = conferirE4([...itens.slice(0, 5), { ...itens[5], registro: comBriefing(itens[5].registro) }]);
+  assert.equal(doisPularam.criterios.find(x => x.id === 'briefings').passou, false);
+  const doisNao = conferirE4([...itens.slice(0, 5), { ...itens[5], registro: proxima(itens[5].registro, false) }]);
+  assert.equal(doisNao.criterios.find(x => x.id === 'proximaFase').passou, false);
 });

@@ -237,3 +237,50 @@ export function conferirVarios(registros) {
 }
 
 export { relogio };
+
+// ---------- stage E4 (marco M4): six people who never saw the game, three novices and three veterans ----------
+
+/** E4 targets: match length per group, in seconds. */
+export const METAS_E4 = Object.freeze({
+  novato: { min: 20 * 60, max: 25 * 60 },
+  veterano: { min: 15 * 60, max: 18 * 60 },
+});
+
+/** Group of a log by its file name: novato-<name>.json or veterano-<name>.json; null otherwise. */
+export function grupoDoArquivo(nome) {
+  const base = String(nome).split(/[\\/]/).at(-1);
+  if (/^novat[oa]-/i.test(base)) return 'novato';
+  if (/^veteran[oa]-/i.test(base)) return 'veterano';
+  return null;
+}
+
+// the end screen of a mission asks "jogaria a próxima fase?"; the sandbox asked "jogaria de novo?"
+const proximaFase = respostas => (typeof respostas?.jogariaProximaFase === 'boolean' ? respostas.jogariaProximaFase : typeof respostas?.jogariaDeNovo === 'boolean' ? respostas.jogariaDeNovo : null);
+const pulouBriefing = registro => registro.eventos.some(e => e.tipo === 'briefingPulado');
+
+/**
+ * The E4 numbers of a set of logs named by group: match length median per group, briefings skipped, "would play the
+ * next phase?" and the fun median. Each criterion: { id, nome, meta, texto, passou } (passou null without data).
+ * @param {{ nome: string, registro: object }[]} itens
+ */
+export function conferirE4(itens) {
+  const validos = itens.filter(({ registro }) => validarRegistro(registro).length === 0);
+  const pps = r => r.passosPorSegundo ?? PASSOS_POR_SEGUNDO_PADRAO;
+  const criterios = [];
+  for (const grupo of ['novato', 'veterano']) {
+    const doGrupo = validos.filter(({ nome }) => grupoDoArquivo(nome) === grupo);
+    const duracoes = doGrupo.filter(({ registro }) => RESULTADOS_DE_FIM.includes(resultadoDe(registro))).map(({ registro }) => segundosDe(tickFinal(registro), pps(registro)));
+    const valor = mediana(duracoes);
+    const meta = METAS_E4[grupo];
+    criterios.push({ id: `duracao-${grupo}`, nome: `Duração, ${grupo}s`, meta: `mediana de ${relogio(meta.min)} a ${relogio(meta.max)}`, valor, texto: valor === null ? `nenhuma partida de ${grupo} com fim` : `${relogio(valor)} (${duracoes.length} de ${doGrupo.length})`, passou: valor === null ? null : dentro(valor, meta) });
+  }
+  const pularam = validos.filter(({ registro }) => pulouBriefing(registro)).length;
+  criterios.push({ id: 'briefings', nome: 'Briefings pulados', meta: 'no máximo 1 pessoa', valor: pularam, texto: `${pularam} de ${validos.length}`, passou: validos.length === 0 ? null : pularam <= 1 });
+  const respostas = validos.map(({ registro }) => proximaFase(registro.respostas)).filter(v => v !== null);
+  const sins = respostas.filter(Boolean).length;
+  criterios.push({ id: 'proximaFase', nome: 'Jogaria a próxima fase?', meta: 'sim de pelo menos 5 de 6', valor: sins, texto: `${sins} sim de ${respostas.length} respostas`, passou: respostas.length === 0 ? null : sins >= Math.max(0, validos.length - 1) });
+  const diversoes = validos.map(({ registro }) => registro.respostas?.diversao).filter(v => Number.isInteger(v) && v >= 1 && v <= 5);
+  const diversao = mediana(diversoes);
+  criterios.push({ id: 'diversao', nome: 'Diversão', meta: 'mediana de pelo menos 4 em 5', valor: diversao, texto: diversao === null ? 'sem resposta' : `${diversao} de 5 (${diversoes.length} respostas)`, passou: diversao === null ? null : diversao >= METAS.diversao.min });
+  return { criterios, semGrupo: itens.filter(({ nome }) => grupoDoArquivo(nome) === null).map(({ nome }) => nome) };
+}

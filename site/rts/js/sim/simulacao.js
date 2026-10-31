@@ -13,7 +13,6 @@ import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrup
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
 import { passoDaMissao, rotular, desistir } from './gatilhos.js';
-import { passoDasEquipes } from './comportamentos/equipes.js';
 import { comandoHabilidade } from './habilidades.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
 import { centroDaPegada } from './pegadas.js';
@@ -23,6 +22,7 @@ import { avancarProducao, comandoProduzir, comandoPesquisar, comandoCancelar, co
 import { atualizarFantasmas } from './fantasmas.js';
 import { aplicarMudancasDaGrade } from './pegadas.js';
 import { classificarEntidades } from './listas.js';
+import { conduzirEquipes } from './equipes.js';
 
 export { FP_BITS, FP, PASSOS_POR_SEGUNDO };
 
@@ -276,7 +276,7 @@ export function passo(sim) {
   classificarEntidades(sim);
   aplicarComandos(sim);
   passoDaMissao(sim);
-  passoDasEquipes(sim);
+  conduzirEquipes(sim, aplicarComando);
   avancarEconomia(sim);
   avancarObras(sim);
   atualizarRede(sim);

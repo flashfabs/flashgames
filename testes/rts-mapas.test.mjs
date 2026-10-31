@@ -86,8 +86,9 @@ test('the base yard of the sandbox runs dry in about 10 to 13 minutes with satur
   const bloqueado = bloqueio(mapa, camadas);
   const alt = camada(mapa, camadas, 'altura');
   const pilhas = entidades.entidades.filter(e => e.tipo === 'pilha' && entidades.nos[e.no].id === 'cemiterio-sudoeste');
-  // depots keep this many cells from any pile (rule asked of the motor; until economia.json carries it, the plan's 5)
-  const distanciaMinima = economia.distanciaMinimaPilha ?? 5;
+  // depots keep this many cells between their footprint and any pile (MOTIVO.PERTO_DO_RECURSO in the motor)
+  const distanciaMinima = economia.distanciaMinimaPilha;
+  assert.ok(distanciaMinima >= 3, 'sem distância mínima o depósito cola nas pilhas e o cemitério esvazia na metade do tempo');
   const longe = (x, y) => pilhas.every(p => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) >= distanciaMinima);
   let somaViagensMs = 0;
   for (const pilha of pilhas) {

@@ -45,7 +45,8 @@
       "nome": "torre-de-holofote", "faccao": "religadores", "papel": "defesa", "asset": "religadores-construcao-torre-de-holofote",
       "pegada": [2, 2], "custo": 400, "tempoMs": 20000, "vida": 700, "blindagem": "estrutura", "eletrico": 1, "visao": 7,
       "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": ["alojamento-da-turma"], "ventosa": 0, "construidoPor": "fila",
-      "arma": "refletor-armado", "destrutivel": 1, "constroi": [], "produz": []
+      "arma": "refletor-armado", "destrutivel": 1, "constroi": [], "produz": [],
+      "holofote": { "alcance": 80, "abertura": 24, "giroPorSegundo": 16, "revelaTocaia": 1 }
     },
     {
       "nome": "almoxarifado-tecnico", "faccao": "religadores", "papel": "tecnico", "asset": "religadores-construcao-almoxarifado-tecnico",
@@ -62,7 +63,7 @@
     {
       "nome": "carrocao-mae", "faccao": "desligados", "papel": "qg", "asset": "desligados-construcao-carrocao-mae",
       "pegada": [4, 3], "custo": 0, "tempoMs": 0, "vida": 2250, "blindagem": "estrutura", "eletrico": 0, "visao": 8,
-      "raioRede": 0, "deposito": 1, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
+      "raioRede": 0, "raioConstrucao": 12, "deposito": 1, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1,
       "constroi": ["paiol", "barracao", "ferraria-a-vapor", "torre-de-vigia", "palicada"],
       "produz": ["carroca-de-pedal"]
@@ -111,7 +112,8 @@
       "pegada": [1, 1], "custo": 0, "tempoMs": 0, "vida": 400, "blindagem": "estrutura", "eletrico": 1, "visao": 6,
       "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1, "constroi": [], "produz": [],
-      "religavel": 1, "tempoReligarMs": 5000
+      "religavel": 1, "tempoReligarMs": 5000,
+      "holofote": { "alcance": 60, "abertura": 256, "giroPorSegundo": 0, "revelaTocaia": 1 }
     },
     {
       "nome": "ponte-basculante", "faccao": "neutro", "papel": "religavel-passagem", "asset": "neutro-estrutura-ponte-basculante",

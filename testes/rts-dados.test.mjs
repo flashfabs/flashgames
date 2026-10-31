@@ -138,6 +138,8 @@ test('buildings reference existing kinds and the faction trees close', () => {
     const qgs = predios.predios.filter(p => p.faccao === faccao && p.papel === 'qg');
     assert.equal(qgs.length, 1, `${faccao}: um QG`);
     assert.ok(predios.predios.some(p => p.faccao === faccao && p.deposito), `${faccao}: sem depósito`);
+    // every headquarters opens a building area: a network for one faction, a plain radius for the other
+    assert.ok(qgs[0].raioRede > 0 || qgs[0].raioConstrucao > 0, `${faccao}: o QG não abre área de construção`);
   }
 });
 
@@ -168,6 +170,11 @@ test('economy numbers stay in the ranges the plan argues for', () => {
   const porMinuto = (economia.vento.lote * 60000) / economia.vento.intervaloMs;
   assert.ok(porMinuto >= 30 && porMinuto <= 50, `vento ${porMinuto} C/min`);
   assert.ok(economia.vento.avisoMs >= 10000, 'rajada anunciada com pelo menos 10 s');
+  assert.ok(economia.distanciaMinimaPilha >= 3 && economia.distanciaMinimaPilha <= 8, 'depósito longe das pilhas, sem esconder o cemitério');
+  for (const nome of ['torre-de-holofote', 'holofote-de-estrada']) {
+    const { holofote } = predios.predios.find(p => p.nome === nome);
+    assert.ok(holofote && holofote.alcance > 0 && holofote.abertura > 0 && holofote.revelaTocaia === 1, `${nome}: holofote`);
+  }
 });
 
 test('every brief has exactly one data entry, and every entry a brief', () => {

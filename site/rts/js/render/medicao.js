@@ -3,8 +3,10 @@
 // exposed), sprites on screen and simulation step times are collected into preallocated arrays; the result, with the
 // screen, canvas, render scale, terrain mode and browser it was measured on, lands in window.__bench and on the page.
 // With &predios=N the battle gets N still buildings of a match around it (offices, garages, poles with cables, some
-// under construction), drawn through the same path as the simulation's buildings; with &kit=<phase> every sprite
-// asset of that phase in the art index is loaded first, so mibTexturas can be checked against the art budget.
+// under construction) and with &tropas=N N still units, both drawn through the same path as the simulation's (in a
+// mission, ?partida=, of the mission's own kinds), so a mission can be measured with 2,000 units on screen; with
+// &kit=<phase> every sprite asset of that phase in the art index is loaded first, so mibTexturas can be checked
+// against the art budget.
 import { FP, PASSOS_POR_SEGUNDO, MAX_SLOTS, BANDEIRA, CATEGORIA, idDe } from '../sim/contratos.js';
 
 // Kinds of the benchmark: the prototype's two units keep kinds 0 and 1, then buildings of a match.
@@ -19,23 +21,61 @@ const TIPOS_BANCADA = [
   { nome: 'cata-vento', categoria: CATEGORIA.PREDIO, asset: '', pegada: [1, 1] },
   { nome: 'pilha', categoria: CATEGORIA.RECURSO, asset: '', pegada: [2, 2] },
 ];
-const POSTE = 3;
+
+function camposDeExtras(n) {
+  return { n, id: new Int32Array(n), tipo: new Uint16Array(n), dono: new Uint8Array(n), x: new Int32Array(n), y: new Int32Array(n), dirCorpo: new Uint8Array(n), dirTorre: new Uint8Array(n), inicioAnim: new Int32Array(n), vida: new Uint8Array(n).fill(255), bandeiras: new Uint16Array(n), progresso: new Uint8Array(n).fill(255), ligacao: new Int32Array(n).fill(-1) };
+}
+
+/**
+ * Still units on a grid around (cx, cy), cycling through the unit kinds, facing every way; slots below the
+ * benchmark buildings'.
+ */
+export function tropasDeBancada(n, cx, cy, dono, tipos = TIPOS_BANCADA, primeiroSlot = MAX_SLOTS - 1024) {
+  const campos = camposDeExtras(n);
+  const unidades = tipos.map((t, i) => i).filter(i => tipos[i].categoria === CATEGORIA.UNIDADE);
+  const lado = Math.ceil(Math.sqrt(n));
+  for (let k = 0; k < n; k++) {
+    campos.id[k] = idDe(primeiroSlot - 1 - k, 1);
+    campos.tipo[k] = unidades.length ? unidades[k % unidades.length] : 0;
+    campos.dono[k] = dono;
+    campos.x[k] = Math.round((cx + ((k % lado) - lado / 2) * 0.8) * FP);
+    campos.y[k] = Math.round((cy + (Math.floor(k / lado) - lado / 2) * 0.8) * FP);
+    campos.dirCorpo[k] = (k * 37) & 255;
+    campos.dirTorre[k] = (k * 53) & 255;
+  }
+  return campos;
+}
+
+/** One snapshot-like source out of two (allocated once, when the benchmark starts). */
+export function juntarExtras(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const campos = camposDeExtras(a.n + b.n);
+  for (const nome of Object.keys(campos)) {
+    if (nome === 'n') continue;
+    campos[nome].set(a[nome], 0);
+    campos[nome].set(b[nome], a.n);
+  }
+  return campos;
+}
 
 /**
  * Still buildings on a grid ring around (cx, cy), in the snapshot's layout: every other one a pole, poles chained by
  * cables, one in five under construction. Slots from the top of the range, so they never meet the simulation's.
  */
-export function prediosDeBancada(n, cx, cy, dono) {
-  const campos = { n, id: new Int32Array(n), tipo: new Uint16Array(n), dono: new Uint8Array(n), x: new Int32Array(n), y: new Int32Array(n), dirCorpo: new Uint8Array(n), dirTorre: new Uint8Array(n), inicioAnim: new Int32Array(n), vida: new Uint8Array(n).fill(255), bandeiras: new Uint16Array(n), progresso: new Uint8Array(n).fill(255), ligacao: new Int32Array(n).fill(-1) };
+export function prediosDeBancada(n, cx, cy, dono, tipos = TIPOS_BANCADA) {
+  const campos = camposDeExtras(n);
+  // a pole every other building, the others cycling through the building kinds
+  const poste = Math.max(0, tipos.findIndex(t => t.nome === 'poste'));
+  const outros = tipos.map((t, i) => i).filter(i => i !== poste && tipos[i].categoria === CATEGORIA.PREDIO);
   let posteAnterior = -1;
   for (let k = 0; k < n; k++) {
     const anel = 1 + Math.floor(k / 12);
     const angulo = ((k % 12) / 12) * 2 * Math.PI + anel * 0.4;
     const raio = 5 + anel * 4.5;
-    const tipo = k % 2 === 0 ? POSTE : 2 + ((k >> 1) % (TIPOS_BANCADA.length - 2)) + (((k >> 1) % (TIPOS_BANCADA.length - 2)) >= 1 ? 1 : 0);
     campos.id[k] = idDe(MAX_SLOTS - 1 - k, 1);
-    campos.tipo[k] = Math.min(TIPOS_BANCADA.length - 1, tipo);
-    campos.dono[k] = TIPOS_BANCADA[campos.tipo[k]].categoria === CATEGORIA.RECURSO ? 255 : dono;
+    campos.tipo[k] = k % 2 === 0 || outros.length === 0 ? poste : outros[(k >> 1) % outros.length];
+    campos.dono[k] = tipos[campos.tipo[k]].categoria === CATEGORIA.RECURSO ? 255 : dono;
     campos.x[k] = Math.round((cx + Math.cos(angulo) * raio) * FP);
     campos.y[k] = Math.round((cy + Math.sin(angulo) * raio) * FP);
     campos.bandeiras[k] = BANDEIRA.ENERGIZADO;
@@ -43,7 +83,7 @@ export function prediosDeBancada(n, cx, cy, dono) {
       campos.bandeiras[k] |= BANDEIRA.EM_OBRA;
       campos.progresso[k] = 40 + ((k * 37) % 200);
     }
-    if (campos.tipo[k] === POSTE) {
+    if (campos.tipo[k] === poste) {
       if (posteAnterior >= 0) campos.ligacao[k] = campos.id[posteAnterior];
       posteAnterior = k;
     } else if (posteAnterior >= 0) campos.ligacao[k] = campos.id[posteAnterior];
@@ -63,6 +103,7 @@ const LIMITE_LENTO_MS = 20;
 export function criarMedicao({ ativa, segundos, estado, camera, canvas, render, modo, saida }) {
   const parametros = new URLSearchParams(location.search);
   const predios = ativa ? Number(parametros.get('predios') ?? 0) : 0;
+  const tropas = ativa ? Number(parametros.get('tropas') ?? 0) : 0;
   const kit = ativa ? parametros.get('kit') : null;
   let assetsDoKit = 0;
   if (kit) render.carregarFase(kit).then(n => (assetsDoKit = n));
@@ -86,10 +127,16 @@ export function criarMedicao({ ativa, segundos, estado, camera, canvas, render, 
     if (!inicioBench) {
       inicioBench = agora + AQUECIMENTO_MS;
       fimBench = inicioBench + segundos * 1000;
-      if (predios > 0) render.definirTipos(TIPOS_BANCADA);
+      // the prototype's armies have no buildings: the benchmark brings its own kinds; a mission keeps its kinds
+      if ((predios > 0 || tropas > 0) && !estado.mapa.tipos?.some(t => t.categoria === CATEGORIA.PREDIO)) render.definirTipos(TIPOS_BANCADA);
     }
     seguirExercito();
-    if (predios > 0 && !estado.extras && !Number.isNaN(centro.x)) estado.extras = prediosDeBancada(predios, centro.x, centro.y, estado.jogadorLocal);
+    if ((predios > 0 || tropas > 0) && !estado.extras && !Number.isNaN(centro.x)) {
+      const tipos = estado.mapa.tipos?.some(t => t.categoria === CATEGORIA.PREDIO) ? estado.mapa.tipos : TIPOS_BANCADA;
+      const p = predios > 0 ? prediosDeBancada(predios, centro.x, centro.y, estado.jogadorLocal, tipos) : null;
+      const t = tropas > 0 ? tropasDeBancada(tropas, centro.x, centro.y, estado.jogadorLocal, tipos) : null;
+      estado.extras = juntarExtras(p, t);
+    }
     const t = (agora - inicioBench) / 1000;
     camera.x = centro.x + Math.cos(t * 0.5) * 6;
     camera.y = centro.y + Math.sin(t * 0.5) * 4;
@@ -145,7 +192,7 @@ export function criarMedicao({ ativa, segundos, estado, camera, canvas, render, 
       canvas: `${canvas.width}x${canvas.height}`,
       escalaMedia: +(somaEscala / Math.max(1, n)).toFixed(3),
       escalaFixa: render.escala.estado.fixo,
-      unidades: estado.atual?.n ?? 0,
+      unidades: (estado.atual?.n ?? 0) + tropas,
       spritesNaTelaMedio: Math.round(somaNaTela / Math.max(1, n)),
       placa: render.info.placa,
       quadros: n,
@@ -163,7 +210,9 @@ export function criarMedicao({ ativa, segundos, estado, camera, canvas, render, 
       terreno: render.modoTerreno,
       mibTexturas: +(render.estatisticas.bytesTexturas / 1048576).toFixed(1),
       kit: kit ? { fase: kit, assets: assetsDoKit } : null,
-      predios: estado.extras?.n ?? 0,
+      predios,
+      tropas,
+      mapa: `${estado.mapa.largura}x${estado.mapa.altura}`,
       passoSimP50: +percentil(ticks, 50).toFixed(2),
       passoSimP95: +percentil(ticks, 95).toFixed(2),
       atlas: Boolean(render.folhas.folha('prototipo-tanque')),

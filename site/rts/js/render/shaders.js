@@ -19,6 +19,7 @@ layout(std140) uniform Quadro {
   vec4 uSol;     // towards the sun in map axes (x east, y south, z up), time in seconds
   vec4 uDimMapa; // map width, map height (cells), team tint factor, build area shown (1) or not (0)
   vec4 uRelevo;  // highest terrain (m), cells north per metre of height along the view ray, unused, unused
+  vec4 uLuz;     // tint of the lighting scene over the lit art (rgb), how strongly the lights read (0 by day)
   vec4 uCores[8];
 };
 uniform sampler2D uAltura;
@@ -201,6 +202,7 @@ void main() {
     c *= luz;
   }
 
+  c *= uLuz.rgb;
   if (uDimMapa.w > 0.5 && texture(uArea, uv).r < 0.5) c = mix(c * 0.55, vec3(0.32, 0.08, 0.06), 0.18);
 
   vec2 d = 0.75 / uDimMapa.xy;
@@ -301,7 +303,7 @@ void main() {
   }
   if ((vBandeiras & 1) != 0) s.rgb = vec3(dot(s.rgb, vec3(0.3, 0.59, 0.11))) * 0.55;
   if ((vBandeiras & 6) != 0) s.rgb = mix(s.rgb, ((vBandeiras & 4) != 0 ? vec3(1.0, 0.22, 0.16) : vec3(0.3, 1.0, 0.42)) * s.a, 0.5);
-  cor = vAlfa < 0.0 ? vec4(s.rgb * -vAlfa, 0.0) : s * vAlfa;
+  cor = vAlfa < 0.0 ? vec4(s.rgb * -vAlfa, 0.0) : vec4(s.rgb * uLuz.rgb, s.a) * vAlfa;
   // upright above the anchor, lying on the ground below it
   gl_FragDepth = profundidade(vProx + (vAcima > 0.0 ? vAcima * cartaoPorPx() : -vAcima * chaoPorPx()));
 }`;
@@ -489,34 +491,56 @@ void main() {
 }`;
 
 // Presentation effects: aPosicao = (ax, ay, bx, by), aDados = (kind, age 0..1, size in cells, seed); heights are over
-// the terrain under each effect.
-// Kinds: 0 tracer from a to b, 1 muzzle flash, 2 explosion, 3 smoke, 4 scorch mark, 5 order marker.
+// the terrain under each effect. Kinds are EFEITO in efeitos.js: 0 tracer, 13 piercing bolt and 11 electric arc from
+// a to b; 8 shell flying an arc from a to b; 1 flash, 2 fireball, 3 smoke, 9 sparks, 10 steam and 12 dust as upright
+// cards (smoke, steam and dust drift along b); 4 scorch, 5 order marker and 6 pool of light on the ground (for the
+// pool, age carries the light's strength); 7 searchlight cone on the ground from a along b, size = half angle
+// (radians), age = strength.
 export const VERT_EFEITO = `${CABECALHO}
 layout(location = 0) in vec2 aCanto;
 layout(location = 1) in vec4 aPosicao;
 layout(location = 2) in vec4 aDados;
 out vec2 vLocal;
+out vec2 vMundo;
 flat out vec4 vDados;
 void main() {
   vec2 canto = aCanto * 2.0 - 1.0;
-  float tipo = aDados.x;
+  int tipo = int(aDados.x + 0.5);
   vec2 tela;
   float c;
-  if (tipo < 0.5) {
+  vMundo = aPosicao.xy;
+  if (tipo == 0 || tipo == 11 || tipo == 13) {
     vec3 a = vec3(aPosicao.xy, alturaEm(aPosicao.xy) + 1.0);
     vec3 b = vec3(aPosicao.zw, alturaEm(aPosicao.zw) + 1.0);
     vec2 ta = projetar(a);
     vec2 eixo = projetar(b) - ta;
     vec2 dir = eixo / max(length(eixo), 0.001);
-    tela = ta + eixo * aCanto.x + vec2(-dir.y, dir.x) * canto.y * 0.07 * uCamPx.z;
+    float largura = tipo == 13 ? 0.14 : tipo == 11 ? 0.3 : 0.07;
+    tela = ta + eixo * aCanto.x + vec2(-dir.y, dir.x) * canto.y * largura * uCamPx.z;
     c = proximidade(mix(a, b, aCanto.x));
-  } else if (tipo > 3.5) {
+  } else if (tipo == 4 || tipo == 5 || tipo == 6) {
     vec3 p = vec3(aPosicao.xy + canto * aDados.z, alturaEm(aPosicao.xy));
     tela = projetar(p);
     c = proximidade(p);
+    vMundo = p.xy;
+  } else if (tipo == 7) {
+    // a ground quad around the cone: from its tip at a to its far end at a + b, as wide as the far end
+    vec2 dir = aPosicao.zw / max(length(aPosicao.zw), 0.001);
+    vec2 lado = vec2(-dir.y, dir.x) * length(aPosicao.zw) * tan(aDados.z) * 1.15;
+    vec2 w = aPosicao.xy + aPosicao.zw * aCanto.x + lado * canto.y * aCanto.x + dir * (aCanto.x - 0.5) * 0.4;
+    vec3 p = vec3(w, alturaEm(aPosicao.xy));
+    tela = projetar(p);
+    c = proximidade(p);
+    vMundo = w;
   } else {
     vec2 centro = aPosicao.xy + aPosicao.zw * aDados.y;
-    float altura = tipo < 1.5 ? 1.2 : tipo < 2.5 ? 0.8 : 1.5 + aDados.y * 4.0;
+    float altura = tipo == 1 ? 1.2 : tipo == 2 ? 0.8 : tipo == 9 ? 0.9 : tipo == 12 ? 0.4 + aDados.y * 1.2 : 1.5 + aDados.y * 4.0;
+    if (tipo == 8) {
+      // a shell climbs and falls over its flight, higher on a longer shot
+      float t = aDados.y;
+      centro = mix(aPosicao.xy, aPosicao.zw, t);
+      altura = 1.0 + 4.0 * t * (1.0 - t) * (1.5 + 0.35 * length(aPosicao.zw - aPosicao.xy) * uRes.w);
+    }
     vec3 p = vec3(centro, alturaEm(centro) + altura);
     tela = projetar(p) + canto * aDados.z * uCamPx.z;
     // an upright card over its centre
@@ -529,38 +553,97 @@ void main() {
 
 export const FRAG_EFEITO = `${CABECALHO}${RUIDO}
 in vec2 vLocal;
+in vec2 vMundo;
 flat in vec4 vDados;
 out vec4 cor;
 void main() {
-  float tipo = vDados.x, idade = vDados.y, semente = vDados.w;
+  int tipo = int(vDados.x + 0.5);
+  float idade = vDados.y, semente = vDados.w;
   float r = length(vLocal);
-  if (tipo < 0.5) {
+  if (tipo == 0) {
     float a = (1.0 - abs(vLocal.y)) * (1.0 - idade) * smoothstep(0.0, 0.25, vLocal.x * 0.5 + 0.5);
     cor = vec4(vec3(1.0, 0.86, 0.45) * a, 0.0);
-  } else if (tipo < 1.5) {
+  } else if (tipo == 13) {
+    float nucleo = 1.0 - smoothstep(0.0, 0.35, abs(vLocal.y));
+    float halo = 1.0 - smoothstep(0.2, 1.0, abs(vLocal.y));
+    float a = (nucleo + halo * 0.5) * (1.0 - idade);
+    cor = vec4((vec3(0.75, 0.9, 1.0) * halo * 0.6 + vec3(1.0) * nucleo) * a, 0.0);
+  } else if (tipo == 11) {
+    float x = vLocal.x * 0.5 + 0.5;
+    float desvio = (ruido(vec2(x * 9.0, semente * 40.0 + idade * 30.0)) - 0.5) * 1.6 * sin(3.14159 * x);
+    float d = abs(vLocal.y - desvio);
+    float a = (1.0 - smoothstep(0.0, 0.18, d)) * (1.0 - idade);
+    cor = vec4(vec3(0.55, 0.85, 1.0) * a * 1.5, 0.0);
+  } else if (tipo == 1) {
     float a = smoothstep(1.0, 0.0, r) * (1.0 - idade);
     cor = vec4(vec3(1.0, 0.9, 0.6) * a * 1.4, 0.0);
-  } else if (tipo < 2.5) {
+  } else if (tipo == 2) {
     float borda = 0.75 + 0.25 * ruido(vLocal * 3.0 + semente * 10.0 + idade * 4.0);
     float a = smoothstep(borda, borda * 0.5, r) * (1.0 - idade);
     vec3 c = mix(vec3(1.0, 0.95, 0.7), vec3(1.0, 0.45, 0.1), smoothstep(0.0, 0.5, idade + r * 0.4));
     c = mix(c, vec3(0.35, 0.08, 0.02), smoothstep(0.45, 1.0, idade));
     cor = vec4(c * a * 1.6, 0.0);
-  } else if (tipo < 3.5) {
+  } else if (tipo == 8) {
+    float a = smoothstep(1.0, 0.2, r);
+    cor = vec4(vec3(1.0, 0.75, 0.4) * a * 1.3, 0.0);
+  } else if (tipo == 9) {
+    // a few streaks thrown outwards, thinning as they fly
+    float a = 0.0;
+    for (int k = 0; k < 7; k++) {
+      float ang = hash(vec2(semente * 13.0, float(k))) * 6.2831853;
+      vec2 dir = vec2(cos(ang), sin(ang) * 0.8 - 0.25);
+      float alcance = 0.35 + 0.65 * hash(vec2(float(k), semente * 7.0));
+      vec2 pos = dir * alcance * (0.2 + idade * 0.8);
+      vec2 rel = vLocal - pos;
+      float ao = dot(rel, dir);
+      float lado = abs(rel.x * dir.y - rel.y * dir.x);
+      a += (1.0 - smoothstep(0.0, 0.05, lado)) * (1.0 - smoothstep(0.0, 0.18, abs(ao + 0.09)));
+    }
+    a = min(a, 1.0) * (1.0 - idade);
+    cor = vec4(vec3(1.0, 0.85, 0.45) * a * 1.6, 0.0);
+  } else if (tipo == 3 || tipo == 10 || tipo == 12) {
     float n = ruido(vLocal * 2.5 + semente * 7.0 + idade * 1.5);
-    float a = smoothstep(1.0, 0.35, r + n * 0.35) * (1.0 - idade) * 0.55;
-    vec3 c = mix(vec3(0.32, 0.29, 0.26), vec3(0.15, 0.14, 0.13), n);
-    cor = vec4(c * a, a);
-  } else if (tipo < 4.5) {
+    float densidade = tipo == 10 ? 0.4 : tipo == 12 ? 0.5 : 0.55;
+    float a = smoothstep(1.0, 0.35, r + n * 0.35) * (1.0 - idade) * densidade;
+    vec3 c = tipo == 10 ? mix(vec3(0.92), vec3(0.78), n) : tipo == 12 ? mix(vec3(0.62, 0.53, 0.42), vec3(0.45, 0.38, 0.3), n) : mix(vec3(0.32, 0.29, 0.26), vec3(0.15, 0.14, 0.13), n);
+    cor = vec4(c * uLuz.rgb * a, a);
+  } else if (tipo == 4) {
     float n = ruido(vLocal * 4.0 + semente * 13.0);
     float a = smoothstep(1.0, 0.25, r + n * 0.45) * (1.0 - idade) * 0.7;
     cor = vec4(vec3(0.08, 0.06, 0.05) * a, a);
+  } else if (tipo == 6) {
+    float a = pow(max(0.0, 1.0 - r), 1.3) * idade * (0.85 + 0.15 * ruido(vec2(uSol.w * 2.0, semente * 9.0)));
+    cor = vec4(vec3(1.0, 0.8, 0.48) * a * 1.15, 0.0);
+  } else if (tipo == 7) {
+    cor = vec4(0.0);
   } else {
     float anel = abs(r - (1.0 - idade) * 0.9) - 0.06;
     float a = (1.0 - smoothstep(0.0, 0.05, anel)) * (1.0 - idade);
     cor = vec4(vec3(0.35, 1.0, 0.45) * a, a);
   }
 }`;
+
+// Searchlight cone, the same instance layout as the effects (kind 7): drawn by its own fragment shader, which needs
+// the cone's tip and direction per pixel.
+export const FRAG_CONE = `${CABECALHO}${RUIDO}
+in vec2 vLocal;
+in vec2 vMundo;
+flat in vec4 vDados;
+flat in vec4 vCone;
+out vec4 cor;
+void main() {
+  vec2 d = vMundo - vCone.xy;
+  float comprimento = length(vCone.zw);
+  vec2 dir = vCone.zw / max(comprimento, 0.001);
+  float ao = dot(d, dir);
+  float lado = abs(d.x * dir.y - d.y * dir.x);
+  float largura = max(ao, 0.0) * tan(vDados.z);
+  float dentro = (1.0 - smoothstep(largura * 0.75, largura, lado)) * smoothstep(0.0, 0.6, ao) * (1.0 - smoothstep(comprimento * 0.7, comprimento, ao));
+  float a = dentro * vDados.y * (0.8 + 0.2 * ruido(vMundo * 1.5 + uSol.w * 0.7));
+  cor = vec4(vec3(1.0, 0.96, 0.82) * a * 0.75, 0.0);
+}`;
+
+export const VERT_CONE = VERT_EFEITO.replace('flat out vec4 vDados;', 'flat out vec4 vDados;\nflat out vec4 vCone;').replace('  vDados = aDados;\n}', '  vDados = aDados;\n  vCone = aPosicao;\n}');
 
 // Upscale of the scaled scene to the canvas: bilinear plus a light 5-tap sharpen that grows as the scale drops.
 export const FRAG_AMPLIAR = `${CABECALHO}
