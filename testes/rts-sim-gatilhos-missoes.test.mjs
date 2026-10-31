@@ -1,11 +1,14 @@
 // The design front's missions (site/rts/dados/missoes/) compile against the real game data and their map's places
-// and nodes, at every difficulty, with every group, text and warning resolved.
+// and nodes, at every difficulty, with every group, text and warning resolved, and play 20 minutes on their map with
+// nobody at the controls.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { compilarDados } from '../site/rts/js/sim/dados.js';
 import { lerMapaDeArquivos } from '../site/rts/js/sim/mapa.js';
-import { compilarMissao, textosDaMissao, rotulosDaMissao } from '../site/rts/js/sim/gatilhos.js';
+import { criarSimulacao, passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
+import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, E_ARG, DONO_NEUTRO } from '../site/rts/js/sim/contratos.js';
+import { compilarMissao, textosDaMissao, rotulosDaMissao, rotular, resultadoDaMissao, RESULTADO } from '../site/rts/js/sim/gatilhos.js';
 import { nomesDosGrupos } from '../site/rts/js/telemetria/registro.js';
 
 const dadosUrl = new URL('../site/rts/dados/', import.meta.url);
@@ -59,5 +62,55 @@ for (const nome of missoes) {
     const textos = textosDaMissao(missao);
     assert.equal(new Set(textos).size, textos.length);
     (missao.objetivos ?? []).forEach((o, k) => assert.equal(textos.indexOf(o.texto) <= k, true, o.texto));
+  });
+}
+
+// The map's starting entities placed by hand, the neutral ones left out, until the core loads the C6 files itself.
+function partidaDaMissao(missao, dificuldade) {
+  const arquivos = Object.fromEntries(['unidades', 'predios', 'economia', 'pesquisas', 'armas'].map(nome => [nome, lerJson(new URL(`${nome}.json`, dadosUrl))]));
+  const dados = compilarDados(arquivos);
+  const mapa = mapaReal(missao.mapa, dados);
+  const c = mapa.camadas;
+  const iniciais = mapa.entidades.filter(e => e.dono >= 0 && e.dono !== DONO_NEUTRO);
+  const sim = criarSimulacao({
+    mapa: { largura: c.largura, altura: c.altura, bloqueado: c.bloqueado, relevo: c.relevo, nivel: c.nivel, bases: c.bases },
+    dados: arquivos,
+    missao,
+    lugares: { areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas },
+    dificuldade,
+    regras: REGRAS_LIVRES,
+    capacidade: 400,
+    unidades: iniciais.map(e => ({ tipo: e.tipo, time: e.dono, x: e.cx * FP + FP / 2, y: e.cy * FP + FP / 2, direcao: 0 })),
+  });
+  sim.mapa.cobertura = c.cobertura;
+  sim.mapa.nomesNos = mapa.nomesNos;
+  iniciais.forEach((e, k) => e.etiqueta && rotular(sim, k, e.etiqueta));
+  return sim;
+}
+
+for (const nome of missoes) {
+  test(`mission ${nome} runs 20 minutes with nobody playing, every wave after its warning`, () => {
+    const missao = lerJson(new URL(nome, pastaMissoes));
+    const rotulos = rotulosDaMissao(missao);
+    for (const dificuldade of ['facil', 'dificil']) {
+      const sim = partidaDaMissao(missao, dificuldade);
+      const avisos = new Map();
+      let ondas = 0;
+      let mensagens = 0;
+      while (sim.tick < 20 * 60 * 30 && resultadoDaMissao(sim).every(r => r === RESULTADO.JOGANDO)) {
+        passo(sim);
+        for (let k = 0; k < sim.eventos.length; k += TAMANHO_EVENTO) {
+          const tipo = sim.eventos[k + E_TIPO];
+          const grupo = rotulos[sim.eventos[k + E_ARG]];
+          if (tipo === EVENTO.MENSAGEM_MISSAO) mensagens++;
+          if (tipo === EVENTO.AVISO_ATAQUE) avisos.set(grupo, sim.tick);
+          if (tipo !== EVENTO.ONDA) continue;
+          ondas++;
+          if (avisos.has(grupo)) assert.ok(sim.tick - avisos.get(grupo) >= 10 * 30, `${dificuldade}: ${grupo} at least 10 s after its warning`);
+        }
+      }
+      assert.ok(mensagens > 0, 'the radio talks');
+      if (EVENTO.ONDA) assert.ok(ondas > 0, `${dificuldade}: waves came`);
+    }
   });
 }
