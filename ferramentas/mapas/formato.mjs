@@ -1,6 +1,6 @@
 // Map format of the RTS (contract C6) and its conversion from the Tiled JSON source.
 // Source: arte/mapas-fonte/<id>.tmj (tile layers solo, altura and decoracao; object layers entidades, nos, ventosas,
-// areas, pontos and rotas) with the tileset terreno.tsj. Output: site/rts/dados/mapas/<id>/ with mapa.json (header and
+// areas, pontos and rotas, and passagens when a map has a deck over water) with the tileset terreno.tsj. Output: site/rts/dados/mapas/<id>/ with mapa.json (header and
 // tables), camadas.bin (one byte per cell per layer, row by row, in the order of mapa.json camadas.ordem) and
 // entidades.json (nodes, start entities, windy cells, areas, points and routes, all in cells; a pile names its node by
 // index in `nos`, and every tag is unique).
@@ -95,6 +95,12 @@ export function converterTiled(tmj, tsj) {
     const s = SOLOS[solo[i]];
     passagem[i] = decoracao[i] && DECORACOES[decoracao[i] - 1].bloqueia ? PASSAGEM.BLOQUEADA : s.passagem;
     cobertura[i] = s.cobertura;
+  }
+  // a passage rectangle is the deck of a structure that becomes a way across once re-powered (a bascule bridge over
+  // the river): the cells stay water for the eye and are open ground in passagem, so the structure can stand there;
+  // the motor blocks them with the structure's footprint while it is neutral
+  for (const o of objetos('passagens')) {
+    for (let y = celula(o.y); y < celula(o.y + o.height); y++) for (let x = celula(o.x); x < celula(o.x + o.width); x++) passagem[y * largura + x] = PASSAGEM.LIVRE;
   }
 
   const nos = objetos('nos').map(o => ({ id: o.name, x: celula(o.x), y: celula(o.y) }));
