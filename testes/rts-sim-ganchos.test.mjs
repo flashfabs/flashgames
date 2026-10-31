@@ -10,6 +10,9 @@ import { HABILIDADE } from '../site/rts/js/sim/habilidades.js';
 import { celulaVisivel } from '../site/rts/js/sim/neblina.js';
 import { vistaDoTime } from '../site/rts/js/sim/vista.js';
 import { montarRetrato, montarMapaEstatico } from '../site/rts/js/sim/retrato.js';
+import { salvar, carregar } from '../site/rts/js/sim/persistencia.js';
+import { usarComportamentos } from '../site/rts/js/sim/equipes.js';
+import { combateDe } from '../site/rts/js/sim/armas.js';
 
 const dadosUrl = new URL('../site/rts/dados/', import.meta.url);
 const dados = () => Object.fromEntries(['unidades', 'predios', 'economia', 'pesquisas', 'armas'].map(n => [n, JSON.parse(readFileSync(new URL(`${n}.json`, dadosUrl), 'utf8'))]));
@@ -88,4 +91,32 @@ test('the static map names the weapons the effect events count, each kind its se
   const predios = JSON.parse(readFileSync(new URL('predios.json', dadosUrl), 'utf8')).predios;
   for (const p of predios) assert.deepEqual(mapa.tipos.find(t => t.nome === p.nome).holofote, p.holofote ?? null, p.nome);
   assert.deepEqual(mapa.cenasLuz, [], 'no mission, no scenes');
+});
+
+test('a team deciding right after a load sees an ambusher exactly as the match that never stopped', () => {
+  // team 1 records what its view shows of a player's ambusher; its cart stands 3 cells off, so it sees the ambusher's
+  // cell but not the ambusher, then steps next to it between two ticks, right before the save
+  const vistas = { original: [], carregada: [] };
+  let destino = vistas.original;
+  const anterior = usarComportamentos({ ativo: (_sim, time) => time === 1, decidir: ctx => destino.push(Array.from(ctx.vista.inimigas.id)) });
+  try {
+    const sim = partida([['chapa', 0, 15, 15], ['carroca-de-pedal', 1, 18, 15]]);
+    // without its weapon the ambusher never shoots the cart, which would show it anyway
+    const desarmar = s => (combateDe(s).armaDoTipo[s.tipo[0]] = -1);
+    desarmar(sim);
+    rodar(sim, 120);
+    while (sim.tick % 10 !== 0) passo(sim);
+    assert.equal(vistas.original.at(-1).includes(id(sim, 0)), false, 'hidden from 3 cells');
+    sim.x[1] = 16 * FP + 512;
+    const copia = carregar(salvar(sim));
+    desarmar(copia);
+    rodar(sim, 20);
+    destino = vistas.carregada;
+    rodar(copia, 20);
+    assert.equal(vistas.carregada.length, 2);
+    assert.deepEqual(vistas.carregada, vistas.original.slice(-2));
+    assert.ok(vistas.carregada[0].includes(id(sim, 0)), 'the ambusher is seen from next to it');
+  } finally {
+    usarComportamentos(anterior);
+  }
 });

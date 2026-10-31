@@ -141,7 +141,8 @@ export function criarEstado({ opcoes, mapa, dados, regras, capacidade, times, se
   sim.caminhos = criarCaminhos(sim.grade);
   sim.extras = {};
   for (const [grupo, criar] of CRIADORES_EXTRAS) sim.extras[grupo] = criar(sim, opcoes);
-  sim.baldeCabeca = new Int32Array(sim.baldeLargura * ((mapa.altura >> 1) + 1));
+  // empty buckets (no list starts anywhere) until the first montarBaldes
+  sim.baldeCabeca = new Int32Array(sim.baldeLargura * ((mapa.altura >> 1) + 1)).fill(-1);
   return sim;
 }
 

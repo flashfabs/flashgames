@@ -7,6 +7,7 @@ import { vistaDoTime } from './vista.js';
 import { montarMapaEstatico } from './retrato.js';
 import { slotVivo } from './entidades.js';
 import { indiceDificuldade, missaoDe, extrasMissao } from './gatilhos.js';
+import { montarBaldes } from './movimento.js';
 import * as indice from './comportamentos/indice.js';
 
 /** Each team decides once every PERIODO_EQUIPES ticks (a third of a second), team t on the ticks where tick % PERIODO_EQUIPES === t. */
@@ -68,7 +69,15 @@ function contextoDaEquipe(sim, time, aplicar) {
  */
 export function conduzirEquipes(sim, aplicar) {
   const fase = sim.tick % PERIODO_EQUIPES;
+  let baldesProntos = false;
   for (let time = fase; time < sim.times; time += PERIODO_EQUIPES) {
-    if (comportamentos.ativo(sim, time)) comportamentos.decidir(contextoDaEquipe(sim, time, aplicar));
+    if (!comportamentos.ativo(sim, time)) continue;
+    // the view reads the spatial buckets (an ambusher shows to units close by); they are not saved, so they are rebuilt
+    // here from this tick's positions, and a loaded match sees what the one that never stopped sees
+    if (!baldesProntos) {
+      montarBaldes(sim);
+      baldesProntos = true;
+    }
+    comportamentos.decidir(contextoDaEquipe(sim, time, aplicar));
   }
 }

@@ -8,6 +8,7 @@ import { carregarDados } from './simulacao.js';
 import { CAMPOS_ENTIDADE, criarEstado, arraysExtras } from './estado.js';
 import { resumoDosCaminhos, refazerCaminhos } from './caminhos.js';
 import { reconstruirGrade } from './pegadas.js';
+import { montarBaldes } from './movimento.js';
 
 const FORMATO = 'rts-estado';
 const ASSINATURA = 0x52545345; // "RTSE"
@@ -136,5 +137,7 @@ export function carregar(buffer) {
   // the grid the fields were computed on: terrain plus every footprint
   reconstruirGrade(sim);
   refazerCaminhos(sim.caminhos, cabecalho.caminhos);
+  // buckets are not state (every reader inside the step rebuilds them first); these serve the first snapshot
+  montarBaldes(sim);
   return sim;
 }
