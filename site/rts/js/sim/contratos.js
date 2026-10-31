@@ -10,7 +10,7 @@
  */
 export const VERSAO_COMANDOS = 1;
 /** Version of the snapshot, events and static map formats, of the command kinds' rules and of every rule replays depend on. */
-export const VERSAO_SIMULACAO = 6;
+export const VERSAO_SIMULACAO = 7;
 
 // ---------- units of measure ----------
 
@@ -420,6 +420,11 @@ export function transferiveisDoRetrato(retrato) {
  * @property {string[]} decoracoes names of the decorations, the `decoracao` layer's value minus one
  * @property {object} economia    economy rules: lotacaoMaxima, saturacao, distanciaMinimaPilha (cells), faiscaCarga,
  *                                duracaoFaisca, intervaloRajada, avisoRajada (ticks), loteRajada, reciclarPorcento
+ * @property {{nome: string, tipoDano: string, raioArea: number, emArco: number}[]} armas the weapons in the order the
+ *                                IMPACTO and EXPLOSAO events count them (armas.json first): damage kind by name, splash
+ *                                radius in world units (0 none), 1 for a shell flying in an arc
+ * @property {string[]} cenasLuz  names of the mission's lighting scenes, in the order the LUZ event counts them (empty
+ *                                without a mission on this map)
  */
 
 /**
@@ -450,6 +455,7 @@ export function transferiveisDoRetrato(retrato) {
  * @property {number} coletor    1: harvester
  * @property {number} capacidade Carga a harvester carries
  * @property {number} limite     most of this kind a player may have, 0 for no limit
+ * @property {object|null} holofote the searchlight block of predios.json as written, for the presentation; null without
  */
 
 // ---------- team view for computer players (C4) ----------

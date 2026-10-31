@@ -8,6 +8,7 @@ import { anguloDe, seno, cosseno, girarAngulo, raizInteira } from './matematica.
 import { INFINITO, celulaAdiante, linhaLivre } from './caminhos.js';
 import { concluirOrdem, limparOrdens, campoDaOrdem, classeDoCampo } from './ordens.js';
 import { slotVivo } from './entidades.js';
+import { fatorVelocidade } from './combate.js';
 
 export const TAMANHO_BALDE_BITS = FP_BITS + 1; // spatial hash buckets of 2x2 cells
 // world units around the slot where a unit counts as arrived
@@ -57,8 +58,8 @@ export function montarBaldes(sim) {
 let desejoX = 0;
 let desejoY = 0;
 
-// Desired velocity of unit i this tick.
-function desejar(sim, i, tipo) {
+// Desired velocity of unit i this tick, at `velocidade` world units per tick.
+function desejar(sim, i, tipo, velocidade) {
   desejoX = 0;
   desejoY = 0;
   const ord = sim.ordens;
@@ -103,7 +104,18 @@ function desejar(sim, i, tipo) {
     if (d !== INFINITO) {
       dCampo = d;
       if (fixa && d <= ord.raioChegada[o]) return; // the team default idles around its target
-      if (!sim.visada[i] && (fixa || d > ord.limiar[i])) {
+      // outside the formation's reach follow the field; inside it too while rock stands between the unit and its slot
+      // and the unit is still farther along the field than its slot (not into the group that already arrived)
+      const vaga = (ord.metaY[i] >> FP_BITS) * largura + (ord.metaX[i] >> FP_BITS);
+      const atrasDaVaga = d > cam.dist[e][vaga];
+      if (!fixa && !sim.visada[i] && !atrasDaVaga && d <= ord.limiar[i] && sim.semProgresso[i] > ESPERA_ATRAVESSAR) {
+        // as close to the target as its slot, cut off from it by rock and getting nowhere: this spot is its slot
+        ord.metaX[i] = sim.x[i];
+        ord.metaY[i] = sim.y[i];
+        concluirOrdem(sim, i);
+        return;
+      }
+      if (!sim.visada[i] && (fixa || d > ord.limiar[i] || atrasDaVaga)) {
         direto = false;
         // the farthest of the next cells on the field that a straight line reaches without clipping rock
         for (let alcance = ALCANCE_ADIANTE; alcance >= 1; alcance--) {
@@ -136,8 +148,8 @@ function desejar(sim, i, tipo) {
     if (vigiarProgresso(sim, i, medida, fase, angulo, dCampo)) return;
   }
   if (sim.tick < sim.desvioAte[i]) angulo = sim.desvioDirecao[i];
-  desejoX = (cosseno(angulo) * tipo.velocidade) >> FP_BITS;
-  desejoY = (seno(angulo) * tipo.velocidade) >> FP_BITS;
+  desejoX = (cosseno(angulo) * velocidade) >> FP_BITS;
+  desejoY = (seno(angulo) * velocidade) >> FP_BITS;
 }
 
 // ATACAR: walk to the target until it is in range; false when the unit should not move.
@@ -221,7 +233,7 @@ function encostaNoGrupoParado(sim, i) {
 /** Moves every live unit one tick, in slot order. */
 export function mover(sim) {
   // hot loop: everything it touches in locals
-  const { baldeCabeca, baldeProximo, baldeLargura, tipos, capacidade, ativo, tipo: tipoDe, x, y, vx, vy, parada, segurando } = sim;
+  const { baldeCabeca, baldeProximo, baldeLargura, tipos, capacidade, ativo, tipo: tipoDe, x, y, vx, vy, parada, segurando, fase, semProgresso } = sim;
   const ordem = sim.ordens.ordem;
   const { largura, bloqueado } = sim.grade;
   const linhas = Math.trunc(baldeCabeca.length / baldeLargura);
@@ -232,8 +244,9 @@ export function mover(sim) {
     // buildings stand still and block the grid instead of pushing
     if (!ativo[i] || categoriaDe[tipoDe[i]] !== CATEGORIA.UNIDADE) continue;
     const tipo = tipos[tipoDe[i]];
-    const velocidade = tipo.velocidade;
-    desejar(sim, i, tipo);
+    // the kind's speed in percent from the combat module: research, harvester veterancy, slows; 0 when set up or stunned
+    const velocidade = Math.trunc((tipo.velocidade * fatorVelocidade(sim, i)) / 100);
+    desejar(sim, i, tipo, velocidade);
     const andando = desejoX !== 0 || desejoY !== 0;
     // steering inertia smooths the turns; divided toward zero, since a shift floors -3 to -3 and a stopped unit would
     // creep up and left forever
@@ -249,7 +262,9 @@ export function mover(sim) {
       const meuTipo = tipoDe[i];
       const meuRaio = raioDe[meuTipo];
       const passaColetor = coletorDe[meuTipo] === 1 && andando;
-      const atravessa = andando && sim.semProgresso[i] > ESPERA_ATRAVESSAR;
+      const meuSemProgresso = semProgresso[i];
+      const atravessa = andando && meuSemProgresso > ESPERA_ATRAVESSAR;
+      const furaFila = atravessa && fase[i] === FASE_CAMPO;
       const bx = nx >> TAMANHO_BALDE_BITS;
       const by = ny >> TAMANHO_BALDE_BITS;
       const y0b = by > 0 ? by - 1 : 0;
@@ -284,13 +299,16 @@ export function mover(sim) {
             // pass in lanes instead of jamming
             const outroGrupo = andando && !outroParado && ordem[j] !== ordem[i];
             if (outroGrupo && atravessa) continue;
+            // a stuck unit on its way cuts into the stream of its own group: it is not pushed back by the ones getting
+            // ahead (near the destination the formation sorts the group out instead)
+            if (furaFila && !outroParado && ordem[j] === ordem[i] && fase[j] === FASE_CAMPO && semProgresso[j] < meuSemProgresso) continue;
             const contraFluxo = outroGrupo && desejoX * vx[j] + desejoY * vy[j] < 0;
             // who gives way: standing still yields to moving, nobody pushes a unit that holds position
             const divisor = segurando[j] ? 1 : outroGrupo || (andando && outroParado) ? 6 : !andando && !outroParado ? 2 : 3;
             const q = d * divisor;
             empurraX += ((dx * sobreposicao) / q) | 0;
             empurraY += ((dy * sobreposicao) / q) | 0;
-            if (contraFluxo) {
+            if (contraFluxo && velocidade > 0) {
               const lateral = (sobreposicao / (2 * velocidade)) | 0;
               empurraX -= desejoY * lateral;
               empurraY += desejoX * lateral;

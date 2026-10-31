@@ -41,7 +41,7 @@ test('the example data compiles into ticks and world units', () => {
   assert.equal(economia.intervaloRajada, 3600);
   assert.equal(pesquisas[0].predio, indice.get('escritorio-regional'));
   assert.ok(Object.isFrozen(tipos[0]) && Object.isFrozen(tipos[0].produz));
-  assert.deepEqual(Object.keys(tipoEstatico(qg)).sort(), ['capacidade', 'categoria', 'coletor', 'constroi', 'custo', 'deposito', 'ergue', 'exigeVentosa', 'faccao', 'filaConstrucao', 'limite', 'lotacao', 'nome', 'pegada', 'precisaRede', 'produz', 'raioConstrucao', 'raioRede', 'raizRede', 'requer', 'tempo', 'vida', 'visao', 'asset', 'arma'].sort());
+  assert.deepEqual(Object.keys(tipoEstatico(qg)).sort(), ['capacidade', 'categoria', 'coletor', 'constroi', 'custo', 'deposito', 'ergue', 'exigeVentosa', 'faccao', 'filaConstrucao', 'holofote', 'limite', 'lotacao', 'nome', 'pegada', 'precisaRede', 'produz', 'raioConstrucao', 'raioRede', 'raizRede', 'requer', 'tempo', 'vida', 'visao', 'asset', 'arma'].sort());
 });
 
 test('the data validator refuses floats, ranges, unknown fields, odd milliseconds and broken references', () => {

@@ -70,21 +70,25 @@ function carimbar(neb, mapa, time, celula, raio, sinal) {
 }
 
 /**
- * Brings every unit's sight up to date, in slot order: units that moved to another cell, died or appeared.
- * celulaVisao[i] holds the cell the unit's sight is stamped on (-1 none), raioVisao[i] its radius.
+ * Brings every unit's sight up to date, in slot order: units that moved to another cell, died, appeared or see farther
+ * or nearer now. celulaVisao[i] holds the cell the unit's sight is stamped on (-1 none), raioVisao[i] its radius.
+ * `visaoExtra(sim, i)` gives the cells a unit sees beyond its kind's sight now (an ability), or is null; the step passes
+ * the combat module's, so this module imports nothing of it (the state module imports this one).
  */
-export function atualizarNeblina(sim) {
+export function atualizarNeblina(sim, visaoExtra = null) {
   const { neblina, mapa, celulaVisao, raioVisao } = sim;
   const largura = mapa.largura;
   for (let i = 0; i < sim.capacidade; i++) {
     // neutral entities and kinds without sight (piles, sparks) see nothing
-    const vivo = sim.ativo[i] === 1 && sim.time[i] !== DONO_NEUTRO && sim.tipos[sim.tipo[i]].visao > 0;
+    const t = sim.tipo[i];
+    const visao = sim.tipos[t].visao;
+    const vivo = sim.ativo[i] === 1 && sim.time[i] !== DONO_NEUTRO && visao > 0;
     const celula = vivo ? (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS) : -1;
-    if (celula === celulaVisao[i]) continue;
+    const raio = vivo ? Math.min(MAX_RAIO, visao + (visaoExtra ? visaoExtra(sim, i) : 0)) : 0;
+    if (celula === celulaVisao[i] && (!vivo || raio === raioVisao[i])) continue;
     const time = sim.time[i];
     if (celulaVisao[i] >= 0) carimbar(neblina, mapa, time, celulaVisao[i], raioVisao[i], -1);
     if (vivo) {
-      const raio = sim.tipos[sim.tipo[i]].visao;
       carimbar(neblina, mapa, time, celula, raio, 1);
       raioVisao[i] = raio;
     }

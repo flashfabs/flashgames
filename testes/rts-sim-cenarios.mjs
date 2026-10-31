@@ -132,5 +132,6 @@ export function ordensSimultaneas({ grupos = 20, porGrupo = 100, semente = 7, li
     const [dx, dy] = abertas[(g * 11 + 5) % abertas.length];
     agendarComando(sim, criarComando({ tick: 1, jogador: 0, seq: g, tipo: TIPO_COMANDO.MOVER, unidades: membros.map(i => id(sim, i)), x: dx * FP + 512, y: dy * FP + 512 }));
   }
-  return { unidades: unidades.length, ...vigiar(sim, slots, limite, espiar) };
+  const resultado = vigiar(sim, slots, limite, espiar);
+  return Object.defineProperty({ unidades: unidades.length, ...resultado }, 'sim', { value: resultado.sim });
 }

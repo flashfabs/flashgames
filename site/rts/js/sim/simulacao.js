@@ -13,7 +13,7 @@ import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrup
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
 import { passoDaMissao, rotular, desistir } from './gatilhos.js';
-import { comandoHabilidade } from './habilidades.js';
+import { comandoHabilidade, habilidadesDe, visaoExtraDe } from './habilidades.js';
 import { comandoReparar } from './reparo.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
 import { centroDaPegada } from './pegadas.js';
@@ -104,7 +104,7 @@ export function criarSimulacao(opcoes = {}) {
     }
   }
   if (regras.ordensPadrao) for (let i = 0; i < iniciais; i++) atribuirOrdem(sim, i, sim.time[i], 0, 0, 0);
-  atualizarNeblina(sim);
+  atualizarNeblina(sim, visaoExtra);
   return sim;
 }
 
@@ -269,35 +269,42 @@ function renascer(sim) {
 }
 
 /**
- * Advances the simulation one tick: commands, economy, construction and the power network, production, paths, combat,
- * movement, spilled loads, sight and the ghosts of buildings.
+ * The tick, in order: commands, the mission and the computer teams, economy, construction and the power network,
+ * production, paths, combat, movement, spilled loads, sight and the ghosts of buildings. passo() runs exactly this
+ * list, and the measurement tools time it stage by stage, so they never drift from the real order.
  */
+// Cells unit i sees beyond its kind's sight now (a raised basket), for the fog.
+const visaoExtra = (sim, i) => (habilidadesDe(sim)[sim.tipo[i]] ? visaoExtraDe(sim, i) : 0);
+
+export const ETAPAS_DO_PASSO = Object.freeze([
+  ['classificar', classificarEntidades],
+  ['comandos', aplicarComandos],
+  ['missao', passoDaMissao],
+  ['equipes', sim => conduzirEquipes(sim, aplicarComando)],
+  ['economia', avancarEconomia],
+  ['obras', avancarObras],
+  ['rede', atualizarRede],
+  ['producao', avancarProducao],
+  ['computador', conduzirComputador],
+  ['renascer', renascer],
+  ['grade', aplicarMudancasDaGrade],
+  ['caminhos', sim => avancarCaminhos(sim.caminhos, sim.expansoesPorPasso)],
+  ['baldes', montarBaldes],
+  ['combate', combater],
+  ['movimento', mover],
+  ['derrames', processarDerrames],
+  // footprints that fell in combat: the next tick's fields already know
+  ['grade', aplicarMudancasDaGrade],
+  ['neblina', sim => atualizarNeblina(sim, visaoExtra)],
+  ['fantasmas', atualizarFantasmas],
+].map(etapa => Object.freeze(etapa)));
+
+/** Advances the simulation one tick (ETAPAS_DO_PASSO). */
 export function passo(sim) {
   sim.tick++;
   sim.eventos.length = 0;
-  classificarEntidades(sim);
-  aplicarComandos(sim);
-  passoDaMissao(sim);
-  conduzirEquipes(sim, aplicarComando);
-  avancarEconomia(sim);
-  avancarObras(sim);
-  atualizarRede(sim);
-  avancarProducao(sim);
-  conduzirComputador(sim);
-  renascer(sim);
-  aplicarMudancasDaGrade(sim);
-  avancarCaminhos(sim.caminhos, sim.expansoesPorPasso);
-  montarBaldes(sim);
-  combater(sim);
-  mover(sim);
-  processarDerrames(sim);
-  // footprints that fell in combat: the next tick's fields already know
-  aplicarMudancasDaGrade(sim);
-  atualizarNeblina(sim);
-  atualizarFantasmas(sim);
+  for (let k = 0; k < ETAPAS_DO_PASSO.length; k++) ETAPAS_DO_PASSO[k][1](sim);
 }
 
 export { TAMANHO_BALDE_BITS };
-/** The rule steps of passo(), for the measurement tool that times each part. */
-export const __internos = Object.freeze({ classificarEntidades, aplicarComandos, avancarEconomia, avancarObras, atualizarRede, avancarProducao, conduzirComputador, renascer, processarDerrames, atualizarFantasmas });
 export { somaDeVerificacao, somasPorSubsistema } from './soma.js';
