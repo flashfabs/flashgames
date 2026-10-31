@@ -2,8 +2,9 @@
 // events kept across snapshots, waiting for a tick, fast-forward and commands, all without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ligarGancho, decodificarRetrato, decodificarEventos } from '../site/rts/js/teste/gancho.js';
+import { ligarGancho, decodificarRetrato, decodificarEventos, decodificarFilas } from '../site/rts/js/teste/gancho.js';
 import { CAMPOS_RETRATO, EVENTO, TAMANHO_EVENTO, TIPO_COMANDO, FP, alocarCamposRetrato } from '../site/rts/js/sim/contratos.js';
+import { FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, TAMANHO_REGISTRO_FILA, TAMANHO_FAIXA, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, MAX_FILA } from '../site/rts/js/sim/contratos.js';
 import { criarSimulacao, passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
 import { montarRetrato } from '../site/rts/js/sim/retrato.js';
 
@@ -106,4 +107,29 @@ test('a wait that never arrives rejects with the last tick', async () => {
   const rts = ligarGancho({}, { simulacao: ponte, estado });
   estado.atual = retratoFalso(4);
   await assert.rejects(rts.esperarTick(50, 20), /tick 50 não chegou.*último 4/);
+});
+
+test('decodes the production queues and names kinds from the static map', () => {
+  const filas = new Int32Array(TAMANHO_REGISTRO_FILA).fill(-1);
+  filas.set([65539, -1, -1, -1], 0);
+  const unidades = FL_FAIXAS + FAIXA.UNIDADES * TAMANHO_FAIXA;
+  const construcao = FL_FAIXAS + FAIXA.CONSTRUCAO * TAMANHO_FAIXA;
+  filas[unidades + FX_ESTADO] = FAIXA_ESTADO.PRODUZINDO;
+  filas[unidades + FX_PROGRESSO] = 400;
+  filas[unidades + FX_N] = 2;
+  filas.set([1, ITEM_PESQUISA], unidades + FX_ITENS);
+  filas[construcao + FX_ESTADO] = FAIXA_ESTADO.PRONTO;
+  filas[construcao + FX_PROGRESSO] = 1000;
+  filas[construcao + FX_N] = 1;
+  filas[construcao + FX_ITENS] = 2;
+  const mapa = { tipos: [{ nome: 'escritorio-regional' }, { nome: 'guincho-de-celulas' }, { nome: 'poste' }], pesquisas: [{ nome: 'cabo-reforcado' }] };
+  const [fila] = decodificarFilas(filas, mapa);
+  assert.equal(fila.produtor, 65539);
+  assert.deepEqual(fila.faixas.UNIDADES, { estado: 'PRODUZINDO', progresso: 400, itens: ['guincho-de-celulas', 'pesquisa:cabo-reforcado'] });
+  assert.deepEqual(fila.faixas.CONSTRUCAO, { estado: 'PRONTO', progresso: 1000, itens: ['poste'] });
+  assert.ok(MAX_FILA >= 2);
+  const retrato = decodificarRetrato({ ...retratoFalso(1), filas }, mapa);
+  assert.equal(retrato.entidades[0].nome, 'escritorio-regional');
+  assert.equal(retrato.filas.length, 1);
+  assert.equal(retrato.filas_, undefined);
 });

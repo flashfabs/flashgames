@@ -3,14 +3,16 @@
 // since the page opened, commands sent straight to the simulation, pause, and fast-forward by ticks.
 // Reading goes through CAMPOS_RETRATO, so per-entity fields added to the snapshot show up here without a change.
 import { CAMPOS_RETRATO, TIPO_COMANDO, EVENTO, FP, PASSOS_POR_SEGUNDO, SEM_ENTIDADE, TAMANHO_EVENTO, E_TIPO, E_TICK, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG } from '../sim/contratos.js';
+import { FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, TAMANHO_REGISTRO_FILA, TAMANHO_FAIXA, FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS } from '../sim/contratos.js';
 
 /** Version of this hook's interface; bump it when a function changes meaning. */
 export const VERSAO_GANCHO = 1;
 
 const NOMES_EVENTO = Object.fromEntries(Object.entries(EVENTO).map(([nome, valor]) => [valor, nome]));
+const NOMES_FAIXA_ESTADO = Object.fromEntries(Object.entries(FAIXA_ESTADO).map(([nome, valor]) => [valor, nome]));
 const CAMPOS_ENTIDADE = new Set(CAMPOS_RETRATO.map(([nome]) => nome));
-// snapshot arrays that are neither per entity nor per player
-const CAMPOS_FORA = new Set(['visao', 'eventos']);
+// snapshot arrays that are neither per entity nor per player, or that have their own decoder
+const CAMPOS_FORA = new Set(['visao', 'eventos', 'filas']);
 // the most ticks one fast-forward may ask for: one hour of play
 const MAX_AVANCAR = 3600 * PASSOS_POR_SEGUNDO;
 
@@ -35,19 +37,47 @@ export function decodificarEventos(eventos) {
   return lista;
 }
 
+/** Name of a queue item: a kind's name, 'pesquisa:<name>' for research, or the number when the map does not say. */
+function nomeDoItem(item, tipos, pesquisas) {
+  if (item >= ITEM_PESQUISA) return `pesquisa:${pesquisas?.[item - ITEM_PESQUISA]?.nome ?? item - ITEM_PESQUISA}`;
+  return tipos?.[item]?.nome ?? item;
+}
+
+/** The local player's production queues (Retrato.filas) as one object per producer building. */
+export function decodificarFilas(filas, { tipos = null, pesquisas = null } = {}) {
+  const lista = [];
+  if (!filas) return lista;
+  for (let r = 0; r + TAMANHO_REGISTRO_FILA <= filas.length; r += TAMANHO_REGISTRO_FILA) {
+    const faixas = {};
+    for (const [nomeFaixa, faixa] of Object.entries(FAIXA)) {
+      const f = r + FL_FAIXAS + faixa * TAMANHO_FAIXA;
+      const itens = [];
+      for (let k = 0; k < filas[f + FX_N]; k++) itens.push(nomeDoItem(filas[f + FX_ITENS + k], tipos, pesquisas));
+      faixas[nomeFaixa] = { estado: NOMES_FAIXA_ESTADO[filas[f + FX_ESTADO]] ?? filas[f + FX_ESTADO], progresso: filas[f + FX_PROGRESSO], itens };
+    }
+    lista.push({ produtor: filas[r + FL_PRODUTOR], encontro: { x: filas[r + FL_ENCONTRO_X], y: filas[r + FL_ENCONTRO_Y], alvo: filas[r + FL_ENCONTRO_ALVO] }, faixas });
+  }
+  return lista;
+}
+
 /**
  * A snapshot as plain data a test can return from page.evaluate: one object per entity with every per-entity
- * field, and every other typed array (resources per player and whatever the economy adds) as a plain array.
+ * field (plus the kind's name when the static map is known), the production queues decoded, and every other typed
+ * array (resources and population per player, and whatever comes next) as a plain array.
+ * @param {object} retrato
+ * @param {{tipos?: {nome: string}[], pesquisas?: {nome: string}[]}} [mapa] the static map (MapaEstatico)
  */
-export function decodificarRetrato(retrato) {
+export function decodificarRetrato(retrato, mapa = null) {
   if (!retrato) return null;
+  const tipos = mapa?.tipos ?? null;
   const entidades = [];
   for (let k = 0; k < retrato.n; k++) {
     const entidade = {};
     for (const nome of CAMPOS_ENTIDADE) if (retrato[nome]) entidade[nome] = retrato[nome][k];
+    if (tipos) entidade.nome = tipos[entidade.tipo]?.nome ?? null;
     entidades.push(entidade);
   }
-  const resultado = { tick: retrato.tick, versao: retrato.versao, soma: retrato.soma, tickSoma: retrato.tickSoma, n: retrato.n, entidades };
+  const resultado = { tick: retrato.tick, versao: retrato.versao, soma: retrato.soma, tickSoma: retrato.tickSoma, n: retrato.n, entidades, filas: decodificarFilas(retrato.filas, mapa ?? {}) };
   for (const [nome, valor] of Object.entries(retrato)) {
     if (CAMPOS_ENTIDADE.has(nome) || CAMPOS_FORA.has(nome) || nome in resultado) continue;
     if (ArrayBuffer.isView(valor)) resultado[nome] = Array.from(valor);
@@ -87,14 +117,14 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
     for (let k = esperas.length - 1; k >= 0; k--) {
       if (retrato.tick < esperas[k].tick) continue;
       clearTimeout(esperas[k].relogio);
-      esperas[k].resolver(decodificarRetrato(retrato));
+      esperas[k].resolver(decodificarRetrato(retrato, estado.mapa));
       esperas.splice(k, 1);
     }
   }
 
   /** Resolves with the first snapshot at or past `tick`; rejects after `limiteMs` of wall time. */
   function esperarTick(tick, limiteMs = 30000) {
-    if (atual && atual.tick >= tick) return Promise.resolve(decodificarRetrato(atual));
+    if (atual && atual.tick >= tick) return Promise.resolve(decodificarRetrato(atual, estado.mapa));
     return new Promise((resolver, rejeitar) => {
       const espera = { tick, resolver, relogio: 0 };
       esperas.push(espera);
@@ -143,8 +173,11 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
     eventos,
     eventosDo: nome => eventos.filter(evento => evento.nome === nome),
     limparEventos: () => void (eventos.length = 0),
-    retrato: () => decodificarRetrato(atual),
-    entidades: (filtro = () => true) => (decodificarRetrato(atual)?.entidades ?? []).filter(filtro),
+    retrato: () => decodificarRetrato(atual, estado.mapa),
+    entidades: (filtro = () => true) => (decodificarRetrato(atual, estado.mapa)?.entidades ?? []).filter(filtro),
+    /** Index of a kind in the static map by its name (C5), or -1. */
+    tipoDe: nome => estado.mapa?.tipos?.findIndex(tipo => tipo.nome === nome) ?? -1,
+    FAIXA,
     celula: n => n * FP + (FP >> 1),
     /** The play-test log (C15) as plain data, or null while the page has none. */
     registro: () => {
