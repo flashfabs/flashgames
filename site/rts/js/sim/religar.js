@@ -1,5 +1,6 @@
-// Re-powering dead structures: a unit whose kind has `religa` standing by a structure whose kind has `religavel`
-// builds up progress for its team, one tick per tick while it is there (the count pauses when it leaves, and a unit of
+// Re-powering dead structures: a unit whose kind has `religa`, sent to a structure whose kind has `religavel`, walks
+// there, stops in reach and builds up progress for its team, one tick per tick while it stays (any new order of the
+// player calls it off; the count pauses when it leaves, and a unit of
 // another team first winds the other team's progress back); at the structure's time (its kind's `tempoReligar` in
 // ticks, or what the mission set) the structure changes hands. A re-powered structure that is destroyed goes dead
 // again (back to the neutral side, DONO_NEUTRO, healed) instead of disappearing, so it can be taken again.
@@ -18,7 +19,8 @@ const TEMPO_PADRAO = 30 * PASSOS_POR_SEGUNDO;
 /**
  * Re-powering state, only typed arrays: per structure slot the progress in ticks, the team it
  * belongs to (SEM_TIME none), the time the mission set (0: the kind's), the last tick someone worked on it and the
- * generation all of that belongs to; per unit slot the id of the structure it was sent to (0 none).
+ * generation all of that belongs to; per unit slot the id of the structure it was sent to (0 none) and the order that
+ * took it there (slot + 1 and the tick it was made; 0 once the unit stopped in reach).
  */
 export function criarExtrasReligar(sim) {
   const n = sim.capacidade;
@@ -29,6 +31,8 @@ export function criarExtrasReligar(sim) {
     trabalhadoEm: new Int32Array(n).fill(-1),
     geracao: new Uint16Array(n),
     alvo: new Int32Array(n),
+    ordem: new Int16Array(n),
+    ordemCriadaEm: new Int32Array(n),
   };
 }
 // saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
@@ -111,11 +115,20 @@ export function ordenarReligar(sim, unidades, alvoId) {
   const ex = extrasReligar(sim);
   const capazes = unidades.filter(i => religa(sim, i) && sim.time[i] !== sim.time[j]);
   if (capazes.length === 0) return;
+  for (const i of capazes) sim.segurando[i] = 0;
+  const o = ordenarGrupo(sim, capazes, TIPO_COMANDO.MOVER, sim.x[j], sim.y[j]);
   for (const i of capazes) {
-    sim.segurando[i] = 0;
     ex.alvo[i] = alvoId;
+    ex.ordem[i] = sim.ordens.ordem[i] === o ? o + 1 : 0;
+    ex.ordemCriadaEm[i] = sim.ordens.criadaEm[o];
   }
-  ordenarGrupo(sim, capazes, TIPO_COMANDO.MOVER, sim.x[j], sim.y[j]);
+}
+
+// whether unit i got another order since it was sent to re-power (the player called it off)
+function outraOrdem(sim, ex, i) {
+  const o = sim.ordens.ordem[i];
+  if (o < 0) return false;
+  return ex.ordem[i] !== o + 1 || sim.ordens.criadaEm[o] !== ex.ordemCriadaEm[i];
 }
 
 /** What a destroyed re-powerable structure does instead of dying: back to the neutral side, healed. */
@@ -142,7 +155,7 @@ export function avancarReligar(sim) {
       continue;
     }
     const j = slotVivo(sim, ex.alvo[i]);
-    if (j < 0 || sim.time[j] === sim.time[i]) {
+    if (j < 0 || sim.time[j] === sim.time[i] || outraOrdem(sim, ex, i)) {
       ex.alvo[i] = 0;
       continue;
     }
@@ -150,6 +163,12 @@ export function avancarReligar(sim) {
     const dx = sim.x[j] - sim.x[i];
     const dy = sim.y[j] - sim.y[i];
     if (dx * dx + dy * dy > alcance * alcance) continue;
+    // in reach: it stops here and works
+    if (sim.ordens.ordem[i] >= 0) {
+      limparOrdens(sim, i);
+      sim.parada[i] = 1;
+      ex.ordem[i] = 0;
+    }
     registro(sim, ex, j);
     // one tick of work per structure per tick, whoever arrives first in slot order
     if (ex.trabalhadoEm[j] === tick) continue;

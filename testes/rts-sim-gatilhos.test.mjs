@@ -220,16 +220,17 @@ test('economy, idle player and research conditions', () => {
     ),
     { unidades: [{ tipo: GUINCHO, time: 0, x: meio(10), y: meio(50) }] },
   );
-  // the economy front's arrays, as the conditions read them
-  sim.recursos = new Int32Array([500, 0]);
-  sim.ultimoComando = new Int32Array(2);
+  // the economy's Carga and last command, as the conditions read them (stand-ins without the economy module)
+  const carga = sim.extras?.economia?.carga ?? (sim.recursos = new Int32Array(2));
+  const ultimo = sim.extras?.economia?.ultimoComando ?? (sim.ultimoComando = new Int32Array(2));
+  carga[0] = 500;
   const v = () => Array.from(extrasMissao(sim).variaveis);
-  sim.ultimoComando[0] = 45;
+  ultimo[0] = 45;
   while (sim.tick < 90) passo(sim);
   assert.deepEqual(v(), [0, 0, 0, 0]);
-  sim.recursos[0] = 1000;
+  carga[0] = 1000;
   sim.parada[0] = 0;
-  sim.ultimoComando[0] = 0;
+  ultimo[0] = 0;
   avaliacoes(sim, 1);
   assert.deepEqual(v(), [1, 1, 1, 0]);
 });

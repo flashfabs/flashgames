@@ -4,7 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { criarSimulacao, passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
-import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, DONO_NEUTRO, idDe } from '../site/rts/js/sim/contratos.js';
+import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, DONO_NEUTRO, TIPO_COMANDO, idDe } from '../site/rts/js/sim/contratos.js';
+import { ordenarGrupo } from '../site/rts/js/sim/ordens.js';
 import * as neblina from '../site/rts/js/sim/neblina.js';
 import { REGRAS_COMBATE_PADRAO, decimosParaMundo } from '../site/rts/js/sim/armas.js';
 import { calcularDano, danoBaseDe, fatorVelocidade } from '../site/rts/js/sim/combate.js';
@@ -136,6 +137,13 @@ test('another team winds the progress back before starting its own', () => {
   assert.ok(contra.passos < meu.passos, 'wound back');
   avancar(sim, meu.passos + 30);
   assert.equal(progressoReligar(sim, 0).time, 1, 'then the other team starts its own');
+  // a new order of the player calls the work off
+  ordenarGrupo(sim, [2], TIPO_COMANDO.MOVER, Math.trunc(meio(40) * FP), Math.trunc(meio(24) * FP));
+  passo(sim);
+  assert.equal(religandoQual(sim, 2), 0);
+  const parado = progressoReligar(sim, 0).passos;
+  avancar(sim, 60);
+  assert.ok(progressoReligar(sim, 0).passos <= parado, 'no more work');
 });
 
 test('a re-powered structure fights for its side and goes dead again when destroyed', { skip: !neblinaComNeutro && 'needs the fog that ignores DONO_NEUTRO' }, () => {
