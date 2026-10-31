@@ -4,8 +4,12 @@
 // labels. The decisions (decisoes.js) come back through the context only: commands applied by the player rules, the
 // teams' own attack warnings (AVISO_ATAQUE, ONDA) and labels on the team's own units.
 import { RESULTADO, resultadoDaMissao } from '../gatilhos.js';
+import { BANDEIRA_COMBATE } from '../habilidades.js';
 import { equipesDaPartida, equipesDoContexto } from './formato.js';
 import { decidirJogador } from './decisoes.js';
+
+// flag bits of the camp packing, packed or setting up (sim/empacotar.js); 0 before the combat module has them
+const EMPACOTE = (BANDEIRA_COMBATE.EMPACOTANDO ?? 0) | (BANDEIRA_COMBATE.EMPACOTADO ?? 0);
 
 /** Whether `time` commands any mission team of a match still being played. */
 export function ativo(sim, time) {
@@ -24,7 +28,7 @@ export function decidir(ctx) {
   for (let k = 0; k < proprias.n; k++) rotulos[k] = c.rotulos.indexOf(ctx.rotuloDe(proprias.id[k]));
   const vezes = Int32Array.from(c.equipes, eq => (eq.desde === null ? 1 : ctx.disparou(eq.desde)));
   const ativas = Uint8Array.from(c.equipes, (eq, e) => (vezes[e] > 0 && (eq.ate === null || ctx.disparou(eq.ate) === 0) ? 1 : 0));
-  const saida = decidirJogador({ tick: ctx.tick, jogador: ctx.time, vista: ctx.vista, rotulos, ativas, vezes, equipes: c.equipes, estado: ctx.estado, tipos: ctx.mapa.tipos });
+  const saida = decidirJogador({ tick: ctx.tick, jogador: ctx.time, vista: ctx.vista, rotulos, ativas, vezes, empacote: EMPACOTE, equipes: c.equipes, estado: ctx.estado, tipos: ctx.mapa.tipos });
   for (const evento of saida.eventos) ctx.emitir(evento);
   for (const { id, rotulo } of saida.rotulos) ctx.rotular(id, c.rotulos[rotulo]);
   for (const comando of saida.comandos) ctx.comandar(comando);

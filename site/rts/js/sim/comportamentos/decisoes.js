@@ -28,8 +28,9 @@ export const FASE = Object.freeze({
 export const PREDIO = Object.freeze({ VIVO: 1, CAIDO: 2, NA_FILA: 3, POSTO: 4, DESISTIU: 5 });
 /** Buildings a rebuilding team remembers. */
 export const MAX_PREDIOS_EQUIPE = 16;
-// fields of a remembered building: kind, top-left cell, id while it stands, PREDIO.*, tick of the last change, tries
-export const CAMPOS_PREDIO = 7;
+// fields of a remembered building: kind, top-left cell, id while it stands, PREDIO.*, tick of the last change, tries,
+// its mission label (index)
+export const CAMPOS_PREDIO = 8;
 const PR_TIPO = 0;
 const PR_CX = 1;
 const PR_CY = 2;
@@ -37,6 +38,7 @@ const PR_ID = 3;
 const PR_ESTADO = 4;
 const PR_MARCA = 5;
 const PR_TENTATIVAS = 6;
+const PR_ROTULO = 7;
 
 const SEGUNDO = PASSOS_POR_SEGUNDO;
 /** Idle members get the team's order again at most this often. */
@@ -75,15 +77,17 @@ const armado = (tipos, tipo) => tipos[tipo].categoria === CATEGORIA.UNIDADE && t
  * @param {Int32Array} entrada.rotulos mission label index of each own entity of the vista, -1 none
  * @param {Uint8Array} entrada.ativas  1 for each team whose start trigger fired and whose stop trigger did not
  * @param {Int32Array} entrada.vezes   times each team's start trigger fired (1 for a team without one)
+ * @param {number} [entrada.empacote]  flag bits of an entity packing, packed or setting up (the camp moving)
  * @param {object[]} entrada.equipes   compiled teams (equipes.js), all players'
  * @param {object} entrada.estado      the teams' state (formato.js), changed in place
  * @param {object[]} entrada.tipos     the static kinds (MapaEstatico.tipos)
  * @returns {{ comandos: object[], eventos: object[], rotulos: object[] }} commands of the player (no tick, player or
- *   seq), events { tipo, x, y, arg } and labels { id, rotulo } for the step to apply, in order
+ *   seq), events { tipo, x, y, arg, unidades? } (unidades: the wave's size, on ONDA) and labels { id, rotulo } for
+ *   the step to apply, in order
  */
-export function decidirJogador({ tick, jogador, vista, rotulos, ativas, vezes, equipes, estado, tipos }) {
+export function decidirJogador({ tick, jogador, vista, rotulos, ativas, vezes, empacote = 0, equipes, estado, tipos }) {
   const saida = { comandos: [], eventos: [], rotulos: [] };
-  const ctx = { tick, jogador, vista, tipos, estado, vezes, saida, inimigos: inimigosVistos(vista, jogador, tipos) };
+  const ctx = { tick, jogador, vista, tipos, estado, vezes, empacote, saida, inimigos: inimigosVistos(vista, jogador, tipos) };
   atualizarExercito(ctx);
   const proprias = vista.proprias;
   const minhas = [];
@@ -137,7 +141,7 @@ function atualizarExercito(ctx) {
 function decidirEquipe(ctx, e, eq, ks, rotulos) {
   const { tipos, vista } = ctx;
   const p = vista.proprias;
-  if (eq.faz === COMPORTAMENTO.RECONSTRUIR) return reconstruir(ctx, e, eq, ks.filter(k => tipos[p.tipo[k]].categoria === CATEGORIA.PREDIO));
+  if (eq.faz === COMPORTAMENTO.RECONSTRUIR) return reconstruir(ctx, e, eq, ks, rotulos);
   const unidades = ks.filter(k => armado(tipos, p.tipo[k]));
   if (unidades.length === 0) {
     // an attack with a reserve and no unit of its own forms its wave from the reserve, once per firing of its start
@@ -373,7 +377,7 @@ function atacar(ctx, e, eq, ks, rotulos) {
     s.poder0[e] = Math.max(s.poder0[e], poderDosMeus(ctx, ks));
     if (ctx.tick - s.inicio[e] < eq.aviso) return undefined;
     const c = centroDe(ctx, ks);
-    ctx.saida.eventos.push({ tipo: EVENTO.ONDA, x: c.x, y: c.y, arg: eq.rotulo });
+    ctx.saida.eventos.push({ tipo: EVENTO.ONDA, x: c.x, y: c.y, arg: eq.rotulo, unidades: ks.length });
     mudarFase(ctx, e, FASE.ROTA);
   }
   if (deveRecuar(ctx, e, eq, ks)) return comecarRecuo(ctx, e);
@@ -497,12 +501,19 @@ function escalar(ctx, eq, ks, rotulos) {
  * Remembers the group's buildings (those it has when it starts and any that join later, up to MAX_PREDIOS_EQUIPE);
  * when one falls, waits `espera` ticks, queues the same kind at a headquarters of the group that builds it (with the
  * player's own Carga, when there is enough), places it on the same cell when it is ready, and gives the new building
- * the group's label. One building at a time, in the order they were remembered; a placement refused MAX_TENTATIVAS
- * times is cancelled (refunded) and given up.
+ * the label of the one it replaces. One building at a time, in the order they were remembered; a placement refused
+ * MAX_TENTATIVAS times is cancelled (refunded) and given up. While any member is packing, packed or setting up (the
+ * camp moving away), the team forgets its layout and remembers the buildings anew once they stand again: rebuilding
+ * on the old spots would make a second camp.
  */
-function reconstruir(ctx, e, eq, ks) {
+function reconstruir(ctx, e, eq, membros, rotulos) {
   const s = ctx.estado;
   const p = ctx.vista.proprias;
+  if (ctx.empacote !== 0 && membros.some(k => (p.bandeiras[k] & ctx.empacote) !== 0)) {
+    s.fase[e] = FASE.PARADA;
+    return;
+  }
+  const ks = membros.filter(k => ctx.tipos[p.tipo[k]].categoria === CATEGORIA.PREDIO);
   const base = e * MAX_PREDIOS_EQUIPE * CAMPOS_PREDIO;
   const registro = r => base + r * CAMPOS_PREDIO;
   if (s.fase[e] === FASE.PARADA) {
@@ -524,6 +535,7 @@ function reconstruir(ctx, e, eq, ks) {
     s.predios[o + PR_ID] = p.id[k];
     s.predios[o + PR_ESTADO] = PREDIO.VIVO;
     s.predios[o + PR_MARCA] = ctx.tick;
+    s.predios[o + PR_ROTULO] = rotulos[k];
   }
   const vivos = new Set(ks.map(k => p.id[k]));
   for (let r = 0; r < s.ponto[e]; r++) {
@@ -575,8 +587,8 @@ function reerguer(ctx, eq, ks, o) {
   if (estado !== PREDIO.POSTO) return;
   const posto = predioNaCelula(ctx, tipo, d[o + PR_CX], d[o + PR_CY]);
   if (posto >= 0) {
-    // placed: it carries the group's label from the next decision on
-    ctx.saida.rotulos.push({ id: p.id[posto], rotulo: eq.rotulo });
+    // placed: it carries the label of the building it replaces from the next decision on
+    ctx.saida.rotulos.push({ id: p.id[posto], rotulo: d[o + PR_ROTULO] });
     d[o + PR_ID] = p.id[posto];
     return marcar(PREDIO.VIVO);
   }

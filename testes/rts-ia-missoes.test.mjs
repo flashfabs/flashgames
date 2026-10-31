@@ -7,12 +7,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync } from 'node:fs';
 import { passo, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
 import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_ARG } from '../site/rts/js/sim/contratos.js';
-import { slotVivo } from '../site/rts/js/sim/entidades.js';
+import { slotVivo, matar, idDoSlot } from '../site/rts/js/sim/entidades.js';
 import { usarComportamentos } from '../site/rts/js/sim/equipes.js';
 import * as comportamentos from '../site/rts/js/sim/comportamentos/indice.js';
 import { lerMapaDeArquivos } from '../site/rts/js/sim/mapa.js';
 import { compilarDados } from '../site/rts/js/sim/dados.js';
-import { rotulosDaMissao, resultadoDaMissao, RESULTADO } from '../site/rts/js/sim/gatilhos.js';
+import { rotulosDaMissao, resultadoDaMissao, RESULTADO, temRotulo } from '../site/rts/js/sim/gatilhos.js';
 import { compilarEquipes, equipesDaPartida } from '../site/rts/js/sim/comportamentos/formato.js';
 import { partidaReal, lerMissao, equipesDasOndas, arquivosDeDados, arquivosDoMapa } from '../ferramentas/rts/ia-harness.mjs';
 
@@ -70,3 +70,21 @@ for (const id of missoes) {
     }
   });
 }
+
+test('the sandbox camp rebuilds a fallen building on its spot, with its own Carga', () => {
+  const sim = partidaReal({ missao: 'caixa-de-areia', dificuldade: 'normal' });
+  // the computer player starts with no Carga in the sandbox: give it enough for one Barracão
+  sim.extras.economia.carga[1] = 1000;
+  for (let k = 0; k < 60; k++) passo(sim);
+  const antigo = sim.etiquetas['acampamento-barracao'];
+  const tipo = sim.tipo[antigo];
+  const lugar = [sim.x[antigo], sim.y[antigo]];
+  matar(sim, antigo, -1);
+  for (let k = 0; k < 90 * 30; k++) passo(sim);
+  const novos = [];
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.time[i] === 1 && sim.tipo[i] === tipo) novos.push(i);
+  assert.equal(novos.length, 1, 'rebuilt once');
+  assert.deepEqual([sim.x[novos[0]], sim.y[novos[0]]], lugar, 'where it stood');
+  assert.ok(temRotulo(sim, idDoSlot(sim, novos[0]), 'acampamento-barracao'), 'back in the camp group');
+  assert.equal(sim.extras.economia.carga[1], 1000 - sim.tipos[tipo].custo, 'paid with its own Carga');
+});

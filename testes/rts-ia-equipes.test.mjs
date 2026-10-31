@@ -8,14 +8,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { criarSimulacao, passo, REGRAS_LIVRES, somaDeVerificacao } from '../site/rts/js/sim/simulacao.js';
-import { FP, FP_BITS, EVENTO, TIPO_COMANDO, CATEGORIA, TAMANHO_EVENTO, E_TIPO, E_ARG, E_X, E_Y, idDe } from '../site/rts/js/sim/contratos.js';
+import { FP, FP_BITS, EVENTO, TIPO_COMANDO, CATEGORIA, TAMANHO_EVENTO, E_TIPO, E_ALVO, E_ARG, E_X, E_Y, idDe } from '../site/rts/js/sim/contratos.js';
 import { compilarDados } from '../site/rts/js/sim/dados.js';
 import { REGRAS_COMBATE_PADRAO } from '../site/rts/js/sim/armas.js';
-import { rotulosDaMissao, rotular, temRotulo } from '../site/rts/js/sim/gatilhos.js';
-import { matar, criarEntidade, idDoSlot } from '../site/rts/js/sim/entidades.js';
+import { rotulosDaMissao, rotular, temRotulo, extrasMissao } from '../site/rts/js/sim/gatilhos.js';
+import { vistaDoTime } from '../site/rts/js/sim/vista.js';
+import { matar, criarEntidade, idDoSlot, slotVivo } from '../site/rts/js/sim/entidades.js';
 import { celulaVisivel } from '../site/rts/js/sim/neblina.js';
 import { salvar, carregar } from '../site/rts/js/sim/persistencia.js';
-import { compilarEquipes, COMPORTAMENTO, FASE } from '../site/rts/js/sim/comportamentos/formato.js';
+import { compilarEquipes, equipesDaPartida, COMPORTAMENTO, FASE } from '../site/rts/js/sim/comportamentos/formato.js';
+import { decidirJogador } from '../site/rts/js/sim/comportamentos/decisoes.js';
 import * as comportamentos from '../site/rts/js/sim/comportamentos/indice.js';
 import { usarComportamentos, PERIODO_EQUIPES } from '../site/rts/js/sim/equipes.js';
 
@@ -102,7 +104,7 @@ function jogar(sim, passos, { parar = () => false } = {}) {
     passo(sim);
     for (let o = 0; o < sim.eventos.length; o += TAMANHO_EVENTO) {
       const tipo = sim.eventos[o + E_TIPO];
-      if (tipo === EVENTO.AVISO_ATAQUE || tipo === EVENTO.ONDA) eventos.push({ tipo, tick: sim.tick, arg: sim.eventos[o + E_ARG], x: sim.eventos[o + E_X], y: sim.eventos[o + E_Y] });
+      if (tipo === EVENTO.AVISO_ATAQUE || tipo === EVENTO.ONDA) eventos.push({ tipo, tick: sim.tick, arg: sim.eventos[o + E_ARG], x: sim.eventos[o + E_X], y: sim.eventos[o + E_Y], alvo: sim.eventos[o + E_ALVO] });
     }
   }
   const novas = decisoes.slice(desde);
@@ -224,6 +226,8 @@ test('an attack warns at least its warning time before leaving, follows its rout
   const missao = sim.opcoes.missao;
   assert.equal(rotulosDaMissao(missao)[aviso.arg], 'onda');
   assert.equal(onda.arg, aviso.arg);
+  assert.equal(onda.alvo, 6, 'the wave tells its size, for the play log (its units spawned long before)');
+  assert.equal(aviso.alvo, -1);
   assert.deepEqual([celula(aviso.x), celula(aviso.y)], [32, 54], 'the warning points at the destination');
   assert.ok(aviso.tick >= segundos(2) && aviso.tick <= segundos(2) + INTERVALO_DECISAO + 3, `warned at tick ${aviso.tick}`);
   assert.ok(onda.tick - aviso.tick >= segundos(12), `left ${(onda.tick - aviso.tick) / 30} s after the warning`);
@@ -342,6 +346,37 @@ test('a camp rebuilds a fallen building with its own Carga, on the same cell, an
   matar(pobre, vivos(pobre, IA, BARRACAO)[0], -1);
   assert.deepEqual(jogar(pobre, segundos(30)).comandos, [], 'nothing without the Carga');
   assert.equal(pobre.extras.economia.carga[IA], 300);
+});
+
+test('a rebuilding team stops and forgets its layout while the camp packs or moves', () => {
+  const sim = partida({
+    cargaInicial: 1000,
+    equipes: [{ id: 'r', grupo: 'acampamento', jogador: IA, faz: 'reconstruir', espera: 5 }],
+    unidades: [
+      { tipo: CARROCAO, time: IA, x: 30, y: 4, rotulo: 'acampamento' },
+      { tipo: BARRACAO, time: IA, x: 36, y: 4, rotulo: 'acampamento' },
+    ],
+  });
+  jogar(sim, segundos(2));
+  matar(sim, vivos(sim, IA, BARRACAO)[0], -1);
+  // still inside the 5 s wait: nothing queued yet
+  assert.deepEqual(jogar(sim, segundos(4)).comandos, []);
+  // the next decision, with the headquarters flagged as packing (a stand-in bit: the combat module defines the real one)
+  const EMPACOTE = 1 << 14;
+  const vista = vistaDoTime(sim, IA);
+  const mex = extrasMissao(sim);
+  const rotulos = Int32Array.from({ length: vista.proprias.n }, (_, k) => {
+    const i = slotVivo(sim, vista.proprias.id[k]);
+    return mex.rotuloGeracao[i] === sim.geracao[i] ? mex.rotulo[i] - 1 : -1;
+  });
+  const decidir = empacote =>
+    decidirJogador({ tick: sim.tick, jogador: IA, vista, rotulos, ativas: Uint8Array.of(1), vezes: Int32Array.of(1), empacote, equipes: equipesDaPartida(sim).equipes, estado: sim.extras.comportamentos, tipos: sim.tipos });
+  vista.proprias.bandeiras[0] |= EMPACOTE;
+  assert.deepEqual(decidir(EMPACOTE).comandos, [], 'nothing queued while it packs');
+  assert.equal(sim.extras.comportamentos.fase[0], FASE.PARADA, 'the old layout is forgotten');
+  // set up again where it stands: only the headquarters is remembered, so the fallen one is not rebuilt on its old spot
+  assert.deepEqual(jogar(sim, segundos(30)).comandos, []);
+  assert.equal(vivos(sim, IA, BARRACAO).length, 0);
 });
 
 test('a team waits for its start trigger and stops at its stop trigger', () => {

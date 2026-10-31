@@ -2,12 +2,11 @@
 // read and how they act. They run inside the tick, so they are part of the deterministic simulation and replays
 // recreate them; they read only what their team sees (the C4 view), the public static map and their own state, and
 // they act only by commands, validated and applied exactly like a player's.
-import { comandoValido, EVENTO } from './contratos.js';
+import { comandoValido, EVENTO, SEM_ENTIDADE } from './contratos.js';
 import { vistaDoTime } from './vista.js';
 import { montarMapaEstatico } from './retrato.js';
 import { slotVivo } from './entidades.js';
 import { indiceDificuldade, missaoDe, extrasMissao, rotular } from './gatilhos.js';
-import { emitirEventoNoPonto } from './combate.js';
 import * as indice from './comportamentos/indice.js';
 
 /** Each team decides once every PERIODO_EQUIPES ticks (a third of a second), team t on the ticks where tick % PERIODO_EQUIPES === t. */
@@ -66,9 +65,9 @@ function contextoDaEquipe(sim, time, aplicar) {
     // the mission script and how many times each of its triggers fired (the teams start and stop by them)
     missao: missaoDe(sim) ? sim.opcoes.missao : null,
     disparou: id => vezesQueDisparou(sim, id),
-    // the team's own attack warnings, presentation only
-    emitir({ tipo, x, y, arg }) {
-      if (tipo === EVENTO.AVISO_ATAQUE || tipo === EVENTO.ONDA) emitirEventoNoPonto(sim, tipo, -1, x, y, arg);
+    // the team's own attack warnings, presentation only; an ONDA carries its number of units in the target field
+    emitir({ tipo, x, y, arg, unidades = SEM_ENTIDADE }) {
+      if (tipo === EVENTO.AVISO_ATAQUE || tipo === EVENTO.ONDA) sim.eventos.push(tipo, sim.tick, SEM_ENTIDADE, tipo === EVENTO.ONDA ? unidades : SEM_ENTIDADE, x, y, x, y, arg);
     },
     // a mission label on one of the team's own live entities (a wave taking reserve units, a rebuilt building)
     rotular(id, nome) {
