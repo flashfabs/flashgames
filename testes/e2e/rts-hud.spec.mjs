@@ -130,7 +130,8 @@ test('the top bar shows Carga and population as the snapshot says', async ({ pag
 });
 
 // The sandbox played only through the HUD: the headquarters builds and the player places an accumulator (the depot),
-// trains a harvester on the grid's second page, and sends the idle harvester to a pile with a context click.
+// trains a harvester (turning the grid's page when it has pages), and sends the idle harvester to a pile with a
+// context click.
 // ?carga=3000 starts with Carga while the mission's start trigger is not in the simulation yet.
 test('the sandbox through the HUD: build, place, train and harvest', async ({ page }) => {
   await page.goto('/rts/?partida=caixa-de-areia&teste=1&carga=3000');
@@ -186,11 +187,15 @@ test('the sandbox through the HUD: build, place, train and harvest', async ({ pa
   }, { timeout: 60_000, intervals: [100] }).toBe(1);
   expect(await page.evaluate(() => window.__rts.eventosDo('COMANDO_RECUSADO').length)).toBe(0);
 
-  // F turns the headquarters' card to the units; Q trains a harvester.
+  // The headquarters trains a harvester from its card, turning the page with F when the card has pages.
   await page.keyboard.press('KeyB');
-  await tecla('KeyF');
-  await expect.poll(() => slotDo(guincho)).toBe(0);
-  await tecla('KeyQ');
+  await expect.poll(() => page.evaluate(() => window.__rts.hud.cartao.tipo)).toBe('predio');
+  if ((await slotDo(guincho)) < 0) {
+    expect(await page.evaluate(() => window.__rts.hud.cartao.slots[7]?.modo)).toBe('pagina');
+    await tecla('KeyF');
+    await expect.poll(() => slotDo(guincho)).toBeGreaterThanOrEqual(0);
+  }
+  await tecla(['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyA', 'KeyS', 'KeyD', 'KeyF'][await slotDo(guincho)]);
   expect(await ultimoComando()).toMatchObject({ tipo: 8, arg: guincho });
   await expect.poll(async () => {
     await page.evaluate(() => window.__rts.avancar(300));
