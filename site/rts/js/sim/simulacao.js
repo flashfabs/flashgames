@@ -14,6 +14,7 @@ import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
 import { passoDaMissao, rotular, desistir } from './gatilhos.js';
 import { comandoHabilidade, habilidadesDe, visaoExtraDe } from './habilidades.js';
+import { comandoReparar } from './reparo.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
 import { centroDaPegada } from './pegadas.js';
 import { avancarEconomia, processarDerrames, comandoColetar, cancelarTarefa } from './economia.js';
@@ -238,8 +239,9 @@ function aplicarComando(sim, c) {
       return;
     case TIPO_COMANDO.HABILIDADE:
       return comandoHabilidade(sim, moveis, c.arg, c.alvo);
+    case TIPO_COMANDO.REPARAR:
+      return comandoReparar(sim, moveis, c.alvo);
     default:
-      // repair belongs to the combat and missions module
       return;
   }
 }

@@ -33,6 +33,7 @@ export function criarExtrasReligar(sim) {
     alvo: new Int32Array(n),
     ordem: new Int16Array(n),
     ordemCriadaEm: new Int32Array(n),
+    por: new Uint8Array(n), // per structure, who can re-power it: POR.RELIGA or POR.REPARO
   };
 }
 // saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
@@ -53,12 +54,29 @@ function registro(sim, ex, j) {
     ex.progressoTime[j] = SEM_TIME;
     ex.tempo[j] = 0;
     ex.trabalhadoEm[j] = -1;
+    ex.por[j] = POR.RELIGA;
   }
 }
+
+/** Who can re-power a structure: units whose kind has `religa`, or (a mission's choice) units with a `reparo` block. */
+export const POR = Object.freeze({ RELIGA: 0, REPARO: 1 });
 
 const religavel = (sim, j) => sim.tipos[sim.tipo[j]].religavel === 1;
 // compiled kinds carry it in extras (dados.js); the prototype's form at the top
 const religa = (sim, i) => (sim.tipos[sim.tipo[i]].extras?.religa ?? sim.tipos[sim.tipo[i]].religa) === 1;
+const repara = (sim, i) => !!sim.tipos[sim.tipo[i]].extras?.reparo;
+
+// whether unit i can re-power structure j
+function capaz(sim, ex, i, j) {
+  registro(sim, ex, j);
+  return ex.por[j] === POR.REPARO ? repara(sim, i) : religa(sim, i);
+}
+
+/** Whether structure j is re-powered by repair (the mission said so), so REPARAR on it means re-powering. */
+export function religavelPorReparo(sim, j) {
+  const ex = sim.extras?.religar;
+  return !!ex && religavel(sim, j) && ex.geracao[j] === sim.geracao[j] && ex.por[j] === POR.REPARO;
+}
 
 /** Ticks of work structure j needs. */
 export function tempoParaReligar(sim, j) {
@@ -68,10 +86,11 @@ export function tempoParaReligar(sim, j) {
 }
 
 /** Mission override of how long structure j takes, in ticks. */
-export function definirTempoReligar(sim, j, passos) {
+export function definirTempoReligar(sim, j, passos, por = POR.RELIGA) {
   const ex = extrasReligar(sim);
   registro(sim, ex, j);
   ex.tempo[j] = Math.max(0, passos);
+  ex.por[j] = por;
 }
 
 /** Progress of structure j as { time, passos, total }; time -1 when nobody started. */
@@ -79,6 +98,14 @@ export function progressoReligar(sim, j) {
   const ex = extrasReligar(sim);
   registro(sim, ex, j);
   return { time: ex.progressoTime[j] === SEM_TIME ? -1 : ex.progressoTime[j], passos: ex.progresso[j], total: tempoParaReligar(sim, j) };
+}
+
+/** Retrato.progresso of structure j: how far its re-powering got, 0..254, or 255 when nobody started; reads only. */
+export function progressoDoRetrato(sim, j) {
+  const ex = sim.extras?.religar;
+  if (!ex || ex.geracao[j] !== sim.geracao[j] || ex.progressoTime[j] === SEM_TIME) return 255;
+  const total = ex.tempo[j] > 0 ? ex.tempo[j] : sim.tipos[sim.tipo[j]].tempoReligar || TEMPO_PADRAO;
+  return Math.min(254, Math.trunc((ex.progresso[j] * 255) / total));
 }
 
 /** Whether someone (of `jogador`, or anyone with -1) worked on structure j this tick or the one before. */
@@ -111,7 +138,7 @@ export function ordenarReligar(sim, unidades, alvoId) {
   const j = slotVivo(sim, alvoId);
   if (j < 0 || !religavel(sim, j)) return;
   const ex = extrasReligar(sim);
-  const capazes = unidades.filter(i => religa(sim, i) && sim.time[i] !== sim.time[j]);
+  const capazes = unidades.filter(i => capaz(sim, ex, i, j) && sim.time[i] !== sim.time[j]);
   if (capazes.length === 0) return;
   for (const i of capazes) sim.segurando[i] = 0;
   const o = ordenarGrupo(sim, capazes, TIPO_COMANDO.MOVER, sim.x[j], sim.y[j]);

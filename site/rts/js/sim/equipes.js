@@ -2,11 +2,11 @@
 // read and how they act. They run inside the tick, so they are part of the deterministic simulation and replays
 // recreate them; they read only what their team sees (the C4 view), the public static map and their own state, and
 // they act only by commands, validated and applied exactly like a player's.
-import { comandoValido } from './contratos.js';
+import { comandoValido, EVENTO, SEM_ENTIDADE } from './contratos.js';
 import { vistaDoTime } from './vista.js';
 import { montarMapaEstatico } from './retrato.js';
 import { slotVivo } from './entidades.js';
-import { indiceDificuldade, missaoDe, extrasMissao } from './gatilhos.js';
+import { indiceDificuldade, missaoDe, extrasMissao, rotular } from './gatilhos.js';
 import { montarBaldes } from './movimento.js';
 import * as indice from './comportamentos/indice.js';
 
@@ -44,6 +44,13 @@ function rotuloDe(sim, time, id) {
   return r > 0 && ex.rotuloGeracao[i] === sim.geracao[i] ? m.rotulos[r - 1] : '';
 }
 
+// Times the mission trigger with this id fired; 0 for an unknown id or with no mission.
+function vezesQueDisparou(sim, id) {
+  const gatilhos = missaoDe(sim) ? sim.opcoes.missao.gatilhos ?? [] : [];
+  const k = gatilhos.findIndex(g => g?.id === id);
+  return k < 0 ? 0 : extrasMissao(sim).disparos[k];
+}
+
 /** What a behaviour's decidir() receives: no simulation, only the team's view and a way to command. */
 function contextoDaEquipe(sim, time, aplicar) {
   let seq = 0;
@@ -56,6 +63,18 @@ function contextoDaEquipe(sim, time, aplicar) {
     lugares: sim.opcoes.lugares ?? null,
     estado: sim.extras.comportamentos ?? null,
     rotuloDe: id => rotuloDe(sim, time, id),
+    // the mission script and how many times each of its triggers fired (the teams start and stop by them)
+    missao: missaoDe(sim) ? sim.opcoes.missao : null,
+    disparou: id => vezesQueDisparou(sim, id),
+    // the team's own attack warnings, presentation only; an ONDA carries its number of units in the target field
+    emitir({ tipo, x, y, arg, unidades = SEM_ENTIDADE }) {
+      if (tipo === EVENTO.AVISO_ATAQUE || tipo === EVENTO.ONDA) sim.eventos.push(tipo, sim.tick, SEM_ENTIDADE, tipo === EVENTO.ONDA ? unidades : SEM_ENTIDADE, x, y, x, y, arg);
+    },
+    // a mission label on one of the team's own live entities (a wave taking reserve units, a rebuilt building)
+    rotular(id, nome) {
+      const i = slotVivo(sim, id);
+      if (i >= 0 && sim.time[i] === time) rotular(sim, i, nome);
+    },
     comandar(c) {
       const comando = { tipo: c.tipo, unidades: c.unidades ?? [], alvo: c.alvo ?? 0, x: c.x ?? 0, y: c.y ?? 0, arg: c.arg ?? 0, fila: c.fila ?? 0, tick: sim.tick, jogador: time, seq: seq++ };
       if (comandoValido(comando)) aplicar(sim, comando);

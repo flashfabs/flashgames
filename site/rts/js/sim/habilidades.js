@@ -10,18 +10,23 @@
 //   leitura   HABILIDADE LEITURA on an enemy building in reach shows its production queue to the team for a while.
 // Movement reads fatorVelocidade() (combate.js), which is 0 while set up or stunned; the presentation reads
 // bandeirasDeCombate() and, for the reading, predioLido().
-import { FP, FP_BITS, DONO_NEUTRO, TIPO_COMANDO } from './contratos.js';
+import { FP, FP_BITS, DONO_NEUTRO, TIPO_COMANDO, CATEGORIA } from './contratos.js';
+import { TAMANHO_BALDE_BITS } from './movimento.js';
 import * as estado from './estado.js';
 import { slotVivo } from './entidades.js';
 import { limparOrdens } from './ordens.js';
 import { celulaVisivel } from './neblina.js';
 import { msParaPassos, decimosParaMundo } from './armas.js';
 import { ordenarReligar } from './religar.js';
+import { faseDe, FASE } from './empacotar.js';
 
 /** Ability codes of the HABILIDADE command's `arg`. */
 export const HABILIDADE = Object.freeze({ RELIGAR: 1, ERGUER: 2, LEITURA: 3 });
-/** Snapshot flag bits the combat module owns (contratos.js BANDEIRA reserves 512 and up). */
-export const BANDEIRA_COMBATE = Object.freeze({ IMPLANTADO: 512, ATORDOADO: 1024, OCULTO: 2048, LENTO: 4096 });
+/**
+ * Snapshot flag bits the combat module owns (contratos.js BANDEIRA reserves 512 and up). EMPACOTANDO: a building packing
+ * up or a packed one setting up again; EMPACOTADO: a building packed into a unit (empacotar.js), also while it sets up.
+ */
+export const BANDEIRA_COMBATE = Object.freeze({ IMPLANTADO: 512, ATORDOADO: 1024, OCULTO: 2048, LENTO: 4096, EMPACOTANDO: 8192, EMPACOTADO: 16384 });
 /** How far set up a unit is (sim.extras.habilidades.estado). */
 export const ESTADO = Object.freeze({ NORMAL: 0, SUBINDO: 1, IMPLANTADO: 2, DESCENDO: 3 });
 
@@ -193,8 +198,11 @@ export function bandeirasDeCombate(sim, i) {
     if (ex.atordoadoAte[i] > sim.tick) b |= BANDEIRA_COMBATE.ATORDOADO;
     if (ocultoPara(sim, i, -1)) b |= BANDEIRA_COMBATE.OCULTO;
   }
-  const lento = sim.extras?.combate?.lentoAte[i] > sim.tick;
-  return lento ? b | BANDEIRA_COMBATE.LENTO : b;
+  if (sim.extras?.combate?.lentoAte[i] > sim.tick) b |= BANDEIRA_COMBATE.LENTO;
+  const fase = faseDe(sim, i);
+  if (fase === FASE.EMPACOTANDO || fase === FASE.DESEMPACOTANDO) b |= BANDEIRA_COMBATE.EMPACOTANDO;
+  if (fase === FASE.EMPACOTADO || fase === FASE.DESEMPACOTANDO) b |= BANDEIRA_COMBATE.EMPACOTADO;
+  return b;
 }
 
 /** Slot of the enemy building team `time` is reading now, or -1. */
@@ -264,21 +272,33 @@ export function usarHabilidade(sim, unidades, codigo, alvoId) {
 }
 
 // the closest live enemy unit of entity i within `alcance` world units (ties to the lowest slot), vehicles only if
-// asked; -1 when none
+// asked; -1 when none. It searches the step's buckets (movimento.js), which hold every unit not neutral, as procurarAlvo
+// does: abilities run before anyone moves, so the buckets still match the positions.
 function inimigoProximo(sim, i, alcance, soVeiculos) {
+  const { baldeCabeca, baldeProximo, baldeLargura, x, y, time, ativo, tipo, categoriaPorTipo, tipos } = sim;
+  const linhas = Math.trunc(baldeCabeca.length / baldeLargura);
+  const r = (alcance >> TAMANHO_BALDE_BITS) + 1;
+  const bx = x[i] >> TAMANHO_BALDE_BITS;
+  const by = y[i] >> TAMANHO_BALDE_BITS;
+  const x0 = Math.max(0, bx - r);
+  const x1 = Math.min(baldeLargura - 1, bx + r);
+  const y1 = Math.min(linhas - 1, by + r);
+  const a = alcance >> 4;
+  const a2 = a * a;
   let melhor = -1;
   let melhorD = 0;
-  const a = alcance >> 4;
-  for (let j = 0; j < sim.capacidade; j++) {
-    if (!sim.ativo[j] || sim.time[j] === sim.time[i] || sim.time[j] === DONO_NEUTRO) continue;
-    const t = sim.tipos[sim.tipo[j]];
-    if ((t.categoria ?? 0) !== 0 || (soVeiculos && t.classe === 0)) continue;
-    const dx = (sim.x[j] - sim.x[i]) >> 4;
-    const dy = (sim.y[j] - sim.y[i]) >> 4;
-    const d = dx * dx + dy * dy;
-    if (d <= a * a && (melhor < 0 || d < melhorD)) {
-      melhor = j;
-      melhorD = d;
+  for (let yb = Math.max(0, by - r); yb <= y1; yb++) {
+    for (let xb = x0; xb <= x1; xb++) {
+      for (let j = baldeCabeca[yb * baldeLargura + xb]; j >= 0; j = baldeProximo[j]) {
+        if (!ativo[j] || time[j] === time[i] || categoriaPorTipo[tipo[j]] !== CATEGORIA.UNIDADE) continue;
+        if (soVeiculos && tipos[tipo[j]].classe === 0) continue;
+        const dx = (x[j] - x[i]) >> 4;
+        const dy = (y[j] - y[i]) >> 4;
+        const d = dx * dx + dy * dy;
+        if (d > a2 || (melhor >= 0 && (d > melhorD || (d === melhorD && j > melhor)))) continue;
+        melhor = j;
+        melhorD = d;
+      }
     }
   }
   return melhor;

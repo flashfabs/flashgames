@@ -248,9 +248,10 @@ export function mover(sim) {
     const velocidade = Math.trunc((tipo.velocidade * fatorVelocidade(sim, i)) / 100);
     desejar(sim, i, tipo, velocidade);
     const andando = desejoX !== 0 || desejoY !== 0;
-    // steering inertia smooths the turns
-    vx[i] = (vx[i] * 3 + desejoX) >> 2;
-    vy[i] = (vy[i] * 3 + desejoY) >> 2;
+    // steering inertia smooths the turns; divided toward zero, since a shift floors -3 to -3 and a stopped unit would
+    // creep up and left forever
+    vx[i] = ((vx[i] * 3 + desejoX) / 4) | 0;
+    vy[i] = ((vy[i] * 3 + desejoY) / 4) | 0;
     const x0 = x[i];
     const y0 = y[i];
     let nx = x0 + vx[i];

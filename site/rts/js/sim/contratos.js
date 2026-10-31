@@ -10,7 +10,7 @@
  */
 export const VERSAO_COMANDOS = 1;
 /** Version of the snapshot, events and static map formats, of the command kinds' rules and of every rule replays depend on. */
-export const VERSAO_SIMULACAO = 6;
+export const VERSAO_SIMULACAO = 7;
 
 // ---------- units of measure ----------
 
@@ -235,7 +235,9 @@ export const EVENTO = Object.freeze({
 // RAJADA: entidade is a windmill on a windy cell, arg the Carga it paid its owner.
 // REDE_CORTADA: entidade is a building that lost power, arg its kind.
 // AVISO_ATAQUE: no entity, (x, y) the centre of the area the attack will reach, arg the mission group (missions).
-// ONDA: no entity, (x, y) where the group appears, arg the mission group (missions).
+// ONDA: no entity, (x, y) where the group appears, arg the mission group (missions); the target field holds the number
+// of units in the wave when the emitter knows it (a computer team leaving with units it already had), SEM_ENTIDADE
+// otherwise (then the wave's units are the SURGIMENTO of the same tick).
 // PROMOCAO: entidade rose a veterancy level, arg the new level 1..3.
 // RELIGADO: entidade is a structure brought back, alvo the unit that did it; its owner is now that unit's.
 // CAMERA: no entity, (x, y) where the mission moves the local camera.
