@@ -13,7 +13,7 @@ import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrup
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
 import { passoDaMissao, rotular, desistir } from './gatilhos.js';
-import { comandoHabilidade } from './habilidades.js';
+import { comandoHabilidade, habilidadesDe, visaoExtraDe } from './habilidades.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
 import { centroDaPegada } from './pegadas.js';
 import { avancarEconomia, processarDerrames, comandoColetar, cancelarTarefa } from './economia.js';
@@ -103,7 +103,7 @@ export function criarSimulacao(opcoes = {}) {
     }
   }
   if (regras.ordensPadrao) for (let i = 0; i < iniciais; i++) atribuirOrdem(sim, i, sim.time[i], 0, 0, 0);
-  atualizarNeblina(sim);
+  atualizarNeblina(sim, visaoExtra);
   return sim;
 }
 
@@ -271,6 +271,9 @@ function renascer(sim) {
  * production, paths, combat, movement, spilled loads, sight and the ghosts of buildings. passo() runs exactly this
  * list, and the measurement tools time it stage by stage, so they never drift from the real order.
  */
+// Cells unit i sees beyond its kind's sight now (a raised basket), for the fog.
+const visaoExtra = (sim, i) => (habilidadesDe(sim)[sim.tipo[i]] ? visaoExtraDe(sim, i) : 0);
+
 export const ETAPAS_DO_PASSO = Object.freeze([
   ['classificar', classificarEntidades],
   ['comandos', aplicarComandos],
@@ -290,7 +293,7 @@ export const ETAPAS_DO_PASSO = Object.freeze([
   ['derrames', processarDerrames],
   // footprints that fell in combat: the next tick's fields already know
   ['grade', aplicarMudancasDaGrade],
-  ['neblina', atualizarNeblina],
+  ['neblina', sim => atualizarNeblina(sim, visaoExtra)],
   ['fantasmas', atualizarFantasmas],
 ].map(etapa => Object.freeze(etapa)));
 
