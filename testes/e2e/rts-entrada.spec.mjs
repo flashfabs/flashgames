@@ -24,17 +24,19 @@ async function abrir(page) {
   });
 }
 
-// Screen positions of the player's units inside the canvas and away from the command bar, by id.
+// Screen positions of the player's units inside the canvas and away from the top and bottom bars, by id (a box drawn
+// around them starts 12 px beyond them, and must start on the battlefield).
 function naTela(page) {
   return page.evaluate(() => {
     const { estado } = window.__rts;
     const atual = estado.atual;
-    const barra = document.getElementById('comandos').getBoundingClientRect();
+    const barra = document.getElementById('base').getBoundingClientRect();
+    const topo = document.getElementById('topo').getBoundingClientRect();
     const lista = [];
     for (let k = 0; k < atual.n; k++) {
       if (atual.dono[k] !== estado.jogadorLocal) continue;
       const p = window.__rts.naTela(atual.id[k]);
-      if (p.x < 40 || p.y < 40 || p.x > innerWidth - 40 || p.y > barra.top - 20) continue;
+      if (p.x < 40 || p.y < topo.bottom + 20 || p.x > innerWidth - 40 || p.y > barra.top - 20) continue;
       lista.push({ id: atual.id[k], tipo: atual.tipo[k], x: p.x, y: p.y });
     }
     return lista;
