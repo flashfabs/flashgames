@@ -187,6 +187,17 @@ Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, o
 
 E7 (escaramuça), E8 (multiplayer) e E9 (campanha) têm os critérios no plano e entram aqui quando a etapa abrir.
 
+## O que depende do Victor (onda 2)
+
+Ninguém espera parado por estes itens; cada sessão segue com o que dá e a `rts-qualidade` mantém a lista.
+
+- Como os amigos abrem a fatia cinza no M3: deploy de rascunho na Netlify com endereço próprio (`--alias fatia-cinza`, sem `--prod`, como a página de diagnóstico) ou o Mac servindo a `rts/base` em casa ([kit do M3](kit-m3.md)).
+- Jogar o M3 com 2 pessoas do grupo pelo [kit do M3](kit-m3.md) e mandar os 3 registros e as respostas para a `rts-qualidade`.
+- Som provisório no M3: a `rts-som` só abre na onda 3; adiantar ou jogar o M3 sem som.
+- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos).
+- Licença comunitária de áudio gerado por IA (Stable Audio): fica fora da lista de licenças permitidas (`testes/rts-licencas.json`) até a decisão dele.
+- As escolhas do portão de estilo (M2) e as medições que esperam o Mac, abaixo.
+
 ## Roteiro para o Victor
 
 O [roteiro de medições](roteiro-medicoes.md) cobre o Safari 26, o Chrome e o Edge no PC da RTX 4090 e a bateria de teclas: cerca de 15 minutos no Mac e 10 no PC. As respostas entram na tabela de medições acima.

@@ -20,6 +20,7 @@ export const METAS = Object.freeze({
   janelasSemComando: { maxExclusivo: 0.2 },
   primeiroCemiterio: { min: 10 * 60, max: 13 * 60 },
   coletoresPerdidos: { min: 1, max: 4 },
+  diversao: { min: 4, max: 5 },
 });
 
 /** Seconds of warning every attack of 6 or more units needs (stage E4, checked here too because the sandbox has waves). */
@@ -158,6 +159,17 @@ function avisosDeAtaque(registro, pps) {
   return ondas;
 }
 
+/** The player's own answers from the end screen (C15 "respostas"), when the log has them. */
+function respostaDiversao(respostas) {
+  const valor = Number.isInteger(respostas?.diversao) && respostas.diversao >= 1 && respostas.diversao <= 5 ? respostas.diversao : null;
+  return { id: 'diversao', nome: 'Diversão', meta: 'mediana de pelo menos 4 em 5', valor, texto: valor === null ? 'sem resposta' : `${valor} de 5`, passou: valor === null ? null : valor >= METAS.diversao.min };
+}
+
+function respostaJogariaDeNovo(respostas) {
+  const valor = typeof respostas?.jogariaDeNovo === 'boolean' ? (respostas.jogariaDeNovo ? 1 : 0) : null;
+  return { id: 'jogariaDeNovo', nome: 'Jogaria de novo?', meta: 'sim de todos', valor, texto: valor === null ? 'sem resposta' : valor ? 'sim' : 'não', passou: valor === null ? null : valor === 1 };
+}
+
 const relogio = segundos => `${Math.floor(segundos / 60)}:${String(Math.floor(segundos % 60)).padStart(2, '0')}`;
 
 /**
@@ -188,6 +200,8 @@ export function conferirRegistro(registro) {
     { id: 'janelasSemComando', nome: 'Janelas sem comando', meta: `menos de 20% das janelas de ${JANELA_SEGUNDOS} s`, valor: janelas.fracao, texto: janelas.fracao === null ? 'partida curta demais' : `${(janelas.fracao * 100).toFixed(1)}% (${janelas.vazias} de ${janelas.total})`, passou: janelas.fracao === null ? null : janelas.fracao < METAS.janelasSemComando.maxExclusivo },
     { id: 'primeiroCemiterio', nome: 'Primeiro cemitério esgotado', meta: '10:00 a 13:00', valor: cemiterio, texto: cemiterio === null ? 'nenhum cemitério esgotou' : relogio(cemiterio), passou: cemiterio === null ? (duracao >= METAS.primeiroCemiterio.max ? false : null) : dentro(cemiterio, METAS.primeiroCemiterio) },
     { id: 'coletoresPerdidos', nome: 'Coletores perdidos', meta: '1 a 4', valor: coletores, texto: String(coletores), passou: dentro(coletores, METAS.coletoresPerdidos) },
+    respostaDiversao(registro.respostas),
+    respostaJogariaDeNovo(registro.respostas),
     { id: 'avisoDeAtaque', nome: 'Aviso de ataque (E4)', meta: `toda onda de ${ONDA_COM_AVISO} ou mais com ${AVISO_MINIMO_SEGUNDOS} s de aviso`, valor: piorAviso, texto: piorAviso === null ? `nenhuma onda de ${ONDA_COM_AVISO} ou mais` : piorAviso < 0 ? 'onda sem aviso' : `pior aviso ${piorAviso.toFixed(1)} s em ${avisos.length} onda${avisos.length > 1 ? 's' : ''}`, passou: piorAviso === null ? null : piorAviso >= AVISO_MINIMO_SEGUNDOS },
   ];
   return { valido: true, problemas: [], criterios };
@@ -210,7 +224,7 @@ export function conferirVarios(registros) {
     // without data, a criterion fails only when some log already failed it (a long match with no graveyard depleted)
     let passou = deste.some(c => c.passou === false) && comDado.length === 0 ? false : null;
     if (comDado.length > 0) {
-      if (id === 'duracao' || id === 'avisoDeAtaque') passou = deste.every(c => c.passou !== false);
+      if (id === 'duracao' || id === 'avisoDeAtaque' || id === 'jogariaDeNovo') passou = deste.every(c => c.passou !== false);
       else if (id === 'janelasSemComando') passou = valor < METAS.janelasSemComando.maxExclusivo;
       else passou = dentro(valor, METAS[id]);
     }
