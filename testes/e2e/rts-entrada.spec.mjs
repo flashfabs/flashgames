@@ -148,11 +148,11 @@ test('A and a click attack-moves, the marker answers under 100 ms, and Esc or th
   expect(await page.evaluate(() => window.__rts.controles.modo)).toBe(null);
 
   await expect.poll(() => page.evaluate(() => window.__rts.latencia.resumo().n)).toBeGreaterThan(1);
-  const { resumo, placa } = await page.evaluate(() => ({ resumo: window.__rts.latencia.resumo(), placa: window.__prototipo.info.placa }));
+  const { resumo, placa, software } = await page.evaluate(() => ({ resumo: window.__rts.latencia.resumo(), ...window.__prototipo.info }));
   test.info().annotations.push({ type: 'clique até a marca', description: `p50 ${resumo.p50.toFixed(0)} ms, máximo ${resumo.maximo.toFixed(0)} ms em ${placa}` });
   // The 100 ms goal is for real graphics cards; without a GPU (the GitHub runner) the canvas is drawn in software and
   // the frame alone takes longer, so there the test only checks that the answer is measured.
-  if (/SwiftShader|llvmpipe|softpipe|Software/i.test(placa)) expect(resumo.p50).toBeGreaterThan(0);
+  if (software) expect(resumo.p50).toBeGreaterThan(0);
   else expect(resumo.p50).toBeLessThan(100);
   await expect(page.locator('[data-campo="clique"]')).toContainText('clique até a marca:');
 
