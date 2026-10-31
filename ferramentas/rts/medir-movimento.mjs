@@ -5,7 +5,7 @@ import { atravessarPonte, ordensSimultaneas } from '../../testes/rts-sim-cenario
 import { PASSOS_POR_SEGUNDO } from '../../site/rts/js/sim/contratos.js';
 
 const sementes = process.argv.slice(2).map(Number).filter(Number.isInteger);
-const lista = sementes.length > 0 ? sementes : [7, 11, 5, 99, 42, 23];
+const lista = sementes.length > 0 ? sementes : [7, 11, 5, 99, 42, 23, 1, 2, 3, 13, 17, 31, 64, 77];
 const sozinho = atravessarPonte(1);
 const grupo = atravessarPonte(20);
 console.log(JSON.stringify({ ponte: { sozinho: sozinho.chegada, grupo: grupo.chegada, limite: Math.floor(1.5 * sozinho.chegada) + 8 * PASSOS_POR_SEGUNDO } }));

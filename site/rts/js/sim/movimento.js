@@ -103,7 +103,18 @@ function desejar(sim, i, tipo) {
     if (d !== INFINITO) {
       dCampo = d;
       if (fixa && d <= ord.raioChegada[o]) return; // the team default idles around its target
-      if (!sim.visada[i] && (fixa || d > ord.limiar[i])) {
+      // outside the formation's reach follow the field; inside it too while rock stands between the unit and its slot
+      // and the unit is still farther along the field than its slot (not into the group that already arrived)
+      const vaga = (ord.metaY[i] >> FP_BITS) * largura + (ord.metaX[i] >> FP_BITS);
+      const atrasDaVaga = d > cam.dist[e][vaga];
+      if (!fixa && !sim.visada[i] && !atrasDaVaga && d <= ord.limiar[i] && sim.semProgresso[i] > ESPERA_ATRAVESSAR) {
+        // as close to the target as its slot, cut off from it by rock and getting nowhere: this spot is its slot
+        ord.metaX[i] = sim.x[i];
+        ord.metaY[i] = sim.y[i];
+        concluirOrdem(sim, i);
+        return;
+      }
+      if (!sim.visada[i] && (fixa || d > ord.limiar[i] || atrasDaVaga)) {
         direto = false;
         // the farthest of the next cells on the field that a straight line reaches without clipping rock
         for (let alcance = ALCANCE_ADIANTE; alcance >= 1; alcance--) {
@@ -249,6 +260,7 @@ export function mover(sim) {
       const meuRaio = raioDe[meuTipo];
       const passaColetor = coletorDe[meuTipo] === 1 && andando;
       const atravessa = andando && sim.semProgresso[i] > ESPERA_ATRAVESSAR;
+      const furaFila = atravessa && sim.fase[i] === FASE_CAMPO;
       const bx = nx >> TAMANHO_BALDE_BITS;
       const by = ny >> TAMANHO_BALDE_BITS;
       const y0b = by > 0 ? by - 1 : 0;
@@ -283,6 +295,9 @@ export function mover(sim) {
             // pass in lanes instead of jamming
             const outroGrupo = andando && !outroParado && ordem[j] !== ordem[i];
             if (outroGrupo && atravessa) continue;
+            // a stuck unit on its way cuts into the stream of its own group: it is not pushed back by the ones getting
+            // ahead (near the destination the formation sorts the group out instead)
+            if (furaFila && !outroParado && ordem[j] === ordem[i] && sim.fase[j] === FASE_CAMPO && sim.semProgresso[j] < sim.semProgresso[i]) continue;
             const contraFluxo = outroGrupo && desejoX * vx[j] + desejoY * vy[j] < 0;
             // who gives way: standing still yields to moving, nobody pushes a unit that holds position
             const divisor = segurando[j] ? 1 : outroGrupo || (andando && outroParado) ? 6 : !andando && !outroParado ? 2 : 3;
