@@ -6,6 +6,7 @@ import { visaoDoTime, celulaVisivel } from './neblina.js';
 import { copiarEntidade, montarLotacao, montarFilas } from './retrato.js';
 import { ocupacaoDosNos } from './economia.js';
 import { fantasmasDoTime } from './fantasmas.js';
+import { ocultaDoTime } from './bandeiras.js';
 
 function copiarEntidades(sim, slots, ocupacao) {
   const r = alocarCamposRetrato(slots.length);
@@ -22,7 +23,7 @@ export function vistaDoTime(sim, time) {
   for (let i = 0; i < sim.capacidade; i++) {
     if (!sim.ativo[i]) continue;
     if (sim.time[i] === time) proprias.push(i);
-    else if (celulaVisivel(sim, time, (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS))) inimigas.push(i);
+    else if (celulaVisivel(sim, time, (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS)) && !ocultaDoTime(sim, i, time)) inimigas.push(i);
   }
   // teams are players for now: a team's players are the one with its index
   const recursos = new Int32Array(sim.times);

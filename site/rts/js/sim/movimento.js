@@ -8,6 +8,7 @@ import { anguloDe, seno, cosseno, girarAngulo, raizInteira } from './matematica.
 import { INFINITO, celulaAdiante, linhaLivre } from './caminhos.js';
 import { concluirOrdem, limparOrdens, campoDaOrdem, classeDoCampo } from './ordens.js';
 import { slotVivo } from './entidades.js';
+import { fatorVelocidade } from './combate.js';
 
 export const TAMANHO_BALDE_BITS = FP_BITS + 1; // spatial hash buckets of 2x2 cells
 // world units around the slot where a unit counts as arrived
@@ -57,8 +58,8 @@ export function montarBaldes(sim) {
 let desejoX = 0;
 let desejoY = 0;
 
-// Desired velocity of unit i this tick.
-function desejar(sim, i, tipo) {
+// Desired velocity of unit i this tick, at `velocidade` world units per tick.
+function desejar(sim, i, tipo, velocidade) {
   desejoX = 0;
   desejoY = 0;
   const ord = sim.ordens;
@@ -147,8 +148,8 @@ function desejar(sim, i, tipo) {
     if (vigiarProgresso(sim, i, medida, fase, angulo, dCampo)) return;
   }
   if (sim.tick < sim.desvioAte[i]) angulo = sim.desvioDirecao[i];
-  desejoX = (cosseno(angulo) * tipo.velocidade) >> FP_BITS;
-  desejoY = (seno(angulo) * tipo.velocidade) >> FP_BITS;
+  desejoX = (cosseno(angulo) * velocidade) >> FP_BITS;
+  desejoY = (seno(angulo) * velocidade) >> FP_BITS;
 }
 
 // ATACAR: walk to the target until it is in range; false when the unit should not move.
@@ -243,8 +244,9 @@ export function mover(sim) {
     // buildings stand still and block the grid instead of pushing
     if (!ativo[i] || categoriaDe[tipoDe[i]] !== CATEGORIA.UNIDADE) continue;
     const tipo = tipos[tipoDe[i]];
-    const velocidade = tipo.velocidade;
-    desejar(sim, i, tipo);
+    // the kind's speed in percent from the combat module: research, harvester veterancy, slows; 0 when set up or stunned
+    const velocidade = Math.trunc((tipo.velocidade * fatorVelocidade(sim, i)) / 100);
+    desejar(sim, i, tipo, velocidade);
     const andando = desejoX !== 0 || desejoY !== 0;
     // steering inertia smooths the turns
     vx[i] = (vx[i] * 3 + desejoX) >> 2;
@@ -304,7 +306,7 @@ export function mover(sim) {
             const q = d * divisor;
             empurraX += ((dx * sobreposicao) / q) | 0;
             empurraY += ((dy * sobreposicao) / q) | 0;
-            if (contraFluxo) {
+            if (contraFluxo && velocidade > 0) {
               const lateral = (sobreposicao / (2 * velocidade)) | 0;
               empurraX -= desejoY * lateral;
               empurraY += desejoX * lateral;

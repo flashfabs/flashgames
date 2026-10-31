@@ -8,6 +8,7 @@ import { TAREFA, registrarExtras } from './estado.js';
 import { cantoDaPegada } from './pegadas.js';
 import { criarEntidade, emitirEvento, emitirEventoGlobal, idDoSlot, slotVivo, removerEntidade } from './entidades.js';
 import { atribuirOrdem, ordemCompartilhada, limparOrdens, classesDe } from './ordens.js';
+import { registrarViagem } from './veterania.js';
 
 // a harvester loads, unloads or picks up within this many cells (Chebyshev) of the pile, depot or spark
 const ALCANCE_COLETA = 2;
@@ -395,6 +396,7 @@ function trabalhar(sim, i, restante, ocupacao, esperando) {
       emitirEvento(sim, EVENTO.DESCARGA, i, alvo, entregue);
       sim.carga[i] = 0;
       if (sim.viagens[i] < 0xffff) sim.viagens[i]++;
+      registrarViagem(sim, i);
       return voltarAoNo(sim, i, restante);
     }
     case TAREFA.IR_FAISCA: {

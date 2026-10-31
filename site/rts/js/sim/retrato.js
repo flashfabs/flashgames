@@ -3,7 +3,8 @@
 import { VERSAO_SIMULACAO, SEM_ENTIDADE, FP_BITS, CATEGORIA, MAX_FILA, TAMANHO_REGISTRO_FILA, TAMANHO_FAIXA, FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, alocarCamposRetrato, idDe } from './contratos.js';
 import { visaoDoTime } from './neblina.js';
 import { tipoEstatico } from './dados.js';
-import { bandeirasDe } from './bandeiras.js';
+import { bandeirasDe, ocultaDoTime } from './bandeiras.js';
+import { predioLido } from './habilidades.js';
 import { trabalhoDaObra } from './pegadas.js';
 import { ocupacaoDosNos } from './economia.js';
 import { lotacaoUsada, registrosDeFila } from './producao.js';
@@ -110,24 +111,23 @@ export function montarFilas(sim, jogador) {
       for (let k = 0; k < MAX_FILA; k++) r[base + FX_ITENS + k] = f.itens[k];
     });
     registros.push(r);
-  });
+  }, predioLido(sim, jogador));
   const filas = new Int32Array(registros.length * TAMANHO_REGISTRO_FILA);
   registros.forEach((r, k) => filas.set(r, k * TAMANHO_REGISTRO_FILA));
   return filas;
 }
 
-/** Snapshot of every live entity in slot order, the local team's fog and ghosts, the economy and this tick's events. */
+/**
+ * Snapshot of every live entity in slot order (but the local team's hidden enemies), the local team's fog and ghosts,
+ * the economy and this tick's events.
+ */
 export function montarRetrato(sim, { msPasso = 0, soma = 0, tickSoma = 0, jogadorLocal = 0 } = {}) {
-  let n = 0;
-  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i]) n++;
+  const slots = [];
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && !ocultaDoTime(sim, i, jogadorLocal)) slots.push(i);
+  const n = slots.length;
   const r = alocarCamposRetrato(n);
   const ocupacao = ocupacaoDosNos(sim);
-  let k = 0;
-  for (let i = 0; i < sim.capacidade; i++) {
-    if (!sim.ativo[i]) continue;
-    copiarEntidade(sim, i, r, k, ocupacao);
-    k++;
-  }
+  for (let k = 0; k < n; k++) copiarEntidade(sim, slots[k], r, k, ocupacao);
   return {
     t: 'retrato',
     versao: VERSAO_SIMULACAO,

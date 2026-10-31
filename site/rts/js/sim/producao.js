@@ -326,11 +326,12 @@ function irAoEncontro(sim, produtor, i) {
   atribuirOrdem(sim, i, ordemCompartilhada(sim, TIPO_COMANDO.MOVER, x, y, classesDe(sim, [i])), x, y, 0);
 }
 
-/** Records of the local player's producers for the snapshot (contratos.js, Retrato.filas). */
-export function registrosDeFila(sim, jogador, montar) {
+/** Records of the local player's producers for the snapshot (contratos.js, Retrato.filas), plus `lido`'s (a building
+ * the player is reading with an ability). */
+export function registrosDeFila(sim, jogador, montar, lido = -1) {
   const f = sim.extras.producao;
   for (let i = 0; i < sim.capacidade; i++) {
-    if (!sim.ativo[i] || sim.time[i] !== jogador || sim.categoriaPorTipo[sim.tipo[i]] !== CATEGORIA.PREDIO) continue;
+    if (!sim.ativo[i] || (sim.time[i] !== jogador && i !== lido) || sim.categoriaPorTipo[sim.tipo[i]] !== CATEGORIA.PREDIO) continue;
     const t = sim.tipos[sim.tipo[i]];
     if (t.produz.length === 0 && t.constroi.length === 0 && !sim.pesquisas.some(p => p.predio === sim.tipo[i])) continue;
     const faixas = [0, 1].map(faixa => {

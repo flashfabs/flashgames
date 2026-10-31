@@ -3,6 +3,7 @@
 // while its count is above zero, and explored forever after. Height: a unit on level h sees a higher cell (the cliff
 // edge) but nothing behind it, by walking each disc cell back to the centre along a precomputed ray.
 import { VISAO, FP_BITS, DONO_NEUTRO } from './contratos.js';
+import { habilidadesDe, visaoExtraDe } from './habilidades.js';
 
 const MAX_RAIO = 15;
 
@@ -70,21 +71,25 @@ function carimbar(neb, mapa, time, celula, raio, sinal) {
 }
 
 /**
- * Brings every unit's sight up to date, in slot order: units that moved to another cell, died or appeared.
- * celulaVisao[i] holds the cell the unit's sight is stamped on (-1 none), raioVisao[i] its radius.
+ * Brings every unit's sight up to date, in slot order: units that moved to another cell, died, appeared or see farther
+ * or nearer now (an ability). celulaVisao[i] holds the cell the unit's sight is stamped on (-1 none), raioVisao[i] its
+ * radius.
  */
 export function atualizarNeblina(sim) {
   const { neblina, mapa, celulaVisao, raioVisao } = sim;
   const largura = mapa.largura;
+  const habilidades = habilidadesDe(sim);
   for (let i = 0; i < sim.capacidade; i++) {
     // neutral entities and kinds without sight (piles, sparks) see nothing
-    const vivo = sim.ativo[i] === 1 && sim.time[i] !== DONO_NEUTRO && sim.tipos[sim.tipo[i]].visao > 0;
+    const t = sim.tipo[i];
+    const visao = sim.tipos[t].visao;
+    const vivo = sim.ativo[i] === 1 && sim.time[i] !== DONO_NEUTRO && visao > 0;
     const celula = vivo ? (sim.y[i] >> FP_BITS) * largura + (sim.x[i] >> FP_BITS) : -1;
-    if (celula === celulaVisao[i]) continue;
+    const raio = vivo ? Math.min(MAX_RAIO, visao + (habilidades[t] ? visaoExtraDe(sim, i) : 0)) : 0;
+    if (celula === celulaVisao[i] && (!vivo || raio === raioVisao[i])) continue;
     const time = sim.time[i];
     if (celulaVisao[i] >= 0) carimbar(neblina, mapa, time, celulaVisao[i], raioVisao[i], -1);
     if (vivo) {
-      const raio = sim.tipos[sim.tipo[i]].visao;
       carimbar(neblina, mapa, time, celula, raio, 1);
       raioVisao[i] = raio;
     }

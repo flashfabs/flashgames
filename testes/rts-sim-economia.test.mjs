@@ -82,6 +82,7 @@ test('a harvester loads at a pile, carries to the depot and delivers 100 Carga a
   assert.ok(descargas.every(e => e[E_ARG] === 100));
   assert.equal(cargaDe(sim, 0), 1500 + 100 * descargas.length);
   assert.ok(sim.viagens[g] >= 2);
+  assert.equal(sim.experiencia[g], sim.viagens[g], 'every trip is a point of harvester veterancy');
   let restante = 0;
   for (const p of slotsDo(sim, 'pilha')) if (sim.no[p] === 0) restante += sim.carga[p];
   assert.equal(restante, 4500 - 100 * descargas.length - (sim.carga[g] > 0 ? sim.carga[g] : 0), 'what left the node is in the depot or in the harvester');
