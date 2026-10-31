@@ -87,6 +87,7 @@ Rodam só quando o Victor pedir, uma por vez, com o Mac sem outras sessões pesa
 - Bateria de teclas no Safari e no Chrome do Mac ([roteiro](roteiro-medicoes.md), Partes 1 e 2).
 - Referência de 60 qps no Metal do M5 Pro: `rts-desempenho` em 4K com 2.000 unidades no Chrome e o passo da simulação limpo, sem outras sessões rodando (critérios da E1).
 - Pavio com 8 jogadores (`npx playwright test testes/e2e/desempenho.spec.mjs --project=desempenho --workers=1`), cujos limites são do Mac.
+- Lockstep com o Safari 26 de verdade: abrir no Safari o link da sala do protótipo `prototipos/rts-lockstep/` criada no Chrome do Mac e jogar alguns minutos com o robô ligado, conferindo no painel do anfitrião que as somas comparadas sobem e as dessincronias ficam em 0 (o WebKit do Playwright no Windows não tem WebRTC, e no Mac rodou 1 minuto); se der, a rodada inteira de 10 minutos com o WebKit do Playwright no Mac ([README do protótipo](../../prototipos/rts-lockstep/README.md)).
 
 ## Critérios por etapa
 
@@ -144,7 +145,7 @@ Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, o
 | Testes de regra: carga derramada, saturação, vento, poste, lotação | verdes no `npm test` | `rts-motor-economia` | pendente |
 | Testes de regra: matriz de dano, veterania, pesquisas, religar e gatilhos | verdes no `npm test` | `rts-motor-combate` | pendente |
 | Fatia cinza de ponta a ponta | começar, coletar, construir, produzir, lutar, vitória e derrota verdes no `rts/base` com o gancho `window.__rts` (`?teste=1`) | `rts-qualidade` | pendente |
-| Spike de lockstep | 10 minutos sem dessincronia entre Chrome e Firefox, mensagens abaixo de 16.000 bytes | `rts-rede` | pendente |
+| Spike de lockstep | 10 minutos sem dessincronia entre Chrome e Firefox, mensagens abaixo de 16.000 bytes | `rts-rede` | feito em 31/10/2026: 10 minutos de jogo no PC com 4 páginas (Chromium 153 e Firefox 155, duas de cada), atraso artificial ligado, 1.812 somas por subsistema comparadas e 0 dessincronias, maior mensagem de 15.660 bytes, turnos acima de 16.000 fatiados (seção F9); WebKit 26.6 do Playwright só no Mac, 1 minuto sem dessincronia; Safari de verdade com o Victor |
 | Formato de comando congelado | `VERSAO_COMANDOS` 1 depois do spike | `rts-motor-economia`, depois da `rts-rede` | pendente |
 | Briefs | 33 aprovados no checklist de originalidade, sem lembrança específica de outro jogo na revisão | `rts-design`; a revisão por quem jogou o jogo que inspirou o projeto depende do Victor achar a pessoa | pendente: 37 briefs escritos com o checklist preenchido no que depende da `rts-design`; as duas revisões humanas esperam o Victor (convite pronto, seção F5) |
 | Kit cinza | todas as unidades e construções da fase 1 em cinza procedural, com manifesto e procedência | `rts-arte` | pendente |
@@ -324,6 +325,25 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 - 30/10/2026: página de diagnóstico publicada como rascunho na Netlify para os amigos (seção Onde estamos).
 - Pendente: as respostas dos amigos pela página, as do roteiro e as medições que esperam o Mac.
 
-### F4, F6 e F9
+### F9 Rede (`rts-rede`)
 
-A F9 (`rts-rede`) abre na onda 2, com o spike curto de lockstep; a F4 e a F6 abrem na onda 3.
+- 31/10/2026, spike S7: [protótipo de lockstep](../../prototipos/rts-lockstep/README.md) sobre a sala de `site/js/sala.js`, sem alterá-la. O anfitrião é o relógio e o retransmissor: fecha um turno de 100 ms (3 passos) com os comandos que chegaram, manda o que chegou atrasado para o próximo turno aberto, carimba o passo, recusa comando com jogador falso ou `seq` repetido e manda o pacote a todos pelo canal confiável; cada página roda o turno n só com o pacote n. A cada 30 passos cada membro manda a soma por subsistema, que o anfitrião compara com a sua e usa como aviso de progresso (para de fechar turnos com um membro 5 s atrás). Mensagem de 16.000 bytes ou mais vai em fatias.
+- O rascunho do C16 (mensagens `inicio`, `pronto`, `cmd`, `turno`, `soma`, `dessinc` e `fatia`, com `VERSAO_LOCKSTEP` 1) e a conferência do envelope do C1 estão no README do protótipo. A rede confere o envelope, não os tipos: tipo novo atravessa sem mudar o protocolo e todas as simulações descartam igual o que não conhecem.
+- Testes: `testes/rts-lockstep.test.mjs` no `npm test` (envelope, fatias, regras do anfitrião, 400 turnos em memória com anfitrião e 3 membros em links com atraso aleatório e uma dessincronia de propósito achada pelo subsistema) e a rodada entre motores `prototipos/rts-lockstep/lockstep.spec.mjs`, fora da suíte, com configuração própria.
+- Envelope: mandado à `rts-motor-economia` em 31/10/2026 que o C1 pode congelar em `VERSAO_COMANDOS` 1, com um teto de 1.024 unidades por comando no `comandoValido` antes (hoje ele aceita até 65.536, cerca de 720 KB de JSON num comando); tipos novos sobem a `VERSAO_SIMULACAO`, não a de comandos.
+
+| Medição | Máquina e navegadores | Resultado | Fonte |
+| --- | --- | --- | --- |
+| 10 minutos de jogo com 4 páginas, 1.000 unidades, robô a 3 comandos/s por página com rajadas de 3 comandos de 1.024 unidades, atraso artificial de 60 a 100 ms com 1% de soluços de 250 ms, atraso de entrada de 2 turnos | PC da RTX 4090: Chromium 153 (anfitrião), Firefox 155, Chromium 153, Firefox 155 | 6.044 turnos, 1.812 somas comparadas, 0 dessincronias, as 604 somas comuns às 4 páginas iguais; 7.426 comandos, 0 recusados; 3.757 dos 5.605 dos membros (67%) chegaram depois de o turno pedido fechar e rodaram no seguinte | execução `20261031-001806`, `-g inteiro` |
+| Bytes por turno, do anfitrião para cada membro | idem | turno vazio 29; mediana 126, p95 443, máximo 46.823 (fatiado); média 459 bytes, 4,6 KB/s por membro com as rajadas; 69 turnos fatiados; maior mensagem 15.660 bytes | idem |
+| Bytes de cada membro para o anfitrião | idem | comando com mediana de 117 bytes por envio, soma de 101 bytes por segundo, cerca de 1,2 KB/s com as rajadas | idem |
+| Latência do comando, de emitir até rodar | idem | anfitrião mediana 159 ms, p95 162; membros mediana 218 a 219 ms, p95 285 a 294, máximo 540 | idem |
+| Turno no Worker (3 passos com 1.000 unidades) | idem | mediana de 4 a 5 ms, p95 de 8 a 10, máximo 28 | idem |
+| 1 minuto, Chromium e WebKit | Mac, Chromium 153 e WebKit 26.6 do Playwright | 63 somas comparadas, 0 dessincronias, 4 turnos fatiados; latência do membro WebKit com mediana 219 ms e p95 313 | `-g curto` no Mac |
+| WebKit no Windows | PC, WebKit 26.6 do Playwright | sem `RTCPeerConnection`: fica de fora no PC | idem |
+
+Pendências da F9: o Safari de verdade (Victor, em "Medições que esperam o Mac"); rede de verdade entre máquinas; e, na E8, atraso de entrada adaptativo, relatório de dessincronia, reconexão por estado em pedaços, regra de queda (D26), sucessão do anfitrião e uma mensagem de turno no Worker do jogo.
+
+### F4 e F6
+
+A F4 e a F6 abrem na onda 3.
