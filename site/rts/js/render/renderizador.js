@@ -9,13 +9,14 @@ import { criarBackendWebGL2, FLOATS_QUADRO, INICIO_CORES_QUADRO } from './backen
 import { pxPorCelula, escolherNivel, mundoParaTela, telaParaMundo, areaVisivel } from './projecao.js';
 import { criarControleDeEscala, DEGRAUS } from './escala.js';
 import { criarFolhas } from './sprites.js';
-import { criarMontagemUnidades, aparenciasDosTipos, CATEGORIA } from './unidades.js';
+import { criarMontagemUnidades, aparenciasDosTipos } from './unidades.js';
 import { criarEfeitos, EFEITO } from './efeitos.js';
 import { criarRelevo, limitesPorCelula } from './relevo.js';
-import { soloDoMapa, tabelaDeSolos, LADRILHO_BASE, prefixoLadrilho } from './solos.js';
+import { soloDoMapa, tabelaDeSolos, mascaraDeAgua, LADRILHO_BASE, prefixoLadrilho } from './solos.js';
 import { carregarManifesto, lerManifestoTerreno, carregarImagem } from '../ativos/manifesto.js';
 import { carregarPrototipo } from '../ativos/atlas.js';
 import { carregarIndice } from '../ativos/indice.js';
+import { CATEGORIA } from '../sim/contratos.js';
 
 export { EFEITO };
 
@@ -223,7 +224,8 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
      * @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array, nivel?: Uint8Array }} mapa
      */
     definirMapa(mapa) {
-      relevo = criarRelevo(mapa, projecao);
+      const solo = soloDoMapa(mapa);
+      relevo = criarRelevo(mapa, projecao, mascaraDeAgua(solo.grade, solo.nomes));
       const k = projecao.celulasPorMetroDeAltura;
       const alcanceSol = projecao.sol[2] > 0 ? relevo.alturaMaxima / ((projecao.sol[2] / Math.hypot(projecao.sol[0], projecao.sol[1])) * projecao.metrosPorCelula) : 0;
       const limites = limitesPorCelula(mapa, relevo.niveis, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
@@ -241,7 +243,6 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
       mapaAltura = mapa.altura;
       areaConstrucao = null;
       camera.relevo = relevo;
-      const solo = soloDoMapa(mapa);
       nomesSolos = solo.nomes;
       backend.definirSolo(solo.grade);
       atualizarSolos();

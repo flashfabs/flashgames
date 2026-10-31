@@ -85,7 +85,7 @@ vec3 ladrilho(uint s, vec2 w) {
 // The four cells around the point blend with sharpened bilinear weights over a noisy border; one tile read where
 // they agree, which is most of the map.
 vec3 espalhar(vec2 w) {
-  vec2 q = w - 0.5 + (vec2(ruido(w * 1.7), ruido(w * 1.7 + 7.3)) - 0.5) * 0.7;
+  vec2 q = w - 0.5 + (vec2(ruido(w * 1.3), ruido(w * 1.3 + 7.3)) - 0.5) * 0.85 + (vec2(ruido(w * 4.1 + 3.1), ruido(w * 4.1 + 9.7)) - 0.5) * 0.3;
   ivec2 c = ivec2(floor(q));
   vec2 f = smoothstep(0.25, 0.75, fract(q));
   uint s00 = soloEm(c), s10 = soloEm(c + ivec2(1, 0)), s01 = soloEm(c + ivec2(0, 1)), s11 = soloEm(c + ivec2(1, 1));

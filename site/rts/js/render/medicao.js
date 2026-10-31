@@ -4,8 +4,7 @@
 // screen, canvas, render scale, terrain mode and browser it was measured on, lands in window.__bench and on the page.
 // With &predios=N the battle gets N still buildings of a match around it (offices, garages, poles with cables, some
 // under construction), drawn through the same path as the simulation's buildings.
-import { FP, PASSOS_POR_SEGUNDO, MAX_SLOTS, idDe } from '../sim/contratos.js';
-import { CATEGORIA } from './unidades.js';
+import { FP, PASSOS_POR_SEGUNDO, MAX_SLOTS, BANDEIRA, CATEGORIA, idDe } from '../sim/contratos.js';
 
 // Kinds of the benchmark: the prototype's two units keep kinds 0 and 1, then buildings of a match.
 const TIPOS_BANCADA = [
@@ -20,8 +19,6 @@ const TIPOS_BANCADA = [
   { nome: 'pilha', categoria: CATEGORIA.RECURSO, asset: '', pegada: [2, 2] },
 ];
 const POSTE = 3;
-const EM_OBRA = 8;
-const ENERGIZADO = 16;
 
 /**
  * Still buildings on a grid ring around (cx, cy), in the snapshot's layout: every other one a pole, poles chained by
@@ -40,9 +37,9 @@ export function prediosDeBancada(n, cx, cy, dono) {
     campos.dono[k] = TIPOS_BANCADA[campos.tipo[k]].categoria === CATEGORIA.RECURSO ? 255 : dono;
     campos.x[k] = Math.round((cx + Math.cos(angulo) * raio) * FP);
     campos.y[k] = Math.round((cy + Math.sin(angulo) * raio) * FP);
-    campos.bandeiras[k] = ENERGIZADO;
+    campos.bandeiras[k] = BANDEIRA.ENERGIZADO;
     if (k % 5 === 4) {
-      campos.bandeiras[k] |= EM_OBRA;
+      campos.bandeiras[k] |= BANDEIRA.EM_OBRA;
       campos.progresso[k] = 40 + ((k * 37) % 200);
     }
     if (campos.tipo[k] === POSTE) {

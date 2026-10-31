@@ -8,12 +8,9 @@ import { FLOATS_INSTANCIA } from './backend-webgl2.js';
 import { criarOrdenacao } from './ordenacao.js';
 import { pontoDeEncaixe, empacotar } from './sprites.js';
 import { FLAGS_SPRITE } from './shaders.js';
-import * as contratos from '../sim/contratos.js';
+import { FP, PASSOS_POR_SEGUNDO, VISAO, MAX_SLOTS, SEM_ENTIDADE, BANDEIRA, CATEGORIA, slotDe } from '../sim/contratos.js';
 
-const { FP, PASSOS_POR_SEGUNDO, VISAO, MAX_SLOTS, SEM_ENTIDADE, slotDe } = contratos;
-// C2 v3 (kinds by category, construction and power bits); the fallbacks mirror it until v3 reaches rts/base
-export const CATEGORIA = contratos.CATEGORIA ?? Object.freeze({ UNIDADE: 0, PREDIO: 1, RECURSO: 2, FAISCA: 3, ESTRUTURA: 4 });
-const BANDEIRA = { EM_OBRA: 8, ENERGIZADO: 16, PRODUZINDO: 256, ...contratos.BANDEIRA };
+export { CATEGORIA };
 
 const PASSO_MS = 1000 / PASSOS_POR_SEGUNDO;
 const MARGEM_CELULAS = 2;

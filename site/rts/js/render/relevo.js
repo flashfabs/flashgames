@@ -43,11 +43,13 @@ function ondulacao(x, y, semente) {
 
 /**
  * Level each cell is drawn at: open cells keep their own; every 8-connected blocked region takes the highest level
- * among its cells and the open cells touching it.
+ * among its cells and the open cells touching it. Cells marked in `fixos` (blocked water) keep their own level and
+ * do not join a region.
  * @param {{ largura: number, altura: number, bloqueado: Uint8Array, nivel?: Uint8Array }} mapa
  * @param {number} nivelMaximo
+ * @param {Uint8Array | null} [fixos]
  */
-export function niveisDeDesenho(mapa, nivelMaximo) {
+export function niveisDeDesenho(mapa, nivelMaximo, fixos = null) {
   const { largura, altura, bloqueado } = mapa;
   const total = largura * altura;
   const nivel = mapa.nivel ?? new Uint8Array(total);
@@ -56,7 +58,7 @@ export function niveisDeDesenho(mapa, nivelMaximo) {
   const fila = new Int32Array(total);
   for (let i = 0; i < total; i++) saida[i] = Math.min(nivelMaximo, nivel[i]);
   for (let inicio = 0; inicio < total; inicio++) {
-    if (!bloqueado[inicio] || regiao[inicio] >= 0) continue;
+    if (!bloqueado[inicio] || regiao[inicio] >= 0 || (fixos && fixos[inicio])) continue;
     // flood the region, tracking the highest level seen in it and around it
     let n = 0;
     let maior = 0;
@@ -73,7 +75,7 @@ export function niveisDeDesenho(mapa, nivelMaximo) {
         if (x < 0 || y < 0 || x >= largura || y >= altura) continue;
         const w = y * largura + x;
         if (!bloqueado[w]) maior = Math.max(maior, saida[w]);
-        else if (regiao[w] < 0) {
+        else if (regiao[w] < 0 && !(fixos && fixos[w])) {
           regiao[w] = inicio;
           fila[n++] = w;
         }
@@ -88,11 +90,12 @@ export function niveisDeDesenho(mapa, nivelMaximo) {
  * Height field of a static map.
  * @param {{ largura: number, altura: number, bloqueado: Uint8Array, nivel?: Uint8Array }} mapa
  * @param {ReturnType<typeof import('./projecao.js').criarProjecao>} projecao
+ * @param {Uint8Array | null} [fixos] cells that keep their own level although blocked (water)
  */
-export function criarRelevo(mapa, projecao) {
+export function criarRelevo(mapa, projecao, fixos = null) {
   const { largura, altura, bloqueado } = mapa;
   const { nivelMaximo, metrosPorNivel } = projecao;
-  const niveis = niveisDeDesenho(mapa, nivelMaximo);
+  const niveis = niveisDeDesenho(mapa, nivelMaximo, fixos);
   const alturaMaxima = nivelMaximo * metrosPorNivel;
   const S = AMOSTRAS_POR_CELULA;
   const celula = (x, y) => Math.min(altura - 1, Math.max(0, y)) * largura + Math.min(largura - 1, Math.max(0, x));

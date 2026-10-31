@@ -14,6 +14,7 @@ export const SOLOS_PADRAO = Object.freeze([
   ['agua-rasa', [0.46, 0.62, 0.68]],
   ['agua-funda', [0.22, 0.36, 0.48]],
   ['rocha', [0.68, 0.64, 0.6]],
+  ['capim-alto', [0.72, 0.82, 0.52]],
 ]);
 const TINTAS = new Map(SOLOS_PADRAO);
 export const LADRILHO_BASE = 'terra-batida';
@@ -22,13 +23,14 @@ export const prefixoLadrilho = nome => `terreno-${nome}`;
 /**
  * Soil per cell and the soil names. A map with a soil layer (any nonzero cell, or a `solos` table) keeps it; a
  * generated map gets packed earth, grass in the mid relief, gravel on the high ground and rock on blocked cells.
- * @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array, nivel?: Uint8Array, solo?: Uint8Array, solos?: string[] }} mapa
+ * The soil table may hold names or the map's { nome, passagem, cobertura } entries.
+ * @param {{ largura: number, altura: number, bloqueado: Uint8Array, relevo: Uint8Array, nivel?: Uint8Array, solo?: Uint8Array, solos?: (string | { nome: string })[] }} mapa
  */
 export function soloDoMapa(mapa) {
   const total = mapa.largura * mapa.altura;
   const temCamada = mapa.solo && (mapa.solos?.length > 0 || mapa.solo.some(v => v !== 0));
   if (temCamada) {
-    const nomes = mapa.solos?.length ? mapa.solos.slice(0, MAX_SOLOS) : SOLOS_PADRAO.map(([nome]) => nome);
+    const nomes = mapa.solos?.length ? mapa.solos.slice(0, MAX_SOLOS).map(s => (typeof s === 'string' ? s : s.nome)) : SOLOS_PADRAO.map(([nome]) => nome);
     const grade = Uint8Array.from(mapa.solo, v => Math.min(v, nomes.length - 1));
     return { grade, nomes };
   }
@@ -43,6 +45,12 @@ export function soloDoMapa(mapa) {
     else grade[i] = indice('terra-batida');
   }
   return { grade, nomes };
+}
+
+/** Cells whose soil is water: blocked water stays at its own level instead of rising like rock. */
+export function mascaraDeAgua(grade, nomes) {
+  const agua = nomes.map(nome => /^agua/.test(nome));
+  return Uint8Array.from(grade, s => (agua[s] ? 1 : 0));
 }
 
 /**
