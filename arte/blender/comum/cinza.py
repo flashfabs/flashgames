@@ -296,7 +296,8 @@ def inserir_chassi(raiz):
 def destroco(pal, pai, comprimento, largura, semente):
     """Scorched ground and a few loose pieces, shown only in the wreck."""
     sorteio = random.Random(semente)
-    pecas = [m.cilindro("queimado", (0, 0, 0.01), max(comprimento, largura) * 0.62, 0.02, pal["fuligem"], pai, vertices=24, suave=False)]
+    # a modest scorch: a wide black disc read as a hole in the ground
+    pecas = [m.cilindro("queimado", (0, 0, 0.01), max(comprimento, largura) * 0.42, 0.02, pal["escuro"], pai, vertices=24, suave=False)]
     for k in range(5):
         angulo = sorteio.uniform(0, 2 * math.pi)
         raio = sorteio.uniform(0.5, 1.0) * max(comprimento, largura) * 0.55
@@ -471,7 +472,8 @@ def enquadrar_objetos(camera, objetos, margem=0.06):
     cena = bpy.context.scene
     xs, ys = [], []
     for obj in objetos:
-        if obj.type not in RENDERIZAVEIS or obj.hide_render or min(obj.matrix_world.to_scale()) <= 1e-6:
+        # hide_render still holds the previous layer's state when a layer frames itself, so only scale counts
+        if obj.type not in RENDERIZAVEIS or min(obj.matrix_world.to_scale()) <= 1e-6:
             continue
         for canto in obj.bound_box:
             ponto = world_to_camera_view(cena, camera, obj.matrix_world @ Vector(canto))

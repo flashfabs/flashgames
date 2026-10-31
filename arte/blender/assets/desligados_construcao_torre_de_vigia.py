@@ -20,7 +20,6 @@ def construir(ctx):
     pal = cinza.Paleta(ctx, "desligados")
     raiz = m.vazio("raiz")
     estragos = cinza.Estragos(raiz, 97)
-    m.caixa("chao", (0, 0, 0.03), (7.4, 7.4, 0.06), pal["terra"], raiz, 0.02)
     for k in range(8):
         angulo = 2 * math.pi * k / 8
         m.caixa(f"fardo{k}", (1.3 * math.cos(angulo), 1.3 * math.sin(angulo), 0.4), (0.9, 0.6, 0.7), pal["palha" if k % 2 else "madeira"], raiz, 0.05,

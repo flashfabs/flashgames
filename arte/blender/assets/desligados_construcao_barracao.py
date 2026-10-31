@@ -17,7 +17,6 @@ def construir(ctx):
     pal = cinza.Paleta(ctx, "desligados")
     raiz = m.vazio("raiz")
     estragos = cinza.Estragos(raiz, 83)
-    m.caixa("chao", (0, 0, 0.03), (11.4, 11.4, 0.06), pal["terra"], raiz, 0.02)
     esteios = estragos.grupo("esteios", (0, 0.6, 0.06), "parede")
     for x in (-4.4, -1.5, 1.5, 4.4):
         for y in (-3.6, 3.6):
