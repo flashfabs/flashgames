@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Escritório Regional (brief arte/briefs/religadores-construcao-escritorio-regional.md): the Religadores HQ,
 a two-storey bare-concrete office with vertical sun fins, a low shed with a roll-up door, a queue-number
-panel, rooftop water tank, exhaust fan, patched solar panels, a flag and the corner pole with transformer.
+panel of seven-segment digits, rooftop water tank, exhaust fan, patched solar panels, a flag and the corner pole with transformer.
 
 Layers: corpo (the building, lamps off) and luzes (only the lamps, windows and the number panel, cut out by
 the building), so the game switches the lights without new frames. States: ready with an 8-frame activity
@@ -9,8 +9,6 @@ loop, producing (door opening), damaged.
 """
 
 import math
-
-import bpy
 
 from comum import modelagem as m
 
@@ -37,26 +35,39 @@ DESCRICAO = {
         {"nome": "danificada", "camada": "corpo", "quadros": 1, "fps": 0, "laco": True},
         {"nome": "luzes", "camada": "luzes", "quadros": 4, "fps": 2, "laco": True},
     ],
-    "edicaoHumana": "nenhuma ainda; o painel usa a fonte padrão embutida no Blender",
+    "edicaoHumana": "nenhuma ainda; o painel de senha usa dígitos de 7 segmentos montados por script, sem fonte",
 }
 
 
-def _texto(nome, corpo, local, tamanho, mat, pai, camada=None):
-    curva = bpy.data.curves.new(nome, "FONT")
-    curva.body = corpo
-    curva.size = tamanho
-    curva.align_x = "CENTER"
-    curva.align_y = "CENTER"
-    curva.extrude = 0.01
-    obj = bpy.data.objects.new(nome, curva)
-    obj.location = local
-    obj.rotation_euler = (math.radians(90), 0, 0)
-    obj.data.materials.append(mat)
-    bpy.context.scene.collection.objects.link(obj)
-    obj.parent = pai
-    if camada:
-        obj["camada"] = camada
-    return obj
+# Segments lit for each digit, in the order a (top), b (upper right), c (lower right), d (bottom), e (lower left),
+# f (upper left), g (middle): the queue-number panel is drawn from boxes, so no font's glyphs end up in the art.
+SEGMENTOS = {
+    "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg",
+    "5": "acdfg", "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg",
+}
+
+
+def _mostrador(nome, centro, digitos, mat, pai, camada, altura=0.4, largura=0.22, espessura=0.05, passo=0.36):
+    """Seven-segment digits on a wall facing south (-y); returns, per digit, its segments by letter."""
+    x0, y, z = centro
+    meia_h, meia_w = altura / 2, largura / 2
+    posicoes = {
+        "a": ((0, meia_h), (largura, espessura)), "d": ((0, -meia_h), (largura, espessura)), "g": ((0, 0), (largura, espessura)),
+        "f": ((-meia_w, meia_h / 2), (espessura, meia_h)), "b": ((meia_w, meia_h / 2), (espessura, meia_h)),
+        "e": ((-meia_w, -meia_h / 2), (espessura, meia_h)), "c": ((meia_w, -meia_h / 2), (espessura, meia_h)),
+    }
+    resultado = []
+    for k in range(digitos):
+        cx = x0 + (k - (digitos - 1) / 2) * passo
+        resultado.append({letra: m.caixa(f"{nome}{k}{letra}", (cx + dx, y, z + dz), (w, 0.02, h), mat, pai, 0.0, camada=camada)
+                          for letra, ((dx, dz), (w, h)) in posicoes.items()})
+    return resultado
+
+
+def _mostrar(mostrador, numero):
+    for digito, segmentos in zip(f"{numero:0{len(mostrador)}d}", mostrador):
+        for letra, obj in segmentos.items():
+            obj.scale = (1, 1, 1) if letra in SEGMENTOS[digito] else (0, 0, 0)
 
 
 def construir(ctx):
@@ -106,7 +117,7 @@ def construir(ctx):
     painel = m.caixa("painel_senha", (-1.1, -6.12, 3.6), (2.2, 0.12, 0.7), escuro, raiz, 0.02)
     letreiro = m.caixa("letreiro", (-4.1, -6.12, 4.1), (3.4, 0.1, 0.45), cobalto, raiz, 0.02)
     m.caixa("letreiro_faixa", (-4.1, -6.18, 4.1), (3.0, 0.02, 0.12), branco, raiz, 0.0)
-    numero = _texto("senha", "SENHA 042", (-1.1, -6.2, 3.6), 0.42, luz_painel, raiz, "luzes")
+    numero = _mostrador("senha", (-1.1, -6.2, 3.6), 3, luz_painel, raiz, "luzes")
     # shed: wide roll-up door with reflective edges
     porta = m.caixa("porta_enrolar", (3.6, -5.02, 2.0), (5.0, 0.08, 4.0), laranja, raiz, 0.0)
     m.caixa("caixa_porta", (3.6, -5.1, 4.2), (5.4, 0.3, 0.4), concreto, raiz, 0.02)
@@ -160,7 +171,7 @@ def posar(ctx, modelo, animacao, quadro):
     porta = modelo["porta"]
     porta.scale = (1.0, 1.0, max(0.02, 1.0 - 0.95 * abertura))
     porta.location = (3.6, -5.02, 4.0 - 2.0 * porta.scale[2])
-    modelo["numero"].data.body = f"SENHA {42 + (quadro if animacao == 'luzes' else 0):03d}"
+    _mostrar(modelo["numero"], 42 + (quadro if animacao == "luzes" else 0))
     # damage: torn fins, broken windows, a fallen piece of marquee, a crooked sign and rubble
     for k, brise in enumerate(modelo["brises"]):
         brise.scale = (1, 1, 0.0 if danificada and k in (2, 3, 7) else 1.0)
