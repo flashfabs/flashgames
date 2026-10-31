@@ -119,7 +119,7 @@ const textosDosAvisos = new Map();
 if (arquivosDaPartida) {
   const grupos = nomesDosGrupos(arquivosDaPartida.missao);
   for (const gatilho of arquivosDaPartida.missao.gatilhos ?? []) {
-    for (const acao of gatilho.faz ?? []) if (acao.faz === 'aviso' && acao.texto) textosDosAvisos.set(grupos.indexOf(acao.grupo), acao.texto);
+    for (const acao of gatilho.acoes ?? []) if (acao.faz === 'aviso' && acao.texto) textosDosAvisos.set(grupos.indexOf(acao.grupo), acao.texto);
   }
 }
 
