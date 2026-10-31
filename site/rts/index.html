@@ -4,13 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Protótipo RTS 4K</title>
+  <title>RTS da Salinha</title>
   <link rel="stylesheet" href="css/rts.css">
 </head>
 <body>
   <div id="palco"><canvas id="tela" tabindex="0" aria-label="Campo de batalha"></canvas><svg id="sobreposicao" aria-hidden="true"></svg><div id="caixa-selecao" hidden></div></div>
-  <aside id="painel">
-    <div><b>Protótipo RTS 4K</b> · WebGL2 · simulação em worker</div>
+
+  <header id="topo" class="hud">
+    <div class="recurso" data-recurso="carga" title="Carga"><span class="recurso-rotulo" data-texto="hud.carga"></span><b data-valor>0</b></div>
+    <div class="recurso" data-recurso="lotacao" title="Lotação"><span class="recurso-rotulo" data-texto="hud.lotacao"></span><b data-valor>0/60</b></div>
+    <div class="topo-estado" role="status" aria-live="polite"></div>
+    <div id="utilidades" class="comandos-linha"></div>
+    <button type="button" id="botao-menu" class="botao"><span data-texto="menu.titulo"></span><kbd>F10</kbd></button>
+  </header>
+
+  <ol id="alertas" aria-live="polite" aria-label="Alertas"></ol>
+
+  <footer id="base" class="hud">
+    <div id="area-mapa">
+      <canvas id="minimapa" width="440" height="440" aria-label="Minimapa"></canvas>
+      <div id="atalhos-mapa">
+        <button type="button" class="botao" data-atalho="ocioso" disabled><span data-rotulo></span><kbd>.</kbd></button>
+        <button type="button" class="botao" data-atalho="alerta" disabled><span data-texto="hud.ultimo_alerta"></span><kbd>V</kbd></button>
+        <button type="button" class="botao" data-atalho="base"><span data-texto="hud.base"></span><kbd>B</kbd></button>
+      </div>
+    </div>
+    <section id="selecao" aria-label="Seleção"></section>
+    <nav id="comandos" aria-label="Comandos"></nav>
+  </footer>
+
+  <aside id="painel" hidden>
+    <div><b>RTS</b> · WebGL2 · simulação em worker</div>
     <div data-campo="fps">…</div>
     <div data-campo="cpu">…</div>
     <div data-campo="sim">…</div>
@@ -19,10 +43,65 @@
     <div data-campo="soma">…</div>
     <div data-campo="clique">clique até a marca: …</div>
     <div data-campo="placa">…</div>
-    <div class="ajuda">arrastar: selecionar · duplo clique: todos do tipo · botão direito ou dois dedos: ordem · A, M, R e clique: atacar-mover, mover, patrulhar · S parar · H segurar · Shift: enfileirar · Ctrl ou Option e número: guardar grupo · setas, bordas, Espaço e arrastar: câmera · pinça, roda, + e −: zoom · P: pausa</div>
   </aside>
-  <nav id="comandos" aria-label="Comandos"></nav>
-  <canvas id="minimapa" width="440" height="440"></canvas>
+
+  <div id="aviso-centro" role="status" aria-live="polite" hidden></div>
+
+  <div id="inicio" class="cortina" hidden>
+    <div class="cortina-caixa">
+      <h1>Apagão</h1>
+      <p class="cortina-sub">Fatia cinza · caixa de areia</p>
+      <button type="button" class="botao botao-grande" id="botao-comecar" disabled><span data-texto="menu.carregando"></span></button>
+      <p class="cortina-ajuda">Arraste para selecionar · clique direito ou dois dedos para dar ordem · Q W E R A S D F na grade · B base · . coletor ocioso · V último alerta · P pausa · F10 menu</p>
+    </div>
+  </div>
+
+  <div id="menu" class="cortina" role="dialog" aria-modal="true" aria-labelledby="menu-titulo" hidden>
+    <div class="cortina-caixa">
+      <h2 id="menu-titulo" data-texto="menu.titulo"></h2>
+      <button type="button" class="botao botao-grande" data-menu="continuar"><span data-texto="menu.continuar"></span></button>
+      <fieldset class="menu-velocidade">
+        <legend data-texto="menu.velocidade"></legend>
+        <button type="button" class="botao" data-velocidade="75">75%</button>
+        <button type="button" class="botao" data-velocidade="100">100%</button>
+        <button type="button" class="botao" data-velocidade="125">125%</button>
+      </fieldset>
+      <button type="button" class="botao" data-menu="som" aria-pressed="true"><span data-texto="menu.som"></span></button>
+      <button type="button" class="botao" data-menu="tela-cheia">Tela cheia</button>
+      <button type="button" class="botao" data-menu="encerrar"><span data-texto="fim.encerrar"></span></button>
+      <button type="button" class="botao" data-menu="recomecar"><span data-texto="menu.recomecar"></span></button>
+      <a class="botao" href="/" data-menu="sair"><span data-texto="menu.sair"></span></a>
+    </div>
+  </div>
+
+  <div id="fim" class="cortina" role="dialog" aria-modal="true" aria-labelledby="fim-titulo" hidden>
+    <form class="cortina-caixa" id="fim-formulario">
+      <h2 id="fim-titulo"></h2>
+      <p class="cortina-sub" data-fim="tempo"></p>
+      <fieldset class="fim-pergunta">
+        <legend data-texto="fim.diversao"></legend>
+        <div class="fim-opcoes">
+          <label><input type="radio" name="diversao" value="1"><span>1</span></label>
+          <label><input type="radio" name="diversao" value="2"><span>2</span></label>
+          <label><input type="radio" name="diversao" value="3"><span>3</span></label>
+          <label><input type="radio" name="diversao" value="4"><span>4</span></label>
+          <label><input type="radio" name="diversao" value="5"><span>5</span></label>
+        </div>
+      </fieldset>
+      <fieldset class="fim-pergunta">
+        <legend data-texto="fim.jogaria"></legend>
+        <div class="fim-opcoes">
+          <label><input type="radio" name="jogaria" value="sim"><span data-texto="fim.sim"></span></label>
+          <label><input type="radio" name="jogaria" value="nao"><span data-texto="fim.nao"></span></label>
+        </div>
+      </fieldset>
+      <label class="fim-comentario"><span data-texto="fim.comentario"></span><textarea name="comentario" rows="3" maxlength="2000"></textarea></label>
+      <button type="submit" class="botao botao-grande" data-fim="baixar"><span data-texto="fim.baixar"></span></button>
+      <p class="cortina-ajuda" data-fim="estado" role="status" aria-live="polite"></p>
+      <button type="button" class="botao" data-fim="recomecar"><span data-texto="menu.recomecar"></span></button>
+    </form>
+  </div>
+
   <pre id="resultado" hidden></pre>
   <script type="module" src="js/principal.js"></script>
 </body>

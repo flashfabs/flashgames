@@ -34,6 +34,7 @@
     "hud.rajada_em": "Rajada de vento em {s} s",
     "hud.ataque_em": "Ataque em {s} s",
     "hud.ondas": "Ondas: {n} de {total}",
+    "hud.objetivos": "Objetivos",
     "hud.fora_da_area": "Fora da rede",
     "hud.terreno_improprio": "Terreno impróprio para construir",
     "hud.celula_nao_ventosa": "Precisa de um ponto de vento",
