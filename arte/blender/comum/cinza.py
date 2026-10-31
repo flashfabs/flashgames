@@ -40,12 +40,16 @@ LUZ = (240, 232, 214)
 
 
 def cinza_srgb(cor, faccao):
-    """sRGB 0..255 grey (with the faction tint) of a hex colour or an sRGB 0..255 triple."""
+    """sRGB 0..255 grey (with the faction tint) of a hex colour or an sRGB 0..255 triple.
+
+    Light and mid colours land between about 115 and 225, so the clay keeps reading against the mid-toned ground
+    under the low sun (a first try at 40 + 0.72 luma came out nearly black on screen); dark accents (tyres, glass,
+    iron) stay below 75."""
     if isinstance(cor, str):
         cor = cor.lstrip("#")
         cor = [int(cor[i:i + 2], 16) for i in (0, 2, 4)]
     luma = 0.299 * cor[0] + 0.587 * cor[1] + 0.114 * cor[2]
-    valor = 40 + 0.72 * luma
+    valor = 70 + 0.68 * luma if luma >= 64 else 30 + 0.7 * luma
     return tuple(min(255.0, valor * t) for t in TINTAS[faccao])
 
 
@@ -231,13 +235,20 @@ def prender_partes(armacao, partes):
         infantaria.prender(obj, armacao, osso)
 
 
-def pessoa(ctx, pal, pai, nome, local, giro=0.0, pose="parado", escala=1.1, **roupa):
-    """A static figure (a crew member, a rider, people on a bench): the shared body held in one pose."""
+def pessoa(ctx, pal, pai, nome, local, giro=0.0, pose="parado", escala=1.1, acessorios=None, **roupa):
+    """A figure held in a pose (a crew member, a rider, people on a bench): the shared body without actions.
+    acessorios(parte, raiz) may add parts bound to bones; returns (root, armature) for posar_pessoa."""
     raiz, armacao, parte, partes = corpo(ctx, pal, pai, nome, escala, local=local, giro=giro, **roupa)
+    if acessorios:
+        acessorios(parte, raiz)
     prender_partes(armacao, partes)
-    angulos, z, x = infantaria.POSES[pose](0, 1) if isinstance(pose, str) else pose
+    posar_pessoa(armacao, pose)
+    return raiz, armacao
+
+
+def posar_pessoa(armacao, pose, quadro=0, quadros=1):
+    angulos, z, x = infantaria.POSES[pose](quadro, quadros) if isinstance(pose, str) else pose
     infantaria.pose(armacao, angulos, z, x)
-    return raiz
 
 
 def posar_infantaria(modelo, animacao, quadro):
@@ -261,6 +272,16 @@ def rodas(prefixo, eixos, bitola, raio, largura, pal, pai, cubo=True):
 def chassi(raiz):
     """Vehicles hang their parts on this empty, so the wreck can tilt them while the factory turns the root."""
     return m.vazio("chassi", (0, 0, 0), raiz)
+
+
+def inserir_chassi(raiz):
+    """Put a chassis empty between the root and its children (models built without one, like the style-gate pieces)."""
+    filhos = list(raiz.children)
+    vazio = chassi(raiz)
+    for filho in filhos:
+        # the chassis sits at the root's origin with no turn, so local placements stay valid
+        filho.parent = vazio
+    return vazio
 
 
 def destroco(pal, pai, comprimento, largura, semente):

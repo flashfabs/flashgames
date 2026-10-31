@@ -47,8 +47,9 @@ for (const pasta of PASTAS_DA_ARTE) {
     const manifesto = JSON.parse(readFileSync(caminho, 'utf8'));
     const relativo = relative(pastaAssets, caminho).split('\\').join('/');
     if (manifesto.fase && manifesto.paginas && !manifesto.asset) {
+      // "arquivo", not "manifesto": the viewer lists every "manifesto" of the index as a sprite sheet
       pacotes[manifesto.fase] = {
-        manifesto: relativo,
+        arquivo: relativo,
         bytes: bytesDasPaginas(manifesto.paginas, join(caminho, '..')),
         bytesGpuEstimados: Object.fromEntries(Object.entries(manifesto.orcamento).map(([nivel, o]) => [nivel, o.bytesGpuEstimados])),
         camadas: Object.fromEntries(Object.entries(manifesto.orcamento).map(([nivel, o]) => [nivel, o.camadas])),
