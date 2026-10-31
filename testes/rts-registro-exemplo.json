@@ -1182,6 +1182,7 @@
   {
    "passo": 20700,
    "no": "cemiterio-sudoeste",
+   "cemiterio": 1,
    "tipo": "noEsgotado"
   },
   {

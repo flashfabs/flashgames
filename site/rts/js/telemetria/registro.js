@@ -159,7 +159,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
     esgotadasPorNo[indiceNo]++;
     if (esgotadasPorNo[indiceNo] !== pilhasPorNo[indiceNo]) return;
     cemiteriosEsgotados.push({ no: nos[indiceNo].id, passo: t });
-    anotar('noEsgotado', { passo: t, no: nos[indiceNo].id });
+    anotar('noEsgotado', { passo: t, no: nos[indiceNo].id, cemiterio: nos[indiceNo].id.startsWith('cemiterio') ? 1 : 0 });
   }
 
   const ataqueDe = indice => {
