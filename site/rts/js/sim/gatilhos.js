@@ -9,7 +9,7 @@
 // 2; normal by default):
 //   { "versao": 1, "id": "caixa-de-areia", "mapa"?, "titulo"?, "jogadores"? (read by the match setup),
 //     "objetivos": [{ "id": "montar", "texto": "<C11 id>", "tipo": "principal" | "opcional" }],
-//     "areas": { "<nome>": { "x", "y", "largura", "altura" } }, "pontos": { "<nome>": [x, y] },
+//     "areas": { "<nome>": { "x", "y", "largura", "altura" } | { "x", "y", "raio" } }, "pontos": { "<nome>": [x, y] },
 //     "rotas": { "<nome>": [[x, y], ...] },          (looked up in the mission first, then in the map's places)
 //     "grupos": { "<nome>": { "etiquetas": ["<rotulo>", ...] } },   (unions of labels under one name; a plain list too)
 //     "variaveis": [{ "nome", "valor" }],            (or { "<nome>": <valor> })
@@ -26,6 +26,9 @@
 //   vida { grupo, maximoPorcento } some live member at or below that health; religando { grupo, jogador? };
 //   recursos { jogador | no, minimo?, maximo? } a player's Carga or what a resource node has left;
 //   coletores { jogador, minimo | perdidosMinimo } harvesters working, or lost in combat; objetivo { objetivo, estado };
+//   atingido { grupo, segundos } some member took damage in the last N s; perto { grupo, jogador, celulas, minimo? }
+//   units of the player within N cells of some member; religacao { grupo, jogador?, minimoPorcento? | faltamSegundos? }
+//   how far some member's re-powering went;
 //   disparou and gatilho { gatilho }; variavel { nome, minimo?,
 //   maximo?, igual? }; parado { jogador, segundos } without a command; visto { jogador, area } some cell visible now;
 //   pesquisa { jogador, pesquisa }; dificuldade { minimo?, maximo? }.
@@ -35,8 +38,12 @@
 //   a group, SURGIMENTO per unit); ordenar { grupo, ordem: mover | atacarMovendo | patrulhar | parar | segurar,
 //   rota | area | ponto, fila? } (fila 1 queues after what the group is doing); atacar { grupo, alvo }; variavel { nome, valor | somar }; cronometro { nome, segundos |
 //   parar }; liberar | bloquear { jogador, tipos }; revelar { jogador, area }; recursos { jogador, somar };
-//   dono { grupo, jogador }; destruir { grupo }; gatilho { gatilho, ativo }; religavel { grupo, segundos };
+//   dono { grupo, jogador }; destruir { grupo }; gatilho { gatilho, ativo }; religavel { grupo, segundos,
+//   por?: religa | reparo };
 //   pesquisa { jogador, pesquisa }; veterania { grupo, nivel }; luz { cena }; camera { area | ponto };
+//   empacotar { grupo, em: <unit kind>, segundos } each building of the group becomes, after N s standing still, a unit
+//   of that kind with the same label; desempacotar { grupo, area?, segundos } packed members (inside the area) turn
+//   back into their building after N s (empacotar.js);
 //   vitoria { jogador }; derrota { jogador }.
 // Events (C3): MENSAGEM_MISSAO arg = index in textosDaMissao(missao), x and y at the area's centre (0 without one);
 // OBJETIVO arg = objective index * 4 + state (1 active, 2 done, 3 failed); AVISO_ATAQUE and ONDA arg = index in
@@ -46,9 +53,11 @@ import { criarEntidade, emitirEvento, matar, slotVivo, idDoSlot } from './entida
 import { ordenarGrupo, ordenarPatrulha, limparOrdens } from './ordens.js';
 import { celulaVisivel } from './neblina.js';
 import * as estado from './estado.js';
-import { emitirEventoNoPonto } from './combate.js';
+import { emitirEventoNoPonto, atingidoEm } from './combate.js';
 import { definirVeterania } from './veterania.js';
-import { trocarDono, sendoReligada, definirTempoReligar, avancarReligar } from './religar.js';
+import { trocarDono, sendoReligada, definirTempoReligar, avancarReligar, progressoReligar, POR } from './religar.js';
+import { avancarReparo } from './reparo.js';
+import { iniciarEmpacotar, iniciarDesempacotar, avancarEmpacotar, faseDe, FASE } from './empacotar.js';
 import { pesquisaFeita, concluirPesquisa, liberarTipos, avancarPesquisas } from './pesquisas.js';
 
 export const VERSAO_MISSAO = 1;
@@ -247,11 +256,18 @@ export function compilarMissao(missao, contexto) {
       erros.push(`${onde}: área ${nome} não existe na missão nem no mapa`);
       return null;
     }
+    if (a.raio !== undefined) {
+      // a disc of cells around (x, y)
+      const cx = numero(`${onde}.x`, a.x, 0, largura - 1);
+      const cy = numero(`${onde}.y`, a.y, 0, altura - 1);
+      const raio = numero(`${onde}.raio`, a.raio, 0, 64);
+      return { cx0: Math.max(0, cx - raio), cy0: Math.max(0, cy - raio), cx1: Math.min(largura, cx + raio + 1), cy1: Math.min(altura, cy + raio + 1), ccx: cx, ccy: cy, raio, x: cx * FP + (FP >> 1), y: cy * FP + (FP >> 1) };
+    }
     const x0 = numero(`${onde}.x`, a.x, 0, largura - 1);
     const y0 = numero(`${onde}.y`, a.y, 0, altura - 1);
     const x1 = x0 + numero(`${onde}.largura`, a.largura, 1, largura - x0);
     const y1 = y0 + numero(`${onde}.altura`, a.altura, 1, altura - y0);
-    return { cx0: x0, cy0: y0, cx1: x1, cy1: y1, x: ((x0 + x1) * FP) >> 1, y: ((y0 + y1) * FP) >> 1 };
+    return { cx0: x0, cy0: y0, cx1: x1, cy1: y1, ccx: 0, ccy: 0, raio: -1, x: ((x0 + x1) * FP) >> 1, y: ((y0 + y1) * FP) >> 1 };
   };
   const ponto = (onde, nome) => {
     const p = procurarLugar('pontos', nome);
@@ -358,6 +374,21 @@ export function compilarMissao(missao, contexto) {
         return { se: 'vida', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(c)), porcento: numero(`${onde}.maximoPorcento`, c.maximoPorcento, 0, 100) };
       case 'religando':
         return { se: 'religando', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(c)), jogador: c.jogador === undefined ? -1 : jogador(`${onde}.jogador`, c.jogador) };
+      case 'atingido':
+        return { se: 'atingido', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(c)), passos: segundos(`${onde}.segundos`, c.segundos) };
+      case 'perto': {
+        const celulas = numero(`${onde}.celulas`, c.celulas, 0, 64);
+        return { se: 'perto', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(c)), jogador: jogador(`${onde}.jogador`, c.jogador), alcance: celulas * FP, minimo: opcional(`${onde}.minimo`, c.minimo, 1, 1) };
+      }
+      case 'religacao':
+        if ((c.minimoPorcento === undefined) === (c.faltamSegundos === undefined)) erros.push(`${onde}: minimoPorcento ou faltamSegundos`);
+        return {
+          se: 'religacao',
+          grupo: grupo(`${onde}.grupo`, nomeDoGrupo(c)),
+          jogador: c.jogador === undefined ? -1 : jogador(`${onde}.jogador`, c.jogador),
+          porcento: c.minimoPorcento === undefined ? -1 : numero(`${onde}.minimoPorcento`, c.minimoPorcento, 0, 100),
+          faltam: c.faltamSegundos === undefined ? -1 : segundos(`${onde}.faltamSegundos`, c.faltamSegundos),
+        };
       case 'recursos':
         if (c.no !== undefined) return { se: 'recursosDoNo', no: indiceDoNo(`${onde}.no`, c.no), ...limites(onde, c) };
         return { se: 'recursos', jogador: jogador(`${onde}.jogador`, c.jogador), ...limites(onde, c) };
@@ -441,11 +472,16 @@ export function compilarMissao(missao, contexto) {
       case 'gatilho':
         return { faz: 'gatilho', gatilho: indiceDoGatilho(`${onde}.gatilho`, a.gatilho), ativo: a.ativo === false ? 0 : 1 };
       case 'religavel':
-        return { faz: 'religavel', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), passos: segundos(`${onde}.segundos`, a.segundos) };
+        if (a.por !== undefined && a.por !== 'religa' && a.por !== 'reparo') erros.push(`${onde}.por: religa ou reparo`);
+        return { faz: 'religavel', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), passos: segundos(`${onde}.segundos`, a.segundos), por: a.por === 'reparo' ? POR.REPARO : POR.RELIGA };
       case 'pesquisa':
         return { faz: 'pesquisa', jogador: jogador(`${onde}.jogador`, a.jogador), pesquisa: indiceDaPesquisa(`${onde}.pesquisa`, a.pesquisa) };
       case 'veterania':
         return { faz: 'veterania', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), nivel: numero(`${onde}.nivel`, a.nivel, 0, 3) };
+      case 'empacotar':
+        return { faz: 'empacotar', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), tipo: indiceDoTipo(`${onde}.em`, a.em), passos: segundos(`${onde}.segundos`, a.segundos) };
+      case 'desempacotar':
+        return { faz: 'desempacotar', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), area: a.area === undefined ? null : area(`${onde}.area`, a.area), passos: segundos(`${onde}.segundos`, a.segundos) };
       case 'luz':
         return { faz: 'luz', cena: cenas.indexOf(a.cena) };
       case 'camera':
@@ -562,11 +598,16 @@ function membros(sim, ex, grupo) {
   return lista;
 }
 
-const dentroDaArea = (sim, i, a) => {
-  const cx = sim.x[i] >> FP_BITS;
-  const cy = sim.y[i] >> FP_BITS;
-  return cx >= a.cx0 && cx < a.cx1 && cy >= a.cy0 && cy < a.cy1;
-};
+// whether cell (cx, cy) is in an area: its rectangle, or its disc
+function celulaNaArea(a, cx, cy) {
+  if (cx < a.cx0 || cx >= a.cx1 || cy < a.cy0 || cy >= a.cy1) return false;
+  if (a.raio < 0) return true;
+  const dx = cx - a.ccx;
+  const dy = cy - a.ccy;
+  return dx * dx + dy * dy <= a.raio * a.raio;
+}
+
+const dentroDaArea = (sim, i, a) => celulaNaArea(a, sim.x[i] >> FP_BITS, sim.y[i] >> FP_BITS);
 
 // The economy's per-player arrays (economia.js: Carga and the tick of the last command); none in a match without it.
 const carga = sim => sim.extras?.economia?.carga ?? sim.recursos ?? null;
@@ -586,6 +627,26 @@ function coletoresAtivos(sim, jogador) {
   }
   return n;
 }
+// units (not buildings) of the condition's player within its reach of some live member of its group
+function unidadesPerto(sim, ex, c) {
+  const lista = membros(sim, ex, c.grupo);
+  if (lista.length === 0) return 0;
+  const a = c.alcance >> 4;
+  let n = 0;
+  for (let j = 0; j < sim.capacidade; j++) {
+    if (!sim.ativo[j] || sim.time[j] !== c.jogador || (sim.tipos[sim.tipo[j]].categoria ?? CATEGORIA.UNIDADE) !== CATEGORIA.UNIDADE) continue;
+    for (const i of lista) {
+      const dx = (sim.x[j] - sim.x[i]) >> 4;
+      const dy = (sim.y[j] - sim.y[i]) >> 4;
+      if (dx * dx + dy * dy <= a * a) {
+        n++;
+        break;
+      }
+    }
+  }
+  return n;
+}
+
 // what the piles of node k still hold
 function cargaDoNo(sim, k) {
   if (!sim.no || !sim.carga) return 0;
@@ -632,6 +693,16 @@ function avaliar(sim, ex, c) {
       return membros(sim, ex, c.grupo).some(i => sim.vida[i] * 100 <= c.porcento * sim.tipos[sim.tipo[i]].vida);
     case 'religando':
       return membros(sim, ex, c.grupo).some(i => sendoReligada(sim, i, c.jogador));
+    case 'atingido':
+      return membros(sim, ex, c.grupo).some(i => sim.tick - atingidoEm(sim, i) <= c.passos);
+    case 'perto':
+      return unidadesPerto(sim, ex, c) >= c.minimo;
+    case 'religacao':
+      return membros(sim, ex, c.grupo).some(i => {
+        const p = progressoReligar(sim, i);
+        if (p.time < 0 || (c.jogador >= 0 && p.time !== c.jogador)) return false;
+        return c.porcento >= 0 ? p.passos * 100 >= c.porcento * p.total : p.total - p.passos <= c.faltam;
+      });
     case 'recursos': {
       const r = recursosDe(sim, c.jogador);
       return r >= c.minimo && r <= c.maximo;
@@ -656,7 +727,7 @@ function avaliar(sim, ex, c) {
       return sim.tick - ultimoComando(sim, c.jogador) >= c.passos;
     case 'visto': {
       const { largura } = sim.mapa;
-      for (let cy = c.area.cy0; cy < c.area.cy1; cy++) for (let cx = c.area.cx0; cx < c.area.cx1; cx++) if (celulaVisivel(sim, c.jogador, cy * largura + cx)) return true;
+      for (let cy = c.area.cy0; cy < c.area.cy1; cy++) for (let cx = c.area.cx0; cx < c.area.cx1; cx++) if (celulaNaArea(c.area, cx, cy) && celulaVisivel(sim, c.jogador, cy * largura + cx)) return true;
       return false;
     }
     case 'pesquisa':
@@ -671,7 +742,7 @@ function lugaresDeSurgimento(sim, a, n) {
   const { largura, altura, bloqueado } = sim.mapa;
   const celulas = [];
   if (a.area) {
-    for (let cy = a.area.cy0; cy < a.area.cy1; cy++) for (let cx = a.area.cx0; cx < a.area.cx1; cx++) if (!bloqueado[cy * largura + cx]) celulas.push(cy * largura + cx);
+    for (let cy = a.area.cy0; cy < a.area.cy1; cy++) for (let cx = a.area.cx0; cx < a.area.cx1; cx++) if (celulaNaArea(a.area, cx, cy) && !bloqueado[cy * largura + cx]) celulas.push(cy * largura + cx);
   } else if (a.ponto) {
     for (let r = 0; r < 12 && celulas.length < n; r++) {
       for (let cy = a.ponto.cy - r; cy <= a.ponto.cy + r; cy++) {
@@ -775,7 +846,7 @@ function executar(sim, m, ex, a) {
     case 'revelar': {
       const explorado = sim.neblina.explorado[a.jogador];
       const { largura } = sim.mapa;
-      for (let cy = a.area.cy0; cy < a.area.cy1; cy++) for (let cx = a.area.cx0; cx < a.area.cx1; cx++) explorado[cy * largura + cx] = 1;
+      for (let cy = a.area.cy0; cy < a.area.cy1; cy++) for (let cx = a.area.cx0; cx < a.area.cx1; cx++) if (celulaNaArea(a.area, cx, cy)) explorado[cy * largura + cx] = 1;
       return;
     }
     case 'recursos':
@@ -791,13 +862,19 @@ function executar(sim, m, ex, a) {
       ex.ativo[a.gatilho] = a.ativo;
       return;
     case 'religavel':
-      for (const i of membros(sim, ex, a.grupo)) definirTempoReligar(sim, i, a.passos);
+      for (const i of membros(sim, ex, a.grupo)) definirTempoReligar(sim, i, a.passos, a.por);
       return;
     case 'pesquisa':
       concluirPesquisa(sim, a.jogador, a.pesquisa);
       return;
     case 'veterania':
       for (const i of membros(sim, ex, a.grupo)) definirVeterania(sim, i, a.nivel);
+      return;
+    case 'empacotar':
+      for (const i of membros(sim, ex, a.grupo)) iniciarEmpacotar(sim, i, a.tipo, a.passos);
+      return;
+    case 'desempacotar':
+      for (const i of membros(sim, ex, a.grupo)) if (faseDe(sim, i) === FASE.EMPACOTADO && (!a.area || dentroDaArea(sim, i, a.area))) iniciarDesempacotar(sim, i, a.passos);
       return;
     case 'luz':
       emitirMissao(sim, EVENTO.LUZ, 0, 0, a.cena);
@@ -850,9 +927,24 @@ export function temRotulo(sim, id, nome) {
   return ex.rotuloGeracao[i] === sim.geracao[i] && m.rotulos[ex.rotulo[i] - 1] === nome;
 }
 
-/** The rules step of this front, right after the commands: mission triggers, then re-powering, then research. */
+// what packing reads and writes so a packed camp keeps its mission label
+const ROTULOS = Object.freeze({
+  ler(sim, i) {
+    const ex = extrasMissao(sim);
+    return ex.rotuloGeracao[i] === sim.geracao[i] ? ex.rotulo[i] : 0;
+  },
+  escrever(sim, i, rotulo) {
+    const ex = extrasMissao(sim);
+    ex.rotulo[i] = rotulo;
+    ex.rotuloGeracao[i] = sim.geracao[i];
+  },
+});
+
+/** The rules step of this front, right after the commands: mission triggers, packing, re-powering, repair, research. */
 export function passoDaMissao(sim) {
   avaliarGatilhos(sim);
+  avancarEmpacotar(sim, ROTULOS);
   avancarReligar(sim);
+  avancarReparo(sim);
   avancarPesquisas(sim);
 }
