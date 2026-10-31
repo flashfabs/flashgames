@@ -14,8 +14,8 @@ PEGADA = (2, 2)
 ALTURA_ROTOR = 8.4
 DESCRICAO = cinza.descricao_construcao("religadores-construcao-cata-vento", "religadores/cata-vento", "religadores", PEGADA, 10.5,
                                        estados=("danificada", "destruida"))
-# rotor turning 0, 30, 60 and 90 degrees: with three blades the loop closes at 120
-DESCRICAO["animacoes"][:0] = [anim("pronta", "corpo", 4, 5, True), anim("rajada", "corpo", 4, 14, True, igual="pronta")]
+# rotor at 0 and 60 degrees: with three blades two frames make the turn
+DESCRICAO["animacoes"][:0] = [anim("pronta", "corpo", 2, 4, True), anim("rajada", "corpo", 2, 12, True, igual="pronta")]
 
 
 def construir(ctx):
@@ -59,7 +59,7 @@ def construir(ctx):
 
 def posar(ctx, modelo, animacao, quadro):
     modelo["estragos"].aplicar(animacao)
-    giro = 30 * quadro if animacao == "pronta" else 15
+    giro = 60 * quadro if animacao == "pronta" else 15
     modelo["rotor"].rotation_euler = (math.radians(giro), 0, 0)
     # the damaged rotor has lost a blade
     modelo["pas"][2].scale = (0, 0, 0) if animacao in ("danificada", "destruida") else (1, 1, 1)

@@ -1,6 +1,146 @@
 {
   "versao": 1,
   "assets": {
+    "desligados-construcao-barracao": {
+      "manifesto": "sprites/construcao/desligados-construcao-barracao.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "desligados/barracao",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 81802,
+        "hd": 22156
+      }
+    },
+    "desligados-construcao-carrocao-mae": {
+      "manifesto": "sprites/construcao/desligados-construcao-carrocao-mae.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "desligados/carrocao-mae",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 99060,
+        "hd": 24560
+      }
+    },
+    "desligados-construcao-ferraria-a-vapor": {
+      "manifesto": "sprites/construcao/desligados-construcao-ferraria-a-vapor.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "desligados/ferraria-a-vapor",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 122158,
+        "hd": 27242
+      }
+    },
+    "desligados-construcao-paiol": {
+      "manifesto": "sprites/construcao/desligados-construcao-paiol.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "desligados/paiol",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 75742,
+        "hd": 20220
+      }
+    },
+    "desligados-construcao-palicada": {
+      "manifesto": "sprites/construcao/desligados-construcao-palicada.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "desligados/palicada",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 316638,
+        "hd": 108084
+      }
+    },
+    "desligados-construcao-torre-de-vigia": {
+      "manifesto": "sprites/construcao/desligados-construcao-torre-de-vigia.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "desligados/torre-de-vigia",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 115220,
+        "hd": 31714
+      }
+    },
+    "desligados-infantaria-arpoador": {
+      "manifesto": "sprites/infantaria/desligados-infantaria-arpoador.json",
+      "tipo": "unidade",
+      "categoria": "infantaria",
+      "brief": "desligados/arpoador",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 295994,
+        "hd": 112346
+      }
+    },
+    "desligados-infantaria-chapa": {
+      "manifesto": "sprites/infantaria/desligados-infantaria-chapa.json",
+      "tipo": "unidade",
+      "categoria": "infantaria",
+      "brief": "desligados/chapa",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 285182,
+        "hd": 107684
+      }
+    },
+    "desligados-veiculo-canhao-de-caldeira": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-canhao-de-caldeira.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "desligados/canhao-de-caldeira",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 461200,
+        "hd": 169378
+      }
+    },
+    "desligados-veiculo-carro-vela": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "desligados/carro-vela",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 226792,
+        "hd": 73556
+      }
+    },
     "desligados-veiculo-carro-vela-portao": {
       "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela-portao.json",
       "tipo": "unidade",
@@ -13,6 +153,48 @@
       "bytes": {
         "uhd": 2710802,
         "hd": 932370
+      }
+    },
+    "desligados-veiculo-carroca-de-pedal": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-carroca-de-pedal.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "desligados/carroca-de-pedal",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 306466,
+        "hd": 110422
+      }
+    },
+    "desligados-veiculo-locomovel": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-locomovel.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "desligados/locomovel",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 248874,
+        "hd": 81014
+      }
+    },
+    "desligados-veiculo-rolima": {
+      "manifesto": "sprites/veiculo/desligados-veiculo-rolima.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "desligados/rolima",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 97528,
+        "hd": 30416
       }
     },
     "efeito-explosao-media": {
@@ -58,6 +240,104 @@
         "hd": 25906
       }
     },
+    "neutro-estrutura-holofote-de-estrada": {
+      "manifesto": "sprites/estrutura/neutro-estrutura-holofote-de-estrada.json",
+      "tipo": "unidade",
+      "categoria": "estrutura",
+      "brief": "neutro/holofote-de-estrada",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 86678,
+        "hd": 20212
+      }
+    },
+    "neutro-estrutura-torre-antiga": {
+      "manifesto": "sprites/estrutura/neutro-estrutura-torre-antiga.json",
+      "tipo": "unidade",
+      "categoria": "estrutura",
+      "brief": "neutro/torre-antiga",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 153292,
+        "hd": 36000
+      }
+    },
+    "religadores-construcao-acumulador": {
+      "manifesto": "sprites/construcao/religadores-construcao-acumulador.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/acumulador",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 117906,
+        "hd": 33190
+      }
+    },
+    "religadores-construcao-almoxarifado-tecnico": {
+      "manifesto": "sprites/construcao/religadores-construcao-almoxarifado-tecnico.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/almoxarifado-tecnico",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 84334,
+        "hd": 20784
+      }
+    },
+    "religadores-construcao-alojamento-da-turma": {
+      "manifesto": "sprites/construcao/religadores-construcao-alojamento-da-turma.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/alojamento-da-turma",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 60334,
+        "hd": 16392
+      }
+    },
+    "religadores-construcao-cata-vento": {
+      "manifesto": "sprites/construcao/religadores-construcao-cata-vento.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/cata-vento",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 145118,
+        "hd": 34986
+      }
+    },
+    "religadores-construcao-escritorio-regional": {
+      "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/escritorio-regional",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 142848,
+        "hd": 32222
+      }
+    },
     "religadores-construcao-escritorio-regional-portao": {
       "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional-portao.json",
       "tipo": "unidade",
@@ -72,6 +352,104 @@
         "hd": 140750
       }
     },
+    "religadores-construcao-garagem": {
+      "manifesto": "sprites/construcao/religadores-construcao-garagem.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/garagem",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 98028,
+        "hd": 24390
+      }
+    },
+    "religadores-construcao-poste": {
+      "manifesto": "sprites/construcao/religadores-construcao-poste.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/poste",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 45190,
+        "hd": 12036
+      }
+    },
+    "religadores-construcao-poste-avancado": {
+      "manifesto": "sprites/construcao/religadores-construcao-poste-avancado.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/poste-avancado",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 61526,
+        "hd": 17142
+      }
+    },
+    "religadores-construcao-torre-de-holofote": {
+      "manifesto": "sprites/construcao/religadores-construcao-torre-de-holofote.json",
+      "tipo": "unidade",
+      "categoria": "construcao",
+      "brief": "religadores/torre-de-holofote",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 102658,
+        "hd": 27378
+      }
+    },
+    "religadores-infantaria-religador": {
+      "manifesto": "sprites/infantaria/religadores-infantaria-religador.json",
+      "tipo": "unidade",
+      "categoria": "infantaria",
+      "brief": "religadores/religador",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 368432,
+        "hd": 132116
+      }
+    },
+    "religadores-infantaria-soldador": {
+      "manifesto": "sprites/infantaria/religadores-infantaria-soldador.json",
+      "tipo": "unidade",
+      "categoria": "infantaria",
+      "brief": "religadores/soldador",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 285584,
+        "hd": 105642
+      }
+    },
+    "religadores-infantaria-turma-de-linha": {
+      "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha.json",
+      "tipo": "unidade",
+      "categoria": "infantaria",
+      "brief": "religadores/turma-de-linha",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 268186,
+        "hd": 98520
+      }
+    },
     "religadores-infantaria-turma-de-linha-portao": {
       "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha-portao.json",
       "tipo": "unidade",
@@ -84,6 +462,20 @@
       "bytes": {
         "uhd": 768422,
         "hd": 290294
+      }
+    },
+    "religadores-veiculo-cesto-blindado": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "religadores/cesto-blindado",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 646618,
+        "hd": 214830
       }
     },
     "religadores-veiculo-cesto-blindado-portao": {
@@ -128,6 +520,62 @@
         "hd": 1578432
       }
     },
+    "religadores-veiculo-equipe-de-manutencao": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-equipe-de-manutencao.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "religadores/equipe-de-manutencao",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 341506,
+        "hd": 115756
+      }
+    },
+    "religadores-veiculo-guincho-de-celulas": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-guincho-de-celulas.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "religadores/guincho-de-celulas",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 418140,
+        "hd": 146852
+      }
+    },
+    "religadores-veiculo-lanca-bobinas": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-lanca-bobinas.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "religadores/lanca-bobinas",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 335214,
+        "hd": 114762
+      }
+    },
+    "religadores-veiculo-leiturista": {
+      "manifesto": "sprites/veiculo/religadores-veiculo-leiturista.json",
+      "tipo": "unidade",
+      "categoria": "veiculo",
+      "brief": "religadores/leiturista",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 103784,
+        "hd": 34848
+      }
+    },
     "terreno-terra-batida": {
       "manifesto": "terreno/terreno-terra-batida.json",
       "tipo": "terreno",
@@ -157,6 +605,43 @@
     }
   },
   "fases": {
+    "fase-1": [
+      "desligados-construcao-barracao",
+      "desligados-construcao-carrocao-mae",
+      "desligados-construcao-ferraria-a-vapor",
+      "desligados-construcao-paiol",
+      "desligados-construcao-palicada",
+      "desligados-construcao-torre-de-vigia",
+      "desligados-infantaria-arpoador",
+      "desligados-infantaria-chapa",
+      "desligados-veiculo-canhao-de-caldeira",
+      "desligados-veiculo-carro-vela",
+      "desligados-veiculo-carroca-de-pedal",
+      "desligados-veiculo-locomovel",
+      "desligados-veiculo-rolima",
+      "efeito-explosao-media",
+      "interface-retrato-turma-de-linha",
+      "neutro-estrutura-holofote-de-estrada",
+      "neutro-estrutura-torre-antiga",
+      "religadores-construcao-acumulador",
+      "religadores-construcao-almoxarifado-tecnico",
+      "religadores-construcao-alojamento-da-turma",
+      "religadores-construcao-cata-vento",
+      "religadores-construcao-escritorio-regional",
+      "religadores-construcao-garagem",
+      "religadores-construcao-poste",
+      "religadores-construcao-poste-avancado",
+      "religadores-construcao-torre-de-holofote",
+      "religadores-infantaria-religador",
+      "religadores-infantaria-soldador",
+      "religadores-infantaria-turma-de-linha",
+      "religadores-veiculo-cesto-blindado",
+      "religadores-veiculo-equipe-de-manutencao",
+      "religadores-veiculo-guincho-de-celulas",
+      "religadores-veiculo-lanca-bobinas",
+      "religadores-veiculo-leiturista",
+      "terreno-terra-batida"
+    ],
     "portao": [
       "desligados-veiculo-carro-vela-portao",
       "efeito-explosao-media",
@@ -167,11 +652,6 @@
       "religadores-veiculo-cesto-blindado-portao",
       "religadores-veiculo-cesto-blindado-portao-e45",
       "religadores-veiculo-cesto-blindado-portao-e65",
-      "terreno-terra-batida"
-    ],
-    "fase-1": [
-      "efeito-explosao-media",
-      "interface-retrato-turma-de-linha",
       "terreno-terra-batida"
     ],
     "teste": [

@@ -19,12 +19,13 @@ DESCRICAO = {
     "animacoes": [
         anim("parado", "corpo", 1),
         anim("rodando", "corpo", 1, 0, True, igual="parado"),
-        anim("apoiado", "corpo", 1),
+        # the outriggers down would cost 16 large frames; in gray the raised turret alone shows the mode
+        anim("apoiado", "corpo", 1, 0, True, igual="parado"),
         anim("torre", "torre", 1),
         anim("atirando", "torre", 2, 8, False, quadrosIguais={"1": ["torre", 0]}),
         anim("erguida", "torre-erguida", 1),
         anim("atirando-erguida", "torre-erguida", 2, 8, False, quadrosIguais={"1": ["erguida", 0]}),
-        anim("destruido", "destroco", 1, 0, True, direcoes=8),
+        anim("destruido", "destroco", 1, 0, True, direcoes=4),
     ],
 }
 

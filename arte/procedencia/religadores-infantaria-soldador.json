@@ -1,0 +1,41 @@
+{
+  "versao": 1,
+  "asset": "religadores-infantaria-soldador",
+  "brief": "religadores/soldador",
+  "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
+  "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
+  "script": "arte/blender/assets/religadores_infantaria_soldador.py",
+  "commit": "337fdbc",
+  "execucao": "20261031-004807",
+  "ferramentas": [
+    {
+      "nome": "Blender",
+      "versao": "5.2.3 LTS",
+      "licenca": "GPL-3.0-or-later",
+      "uso": "modelagem, render Cycles e empacotamento"
+    }
+  ],
+  "ia": [],
+  "fontesExternas": [],
+  "render": {
+    "dispositivo": "OPTIX",
+    "gpus": [
+      "NVIDIA GeForce RTX 4090"
+    ],
+    "projecao": {
+      "origem": "D:\\rts\\config\\projecao.json",
+      "versao": 0,
+      "elevacaoGraus": 55.0,
+      "metrosPorCelula": 4.0,
+      "pxPorCelula": {
+        "hd": 64,
+        "uhd": 128
+      }
+    },
+    "segundosPorQuadro": {
+      "cor": 0.026,
+      "time": 0.0209
+    }
+  },
+  "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"
+}

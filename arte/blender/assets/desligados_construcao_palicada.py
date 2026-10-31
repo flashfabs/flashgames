@@ -17,7 +17,9 @@ anim = cinza.anim
 PEGADA = (1, 1)
 DESCRICAO = cinza.descricao_construcao("desligados-construcao-palicada", "desligados/palicada", "desligados", PEGADA, 2.8,
                                        folga_lados=(16, 16, 0, 0))
-DESCRICAO["animacoes"] = [anim(estado, "corpo", 16, 0, False) for estado in ("pronta", "danificada", "destruida")]
+# damaged pieces look like ready ones in gray, and every destroyed piece is the same heap (the full cross, frame 15)
+DESCRICAO["animacoes"] = [anim("pronta", "corpo", 16, 0, False), anim("danificada", "corpo", 16, 0, False, igual="pronta"),
+                          anim("destruida", "corpo", 16, 0, False, quadrosIguais={str(k): ["destruida", 15] for k in range(15)})]
 DESCRICAO["variantes"] = {"porQuadro": "mascaraDeVizinhos", "bits": {"norte": 1, "leste": 2, "sul": 4, "oeste": 8}}
 # arm directions on the map (Blender x east, y north)
 BRACOS = {1: (0, 1), 2: (1, 0), 4: (0, -1), 8: (-1, 0)}

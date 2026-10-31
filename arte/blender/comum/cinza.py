@@ -6,7 +6,8 @@ fun before the final art.
   warm for the Desligados), so value contrast and silhouette carry the reading; the team areas keep the reserved
   "time" material and the battery cargo keeps its glow, because whether a collector is loaded is game information.
 - Frame budget: the whole phase must fit a few shared atlas pages (comum/fase.py), so animations are short and
-  repeated poses are reused instead of rendered ("igual" and "quadrosIguais" in comum/fabrica.py).
+  repeated poses are reused instead of rendered ("igual" and "quadrosIguais" in comum/fabrica.py); a first full run
+  came to 26.6 Mpx of unique uhd frames, so wrecks turn in 4 directions and deaths last 4 frames.
 - Buildings: one direction, ready, damaged and destroyed from the same parts (Estragos), the rendered shadow
   layer, and a frame computed from the footprint and height (quadro_construcao); the rise during construction is
   the renderer's shader mask over the scaffold asset neutro-construcao-andaime-cinza.
@@ -130,7 +131,7 @@ def anim(nome, camada, quadros, fps=0, laco=True, **extras):
 
 
 def descricao_infantaria(asset, brief, quadro=(128, 128), ancora=(64, 84), extras=(), arma=True):
-    """16 directions: idle, walking (6), shot (2, the second is the idle pose) and dying (6 frames in 8 directions)."""
+    """16 directions: idle, walking (6), shot (2, the second is the idle pose) and dying (4 frames in 8 directions)."""
     atirando = [anim("atirando", "corpo", 2, 8, False, quadrosIguais={"1": ["parado", 0]})] if arma else []
     return {
         "asset": asset, "brief": brief, "tipo": "unidade", "categoria": "infantaria", "fases": FASES, "acabamento": "cinza",
@@ -140,7 +141,7 @@ def descricao_infantaria(asset, brief, quadro=(128, 128), ancora=(64, 84), extra
             anim("parado", "corpo", 1),
             anim("andando", "corpo", 6, 10),
             *atirando,
-            anim("morrendo", "corpo", 6, 8, False, direcoes=8),
+            anim("morrendo", "corpo", 4, 6, False, direcoes=8),
             *extras,
         ],
     }
@@ -148,7 +149,7 @@ def descricao_infantaria(asset, brief, quadro=(128, 128), ancora=(64, 84), extra
 
 def descricao_veiculo(asset, brief, quadro=(256, 256), ancora=(128, 150), torre=None, extras=(), destruido=None, arma=True):
     """16 directions: idle, moving (the idle frames: gray wheels do not read turning), shot (2, the second is the
-    idle pose) unless a turret shoots, and the wreck in 8 directions; torre is (frame, anchor) of a turret layer."""
+    idle pose) unless a turret shoots, and the wreck in 4 directions; torre is (frame, anchor) of a turret layer."""
     camadas = {"corpo": {"quadro": list(quadro), "ancora": list(ancora)}}
     animacoes = [anim("parado", "corpo", 1), anim("rodando", "corpo", 1, 0, True, igual="parado")]
     if torre:
@@ -160,7 +161,7 @@ def descricao_veiculo(asset, brief, quadro=(256, 256), ancora=(128, 150), torre=
     destruido = destruido or (quadro, ancora)
     # the wreck shows hull and turret together
     camadas["destroco"] = {"quadro": list(destruido[0]), "ancora": list(destruido[1]), "usa": list(camadas)}
-    animacoes.append(anim("destruido", "destroco", 1, 0, True, direcoes=8))
+    animacoes.append(anim("destruido", "destroco", 1, 0, True, direcoes=4))
     return {
         "asset": asset, "brief": brief, "tipo": "unidade", "categoria": "veiculo", "fases": FASES, "acabamento": "cinza",
         "direcoes": 16, "passes": ["cor", "time"], "camadas": camadas, "animacoes": animacoes,
@@ -208,7 +209,7 @@ def descricao_construcao(asset, brief, faccao, pegada, altura, torre=None, extra
 
 # Infantry -----------------------------------------------------------------------------------------------------
 
-ANIMACOES_INFANTARIA = (("parado", 1, "parado"), ("andando", 6, "andando"), ("atirando", 2, "atirando"), ("morrendo", 6, "morrendo"))
+ANIMACOES_INFANTARIA = (("parado", 1, "parado"), ("andando", 6, "andando"), ("atirando", 2, "atirando"), ("morrendo", 4, "morrendo"))
 
 
 def corpo(ctx, pal, pai, nome="raiz", escala=None, roupa="laranja", calca=None, botas="couro", luvas="couro", local=(0, 0, 0), giro=0.0):

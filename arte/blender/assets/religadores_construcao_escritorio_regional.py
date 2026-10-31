@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Escritório Regional, gray kit (brief arte/briefs/religadores-construcao-escritorio-regional.md): the style-gate
-model of religadores_construcao_escritorio_regional_portao.py in gray clay, without the lights layer; producing shows the
-roll-up door open, and the destroyed state (new here) is the building slumped to a third with rubble around."""
+model of religadores_construcao_escritorio_regional_portao.py in gray clay, without the lights layer; producing uses the
+ready frame, and the destroyed state (new here) is the building slumped to a third with rubble around."""
 
 from assets import religadores_construcao_escritorio_regional_portao as escritorio
 from comum import cinza
@@ -11,7 +11,7 @@ PEGADA = (4, 3)
 DESCRICAO = cinza.descricao_construcao("religadores-construcao-escritorio-regional", "religadores/escritorio-regional", "religadores",
                                        PEGADA, 11.5)
 DESCRICAO["camadas"]["corpo"] = {"quadro": [768, 640], "ancora": [384, 392]}
-DESCRICAO["animacoes"].insert(1, cinza.anim("produzindo", "corpo", 1))
+DESCRICAO["animacoes"].insert(1, cinza.anim("produzindo", "corpo", 1, 0, True, igual="pronta"))
 
 
 def construir(ctx):
