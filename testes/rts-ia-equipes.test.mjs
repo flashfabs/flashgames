@@ -157,20 +157,22 @@ test('the teams block compiles places, triggers and numbers by difficulty, with 
   // a union marks all its labels, and its events carry its first one
   assert.equal(v.grupo.filter(Boolean).length, ROTULOS.length);
   assert.equal(compilar([]), null);
+  // groups and reserves named only by teams are mission labels too, after the triggers' ones
+  assert.deepEqual(rotulosDaMissao({ versao: 1, gatilhos: [{ id: 'g', quando: { se: 'vivos', grupo: 'x' }, acoes: [] }], equipes: [{ grupo: 'onda-so', escala: { reserva: 'reserva-so' } }] }), ['x', 'onda-so', 'reserva-so']);
 });
 
 test('the teams block reports every problem at once', () => {
   assert.throws(
     () =>
       compilar([
-        { id: 'a', grupo: 'ninguem', jogador: IA, faz: 'atacar', area: 'base', aviso: 5 },
+        { id: 'a', jogador: IA, faz: 'atacar', area: 'base', aviso: 5 },
         { id: 'a', grupo: 'guarda', jogador: 9, faz: 'voar' },
         { id: 'c', grupo: 'guarda', jogador: IA, faz: 'guardar', desde: 'nunca' },
         { id: 'd', grupo: 'patrulha', jogador: IA, faz: 'patrulhar', rota: 'sumida' },
         { id: 'e', grupo: 'guarda', jogador: IA, faz: 'guardar', area: 'posto', recuar: 30 },
       ]),
     erro => {
-      for (const trecho of ['ninguem não é rótulo', 'aviso: 5 s', 'id ausente ou repetido', 'jogador: 9 fora', 'voar não é', 'gatilho nunca não existe', 'falta area ou ponto', 'rota sumida não existe', 'recuar sem recuo']) assert.match(erro.message, new RegExp(trecho), trecho);
+      for (const trecho of ['falta o nome do grupo', 'aviso: 5 s', 'id ausente ou repetido', 'jogador: 9 fora', 'voar não é', 'gatilho nunca não existe', 'falta area ou ponto', 'rota sumida não existe', 'recuar sem recuo']) assert.match(erro.message, new RegExp(trecho), trecho);
       return true;
     },
   );
