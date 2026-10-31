@@ -211,7 +211,8 @@ Ninguém espera parado por estes itens; cada sessão segue com o que dá e a `rt
 - Jogar o M3 com 2 pessoas do grupo pelo [kit do M3](kit-m3.md) e mandar os 3 registros e as respostas para a `rts-qualidade`.
 - Som no M3: os sons sintetizados provisórios já tocam; as respostas de unidade gravadas pelo grupo dependem de o Victor gravar ou chamar alguém (a `rts-som` só abre na onda 3).
 - Pela bateria de teclas e no Safari (pedidos da `rts-interface`): calibrar roda e trackpad, confirmar B, ponto, V e F10, a pinça no Safari, e o M1.
-- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos).
+- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos), com os rascunhos de convite da nota de recrutamento da `rts-design`.
+- Jogar o M4 pelo [kit do M4](kit-m4.md) quando a `rts-qualidade` avisar que a missão está pronta, e mandar os 6 registros (com o grupo no nome do arquivo) e as entrevistas.
 - Licença comunitária de áudio gerado por IA (Stable Audio): fica fora da lista de licenças permitidas (`testes/rts-licencas.json`) até a decisão dele.
 - As escolhas do portão de estilo (M2) e as medições que esperam o Mac, abaixo.
 
