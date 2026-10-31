@@ -357,6 +357,16 @@ test('re-powering and attack orders driven by the mission', () => {
   assert.ok(sim.vida[3] < 600, 'the attackers walked 20 cells to the office and fired');
 });
 
+test('a mission that names its map stays off on a match that is not on that map', () => {
+  const m = missao([marcar('logo', { se: 'tempo', segundos: 0 })], { mapa: 'vale' });
+  const fora = partida(m);
+  avaliacoes(fora, 2);
+  assert.equal(marca(fora), 0, 'off without the map');
+  const dentro = partida(m, { lugares: { mapa: 'vale' } });
+  avaliacoes(dentro, 2);
+  assert.equal(marca(dentro), 1, 'on its map');
+});
+
 test('repeating triggers wait their interval, and a finished match runs no more triggers', () => {
   const sim = partida(
     missao([

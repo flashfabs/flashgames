@@ -76,7 +76,7 @@ function partidaDaMissao(missao, dificuldade) {
     mapa: { largura: c.largura, altura: c.altura, bloqueado: c.bloqueado, relevo: c.relevo, nivel: c.nivel, bases: c.bases },
     dados: arquivos,
     missao,
-    lugares: { areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas },
+    lugares: { mapa: missao.mapa, areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas },
     dificuldade,
     regras: REGRAS_LIVRES,
     capacidade: 400,

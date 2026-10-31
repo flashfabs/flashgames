@@ -77,7 +77,7 @@ export function criarSimulacao(opcoes = {}) {
   sim.etiquetas = {};
   sim.entidadesDoMapa = [];
   // the map's places and node names go with the saved options, for the mission (gatilhos.js)
-  if (arquivo) sim.opcoes.lugares ??= { areas: arquivo.areas, pontos: arquivo.pontos, rotas: arquivo.rotas, nos: arquivo.nomesNos };
+  if (arquivo) sim.opcoes.lugares ??= { mapa: opcoes.arquivosMapa.cabecalho.id, areas: arquivo.areas, pontos: arquivo.pontos, rotas: arquivo.rotas, nos: arquivo.nomesNos };
   doMapa.forEach((e, k) => colocarDoMapa(sim, k, e));
 
   if (regras.ordensPadrao) {

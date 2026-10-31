@@ -1,6 +1,7 @@
 // Mission triggers (C7): conditions and actions in JSON from site/rts/dados/missoes/, compiled once against the unit
 // kinds and the map's places, and evaluated inside the deterministic step right after the commands. The mission and
 // the map's places come in the simulation options (opcoes.missao, opcoes.lugares), so saves and replays carry them;
+// a mission that names its map (`mapa`) runs only on a match that says it is on that map (opcoes.lugares.mapa);
 // the evaluator's state (fired triggers, variables, timers, objectives, labels, result) lives in sim.extras.missao.
 //
 // Mission format, integers only, positions in cells, times in seconds; any number may instead be
@@ -482,7 +483,9 @@ export function missaoDe(sim) {
   const missao = sim.opcoes?.missao;
   const { mapa } = sim;
   const lugares = sim.opcoes.lugares ?? mapa.lugares ?? { areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas };
-  sim.missaoCompilada = missao
+  // off on any other map (a page that could not load the mission's map plays without it)
+  const noMapa = missao && (!missao.mapa || lugares.mapa === missao.mapa);
+  sim.missaoCompilada = noMapa
     ? compilarMissao(missao, { tipos: sim.tipos, lugares, dificuldade: sim.opcoes.dificuldade, times: sim.times, largura: mapa.largura, altura: mapa.altura, pesquisas: sim.pesquisas, nos: lugares.nos ?? mapa.nomesNos ?? (mapa.nos ?? []).map(no => no.id) })
     : null;
   return sim.missaoCompilada;
