@@ -23,7 +23,7 @@ import { avancarProducao, comandoProduzir, comandoPesquisar, comandoCancelar, co
 import { atualizarFantasmas } from './fantasmas.js';
 import { aplicarMudancasDaGrade } from './pegadas.js';
 import { classificarEntidades } from './listas.js';
-import { conduzirEquipes } from './equipes.js';
+import { conduzirEquipes, prepararEquipes } from './equipes.js';
 
 export { FP_BITS, FP, PASSOS_POR_SEGUNDO };
 
@@ -105,6 +105,7 @@ export function criarSimulacao(opcoes = {}) {
   }
   if (regras.ordensPadrao) for (let i = 0; i < iniciais; i++) atribuirOrdem(sim, i, sim.time[i], 0, 0, 0);
   atualizarNeblina(sim, visaoExtra);
+  prepararEquipes(sim);
   return sim;
 }
 

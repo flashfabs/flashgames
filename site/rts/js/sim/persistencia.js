@@ -9,6 +9,7 @@ import { CAMPOS_ENTIDADE, criarEstado, arraysExtras } from './estado.js';
 import { resumoDosCaminhos, refazerCaminhos } from './caminhos.js';
 import { reconstruirGrade } from './pegadas.js';
 import { montarBaldes } from './movimento.js';
+import { prepararEquipes } from './equipes.js';
 
 const FORMATO = 'rts-estado';
 const ASSINATURA = 0x52545345; // "RTSE"
@@ -142,5 +143,6 @@ export function carregar(buffer) {
   sim.gradeMudou = cabecalho.gradeMudou ?? 0;
   // buckets are not state (every reader inside the step rebuilds them first); these serve the first snapshot
   montarBaldes(sim);
+  prepararEquipes(sim);
   return sim;
 }
