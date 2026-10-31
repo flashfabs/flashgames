@@ -13,6 +13,7 @@ import { criarOrdem, redirecionarOrdem, atribuirOrdem, limparOrdens, ordenarGrup
 import { montarBaldes, mover, TAMANHO_BALDE_BITS } from './movimento.js';
 import { combater } from './combate.js';
 import { passoDaMissao, rotular, desistir } from './gatilhos.js';
+import { passoDasEquipes } from './comportamentos/equipes.js';
 import { comandoHabilidade } from './habilidades.js';
 import { ocuparSlot, slotDoJogador, slotVivo, emitirEvento, idDoSlot } from './entidades.js';
 import { centroDaPegada } from './pegadas.js';
@@ -275,6 +276,7 @@ export function passo(sim) {
   classificarEntidades(sim);
   aplicarComandos(sim);
   passoDaMissao(sim);
+  passoDasEquipes(sim);
   avancarEconomia(sim);
   avancarObras(sim);
   atualizarRede(sim);

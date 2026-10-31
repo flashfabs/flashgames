@@ -15,6 +15,7 @@
 //     "variaveis": [{ "nome", "valor" }],            (or { "<nome>": <valor> })
 //     "gatilhos": [{ "id", "quando": <condição>, "faz": [<ação>, ...], "repete": 0 | 1, "intervaloSegundos": 0,
 //                    "ativo": 1 }] }                 ("acoes" works for "faz", and true and false for 1 and 0)
+//     "equipes"?: the computer teams, read by comportamentos/equipes.js
 // A label (rótulo) names entities: the `etiqueta` of map entities (several may share one) and the `grupo` of a
 // criar action; each entity has one label at most. A "grupo" in a condition or action is a label or a union name, and
 // "etiqueta" works wherever "grupo" does.
@@ -472,7 +473,7 @@ export function compilarMissao(missao, contexto) {
       ativo: g?.ativo === false || g?.ativo === 0 ? 0 : 1,
     };
   });
-  for (const campo of Object.keys(missao)) if (!['versao', 'id', 'mapa', 'titulo', 'jogadores', 'objetivos', 'areas', 'pontos', 'rotas', 'grupos', 'variaveis', 'gatilhos'].includes(campo)) erros.push(`${campo}: campo desconhecido`);
+  for (const campo of Object.keys(missao)) if (!['versao', 'id', 'mapa', 'titulo', 'jogadores', 'objetivos', 'areas', 'pontos', 'rotas', 'grupos', 'variaveis', 'gatilhos', 'equipes'].includes(campo)) erros.push(`${campo}: campo desconhecido`);
   if (erros.length > 0) throw new Error(`missão ${missao.id ?? ''} inválida:\n${erros.join('\n')}`);
   return Object.freeze({ id: missao.id, gatilhos, objetivos, textos, rotulos, cenas, variaveis, valoresIniciais, cronometros });
 }
