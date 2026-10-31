@@ -57,6 +57,8 @@ export function ocuparSlot(sim, i, tipo, time, x, y, direcao) {
   sim.segurando[i] = 0;
   sim.renascerEm[i] = 0;
   sim.desvioAte[i] = 0;
+  sim.experiencia[i] = 0;
+  sim.veterania[i] = 0;
   return i;
 }
 

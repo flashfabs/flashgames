@@ -36,6 +36,8 @@ export const CAMPOS_ENTIDADE = Object.freeze([
   ['desvios', Uint8Array], // side steps taken, to alternate sides
   ['celulaVisao', Int32Array], // cell the unit's sight is stamped on, -1 none
   ['raioVisao', Uint8Array],
+  ['experiencia', Int32Array], // veterancy experience (veterania.js)
+  ['veterania', Uint8Array], // veterancy level 0..3
 ]);
 
 /** Empty state for a map; also the starting point of carregar(). */
