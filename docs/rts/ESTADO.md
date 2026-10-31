@@ -126,7 +126,7 @@ Cada critério tem o número que conta e de onde ele vem; "plano" é a seção E
 | --- | --- | --- |
 | `rtx.sh renderizar <asset>` | atlas, manifesto e procedência sem passo manual, testes verdes | feito em 30/10/2026 (`rts-arte`): os 11 assets do portão saíram assim do commit `19ffcaa`, código 0 em todos, com `npm test` verde |
 | Veículo de 32 direções com todos os passes | até 10 minutos de GPU e até 1 GB de disco | medido em 30/10/2026 pela `rts-arte`: Cesto Blindado com cor, time, normal e sombra, 1.920 renders em 129 s de GPU e 222 s de lote, 123 MB no D:; sem o denoiser na CPU, 0,03 a 0,06 s por quadro de 256 px |
-| Memória de textura | estimada dentro de 20% da medida no navegador | pendente |
+| Memória de textura | estimada dentro de 20% da medida no navegador | medida em 31/10/2026 (seção F3): com os 44 sprites do kit, o render aloca 634,7 MiB no `uhd` contra 285 estimados (224 do atlas de fase mais os solos); a diferença vem do array de sprites a 4096 de largura por causa das fichas provisórias (`adicionarFichas`), correção pedida à `rts-render`; refazer a medida depois dela |
 | Teste de leitura de 5 segundos | pelo menos 80% de acerto em 4K, 1080p e com filtro de daltonismo, com 5 pessoas | pendente |
 | Escolhas do Victor | elevação, escala, direções e acabamento escolhidos; `projecao.json` v1 congelado | pendente |
 
@@ -326,6 +326,7 @@ O Blender 5.2.3 LTS foi instalado no PC da RTX 4090 pelo winget em 30/10/2026, p
 | Solos | idem | 10 ladrilhos de 1024 px (8 células), cada um 4 MiB de textura no `uhd` pela conta do orçamento (5,6 MiB com mipmaps no render) | idem |
 | Orçamento da fase 1 pelo `testes/rts-orcamento.test.mjs` (só medido até a E5) | Mac, `npm test` | `uhd`: 271 de 256 MiB de textura (pacote 224, os 11 solos 44, interface 3) e 6,5 de 30 MiB de download; `hd`: 75,8 de 96 MiB e 2,7 de 12 MiB; o retrato da Turma, reempacotado, caiu de 16 MiB (página fixa de 2048) para 1 MiB | 31/10/2026 |
 | Testes de ponta a ponta com o kit | PC da RTX 4090, `scripts/rtx-testes.sh rts` | funcionais 17 (4 pulados), desempenho 5, `rts-determinismo` 12, todos verdes | execução `20261031-012434`, commit `1d4853e` |
+| Os mesmos depois do merge com a `rts/base` que liga o kit no render | idem | funcionais 17 (4 pulados), desempenho 5, `rts-determinismo` 15, todos verdes | execução `20261031-020757` |
 
 - Leitura que fica para o portão: a 55°, a Ponte Basculante erguida (70°) e a baixada ocupam quase a mesma altura na tela, porque o tabuleiro de 20 m inclinado projeta o mesmo comprimento que deitado para o norte; o que as separa no cinza é o lado de baixo escuro e a sombra longa. Uma elevação maior para o tabuleiro erguido (80° a 85°) ou a elevação da câmera resolvem.
 
@@ -346,7 +347,8 @@ python3 -m http.server 8830 --directory ~/rts-portao/site
 - Decisão D31 (personagem 100% por script): a prova está feita; a Turma de Linha do portão e toda a infantaria do kit cinza saem do mesmo esqueleto, com as ações por script. Recomendação: aceitar e seguir sem modelagem à mão na fase 1.
 - Quando o Victor escolher, a `rts-render` congela a `projecao.json` v1; se mudar a elevação ou as direções, a `rts-arte` refaz o kit (`rtx.sh renderizar` peça por peça e `rtx.sh empacotar-fase fase-1`).
 
-- Pendente: a memória medida no navegador contra a estimada (critério da E3): com o commit `665bb89` da `rts-render` e o pacote na `rts/base`, comparar o `mibTexturas` do `?bench=1` com o `fase-1.json` (224 MiB no `uhd`, 64 MiB no `hd`) mais os ladrilhos de solo que a cena carregar (5,6 MiB cada no `uhd`); o teste de 5 segundos com 5 pessoas (Victor); a camada `luzes` dos prédios no cinza (só a pilha de baterias tem); retratos da Supervisora e do Locutor; KTX2 (BC7 ou ASTC) antes da arte final, que cortaria a textura por 4 se a E5 apertar.
+- Memória medida contra a estimada (critério da E3), em 31/10/2026, com `/rts/?bench=1&seg=3&kit=fase-1&res=4k` no navegador do app (Chromium com Metal, MacBook Pro M5 Pro, canvas 3840×2160): 44 assets carregados, `mibTexturas` 634,7 MiB contra 285 estimados (224 do `fase-1.json` mais cerca de 61 dos 11 solos com mipmaps); não passa nos 20% porque `adicionarFichas` e `adicionarFichasPredios` criam páginas de 4096 de largura e o backend dimensiona todas as camadas pela maior, o que dobra cada página de 2048 (e multiplica por 4 a 8 as de 1024 do `hd`), além de 2 ou 3 camadas de fichas e do tanque do protótipo; correção pedida à `rts-render` (página das fichas do tamanho das páginas do nível, ou textura à parte). A medida do `hd` não saiu: o painel do app estava oculto e o bench pausa.
+- Pendente: o teste de 5 segundos com 5 pessoas (Victor); a camada `luzes` dos prédios no cinza (só a pilha de baterias tem); retratos da Supervisora e do Locutor; KTX2 (BC7 ou ASTC) antes da arte final, que cortaria a textura por 4 se a E5 apertar.
 
 ### F5 Design, mundo e fase 1 (`rts-design`)
 
