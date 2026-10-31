@@ -225,10 +225,12 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
      */
     definirMapa(mapa) {
       const solo = soloDoMapa(mapa);
-      relevo = criarRelevo(mapa, projecao, mascaraDeAgua(solo.grade, solo.nomes));
+      // a blocked cell with a decoration is a blocking one (wall, wreck)
+      const blocos = mapa.decoracao ? Uint8Array.from(mapa.decoracao, (d, i) => (d && mapa.bloqueado[i] ? 1 : 0)) : null;
+      relevo = criarRelevo(mapa, projecao, mascaraDeAgua(solo.grade, solo.nomes), blocos);
       const k = projecao.celulasPorMetroDeAltura;
       const alcanceSol = projecao.sol[2] > 0 ? relevo.alturaMaxima / ((projecao.sol[2] / Math.hypot(projecao.sol[0], projecao.sol[1])) * projecao.metrosPorCelula) : 0;
-      const limites = limitesPorCelula(mapa, relevo.niveis, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
+      const limites = limitesPorCelula(mapa, relevo.topos, Math.ceil(relevo.alturaMaxima * k) + 1, Math.ceil(alcanceSol) + 1);
       const total = mapa.largura * mapa.altura;
       const rgba = new Uint8Array(total * 4);
       const escalaNivel = 255 / projecao.nivelMaximo;

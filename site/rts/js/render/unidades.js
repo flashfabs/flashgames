@@ -44,6 +44,8 @@ export function aparenciasDosTipos(tipos) {
     const arte = tipo.asset ? [{ corpo: tipo.asset }] : [];
     if (tipo.categoria === CATEGORIA.UNIDADE) {
       if (/infantaria/.test(tipo.asset) || /infantaria/.test(tipo.nome)) return { variantes: [...arte, { corpo: 'ficha-infantaria' }], raio: 0.28, sombraMetros: 0.6 };
+      // the prototype's tank keeps its Blender sheet
+      if (/tanque/.test(tipo.nome)) return { variantes: [...arte, { corpo: 'prototipo-tanque' }, { corpo: 'ficha-tanque', torre: 'ficha-tanque' }], raio: 0.55, sombraMetros: 1.4 };
       if ((tipo.lotacao ?? 1) >= 2) return { variantes: [...arte, { corpo: 'ficha-tanque', torre: 'ficha-tanque' }], raio: 0.55, sombraMetros: 1.4 };
       return { variantes: [...arte, { corpo: 'ficha-veiculo-leve', torre: 'ficha-veiculo-leve' }], raio: 0.42, sombraMetros: 0.9 };
     }

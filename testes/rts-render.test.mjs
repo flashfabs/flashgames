@@ -614,3 +614,15 @@ test('soils with their own tile show it untinted; the rest tint the base tile', 
   assert.equal(t[2 * 4 + 3], 0, 'gravel on the base tile');
   assert.ok(t[2 * 4] < 1, 'with its tint');
 });
+
+test('a blocking decoration stands as a block in the middle of its cell', () => {
+  const p = criarProjecao(copia());
+  const mapa = { largura: 8, altura: 8, bloqueado: new Uint8Array(64), nivel: new Uint8Array(64) };
+  mapa.bloqueado[3 * 8 + 3] = 1;
+  const blocos = new Uint8Array(64);
+  blocos[3 * 8 + 3] = 1;
+  const r = criarRelevo(mapa, p, null, blocos);
+  assert.ok(Math.abs(r.alturaEm(3.5, 3.5) - 2.5) < 0.1, `top of the block: ${r.alturaEm(3.5, 3.5)}`);
+  assert.ok(r.alturaEm(2.5, 3.5) < 0.05 && r.alturaEm(2.8, 3.5) < 0.05 && r.alturaEm(3.25, 3.5) > 2.4, 'ground beside it, steep sides');
+  assert.equal(r.topos[3 * 8 + 3], 1, 'the shader bounds reach the block');
+});

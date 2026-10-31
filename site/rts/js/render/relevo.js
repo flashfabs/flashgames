@@ -6,13 +6,19 @@
 // - between two open cells of different levels the ground slopes gently, over about two cells;
 // - next to a blocked cell the level steps up or down as a cliff, a quarter of a cell wide;
 // - a blocked region (rock, cliff rim) rises to the highest level among its cells and the open cells around it, so a
-//   cliff rim drawn at the foot of a plateau and the generator's rock outcrops both stand at the plateau's top.
+//   cliff rim drawn at the foot of a plateau and the generator's rock outcrops both stand at the plateau's top;
+// - a cell with a blocking decoration (a ruined wall, a bus wreck) gets a block on top, so it does not read as an
+//   invisible wall.
 // Heights are sampled AMOSTRAS_POR_CELULA times per cell along each axis; the shader reads the same grid with bilinear
 // filtering, and alturaEm() reproduces that filter on the CPU.
 
 export const AMOSTRAS_POR_CELULA = 4;
 // open slopes are smoothed by a tent this many samples wide on each side (one cell)
 const RAIO_SUAVE = AMOSTRAS_POR_CELULA;
+/** Height of the block a blocking decoration stands as, in metres. */
+export const ALTURA_BLOCO_METROS = 2.5;
+// the block covers the middle of its cell, leaving this much (in cells) at each side
+const FOLGA_BLOCO = 0.12;
 // cliff edges wander up to this much (in cells) so the rims do not follow the grid
 const ONDULACAO_PENHASCO = 0.14;
 
@@ -91,8 +97,9 @@ export function niveisDeDesenho(mapa, nivelMaximo, fixos = null) {
  * @param {{ largura: number, altura: number, bloqueado: Uint8Array, nivel?: Uint8Array }} mapa
  * @param {ReturnType<typeof import('./projecao.js').criarProjecao>} projecao
  * @param {Uint8Array | null} [fixos] cells that keep their own level although blocked (water)
+ * @param {Uint8Array | null} [blocos] cells with a blocking decoration (1), raised by ALTURA_BLOCO_METROS
  */
-export function criarRelevo(mapa, projecao, fixos = null) {
+export function criarRelevo(mapa, projecao, fixos = null, blocos = null) {
   const { largura, altura, bloqueado } = mapa;
   const { nivelMaximo, metrosPorNivel } = projecao;
   const niveis = niveisDeDesenho(mapa, nivelMaximo, fixos);
@@ -143,11 +150,27 @@ export function criarRelevo(mapa, projecao, fixos = null) {
     }
   }
   suavizarEncostas(bruta, larguraFina, alturaFina, perto, largura);
-  for (let i = 0; i < fina.length; i++) fina[i] = Math.round((bruta[i] / nivelMaximo) * 255);
+  if (blocos) {
+    const bloco = ALTURA_BLOCO_METROS / metrosPorNivel;
+    for (let j = 0; j < alturaFina; j++) {
+      const py = (j + 0.5) / S;
+      const fy = py - Math.floor(py);
+      if (fy < FOLGA_BLOCO || fy > 1 - FOLGA_BLOCO) continue;
+      for (let i = 0; i < larguraFina; i++) {
+        const px = (i + 0.5) / S;
+        const fx = px - Math.floor(px);
+        if (fx >= FOLGA_BLOCO && fx <= 1 - FOLGA_BLOCO && blocos[Math.floor(py) * largura + Math.floor(px)]) bruta[j * larguraFina + i] += bloco;
+      }
+    }
+  }
+  for (let i = 0; i < fina.length; i++) fina[i] = Math.min(255, Math.round((bruta[i] / nivelMaximo) * 255));
 
+  // the levels the shader's bounds must cover: a block reaches into the next level
+  const topos = blocos ? Uint8Array.from(niveis, (n, i) => Math.min(nivelMaximo, n + (blocos[i] ? 1 : 0))) : niveis;
   return {
     largura,
     altura,
+    topos,
     larguraFina,
     alturaFina,
     /** heights, 255 = alturaMaxima, AMOSTRAS_POR_CELULA samples per cell along each axis, row-major */

@@ -9,7 +9,7 @@ import { FP, PASSOS_POR_SEGUNDO, MAX_SLOTS, BANDEIRA, CATEGORIA, idDe } from '..
 // Kinds of the benchmark: the prototype's two units keep kinds 0 and 1, then buildings of a match.
 const TIPOS_BANCADA = [
   { nome: 'veiculo-leve', categoria: CATEGORIA.UNIDADE, asset: '', pegada: [1, 1], lotacao: 1 },
-  { nome: 'tanque', categoria: CATEGORIA.UNIDADE, asset: 'prototipo-tanque', pegada: [1, 1], lotacao: 2 },
+  { nome: 'tanque', categoria: CATEGORIA.UNIDADE, asset: '', pegada: [1, 1], lotacao: 2 },
   { nome: 'escritorio-regional', categoria: CATEGORIA.PREDIO, asset: 'religadores-construcao-escritorio-regional', pegada: [4, 3] },
   { nome: 'poste', categoria: CATEGORIA.PREDIO, asset: '', pegada: [1, 1] },
   { nome: 'garagem', categoria: CATEGORIA.PREDIO, asset: '', pegada: [3, 3] },
