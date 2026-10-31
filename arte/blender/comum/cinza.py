@@ -187,12 +187,14 @@ def quadro_construcao(colunas, linhas, altura, folga=24, folga_lados=None):
 
 
 def descricao_construcao(asset, brief, faccao, pegada, altura, torre=None, extras=(), estados=("pronta", "danificada", "destruida"),
-                         categoria="construcao", folga_lados=None):
+                         categoria="construcao", folga_lados=None, produz=False):
     """One direction: ready, damaged and destroyed with the rendered shadow; torre is (frame, anchor) of a turret
-    layer in 16 directions (idle and a 2-frame shot)."""
+    layer in 16 directions (idle and a 2-frame shot); produz adds "produzindo", on the ready frames in the gray kit."""
     quadro, ancora = quadro_construcao(*pegada, altura, folga_lados=folga_lados)
     camadas = {"corpo": {"quadro": quadro, "ancora": ancora}}
     animacoes = [anim(estado, "corpo", 1) for estado in estados]
+    if produz:
+        animacoes.append(anim("produzindo", "corpo", 1, 0, True, igual=estados[0]))
     if torre:
         camadas["torre"] = {"quadro": list(torre[0]), "ancora": list(torre[1]), "pivo": "torre_pivo"}
         animacoes += [anim("torre", "torre", 1, 0, True, direcoes=16),
@@ -390,6 +392,26 @@ class Estragos:
             peca.scale = (1, 1, 1) if k < visiveis else (0, 0, 0)
         if hasattr(self, "fuligem"):
             self.fuligem.scale = (1, 1, 1) if destruida else (0, 0, 0)
+
+
+def arco(nome, centro, vao, altura, comprimento, mat, pai, segmentos=16, eixo="y", espessura=0.08):
+    """Arched sheet roof: half an elliptic cylinder of span vao and rise altura over its springing line at centro,
+    running along eixo (no lower half poking under the ground)."""
+    vertices, faces = [], []
+    for k in range(segmentos + 1):
+        angulo = math.pi * k / segmentos
+        u, w = math.cos(angulo) * vao / 2, math.sin(angulo) * altura
+        for v in (-comprimento / 2, comprimento / 2):
+            vertices.append((u, v, w) if eixo == "y" else (v, u, w))
+    for k in range(segmentos):
+        a = 2 * k
+        faces.append((a, a + 2, a + 3, a + 1))
+    obj = m.malha_de_pontos(nome, vertices, faces, [mat], pai)
+    obj.location = centro
+    obj.modifiers.new("espessura", "SOLIDIFY").thickness = espessura
+    for poligono in obj.data.polygons:
+        poligono.use_smooth = True
+    return obj
 
 
 def laje(nome, colunas, linhas, mat, pai, altura=0.12, recuo=0.15):
