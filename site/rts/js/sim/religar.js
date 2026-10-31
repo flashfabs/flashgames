@@ -8,8 +8,6 @@ import { slotVivo, emitirEvento } from './entidades.js';
 import { atualizarNeblina } from './neblina.js';
 import { ordenarGrupo, limparOrdens } from './ordens.js';
 
-/** Ability code (HABILIDADE command `arg`) for re-powering; the command's `alvo` is the structure. */
-export const HABILIDADE_RELIGAR = 1;
 // a unit works on a structure within the structure's radius plus this distance
 const ALCANCE_RELIGAR = (3 * FP) >> 1;
 const SEM_TIME = 255;
@@ -98,7 +96,7 @@ export function trocarDono(sim, i, jogador) {
 }
 
 /**
- * HABILIDADE RELIGAR: the units able to re-power walk to the structure and work on it when they get there.
+ * HABILIDADE RELIGAR (habilidades.js): the units able to re-power walk to the structure and work on it when they get there.
  * Units that cannot, or a target that is not re-powerable or already theirs, are left alone.
  */
 export function ordenarReligar(sim, unidades, alvoId) {

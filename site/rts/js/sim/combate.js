@@ -11,6 +11,7 @@ import { celulaVisivel } from './neblina.js';
 import { combateDe, BLINDAGEM, NIVEIS_VETERANIA } from './armas.js';
 import { ganharExperiencia, experienciaPorDano } from './veterania.js';
 import { desligar } from './religar.js';
+import { avancarHabilidades, podeMover, podeDisparar, alcanceExtraDe, ignoraElevacao, porcentoDoDisparo, disparou, ocultoPara } from './habilidades.js';
 
 // retarget every few ticks per unit, staggered by slot, so the search cost spreads over time
 const INTERVALO_BUSCA = 6;
@@ -61,6 +62,8 @@ export function extrasCombate(sim) {
       pocaRaio: new Int32Array(MAX_POCAS),
       pocaPorcento: new Uint8Array(MAX_POCAS),
       pocaTime: new Uint8Array(MAX_POCAS), // team of the shooter: the patch slows its enemies
+      pocaSoVeiculo: new Uint8Array(MAX_POCAS), // 1: only vehicles (caltrops catch wheels)
+      pocaDuracao: new Int32Array(MAX_POCAS), // ticks the slow lasts after leaving the patch
     };
   }
   return sim.extras.combate;
@@ -80,9 +83,11 @@ function pesquisa(sim, campo, time, tipo) {
 }
 
 /**
- * Speed of entity i in percent of its kind's, for movement: research and harvester veterancy add, a slow takes away.
+ * Speed of entity i in percent of its kind's, for movement: research and harvester veterancy add, a slow takes away,
+ * and a unit set up (raised, armed) or stunned does not move.
  */
 export function fatorVelocidade(sim, i) {
+  if (!podeMover(sim, i)) return 0;
   const c = combateDe(sim);
   const tipo = sim.tipo[i];
   let fator = 100 + pesquisa(sim, 'velocidade', sim.time[i], tipo);
@@ -102,6 +107,7 @@ function lentificar(ex, j, porcento, ate, tick) {
 // from i's height.
 function podeAcertar(sim, c, i, j, alcance, arma, nivelI) {
   if (!sim.ativo[j] || sim.time[j] === sim.time[i] || sim.time[j] === c.neutro || !c.alvejavel[sim.tipo[j]]) return false;
+  if (c.tocaiaDoTipo[sim.tipo[j]] && ocultoPara(sim, j, sim.time[i], sim.x[i], sim.y[i])) return false;
   const cj = celulaDe(sim, j);
   if (!celulaVisivel(sim, sim.time[i], cj)) return false;
   const acima = nivelI - sim.mapa.nivel[cj];
@@ -202,8 +208,9 @@ function acertar(sim, c, ex, j, arma, danoBase, autor, nivelOrigem, fator) {
   matar(sim, j, autor);
 }
 
-// A slowing patch on the ground around a blast, for the weapon's duration, against the shooter's enemies.
-function deixarPoca(sim, ex, px, py, lentidao, time) {
+// A slowing patch on the ground around (px, py) for `vida` ticks against the enemies of `time`: it slows by `porcento`
+// for `duracao` ticks after a unit leaves it (vehicles only with soVeiculo).
+function deixarPoca(sim, ex, px, py, { raio, porcento, vida, duracao, soVeiculo }, time) {
   let k = 0;
   let primeira = 0;
   for (; k < MAX_POCAS; k++) {
@@ -211,12 +218,19 @@ function deixarPoca(sim, ex, px, py, lentidao, time) {
     if (ex.pocaAte[k] < ex.pocaAte[primeira]) primeira = k;
   }
   if (k === MAX_POCAS) k = primeira;
-  ex.pocaAte[k] = sim.tick + lentidao.duracao;
+  ex.pocaAte[k] = sim.tick + vida;
   ex.pocaX[k] = px;
   ex.pocaY[k] = py;
-  ex.pocaRaio[k] = lentidao.raio;
-  ex.pocaPorcento[k] = lentidao.porcento;
+  ex.pocaRaio[k] = raio;
+  ex.pocaPorcento[k] = porcento;
   ex.pocaTime[k] = time;
+  ex.pocaSoVeiculo[k] = soVeiculo;
+  ex.pocaDuracao[k] = Math.max(2, duracao);
+}
+
+// Caltrops dropped by unit i at (x, y), from its ability (habilidades.js).
+function deixarEstrepes(sim, i, x, y, h) {
+  deixarPoca(sim, extrasCombate(sim), x, y, { raio: h.raio, porcento: Math.min(90, h.porcento), vida: h.vida, duracao: h.duracao, soVeiculo: 1 }, sim.time[i]);
 }
 
 // Every live enemy standing in a patch is slowed for the next ticks.
@@ -233,9 +247,10 @@ function aplicarPocas(sim, c, ex) {
       for (let xb = Math.max(0, bx - r); xb <= Math.min(baldeLargura - 1, bx + r); xb++) {
         for (let j = baldeCabeca[yb * baldeLargura + xb]; j >= 0; j = baldeProximo[j]) {
           if (!ativo[j] || sim.time[j] === ex.pocaTime[k] || sim.time[j] === c.neutro || !c.alvejavel[sim.tipo[j]]) continue;
+          if (ex.pocaSoVeiculo[k] && !c.veiculoDoTipo[sim.tipo[j]]) continue;
           const dx = (x[j] - ex.pocaX[k]) >> 4;
           const dy = (y[j] - ex.pocaY[k]) >> 4;
-          if (dx * dx + dy * dy <= raio * raio) lentificar(ex, j, ex.pocaPorcento[k], sim.tick + 2, sim.tick);
+          if (dx * dx + dy * dy <= raio * raio) lentificar(ex, j, ex.pocaPorcento[k], sim.tick + ex.pocaDuracao[k], sim.tick);
         }
       }
     }
@@ -249,7 +264,7 @@ let vitimas = new Int32Array(64);
 function explodir(sim, c, ex, px, py, arma, danoBase, autor, time, nivelOrigem) {
   emitirEventoNoPonto(sim, EVENTO.EXPLOSAO, autor, px, py, arma);
   const lentidao = c.armas[arma].lentidao;
-  if (lentidao && lentidao.noChao) deixarPoca(sim, ex, px, py, lentidao, time);
+  if (lentidao && lentidao.noChao) deixarPoca(sim, ex, px, py, { raio: lentidao.raio, porcento: lentidao.porcento, vida: lentidao.duracao, duracao: 2, soVeiculo: lentidao.soVeiculo }, time);
   const raio = Math.max(c.raioArea[arma], c.velocidade[arma] > 0 ? RAIO_MINIMO_ARCO : 0) >> 4;
   const { baldeCabeca, baldeProximo, baldeLargura, x, y, ativo, raioPorTipo, tipo } = sim;
   const linhas = Math.trunc(baldeCabeca.length / baldeLargura);
@@ -329,7 +344,9 @@ export function danoBaseDe(sim, i) {
   const c = combateDe(sim);
   const arma = c.armaDoTipo[sim.tipo[i]];
   if (arma < 0) return 0;
-  return Math.trunc((c.dano[arma] * (100 + c.bonusDano[sim.veterania[i]] + pesquisa(sim, 'dano', sim.time[i], sim.tipo[i]))) / 100);
+  const base = Math.trunc((c.dano[arma] * (100 + c.bonusDano[sim.veterania[i]] + pesquisa(sim, 'dano', sim.time[i], sim.tipo[i]))) / 100);
+  const pressao = porcentoDoDisparo(sim, i);
+  return pressao === 100 ? base : Math.trunc((base * pressao) / 100);
 }
 
 // i fires at j: reload, TIRO, then the hit, the blast or the shell.
@@ -340,15 +357,20 @@ function disparar(sim, c, ex, i, j, arma, nivelI) {
   sim.recarga[i] = Math.max(1, Math.trunc((c.recarga[arma] * (100 - Math.min(90, reducao))) / 100));
   emitirEvento(sim, EVENTO.TIRO, i, j, tipo);
   const danoBase = danoBaseDe(sim, i);
-  if (c.velocidade[arma] > 0) lancar(sim, c, ex, i, sim.x[j], sim.y[j], arma, danoBase, nivelI);
-  else if (c.raioArea[arma] > 0) explodir(sim, c, ex, sim.x[j], sim.y[j], arma, danoBase, i, time, nivelI);
-  else acertar(sim, c, ex, j, arma, danoBase, i, nivelI, 100);
+  disparou(sim, i);
+  // a raised basket shoots as if from the target's height when that is higher
+  const nivelJ = sim.mapa.nivel[celulaDe(sim, j)];
+  const nivel = nivelJ > nivelI && ignoraElevacao(sim, i) ? nivelJ : nivelI;
+  if (c.velocidade[arma] > 0) lancar(sim, c, ex, i, sim.x[j], sim.y[j], arma, danoBase, nivel);
+  else if (c.raioArea[arma] > 0) explodir(sim, c, ex, sim.x[j], sim.y[j], arma, danoBase, i, time, nivel);
+  else acertar(sim, c, ex, j, arma, danoBase, i, nivel, 100);
 }
 
 /** Lands the shells due, then aims, reloads and fires for every live armed unit, in slot order. */
 export function combater(sim) {
   const c = combateDe(sim);
   const ex = extrasCombate(sim);
+  avancarHabilidades(sim, deixarEstrepes);
   pousarProjeteis(sim, c, ex);
   aplicarPocas(sim, c, ex);
   const ord = sim.ordens;
@@ -359,7 +381,7 @@ export function combater(sim) {
     if (sim.recarga[i] > 0) sim.recarga[i]--;
     const arma = c.armaDoTipo[sim.tipo[i]];
     if (arma < 0 || sim.time[i] === c.neutro) continue;
-    const alcance = c.alcance[arma] + pesquisa(sim, 'alcance', sim.time[i], sim.tipo[i]);
+    const alcance = c.alcance[arma] + pesquisa(sim, 'alcance', sim.time[i], sim.tipo[i]) + alcanceExtraDe(sim, i);
     const nivelI = nivel[celulaDe(sim, i)];
     let alvo = sim.alvo[i];
     if (alvo >= 0 && !podeAcertar(sim, c, i, alvo, alcance, arma, nivelI)) alvo = -1;
@@ -370,7 +392,7 @@ export function combater(sim) {
     }
     if (alvo < 0 && (sim.tick + i) % INTERVALO_BUSCA === 0) alvo = procurarAlvo(sim, c, i, alcance, arma, nivelI, linhas);
     sim.alvo[i] = alvo;
-    if (alvo < 0 || sim.recarga[i] > 0) continue;
+    if (alvo < 0 || sim.recarga[i] > 0 || !podeDisparar(sim, i)) continue;
     disparar(sim, c, ex, i, alvo, arma, nivelI);
   }
 }
