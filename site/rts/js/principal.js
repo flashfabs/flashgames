@@ -332,7 +332,8 @@ function tratarAlerta(alerta) {
 
 simulacao.iniciar({
   semente: opcoes.semente,
-  unidadesPorTime: opcoes.unidades >> 1,
+  // a mission brings its own units; the prototype's armies are only for ?unidades and the benchmarks
+  unidadesPorTime: arquivosDaPartida && !parametros.has('unidades') ? 0 : opcoes.unidades >> 1,
   avancar: opcoes.avancar,
   teste: opcoes.teste,
   // A mission's match: the raw files go to the worker, which compiles and validates them (the format is being agreed
