@@ -135,6 +135,7 @@ export function rotulosDaMissao(missao) {
   for (const equipe of Array.isArray(equipes) ? equipes : Object.values(equipes)) {
     somar(equipe?.grupo);
     somar(equipe?.reserva);
+    somar(equipe?.escala?.reserva);
   }
   return rotulos;
 }
