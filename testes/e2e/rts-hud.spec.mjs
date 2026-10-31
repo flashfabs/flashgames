@@ -198,7 +198,8 @@ test('the sandbox through the HUD: build, place, train and harvest', async ({ pa
   }, { timeout: 60_000, intervals: [100] }).toBeGreaterThan(0);
   await expect(page.locator('#alertas')).toContainText('Guincho de Células pronto');
 
-  // The period picks an idle harvester; a context click on a pile sends it to harvest there.
+  // The period picks an idle harvester. The home node starts in the fog, so the harvester first walks there (a
+  // context click on unseen ground is a move); once the pile is seen, a context click on it sends it to harvest.
   await expect.poll(() => page.evaluate(() => window.__rts.hud.coletoresOciosos)).toBeGreaterThan(0);
   await tecla('Period');
   const coletor = await page.evaluate(() => [...window.__rts.selecionadas][0]);
@@ -208,20 +209,34 @@ test('the sandbox through the HUD: build, place, train and harvest', async ({ pa
     const c = r.indice.centro([id]);
     let melhor = -1;
     let d2 = Infinity;
-    const { largura } = r.estado.mapa;
     for (let k = 0; k < a.n; k++) {
       if (r.catalogo.categoria(a.tipo[k]) !== 'recurso') continue;
-      // only piles the player has seen can be targeted
-      if (a.visao[Math.floor(a.y[k] / r.FP) * largura + Math.floor(a.x[k] / r.FP)] === 0) continue;
       const d = (a.x[k] / r.FP - c.x) ** 2 + (a.y[k] / r.FP - c.y) ** 2;
       if (d < d2) [melhor, d2] = [a.id[k], d];
     }
-    Object.assign(r.camera, r.indice.centro([melhor]));
     return melhor;
   }, coletor);
-  await page.evaluate(() => new Promise(pronto => requestAnimationFrame(() => requestAnimationFrame(pronto))));
-  const naPilha = await page.evaluate(id => window.__rts.naTela(id), pilha);
-  await page.mouse.click(naPilha.x, naPilha.y, { button: 'right' });
+  const vista = () => page.evaluate(id => {
+    const r = window.__rts;
+    const a = r.estado.atual;
+    const k = r.indice.k(id);
+    return a.visao[Math.floor(a.y[k] / r.FP) * r.estado.mapa.largura + Math.floor(a.x[k] / r.FP)] !== 0;
+  }, pilha);
+  const clicarNaPilha = async () => {
+    await page.evaluate(id => Object.assign(window.__rts.camera, window.__rts.indice.centro([id])), pilha);
+    await page.evaluate(() => new Promise(pronto => requestAnimationFrame(() => requestAnimationFrame(pronto))));
+    const p = await page.evaluate(id => window.__rts.naTela(id), pilha);
+    await page.mouse.click(p.x, p.y, { button: 'right' });
+  };
+  if (!(await vista())) {
+    await clicarNaPilha();
+    expect(await ultimoComando()).toMatchObject({ tipo: 1, unidades: [coletor] });
+    await expect.poll(async () => {
+      await page.evaluate(() => window.__rts.avancar(150));
+      return vista();
+    }, { timeout: 60_000, intervals: [100] }).toBe(true);
+  }
+  await clicarNaPilha();
   expect(await ultimoComando()).toMatchObject({ tipo: 11, alvo: pilha, unidades: [coletor] });
   await expect.poll(async () => {
     await page.evaluate(() => window.__rts.avancar(300));
