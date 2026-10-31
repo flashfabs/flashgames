@@ -3,6 +3,10 @@
 //
 // Map axes: x east, y south, in cells. A ground offset of d cells shows on screen as d*px across and
 // d*px*sin(elevation) down; a height of h metres rises h*(px/metrosPorCelula)*cos(elevation).
+//
+// The camera may carry the terrain's height field (camera.relevo, set by the renderer when the map arrives, with
+// alturaEm(x, y) in metres): then mundoParaTela lifts points by the terrain height under them and telaParaMundo
+// follows the view ray down to the first terrain it meets, so every screen and map conversion agrees with the picture.
 
 const GRAUS = Math.PI / 180;
 
@@ -26,6 +30,8 @@ export function validarProjecao(dados) {
     falha('camera.blenderRotacaoGraus não bate com a elevação');
   }
   if (!(dados.metrosPorCelula > 0)) falha('metrosPorCelula inválido');
+  if (!(dados.metrosPorNivel > 0)) falha('metrosPorNivel inválido');
+  if (!Number.isInteger(dados.nivelMaximo) || dados.nivelMaximo < 1) falha('nivelMaximo precisa ser inteiro >= 1');
   const { hd, uhd } = dados.pxPorCelula ?? {};
   if (!Number.isInteger(hd) || !Number.isInteger(uhd) || uhd !== hd * 2) falha('pxPorCelula precisa de hd inteiro e uhd = 2 × hd');
   const campo = dados.campoDeVisao ?? {};
@@ -89,6 +95,11 @@ export function criarProjecao(dados) {
     colunasMax: campo.colunasMax,
     zooms: { ...campo.zooms },
     metrosPorCelula: dados.metrosPorCelula,
+    metrosPorNivel: dados.metrosPorNivel,
+    nivelMaximo: dados.nivelMaximo,
+    // cells the view ray moves north per metre it climbs: a point h metres up shows where the ground h*k cells
+    // further south would be
+    celulasPorMetroDeAltura: Math.cos(elevacao) / (dados.metrosPorCelula * Math.sin(elevacao)),
     pxNivel: { hd: dados.pxPorCelula.hd, uhd: dados.pxPorCelula.uhd },
     // towards the sun in map axes (y south)
     sol: [sx, -sy, sz],
@@ -133,17 +144,62 @@ export function escolherNivel(projecao, px) {
  * @param {Vista} vista
  * @param {number} x map cells
  * @param {number} y map cells
- * @param {number} alturaMetros height above the ground
+ * @param {number} alturaMetros height above the terrain (above the ground plane when the camera has no relief)
  * @param {Float64Array | number[]} saida
  */
 export function mundoParaTela(projecao, camera, vista, x, y, alturaMetros, saida) {
+  const terreno = camera.relevo ? camera.relevo.alturaEm(x, y) : 0;
   saida[0] = vista.largura * 0.5 + (x - camera.x) * vista.px;
-  saida[1] = vista.altura * 0.5 + (y - camera.y) * vista.px * projecao.seno - (alturaMetros * vista.px * projecao.cosseno) / projecao.metrosPorCelula;
+  saida[1] = vista.altura * 0.5 + (y - camera.y) * vista.px * projecao.seno - ((terreno + alturaMetros) * vista.px * projecao.cosseno) / projecao.metrosPorCelula;
   return saida;
 }
 
+// Steps of the view ray, as a fraction of a cell north per step; the shader marches with the same step.
+export const PASSO_DO_RAIO_CELULAS = 0.125;
+
 /**
- * Device pixel to the map point on the ground plane under it; writes [x, y] into saida.
+ * First terrain point along the view ray of the ground point (x, y0): the ray climbs h*k cells south for each metre
+ * up, so it starts at the highest terrain the map has and walks down to the ground. Writes [x, y, height] into saida.
+ * @param {ReturnType<typeof criarProjecao>} projecao
+ * @param {{ alturaEm: (x: number, y: number) => number, alturaMaxima: number }} relevo
+ * @param {number} x
+ * @param {number} y0
+ * @param {Float64Array | number[]} saida
+ */
+export function seguirRaio(projecao, relevo, x, y0, saida) {
+  const k = projecao.celulasPorMetroDeAltura;
+  const passo = PASSO_DO_RAIO_CELULAS / k;
+  let hAnterior = relevo.alturaMaxima;
+  let dAnterior = hAnterior - relevo.alturaEm(x, y0 + hAnterior * k);
+  saida[0] = x;
+  saida[1] = y0;
+  saida[2] = 0;
+  if (dAnterior <= 0) {
+    saida[1] = y0 + hAnterior * k;
+    saida[2] = hAnterior;
+    return saida;
+  }
+  for (let h = hAnterior - passo; ; h -= passo) {
+    const hh = Math.max(0, h);
+    const d = hh - relevo.alturaEm(x, y0 + hh * k);
+    if (d <= 0) {
+      const f = dAnterior / (dAnterior - d);
+      const hit = hAnterior + (hh - hAnterior) * f;
+      saida[1] = y0 + hit * k;
+      saida[2] = hit;
+      return saida;
+    }
+    if (hh === 0) return saida;
+    hAnterior = hh;
+    dAnterior = d;
+  }
+}
+
+const raio = new Float64Array(3);
+
+/**
+ * Device pixel to the map point under it (on the terrain when the camera carries it, else on the ground plane);
+ * writes [x, y] into saida.
  * @param {ReturnType<typeof criarProjecao>} projecao
  * @param {Camera} camera
  * @param {Vista} vista
@@ -154,6 +210,10 @@ export function mundoParaTela(projecao, camera, vista, x, y, alturaMetros, saida
 export function telaParaMundo(projecao, camera, vista, px, py, saida) {
   saida[0] = camera.x + (px - vista.largura * 0.5) / vista.px;
   saida[1] = camera.y + (py - vista.altura * 0.5) / (vista.px * projecao.seno);
+  if (camera.relevo) {
+    seguirRaio(projecao, camera.relevo, saida[0], saida[1], raio);
+    saida[1] = raio[1];
+  }
   return saida;
 }
 

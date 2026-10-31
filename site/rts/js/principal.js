@@ -4,7 +4,8 @@
 // benchmark pins 1 unless told otherwise), semente, zoom (factor of projecao.json, 0.75 to 1.25), atlas=0, avancar,
 // roda=auto|zoom|arrastar (what a wheel without Ctrl does), painel=1 (measurement panel), inicio=0|1 (start screen;
 // shown by default, skipped in tests and the benchmark), partida=<mission id>&dificuldade=facil|normal|dificil (a
-// mission's match instead of the prototype's armies), teste=1 (exposes window.__rts for the end-to-end tests).
+// mission's match instead of the prototype's armies), terreno=ladrilhos|procedural (ground splatted from the art's
+// tiles by soil, the default, or procedural noise), teste=1 (exposes window.__rts for the end-to-end tests).
 import { criarRenderizador } from './render/renderizador.js';
 import { carregarProjecao } from './render/projecao.js';
 import { criarResolucao } from './render/resolucao.js';
@@ -75,7 +76,7 @@ const selecionadas = new Set();
 const simulacao = criarPonteSimulacao();
 const { estado, visivel } = simulacao;
 const escalaFixa = opcoes.escala === 'auto' ? null : Number(opcoes.escala);
-const render = criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa });
+const render = criarRenderizador(canvas, projecao, { camera, visivel, escalaFixa, terreno: parametros.get('terreno') === 'procedural' ? 'procedural' : 'ladrilhos' });
 const efeitos = render.efeitos;
 criarResolucao({ canvas, palco, modo: opcoes.resolucao, aoMudar: render.redimensionar });
 

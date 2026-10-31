@@ -87,6 +87,8 @@ Rodam só quando o Victor pedir, uma por vez, com o Mac sem outras sessões pesa
 - Bateria de teclas no Safari e no Chrome do Mac ([roteiro](roteiro-medicoes.md), Partes 1 e 2).
 - Referência de 60 qps no Metal do M5 Pro: `rts-desempenho` em 4K com 2.000 unidades no Chrome e o passo da simulação limpo, sem outras sessões rodando (critérios da E1).
 - Pavio com 8 jogadores (`npx playwright test testes/e2e/desempenho.spec.mjs --project=desempenho --workers=1`), cujos limites são do Mac.
+- Render da fatia cinza no M5 Pro (`rts-render`): `rts-desempenho` em 4K com 2.000 unidades e 60 prédios no Chrome com Metal (`npx playwright test testes/e2e/rts-desempenho.spec.mjs --project=desempenho --workers=1`), e no Safari 26 `/rts/?bench=1&res=4k&seg=20&avancar=600&predios=60` em tela cheia, uma vez com `&terreno=procedural` e outra sem, copiando o JSON do canto.
+- Lockstep com o Safari 26 de verdade: abrir no Safari o link da sala do protótipo `prototipos/rts-lockstep/` criada no Chrome do Mac e jogar alguns minutos com o robô ligado, conferindo no painel do anfitrião que as somas comparadas sobem e as dessincronias ficam em 0 (o WebKit do Playwright no Windows não tem WebRTC, e no Mac rodou 1 minuto); se der, a rodada inteira de 10 minutos com o WebKit do Playwright no Mac ([README do protótipo](../../prototipos/rts-lockstep/README.md)).
 
 ## Critérios por etapa
 
@@ -144,12 +146,12 @@ Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, o
 | Testes de regra: carga derramada, saturação, vento, poste, lotação | verdes no `npm test` | `rts-motor-economia` | pendente |
 | Testes de regra: matriz de dano, veterania, pesquisas, religar e gatilhos | verdes no `npm test` | `rts-motor-combate` | pendente |
 | Fatia cinza de ponta a ponta | começar, coletar, construir, produzir, lutar, vitória e derrota verdes no `rts/base` com o gancho `window.__rts` (`?teste=1`) | `rts-qualidade` | pendente |
-| Spike de lockstep | 10 minutos sem dessincronia entre Chrome e Firefox, mensagens abaixo de 16.000 bytes | `rts-rede` | pendente |
+| Spike de lockstep | 10 minutos sem dessincronia entre Chrome e Firefox, mensagens abaixo de 16.000 bytes | `rts-rede` | feito em 31/10/2026: 10 minutos de jogo no PC com 4 páginas (Chromium 153 e Firefox 155, duas de cada), atraso artificial ligado, 1.812 somas por subsistema comparadas e 0 dessincronias, maior mensagem de 15.660 bytes, turnos acima de 16.000 fatiados (seção F9); WebKit 26.6 do Playwright só no Mac, 1 minuto sem dessincronia; Safari de verdade com o Victor |
 | Formato de comando congelado | `VERSAO_COMANDOS` 1 depois do spike | `rts-motor-economia`, depois da `rts-rede` | pendente |
-| Briefs | 33 aprovados no checklist de originalidade, sem lembrança específica de outro jogo na revisão | `rts-design`; a revisão por quem jogou o jogo que inspirou o projeto depende do Victor achar a pessoa | pendente |
+| Briefs | 33 aprovados no checklist de originalidade, sem lembrança específica de outro jogo na revisão | `rts-design`; a revisão por quem jogou o jogo que inspirou o projeto depende do Victor achar a pessoa | pendente: 37 briefs escritos com o checklist preenchido no que depende da `rts-design`; as duas revisões humanas esperam o Victor (convite pronto, seção F5) |
 | Kit cinza | todas as unidades e construções da fase 1 em cinza procedural, com manifesto e procedência | `rts-arte` | pendente |
 | HUD da fatia | recursos, lotação, construção e produção com fila e grade, minimapa com alertas, coletor ocioso | `rts-interface` | pendente |
-| Render da fatia | construções com pegada, cabos e o que a caixa de areia pede | `rts-render` | pendente |
+| Render da fatia | construções com pegada, cabos e o que a caixa de areia pede | `rts-render` | feito em 31/10/2026 (seção F2): relevo, penhascos, neblina com altura, prédios com pegada e obra, fantasma de colocação, memória na neblina, cabos, splatting por solo e o kit cinza pelo índice; em 4K com 2.000 unidades e 60 prédios, 0 de 600 quadros acima de 20 ms no PC; Mac e Safari em "Medições que esperam o Mac" |
 | Manifesto, orçamento e procedência | testes verdes, com a lista de licenças permitidas | `rts-qualidade` | pendente |
 | Tamanho do git | `git count-objects -vH` no fim da etapa | `rts-qualidade` | pendente |
 | Som provisório | sintetizado e respostas gravadas pelo grupo | sem sessão na onda 2 (a `rts-som` abre na onda 3); a decisão de adiantar ou seguir sem som no M3 é do Victor | pendente |
@@ -186,6 +188,17 @@ Aberta em 30/10/2026 (onda 2). Cada linha tem um dono: quem entrega o número, o
 | Jogo de verdade | o Victor e 3 amigos jogam a fase 1 inteira em produção | pendente |
 
 E7 (escaramuça), E8 (multiplayer) e E9 (campanha) têm os critérios no plano e entram aqui quando a etapa abrir.
+
+## O que depende do Victor (onda 2)
+
+Ninguém espera parado por estes itens; cada sessão segue com o que dá e a `rts-qualidade` mantém a lista.
+
+- Como os amigos abrem a fatia cinza no M3: deploy de rascunho na Netlify com endereço próprio (`--alias fatia-cinza`, sem `--prod`, como a página de diagnóstico) ou o Mac servindo a `rts/base` em casa ([kit do M3](kit-m3.md)).
+- Jogar o M3 com 2 pessoas do grupo pelo [kit do M3](kit-m3.md) e mandar os 3 registros e as respostas para a `rts-qualidade`.
+- Som provisório no M3: a `rts-som` só abre na onda 3; adiantar ou jogar o M3 sem som.
+- Achar quem jogou o jogo que inspirou o projeto para a revisão dos briefs (`rts-design`) e recrutar os 6 testadores da E4 (3 novatos e 3 veteranos).
+- Licença comunitária de áudio gerado por IA (Stable Audio): fica fora da lista de licenças permitidas (`testes/rts-licencas.json`) até a decisão dele.
+- As escolhas do portão de estilo (M2) e as medições que esperam o Mac, abaixo.
 
 ## Roteiro para o Victor
 
@@ -241,7 +254,25 @@ Na onda 2: economia, construção, produção, lotação, combate com a matriz, 
 | Passo da simulação na página: 4K contra 1080p | PC da RTX 4090, Chromium com ANGLE D3D11 na NVIDIA (string da placa conferida), 2.000 unidades, escala fixa | 4K: passo p50/p95 1,7/3,0 ms, 0 de 600 quadros acima de 20 ms, GPU 2,7 ms; 1080p: passo 1,8/3,3 ms, GPU 0,75 ms; o passo não muda com os pixels, então não há disputa com o render (os 22 ms medidos antes eram de antes da soma de verificação passar a uma por segundo); no D3D11 a consulta de tempo de GPU acompanha os pixels, ao contrário do Metal | `scripts/rtx-testes.sh -- --project=desempenho testes/e2e/rts-desempenho.spec.mjs`, execução 20261030-205938 |
 | Render em 4K no Safari 26 | MacBook Pro M5 Pro | pendente (Victor): abrir `/rts/?bench=1&res=4k&seg=20&avancar=600` em tela cheia e copiar o JSON que aparece no canto | — |
 
-Pendências da F2: a medição no Safari (Victor); a escolha da sombra é do Victor no portão (a camada renderizada dos veículos sai cortada na borda do quadro de 256 px, e a `rts-arte` aumenta o quadro de quem precisar se ela for a escolhida); níveis de altura, penhascos, construções com pegada, cabos, neblina com altura e entardecer ficam para a próxima `rts-render` (ondas 2 e 3); o custo de GPU por passe ainda não tem medida confiável no Mac (a consulta de tempo da ANGLE não acompanha os pixels), e para 120 Hz em 4K vale medir o terreno procedural contra o splatting da onda 2 por tempo de quadro, com a escala fixa.
+Onda 2 (E3, fatia cinza), 31/10/2026:
+
+- Relevo (`render/relevo.js`): níveis 0 a 3 do mapa a 4 m por nível (`metrosPorNivel` e `nivelMaximo` no `projecao.json`, C8 v0 com campo novo), encosta suave entre células abertas de níveis diferentes, penhasco de 1/4 de célula onde há célula bloqueada entre níveis (a regra combinada com a `rts-design` para a caixa de areia), região bloqueada subindo ao nível mais alto que toca, água bloqueada no próprio nível e decoração que bloqueia (muro em ruína, carcaça de ônibus) como bloco de 2,5 m. O terreno marcha o raio de cada pixel até o chão só onde há relevo à frente, ilumina encostas e faces, sombreia o que o terreno mais alto esconde do sol e amostra a neblina no ponto atingido (neblina com altura). A câmera leva o relevo, então `paraMundo` e `paraTela` da interface acertam o clique num platô sem mudar nada do lado dela.
+- Profundidade: o terreno escreve no buffer de profundidade quão perto da câmera está cada ponto, e sprites, sombras, anéis, efeitos e cabos testam contra ele, então unidade atrás de morro some atrás dele; unidades, barras e anéis ficam na altura do chão.
+- Construções (C2 v3 da `rts-motor-economia`): tipos do mapa estático com a arte do índice (C9) ou forma provisória desenhada na GPU pela pegada (prédio, poste, cata-vento, torre, pilha de baterias, soldado, faísca), âncora no centro da pegada, ordem pela borda da frente junto com as unidades, obra subindo do chão com andaime pela máscara do shader, `produzindo`, `danificada` (ou fuligem sem arte) e `luzes` quando energizado, contorno da pegada na seleção, memória cinza dos prédios vistos sob a neblina (`fantasmas` do retrato), fantasma de colocação (`render.definirFantasma`, costura da `rts-interface`) e área de construção sombreada (`render.definirAreaDeConstrucao`).
+- Cabos da rede de postes de cada prédio ao seu nó (`ligacao`), com flecha, acesos quando `ENERGIZADO`.
+- Terreno por splatting (`render/solos.js`): solo por célula da camada do mapa (C6) com os nomes da tabela `solos`, ladrilho próprio `terreno-<solo>` quando o índice da arte tiver e o `terreno-terra-batida` tingido por solo até lá; `?terreno=procedural` volta ao terreno procedural para comparar.
+- Sombra: a recomendação da onda 1 virou o padrão `recomendado` (derivada do alfa nas unidades, camada renderizada nas construções que a têm) até o Victor escolher no portão.
+- Bench: `&predios=N` cerca a batalha com prédios de uma partida (escritório da arte, garagens, almoxarifados, torres, postes com cabos, um em cinco em obra); o resultado traz o modo do terreno e o tempo de GPU por quadro (p50 e p95).
+
+| Medição | Máquina, navegador e tela | Resultado | Fonte |
+| --- | --- | --- | --- |
+| Render da fatia cinza em 4K: 2.000 unidades e 60 prédios (escritório da arte, garagens, almoxarifados, torres, cata-ventos, pilhas, postes com cabos, 12 em obra), terreno com relevo e ladrilhos por solo, zoom padrão, escala fixa em 100% | PC da RTX 4090, Chromium 153 headless com ANGLE D3D11 na NVIDIA (placa conferida pelo executor), janela 1920×1080 com DPR 2, canvas 3840×2160 | 600 quadros a 60 qps, 0 acima de 20 ms (meta: menos de 1%), quadro p99 16,8 ms, CPU do quadro p50/p95/p99 0,3/0,5/0,6 ms, GPU p50/p95 2,41/2,55 ms, 984 sprites na tela; passo da simulação p50/p95 1,8/3,9 ms | `scripts/rtx-testes.sh`, execução 20261031-004503, `testes/e2e/rts-desempenho.spec.mjs` |
+| O mesmo, zoom afastado (0,75) | idem | 600 quadros, 0 acima de 20 ms, p99 16,8 ms, GPU p50 2,24 ms, 1.288 sprites na tela | idem |
+| O mesmo em 1080p | PC da RTX 4090, DPR 1, canvas 1920×1080 | 600 quadros, 0 acima de 20 ms, GPU p50 0,54 ms | idem |
+| Terreno procedural contra ladrilhos por solo, quadro destravado (`--disable-gpu-vsync --disable-frame-rate-limit`), 4K, 2.000 unidades e 60 prédios, escala fixa | PC da RTX 4090, D3D11 | procedural: 1.687 qps, quadro p50/p95 0,4/0,5 ms, GPU p50/p95 1,01/1,04 ms; ladrilhos: 1.933 qps, quadro p50/p95 0,3/0,5 ms, GPU p50/p95 0,55/0,57 ms. Os ladrilhos custam 54% do procedural na GPU, e o caminho dos 120 Hz em 4K segue por eles (ficam como padrão; `?terreno=procedural` volta ao antigo). Com o quadro preso a 60 Hz a GPU fica em relógio baixo, por isso 2,4 ms lá e 0,55 ms aqui; o que vale é a comparação entre os dois | idem |
+| Memória de textura do bench em 4K (camadas de sprite RGBA8 + R8 + R8 e ladrilhos de chão, com mipmaps) | idem | 325 MiB no `uhd` e 161 MiB no `hd`: toda camada do texture array tem o tamanho da maior página, e o atlas de 4096×256 do tanque do protótipo e as páginas do escritório puxam as camadas das fichas para o mesmo tamanho; com o atlas de fase da `rts-arte` (páginas de 2048² compartilhadas, camada reaproveitada por URL desde `665bb89`) a conta cai para 32 MiB por camada no `uhd` | idem, `mibTexturas` |
+
+Pendências da F2: a medição no Safari e a referência no Metal do M5 Pro com o relevo e os prédios (Victor, em "Medições que esperam o Mac"); a escolha da sombra é do Victor no portão; entardecer na onda 3; decorações que não bloqueiam (pedra, árvore seca, poste caído, pneus) e a ponte como peça; silhueta de unidade escondida atrás de morro (hoje some inteira); cabos desenhados depois dos sprites passam por cima de unidade na frente deles; os ladrilhos dos outros solos dependem da `rts-arte`.
 
 ### F3 Arte e Blender (`rts-arte`)
 
@@ -263,7 +294,33 @@ Onda 1 aberta em 30/10/2026, só para os briefs.
 - Premissa dos Desligados reescrita como atravessadores e freteiros, sem ideologia contra a tecnologia; o conflito da fase 1 é de mercado (dono da rede contra atravessador). O checklist ganhou o bloco de facção, com a pergunta "a dupla jogador contra inimigo reproduz a dupla de algum jogo conhecido?".
 - Trocas aprovadas pelo Victor em 30/10/2026 e já escritas nos briefs: a infantaria básica dos Desligados virou o Chapa (carabina de ar, alcance 4, a tocaia ficou); o batedor de bicicleta virou o Rolimã (carrinho de rolimã com estilingue, os estrepes ficaram); a artilharia que arma e desarma virou o Canhão de Caldeira (morteiro a vapor com apito de aviso). As duas primeiras ficavam perto de unidades de uma facção conhecida; a terceira tinha o nome, a função e a mecânica de uma máquina de cerco de outra série famosa nas versões em português.
 - Mudanças de dados que as trocas pedem, para a onda 2: alcance da infantaria básica dos Desligados de 3 para 4 células, sem o bônus de dano de perto; valor da rajada do Cata-vento a definir (o vento virou rajadas anunciadas).
-- Pendente: revisão por alguém que jogou o jogo que inspirou o projeto ("isso te lembra algo específico?"); teste de combinação por alguém que não é fã; teste de 5 segundos no portão (`rts-arte`); briefs dos nós de recurso, do terreno e dos retratos.
+- Pendente da onda 1, passada à onda 2: revisão por alguém que jogou o jogo que inspirou o projeto ("isso te lembra algo específico?"); teste de combinação por alguém que não é fã; teste de 5 segundos no portão (`rts-arte`).
+
+Onda 2 (E3), aberta em 30/10/2026; integrações na `rts/base` em `924e882`, `69c38f5` e nas seguintes.
+
+- C5, dados de jogo em inteiros, no esquema e no validador da `rts-motor-economia` (`compilarDados` passa): `site/rts/dados/unidades.json` (as 15 unidades da fase 1), `predios.json` (8 prédios e o Poste Avançado dos Religadores, 6 dos Desligados, 4 estruturas neutras), `armas.json` (14 armas, matriz do plano, cobertura de ruína 75% de bala e explosivo ignorando cobertura, elevação, veterania com a dos coletores e do suporte), `economia.json` e `pesquisas.json` (Aterramento, Isolamento, Turno Extra e o nível 2 automático do Almoxarifado). Unidades: décimos de célula, ms múltiplos de 100, centésimos de célula por segundo, porcentos. As trocas da onda 1 entraram: Chapa com alcance 4 sem bônus de perto, rajada de 80 C a cada 120 s com 15 s de aviso (40 C por minuto por cata-vento). Teste: `testes/rts-dados.test.mjs` (inteiros, referências, um brief para cada entrada, nomes de asset, modelo de duelo).
+- C6, mapa da caixa de areia: 96 × 96, simétrico por rotação de 180°, fonte no formato do Tiled escrita por script (`ferramentas/mapas/gerar-caixa-de-areia.mjs` para `arte/mapas-fonte/caixa-de-areia.tmj`, sem instalar o editor, D16) e convertida por `ferramentas/mapas/converter.mjs` para `site/rts/dados/mapas/caixa-de-areia/`; passa o `lerMapaDeArquivos` da `rts-motor-economia`. Platô de cada base com duas rampas, rio com ponte de 2 células no centro e um vau lento perto de cada base, ruínas e capim alto para tocaia, dois morros e o canto de cada platô com ventosas, cemitério da base de 7.500 C (5 pilhas), ferro-velho de 6.000 C e sucata do meio de 4.500 C, em pares espelhados; Torre Antiga e Holofote de Estrada religáveis; acampamento dos Desligados no platô espelhado; 3 rotas, 12 áreas e 5 pontos para os gatilhos. Teste: `testes/rts-mapas.test.mjs` (fonte e saída refeitas byte a byte, regras do formato, pares espelhados, travessias, modelo de viagem).
+- C7, missão `site/rts/dados/missoes/caixa-de-areia.json`, no formato do avaliador da `rts-motor-combate` (`site/rts/js/sim/gatilhos.js`): 6 ondas por gatilho entre 2:45 e cerca de 18 minutos, que crescem de 2 a 15 unidades no Normal (Fácil e Difícil em cada número), cada uma pela ponte ou por um vau, e toda onda de 6 ou mais com aviso de 15 s (20 s nas duas últimas); vitória ao destruir a sexta onda ou o acampamento (Carroção-Mãe, Barracão e Ferraria a Vapor), derrota sem Escritório Regional, Poste Avançado e Equipe de Manutenção. Teste: `testes/rts-missoes.test.mjs` (referências, aviso de pelo menos 10 s em toda dificuldade, fim definido, linha do tempo).
+- C11, `site/rts/dados/textos/pt-BR.json`: 212 textos por id, com todos os do HUD, da tela de fim e das recusas que a `rts-interface` pediu, nome e dica de cada unidade, prédio e pesquisa, e as falas de rádio da caixa de areia.
+- C15, registro do kit de teste em `site/rts/js/telemetria/registro.js`: lê os comandos e os retratos na página, sem tocar na simulação nem na rede, e exporta em JSON primeiro tiro, lutas com unidades e mortes por lado, janelas de 15 s sem comando, cemitérios esgotados, coletores perdidos e ataques com o aviso medido; o `conferir-ritmo` da `rts-qualidade` lê o exemplo `testes/rts-registro-exemplo.json` e passa os sete critérios. Teste: `testes/rts-telemetria.test.mjs`.
+- Briefs novos para o kit cinza: Pilha de Baterias, Faísca de Carga e Terreno do vale (10 solos e 7 decorações com os nomes das tabelas do mapa); 37 briefs no total.
+- Convite e perfil dos testadores (2 da revisão dos briefs, 3 do M3, 3 novatos e 3 veteranos da E4) escritos para o Victor numa nota privada, fora do repositório, porque falam de pessoas; o convite passou no verificador de estilo dele.
+
+| Medição | Resultado | Fonte |
+| --- | --- | --- |
+| 10 Turmas de Linha contra 10 Chapas, todos ao alcance, tiro espalhado | 10,1 s | modelo de duelo de `testes/rts-dados.test.mjs`, 31/10/2026 |
+| 3 Soldadores contra 1 Cesto Blindado | o Cesto cai em 11,8 s, os Soldadores perdem 1 | modelo de duelo, rascunho de 31/10/2026 |
+| 2 Rolimãs contra 1 Guincho de Células sem escolta | 22 s | `testes/rts-dados.test.mjs` |
+| Cemitério da base esvaziando com 3 guinchos (depósito a pelo menos 5 células, carregar 12 s, descarregar 4 s) | 11,4 min; com o depósito colado nas pilhas e 4 s e 2 s, seriam 6,4 min | modelo de viagem de `testes/rts-mapas.test.mjs` |
+| Primeiro tiro previsto da caixa de areia | cerca de 3:10 (onda de 2 Rolimãs aos 2:45, 83 células de rota) | `testes/rts-missoes.test.mjs` |
+
+Pendências da F5 com outras frentes: a `rts-motor-economia` pôr no esquema `distanciaMinimaPilha` (a regra que segura o esgotamento do cemitério nos 10 a 13 minutos) e o bloco `holofote` dos prédios, e os eventos `AVISO_ATAQUE` e `ONDA` no C3, que o registro já lê; a `rts-motor-combate` aceitar os campos `mapa` e `titulo` no topo da missão (a missão já está no formato do `gatilhos.js` dela e compila nas três dificuldades com esses dois campos liberados); a `rts-interface` carregar a missão, o mapa e os dados na página e ligar o registro. O ajuste do ritmo pelos registros reais fica para depois do M3.
+
+Depende do Victor:
+
+- Escolher e chamar as 2 pessoas da revisão dos briefs (uma que jogou o jogo que inspirou o projeto, sem dizer qual antes da pergunta, e uma que não é fã), pelo link https://github.com/flashfabs/flashgames/tree/rts/base/arte/briefs; as respostas entram aqui e no checklist de cada brief.
+- Escolher as 3 pessoas do M3 e os 6 testadores da E4; rascunho do convite e perfis na nota `rts-design-recrutamento.md` da pasta de notas das sessões.
+- D16: o mapa segue escrito por script até o Tiled ser aprovado; aprovado, a fonte passa a ser editada nele e o teste deixa de exigir o gerador.
 
 #### Busca simples de nomes das facções (30/10/2026)
 
@@ -298,6 +355,40 @@ Nomes de unidade e de construção: busca simples na web em lotes, em 30/10/2026
 - 30/10/2026: página de diagnóstico publicada como rascunho na Netlify para os amigos (seção Onde estamos).
 - Pendente: as respostas dos amigos pela página, as do roteiro e as medições que esperam o Mac.
 
-### F4, F6 e F9
+Onda 2 (E3), a partir de 30/10/2026:
 
-A F9 (`rts-rede`) abre na onda 2, com o spike curto de lockstep; a F4 e a F6 abrem na onda 3.
+- Divisão do motor em F1a e F1b, porta 8829, critérios da E3 com dono por linha e a lista do que depende do Victor (`b4ffd05`).
+- Gancho de teste `site/rts/js/teste/gancho.js`, carregado pela página só com `?teste=1`: retrato decodificado com o nome de cada tipo e as filas de produção, todos os eventos desde a abertura, comandos como o jogador local, pausa própria e avanço de passos no worker (mensagem `AVANCAR` da F1a, que só vale numa partida começada com `teste`), e o registro C15 (`registro()`); testado em `testes/rts-gancho.test.mjs`.
+- Testes de ponta a ponta da fatia: `testes/e2e/rts-fatia.spec.mjs` (a página normal nunca carrega o gancho; com ele, ler, mandar e avançar, também com a aba oculta) e `testes/e2e/rts-fatia-partida.spec.mjs` (caixa de areia: forças iniciais, coletar, construir e pôr, produzir, lutar, derrota e vitória, com o registro lido pelo conferidor).
+- Conferidor de ritmo em `ferramentas/rts/ritmo/` (`conferir-ritmo.mjs`, uma partida ou a mediana de várias) sobre o registro C15 da `rts-design`: duração e fim, primeiro tiro, 10 contra 10, janelas de 15 s sem comando, primeiro cemitério esgotado, coletores perdidos, diversão, "jogaria de novo?" e aviso de ataque (E4); passa os nove critérios no `testes/rts-registro-exemplo.json`.
+- Testes de manifesto (C9), orçamento (C12, `testes/rts-orcamento.json`) e procedência (C13, `testes/rts-licencas.json` com as licenças permitidas por uso).
+- [Kit do M3](kit-m3.md) para o Victor.
+- Executor do PC: cada execução anota a espera pela trava (`D:\rts\testes\fila.log`), cada sessão usa a própria cópia do `execucao.ps1`, e o modo `rts` roda só os testes do RTS.
+
+| Medição | Resultado | Fonte |
+| --- | --- | --- |
+| Orçamento da fase 1 com os assets de hoje | textura uhd 676 MiB contra 256 (hd 169 contra 96), download uhd 17,9 MiB contra 30 (hd 6,1 contra 12); o Cesto e as variantes de elevação -e45 e -e65 dão 144 MiB cada no uhd e as três estão marcadas para a fase 1; só anotado até a E5 | `testes/rts-orcamento.test.mjs`, 31/10/2026 |
+| Fila do PC com as sessões da onda 2 | uma execução completa segura a trava de 8 a 15 minutos; às 00h35 de 31/10/2026 havia uma rodando e três esperando, com esperas de 5 a 16 minutos | registros das execuções em `D:\rts\testes\*\execucoes`, 31/10/2026 |
+
+### F9 Rede (`rts-rede`)
+
+- 31/10/2026, spike S7: [protótipo de lockstep](../../prototipos/rts-lockstep/README.md) sobre a sala de `site/js/sala.js`, sem alterá-la. O anfitrião é o relógio e o retransmissor: fecha um turno de 100 ms (3 passos) com os comandos que chegaram, manda o que chegou atrasado para o próximo turno aberto, carimba o passo, recusa comando com jogador falso ou `seq` repetido e manda o pacote a todos pelo canal confiável; cada página roda o turno n só com o pacote n. A cada 30 passos cada membro manda a soma por subsistema, que o anfitrião compara com a sua e usa como aviso de progresso (para de fechar turnos com um membro 5 s atrás). Mensagem de 16.000 bytes ou mais vai em fatias.
+- O rascunho do C16 (mensagens `inicio`, `pronto`, `cmd`, `turno`, `soma`, `dessinc` e `fatia`, com `VERSAO_LOCKSTEP` 1) e a conferência do envelope do C1 estão no README do protótipo. A rede confere o envelope, não os tipos: tipo novo atravessa sem mudar o protocolo e todas as simulações descartam igual o que não conhecem.
+- Testes: `testes/rts-lockstep.test.mjs` no `npm test` (envelope, fatias, regras do anfitrião, 400 turnos em memória com anfitrião e 3 membros em links com atraso aleatório e uma dessincronia de propósito achada pelo subsistema) e a rodada entre motores `prototipos/rts-lockstep/lockstep.spec.mjs`, fora da suíte, com configuração própria.
+- Envelope: mandado à `rts-motor-economia` em 31/10/2026 que o C1 pode congelar em `VERSAO_COMANDOS` 1, com um teto de 1.024 unidades por comando no `comandoValido` antes (hoje ele aceita até 65.536, cerca de 720 KB de JSON num comando); tipos novos sobem a `VERSAO_SIMULACAO`, não a de comandos.
+
+| Medição | Máquina e navegadores | Resultado | Fonte |
+| --- | --- | --- | --- |
+| 10 minutos de jogo com 4 páginas, 1.000 unidades, robô a 3 comandos/s por página com rajadas de 3 comandos de 1.024 unidades, atraso artificial de 60 a 100 ms com 1% de soluços de 250 ms, atraso de entrada de 2 turnos | PC da RTX 4090: Chromium 153 (anfitrião), Firefox 155, Chromium 153, Firefox 155 | 6.044 turnos, 1.812 somas comparadas, 0 dessincronias, as 604 somas comuns às 4 páginas iguais; 7.426 comandos, 0 recusados; 3.757 dos 5.605 dos membros (67%) chegaram depois de o turno pedido fechar e rodaram no seguinte | execução `20261031-001806`, `-g inteiro` |
+| Bytes por turno, do anfitrião para cada membro | idem | turno vazio 29; mediana 126, p95 443, máximo 46.823 (fatiado); média 459 bytes, 4,6 KB/s por membro com as rajadas; 69 turnos fatiados; maior mensagem 15.660 bytes | idem |
+| Bytes de cada membro para o anfitrião | idem | comando com mediana de 117 bytes por envio, soma de 101 bytes por segundo, cerca de 1,2 KB/s com as rajadas | idem |
+| Latência do comando, de emitir até rodar | idem | anfitrião mediana 159 ms, p95 162; membros mediana 218 a 219 ms, p95 285 a 294, máximo 540 | idem |
+| Turno no Worker (3 passos com 1.000 unidades) | idem | mediana de 4 a 5 ms, p95 de 8 a 10, máximo 28 | idem |
+| 1 minuto, Chromium e WebKit | Mac, Chromium 153 e WebKit 26.6 do Playwright | 63 somas comparadas, 0 dessincronias, 4 turnos fatiados; latência do membro WebKit com mediana 219 ms e p95 313 | `-g curto` no Mac |
+| WebKit no Windows | PC, WebKit 26.6 do Playwright | sem `RTCPeerConnection`: fica de fora no PC | idem |
+
+Pendências da F9: o Safari de verdade (Victor, em "Medições que esperam o Mac"); rede de verdade entre máquinas; e, na E8, atraso de entrada adaptativo, relatório de dessincronia, reconexão por estado em pedaços, regra de queda (D26), sucessão do anfitrião e uma mensagem de turno no Worker do jogo.
+
+### F4 e F6
+
+A F4 e a F6 abrem na onda 3.
