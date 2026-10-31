@@ -9,6 +9,7 @@
 // An effect without `tipos` applies to every kind. A research with automatica finishes by itself once its team has a
 // finished building of the research's kind. Kinds named by some `libera` start locked, and a kind whose `nivel` is
 // above the team's technology level (1 at the start) stays locked until a research raises it.
+import * as estado from './estado.js';
 import { decimosParaMundo } from './armas.js';
 
 const EFEITOS = Object.freeze({ dano: 100, resistencia: 80, recarga: 80, velocidade: 100, paralisia: 100, alcance: 40, libera: 0, nivel: 3 });
@@ -71,29 +72,34 @@ export function pesquisasDe(sim) {
 }
 
 /**
- * Research state, only typed arrays, in sim.extras.pesquisas: per team and research whether it is done; per team and
+ * Research state, only typed arrays: per team and research whether it is done; per team and
  * kind the bonuses (percent; range in world units) and whether the kind is unlocked; per team its technology level.
  */
+export function criarExtrasPesquisas(sim) {
+  const { pesquisas, travados } = pesquisasDe(sim);
+  const nt = sim.tipos.length;
+  const porTipo = () => new Int16Array(sim.times * nt);
+  const liberado = new Uint8Array(sim.times * nt);
+  for (let t = 0; t < sim.times; t++) for (let k = 0; k < nt; k++) liberado[t * nt + k] = travados[k] ? 0 : 1;
+  return {
+    feitas: new Uint8Array(sim.times * pesquisas.length),
+    dano: porTipo(),
+    resistencia: porTipo(),
+    recarga: porTipo(),
+    velocidade: porTipo(),
+    paralisia: porTipo(),
+    alcance: new Int32Array(sim.times * nt),
+    liberado,
+    nivel: new Uint8Array(sim.times).fill(1),
+  };
+}
+// saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
+estado.registrarExtras?.('pesquisas', criarExtrasPesquisas);
+
+/** The research state in sim.extras.pesquisas, made on first use when the core did not make it. */
 export function extrasPesquisas(sim) {
   sim.extras ??= {};
-  if (!sim.extras.pesquisas) {
-    const { pesquisas, travados } = pesquisasDe(sim);
-    const nt = sim.tipos.length;
-    const porTipo = () => new Int16Array(sim.times * nt);
-    const liberado = new Uint8Array(sim.times * nt);
-    for (let t = 0; t < sim.times; t++) for (let k = 0; k < nt; k++) liberado[t * nt + k] = travados[k] ? 0 : 1;
-    sim.extras.pesquisas = {
-      feitas: new Uint8Array(sim.times * pesquisas.length),
-      dano: porTipo(),
-      resistencia: porTipo(),
-      recarga: porTipo(),
-      velocidade: porTipo(),
-      paralisia: porTipo(),
-      alcance: new Int32Array(sim.times * nt),
-      liberado,
-      nivel: new Uint8Array(sim.times).fill(1),
-    };
-  }
+  sim.extras.pesquisas ??= criarExtrasPesquisas(sim);
   return sim.extras.pesquisas;
 }
 

@@ -43,6 +43,7 @@ import { EVENTO, FP, FP_BITS, PASSOS_POR_SEGUNDO, TIPO_COMANDO, CATEGORIA } from
 import { criarEntidade, emitirEvento, matar, slotVivo, idDoSlot } from './entidades.js';
 import { ordenarGrupo, ordenarPatrulha, limparOrdens } from './ordens.js';
 import { celulaVisivel } from './neblina.js';
+import * as estado from './estado.js';
 import { emitirEventoNoPonto } from './combate.js';
 import { definirVeterania } from './veterania.js';
 import { trocarDono, sendoReligada, definirTempoReligar, avancarReligar } from './religar.js';
@@ -111,6 +112,39 @@ export function rotulosDaMissao(missao) {
   };
   percorrer(missao, doItem, doItem);
   return rotulos;
+}
+
+/** Timer names in the order the evaluator keeps them: as conditions and actions first name them. */
+export function cronometrosDaMissao(missao) {
+  const nomes = [];
+  const somar = item => {
+    if ((item.se === 'cronometro' || item.faz === 'cronometro') && !nomes.includes(item.nome)) nomes.push(item.nome);
+  };
+  percorrer(missao, somar, somar);
+  return nomes;
+}
+
+const DIFICULDADES_DE = ['facil', 'normal', 'dificil'];
+
+/**
+ * Sizes and starting values of the evaluator's state, from the mission JSON alone (no kinds, places or nodes), so the
+ * state can be made before the map is in: triggers and whether each starts active, variables' starting values at the
+ * difficulty, timers and objectives. compilarMissao checks the same file in full.
+ */
+export function formaDaMissao(missao, dificuldade = 1) {
+  const gatilhos = Array.isArray(missao?.gatilhos) ? missao.gatilhos : [];
+  const declaradas = Array.isArray(missao?.variaveis) ? missao.variaveis : Object.entries(missao?.variaveis ?? {}).map(([nome, valor]) => ({ nome, valor }));
+  const valor = v => {
+    const escolhido = v && typeof v === 'object' ? v[DIFICULDADES_DE[dificuldade]] : v;
+    return Number.isInteger(escolhido) ? escolhido : 0;
+  };
+  return {
+    gatilhos: gatilhos.length,
+    ativos: gatilhos.map(g => (g?.ativo === false || g?.ativo === 0 ? 0 : 1)),
+    variaveis: declaradas.map(v => valor(v?.valor ?? 0)),
+    cronometros: cronometrosDaMissao(missao).length,
+    objetivos: Array.isArray(missao?.objetivos) ? missao.objetivos.length : 0,
+  };
 }
 
 /** Light scenes in the order LUZ counts them. */
@@ -257,11 +291,8 @@ export function compilarMissao(missao, contexto) {
     if (k < 0) erros.push(`${onde}: variável ${nome} não declarada`);
     return k;
   };
-  const cronometros = [];
-  const indiceDoCronometro = nome => {
-    if (!cronometros.includes(nome)) cronometros.push(nome);
-    return cronometros.indexOf(nome);
-  };
+  const cronometros = cronometrosDaMissao(missao);
+  const indiceDoCronometro = nome => cronometros.indexOf(nome);
   const listaGatilhos = Array.isArray(missao.gatilhos) ? missao.gatilhos : [];
   if (!Array.isArray(missao.gatilhos)) erros.push('gatilhos: esperava uma lista');
   const ids = listaGatilhos.map(g => g?.id);
@@ -453,34 +484,42 @@ export function missaoDe(sim) {
 }
 
 /**
- * Evaluator state, only typed arrays, in sim.extras.missao: per trigger (times fired, tick of the last firing,
- * active), variables, timers (tick they run out, 0 stopped), objective states, each slot's label (index + 1) with the
- * generation it was given to, and each player's result.
+ * Evaluator state, only typed arrays: per trigger (times fired, tick of the last firing, active), variables, timers
+ * (tick they run out, 0 stopped), objective states, each slot's label (index + 1) with the generation it was given
+ * to, and each player's result. Sized from the mission JSON alone.
  */
+export function criarExtrasMissao(sim) {
+  const f = formaDaMissao(sim.opcoes?.missao ?? null, sim.opcoes?.dificuldade ?? 1);
+  return {
+    disparos: new Int32Array(f.gatilhos),
+    ultimoDisparo: new Int32Array(f.gatilhos).fill(-1),
+    ativo: Uint8Array.from(f.ativos),
+    variaveis: Int32Array.from(f.variaveis),
+    cronometros: new Int32Array(f.cronometros),
+    objetivos: new Uint8Array(f.objetivos),
+    rotulo: new Uint16Array(sim.capacidade),
+    rotuloGeracao: new Uint16Array(sim.capacidade),
+    resultado: new Uint8Array(sim.times),
+  };
+}
+// saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
+estado.registrarExtras?.('missao', criarExtrasMissao);
+
+/** The evaluator's state in sim.extras.missao, made on first use when the core did not make it. */
 export function extrasMissao(sim) {
   sim.extras ??= {};
-  if (!sim.extras.missao) {
-    const m = missaoDe(sim);
-    const n = m ? m.gatilhos.length : 0;
-    sim.extras.missao = {
-      disparos: new Int32Array(n),
-      ultimoDisparo: new Int32Array(n).fill(-1),
-      ativo: Uint8Array.from(m ? m.gatilhos : [], g => g.ativo),
-      variaveis: Int32Array.from(m ? m.valoresIniciais : []),
-      cronometros: new Int32Array(m ? m.cronometros.length : 0),
-      objetivos: new Uint8Array(m ? m.objetivos.length : 0),
-      rotulo: new Uint16Array(sim.capacidade),
-      rotuloGeracao: new Uint16Array(sim.capacidade),
-      resultado: new Uint8Array(sim.times),
-    };
-  }
+  sim.extras.missao ??= criarExtrasMissao(sim);
   return sim.extras.missao;
 }
 
-/** Gives entity i the label `nome` (map entities with an etiqueta); names the mission never uses are ignored. */
+/**
+ * Gives entity i the label `nome` (map entities with an etiqueta); names the mission never uses are ignored. Needs only
+ * the mission JSON, so the map loader can call it before the places are in.
+ */
 export function rotular(sim, i, nome) {
-  const m = missaoDe(sim);
-  const k = m ? m.rotulos.indexOf(nome) : -1;
+  if (!sim.opcoes?.missao) return;
+  sim.rotulosMissao ??= rotulosDaMissao(sim.opcoes.missao);
+  const k = sim.rotulosMissao.indexOf(nome);
   if (k < 0) return;
   const ex = extrasMissao(sim);
   ex.rotulo[i] = k + 1;

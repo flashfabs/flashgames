@@ -5,6 +5,7 @@
 // what they hit, or the ground around the blast for a while. An ATACAR order forces its target whenever it can be hit.
 import { EVENTO, FP, FP_BITS, PASSOS_POR_SEGUNDO, SEM_ENTIDADE, TIPO_COMANDO } from './contratos.js';
 import { TAMANHO_BALDE_BITS } from './movimento.js';
+import * as estado from './estado.js';
 import { slotVivo, emitirEvento, matar, idDoSlot } from './entidades.js';
 import { raizInteira, sortear } from './matematica.js';
 import { celulaVisivel } from './neblina.js';
@@ -33,15 +34,13 @@ export const MAX_POCAS = 64;
 const PISO_VELOCIDADE = 10;
 
 /**
- * Combat state outside the entity arrays, only typed arrays, kept in sim.extras.combate: shells in flight (landing
+ * Combat state outside the entity arrays, only typed arrays: shells in flight (landing
  * tick, point, weapon, damage, shooter id, team, height it was fired from), the last SOB_ATAQUE of each team, each
  * team's harvesters lost in combat, each entity's slow (until when, how much) and the slowing patches on the ground.
  */
-export function extrasCombate(sim) {
-  sim.extras ??= {};
-  if (!sim.extras.combate) {
-    const alertaTick = new Int32Array(sim.times).fill(-INTERVALO_ALERTA);
-    sim.extras.combate = {
+export function criarExtrasCombate(sim) {
+  const alertaTick = new Int32Array(sim.times).fill(-INTERVALO_ALERTA);
+  return {
       projetilPouso: new Int32Array(MAX_PROJETEIS), // landing tick, 0 when free
       projetilX: new Int32Array(MAX_PROJETEIS),
       projetilY: new Int32Array(MAX_PROJETEIS),
@@ -64,8 +63,15 @@ export function extrasCombate(sim) {
       pocaTime: new Uint8Array(MAX_POCAS), // team of the shooter: the patch slows its enemies
       pocaSoVeiculo: new Uint8Array(MAX_POCAS), // 1: only vehicles (caltrops catch wheels)
       pocaDuracao: new Int32Array(MAX_POCAS), // ticks the slow lasts after leaving the patch
-    };
-  }
+  };
+}
+// saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
+estado.registrarExtras?.('combate', criarExtrasCombate);
+
+/** The combat state in sim.extras.combate, made on first use when the core did not make it. */
+export function extrasCombate(sim) {
+  sim.extras ??= {};
+  sim.extras.combate ??= criarExtrasCombate(sim);
   return sim.extras.combate;
 }
 

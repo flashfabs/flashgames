@@ -4,6 +4,7 @@
 // ticks, or what the mission set) the structure changes hands. A re-powered structure that is destroyed goes dead
 // again (back to the neutral side, DONO_NEUTRO, healed) instead of disappearing, so it can be taken again.
 import { EVENTO, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, DONO_NEUTRO } from './contratos.js';
+import * as estado from './estado.js';
 import { slotVivo, emitirEvento } from './entidades.js';
 import { atualizarNeblina } from './neblina.js';
 import { ordenarGrupo, limparOrdens } from './ordens.js';
@@ -15,23 +16,28 @@ const SEM_TIME = 255;
 const TEMPO_PADRAO = 30 * PASSOS_POR_SEGUNDO;
 
 /**
- * Re-powering state, only typed arrays, in sim.extras.religar: per structure slot the progress in ticks, the team it
+ * Re-powering state, only typed arrays: per structure slot the progress in ticks, the team it
  * belongs to (SEM_TIME none), the time the mission set (0: the kind's), the last tick someone worked on it and the
  * generation all of that belongs to; per unit slot the id of the structure it was sent to (0 none).
  */
+export function criarExtrasReligar(sim) {
+  const n = sim.capacidade;
+  return {
+    progresso: new Int32Array(n),
+    progressoTime: new Uint8Array(n).fill(SEM_TIME),
+    tempo: new Int32Array(n),
+    trabalhadoEm: new Int32Array(n).fill(-1),
+    geracao: new Uint16Array(n),
+    alvo: new Int32Array(n),
+  };
+}
+// saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
+estado.registrarExtras?.('religar', criarExtrasReligar);
+
+/** The re-powering state in sim.extras.religar, made on first use when the core did not make it. */
 export function extrasReligar(sim) {
   sim.extras ??= {};
-  if (!sim.extras.religar) {
-    const n = sim.capacidade;
-    sim.extras.religar = {
-      progresso: new Int32Array(n),
-      progressoTime: new Uint8Array(n).fill(SEM_TIME),
-      tempo: new Int32Array(n),
-      trabalhadoEm: new Int32Array(n).fill(-1),
-      geracao: new Uint16Array(n),
-      alvo: new Int32Array(n),
-    };
-  }
+  sim.extras.religar ??= criarExtrasReligar(sim);
   return sim.extras.religar;
 }
 

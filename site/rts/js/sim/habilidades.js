@@ -11,6 +11,7 @@
 // Movement reads fatorVelocidade() (combate.js), which is 0 while set up or stunned; the presentation reads
 // bandeirasDeCombate() and, for the reading, predioLido().
 import { FP, FP_BITS, DONO_NEUTRO, TIPO_COMANDO } from './contratos.js';
+import * as estado from './estado.js';
 import { slotVivo } from './entidades.js';
 import { limparOrdens } from './ordens.js';
 import { celulaVisivel } from './neblina.js';
@@ -76,25 +77,30 @@ export function habilidadesDe(sim) {
 }
 
 /**
- * Ability state, only typed arrays, in sim.extras.habilidades: per entity how far set up it is and until when, when
+ * Ability state, only typed arrays: per entity how far set up it is and until when, when
  * its ability is ready again, since when it stands still, until when it is stunned, and the generation all of that
  * belongs to; per team the building it reads and until when.
  */
+export function criarExtrasHabilidades(sim) {
+  const n = sim.capacidade;
+  return {
+    estado: new Uint8Array(n),
+    ate: new Int32Array(n),
+    pronta: new Int32Array(n),
+    paradoDesde: new Int32Array(n),
+    atordoadoAte: new Int32Array(n),
+    geracao: new Uint16Array(n),
+    leituraAlvo: new Int32Array(sim.times),
+    leituraAte: new Int32Array(sim.times),
+  };
+}
+// saved, loaded and hashed with the state once the core keeps registered extras (estado.js)
+estado.registrarExtras?.('habilidades', criarExtrasHabilidades);
+
+/** The ability state in sim.extras.habilidades, made on first use when the core did not make it. */
 export function extrasHabilidades(sim) {
   sim.extras ??= {};
-  if (!sim.extras.habilidades) {
-    const n = sim.capacidade;
-    sim.extras.habilidades = {
-      estado: new Uint8Array(n),
-      ate: new Int32Array(n),
-      pronta: new Int32Array(n),
-      paradoDesde: new Int32Array(n),
-      atordoadoAte: new Int32Array(n),
-      geracao: new Uint16Array(n),
-      leituraAlvo: new Int32Array(sim.times),
-      leituraAte: new Int32Array(sim.times),
-    };
-  }
+  sim.extras.habilidades ??= criarExtrasHabilidades(sim);
   return sim.extras.habilidades;
 }
 
