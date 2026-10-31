@@ -1,0 +1,38 @@
+{
+  "versao": 1,
+  "matriz": {
+    "bala": [100, 60, 25, 25],
+    "perfurante": [40, 125, 150, 60],
+    "explosivo": [125, 90, 60, 150],
+    "pane": [25, 100, 75, 50]
+  },
+  "cobertura": {
+    "mato": [85, 90, 100, 100],
+    "ruina": [75, 85, 100, 100]
+  },
+  "elevacao": { "danoAcima": 15, "danoAbaixo": 25, "alcanceAcima": 5 },
+  "veterania": {
+    "limiares": [100, 250, 500],
+    "dano": [0, 5, 10, 15],
+    "resistencia": [0, 5, 10, 13],
+    "recarga": [0, 0, 5, 10],
+    "coletor": { "viagens": [12, 30], "velocidade": [10, 20] },
+    "suporte": { "vidaReparada": [1500, 4000] }
+  },
+  "armas": [
+    { "nome": "pregadeira", "tipoDano": "bala", "dano": 10, "recargaMs": 1000, "alcance": 40, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "arco-de-solda", "tipoDano": "perfurante", "dano": 6, "recargaMs": 300, "alcance": 25, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "carabina-de-vistoria", "tipoDano": "bala", "dano": 8, "recargaMs": 600, "alcance": 40, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "lanca-isolada", "tipoDano": "perfurante", "dano": 45, "recargaMs": 2200, "alcance": 50, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "carretel-de-cabo", "tipoDano": "explosivo", "dano": 60, "recargaMs": 4000, "alcance": 120, "alcanceMinimo": 30, "raioArea": 10, "emArco": 1, "efeito": { "tipo": "lentidao", "porcento": 40, "duracaoMs": 8000, "raio": 10, "noChao": 1 } },
+    { "nome": "refletor-armado", "tipoDano": "bala", "dano": 14, "recargaMs": 800, "alcance": 60, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "metralhadora-antiga", "tipoDano": "bala", "dano": 12, "recargaMs": 600, "alcance": 70, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "carabina-de-ar", "tipoDano": "bala", "dano": 10, "recargaMs": 1000, "alcance": 40, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "arpao-de-cabo", "tipoDano": "perfurante", "dano": 30, "recargaMs": 2000, "alcance": 50, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0, "efeito": { "tipo": "lentidao", "porcento": 40, "duracaoMs": 4000, "raio": 0, "noChao": 0, "soVeiculo": 1 } },
+    { "nome": "estilingue-de-camara", "tipoDano": "bala", "dano": 10, "recargaMs": 600, "alcance": 35, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "garrucha-de-bordo", "tipoDano": "bala", "dano": 12, "recargaMs": 800, "alcance": 40, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "canhao-de-pressao", "tipoDano": "perfurante", "dano": 45, "recargaMs": 2200, "alcance": 50, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 },
+    { "nome": "morteiro-a-vapor", "tipoDano": "explosivo", "dano": 70, "recargaMs": 5000, "alcance": 140, "alcanceMinimo": 40, "raioArea": 12, "emArco": 1, "dispersao": 15 },
+    { "nome": "carabina-de-vigia", "tipoDano": "bala", "dano": 12, "recargaMs": 800, "alcance": 60, "alcanceMinimo": 0, "raioArea": 0, "emArco": 0 }
+  ]
+}
