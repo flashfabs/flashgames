@@ -14,7 +14,7 @@ Ninguém manda nada em nome do Victor; quem convida e recolhe as respostas é el
 
 - Usa um computador com mouse ou trackpad, no Chrome, no Edge ou no Safari atualizados, com uns 30 minutos livres. Celular e tablet ainda não servem.
 - Abre o endereço que o Victor mandou; a partida começa na caixa de areia contra o computador, sem cadastro.
-- Joga do jeito que quiser até a vitória ou a derrota. A vitória vem ao destruir a sexta onda de ataque ou o acampamento inimigo (Carroção-Mãe, Barracão e Ferraria a Vapor); a derrota, ao ficar sem Escritório Regional, sem Poste Avançado e sem Equipe de Manutenção. As ondas avisam antes de chegar.
+- Joga do jeito que quiser até a vitória ou a derrota. A vitória vem ao destruir a sexta onda de ataque ou o acampamento inimigo (Carroção-Mãe, Barracão e Ferraria a Vapor); a derrota, ao ficar sem Escritório Regional, sem Poste Avançado, sem Equipe de Manutenção e sem Garagem. As ondas avisam antes de chegar.
 - Pausa (P) não atrapalha a medida: o registro conta o tempo de jogo, não o do relógio.
 - No fim, a tela de resultado abre sozinha e faz duas perguntas, com um campo livre: "De 1 a 5, quanto você se divertiu?" (botões de 1 a 5), "Jogaria de novo?" (Sim ou Não) e "Comentário (opcional)".
 - O botão "Baixar registro" salva um arquivo `registro-rts-AAAA-MM-DD-HHMM.json` (data e hora de quando baixou), com a partida e as respostas.

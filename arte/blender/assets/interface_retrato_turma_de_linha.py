@@ -8,7 +8,7 @@ import math
 import bpy
 from mathutils import Vector
 
-from assets import religadores_infantaria_turma_de_linha as turma
+from assets import religadores_infantaria_turma_de_linha_portao as turma
 
 DESCRICAO = {
     "asset": "interface-retrato-turma-de-linha",

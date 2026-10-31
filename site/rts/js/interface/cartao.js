@@ -3,6 +3,7 @@
 // the free places; a building gets what it trains and researches, and the headquarters what it builds, in the order
 // of the game data. Pure: the caller renders and runs it.
 import { ACAO } from '../entrada/teclas.js';
+import { BANDEIRA_CESTO_ERGUIDO } from './catalogo.js';
 import { MAX_FILA, ITEM_PESQUISA } from '../sim/contratos.js';
 
 /** Physical keys of the grid, slot by slot, row by row. */
@@ -26,7 +27,10 @@ const LIVRES_NA_UNIDADE = Object.freeze([1, 2, 7]);
  * @property {number} slot          0..7
  * @property {string} [acao]        ACAO.* for unit orders
  * @property {string} [texto]       text id of the label (unit orders)
- * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'} [modo]
+ * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'|'habilidade'} [modo]
+ * @property {import('./catalogo.js').Habilidade} [habilidade] modo 'habilidade'
+ * @property {number[]} [unidades]  modo 'habilidade': the selected units that have it
+ * @property {boolean} [ativa]      modo 'habilidade': a toggle that is on (the basket raised)
  * @property {number} [tipo]        kind to train, build or raise (-1 for research)
  * @property {number} [pesquisa]    research index (modo 'pesquisar')
  * @property {number} [custo]
@@ -38,7 +42,7 @@ const LIVRES_NA_UNIDADE = Object.freeze([1, 2, 7]);
 /**
  * Card for the selection.
  * @param {object} entrada
- * @param {{id: number, tipo: number}[]} entrada.selecao  own entities in the selection
+ * @param {{id: number, tipo: number, bandeiras?: number}[]} entrada.selecao  own entities in the selection
  * @param {ReturnType<typeof import('./catalogo.js').criarCatalogo>} entrada.catalogo
  * @param {(id: number) => import('./leitura.js').ProducaoDoPredio | null} entrada.producao
  * @param {number} entrada.carga
@@ -52,10 +56,28 @@ export function montarCartao({ selecao, catalogo, producao, carga, lotacao }) {
     for (const ordem of ORDENS_DE_UNIDADE) slots[ordem.slot] = { ...ordem };
     // Buildings the selected units can raise on site; the first unit able to raise it goes.
     const ergue = [...new Set(unidades.flatMap(e => catalogo.info(e.tipo).ergue))];
-    ergue.slice(0, LIVRES_NA_UNIDADE.length).forEach((tipo, i) => {
+    const livres = [...LIVRES_NA_UNIDADE];
+    for (const tipo of ergue) {
+      if (livres.length === 0) break;
+      const slot = livres.shift();
       const custo = catalogo.info(tipo).custo;
-      slots[LIVRES_NA_UNIDADE[i]] = { slot: LIVRES_NA_UNIDADE[i], modo: 'erguer', tipo, custo, quantidade: 0, progresso: -1, falta: carga < custo ? 'carga' : null };
-    });
+      slots[slot] = { slot, modo: 'erguer', tipo, custo, quantidade: 0, progresso: -1, falta: carga < custo ? 'carga' : null };
+    }
+    // Abilities of the selected kinds, one place each; the units that have it are who the command goes to.
+    const porCodigo = new Map();
+    for (const e of unidades) {
+      const habilidade = catalogo.info(e.tipo).habilidade;
+      if (!habilidade) continue;
+      const grupo = porCodigo.get(habilidade.codigo) ?? { habilidade, unidades: [], ativa: false };
+      if (grupo.unidades.length === 0) grupo.ativa = Boolean((e.bandeiras ?? 0) & BANDEIRA_CESTO_ERGUIDO);
+      grupo.unidades.push(e.id);
+      porCodigo.set(habilidade.codigo, grupo);
+    }
+    for (const { habilidade, unidades: deles, ativa } of porCodigo.values()) {
+      if (livres.length === 0) break;
+      const slot = livres.shift();
+      slots[slot] = { slot, modo: 'habilidade', habilidade, unidades: deles, ativa, texto: ativa && habilidade.textoAtivo ? habilidade.textoAtivo : habilidade.texto };
+    }
     const construtores = unidades.filter(e => catalogo.info(e.tipo).ergue.length > 0).map(e => e.id);
     return { tipo: 'unidades', slots, predios: [], construtores, tipoDoPredio: -1 };
   }

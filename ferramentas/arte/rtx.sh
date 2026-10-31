@@ -9,6 +9,8 @@
 #   reempacotar <asset> [run] [k=v] packs the frames of a run again (packer changes), without the GPU, then buscar;
 #                                  pass the run's own options again (elevacao=45 for an elevation variant)
 #   buscar <asset> [run]           brings the packed atlases, manifest and provenance of a run into the repository
+#   empacotar-fase <phase>         packs the runs of every sprite asset of the phase (as recorded in their provenance)
+#                                  into shared atlas pages under site/rts/assets/sprites/<phase>/, without the GPU
 #   limpar [--apagar]              keeps the two newest runs of each asset in D:\rts\saida (lists only, unless --apagar)
 #   trava [estado|soltar <run>]    shows or releases the GPU lock
 #
@@ -115,6 +117,41 @@ buscar() {
   echo "BUSCA $asset $execucao -> $(cd "$raiz" && git status --short -- site/rts/assets arte/procedencia | wc -l | tr -d ' ') changed files"
 }
 
+# Brings a phase package: the shared pages and the phase manifest replace the old ones, and the manifests of
+# the packed assets replace theirs (their own pages from single-asset runs go away).
+buscar_fase() {
+  local fase="$1" execucao="$2"
+  local temporaria
+  temporaria="$(mktemp -d -t rtx-fase)"
+  scp -q -r "${ssh_opcoes[@]}" "$host:D:/rts/saida/$fase/$execucao/pacote" "$temporaria/"
+  [[ -f "$temporaria/pacote/site/rts/assets/sprites/$fase/$fase.json" ]] || erro "run $execucao of phase $fase has no package (did it fail?)"
+  find "$raiz/site/rts/assets/sprites/$fase" -type f -delete 2>/dev/null || true
+  local arquivo id
+  while IFS= read -r arquivo; do
+    id="$(basename "$arquivo" .json)"
+    find "$raiz/site/rts/assets" \( -name "$id.json" -o -name "$id@*.webp" \) -delete 2>/dev/null || true
+  done < <(find "$temporaria/pacote/site/rts/assets/sprites" -name '*.json' ! -path "*/$fase/*")
+  rsync -a "$temporaria/pacote/" "$raiz/"
+  rm -rf "$temporaria"
+  node "$aqui/indice.mjs"
+  echo "BUSCA fase $fase $execucao -> $(cd "$raiz" && git status --short -- site/rts/assets | wc -l | tr -d ' ') changed files"
+}
+
+empacotar_fase() {
+  local fase="$1"
+  [[ "$fase" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || erro "phase must be lowercase ASCII words joined by hyphens: $fase"
+  local execucoes
+  execucoes="$(node "$aqui/fase.mjs" "$fase")" || erro "could not list the runs of phase $fase"
+  checar
+  enviar
+  local execucao
+  execucao="$(date +%Y%m%d-%H%M%S)"
+  pc lancar.ps1 Asset "$fase" Execucao "$execucao" Argumentos "fase=$fase,execucoes=$execucoes,commit=$(git -C "$raiz" rev-parse --short HEAD)"
+  echo "LOTE fase $fase $execucao started on $host"
+  acompanhar "$fase" "$execucao" || erro "packing phase $fase ($execucao) failed; log at D:\\rts\\saida\\$fase\\$execucao\\blender.log"
+  buscar_fase "$fase" "$execucao"
+}
+
 # Set while this script holds the GPU lock and the batch has not started yet; the EXIT trap releases it.
 trava_pendente=""
 
@@ -167,7 +204,7 @@ reempacotar() {
 }
 
 comando="${1:-}"
-[[ -n "$comando" ]] || { sed -n '2,19p' "$0"; exit 2; }
+[[ -n "$comando" ]] || { sed -n '2,21p' "$0"; exit 2; }
 shift
 case "$comando" in
   checar) checar ;;
@@ -176,6 +213,7 @@ case "$comando" in
   acompanhar) (($# == 2)) || erro "usage: $0 acompanhar <asset> <run>"; acompanhar "$1" "$2" ;;
   buscar) (($#)) || erro "usage: $0 buscar <asset> [run]"; buscar "$@" ;;
   reempacotar) (($#)) || erro "usage: $0 reempacotar <asset> [run]"; reempacotar "$@" ;;
+  empacotar-fase) (($# == 1)) || erro "usage: $0 empacotar-fase <phase>"; empacotar_fase "$1" ;;
   limpar) if [[ "${1:-}" == "--apagar" ]]; then pc limpar.ps1 Apagar sim; else pc limpar.ps1; fi ;;
   trava)
     case "${1:-estado}" in
