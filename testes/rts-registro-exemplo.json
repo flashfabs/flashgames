@@ -1,0 +1,1676 @@
+{
+ "versao": 1,
+ "tipo": "registro-rts",
+ "missao": "caixa-de-areia",
+ "mapa": "caixa-de-areia",
+ "dificuldade": "normal",
+ "jogadorLocal": 0,
+ "passosPorSegundo": 30,
+ "versoes": {
+  "registro": 1
+ },
+ "commit": null,
+ "criadoEm": "2026-10-31T00:00:00.000Z",
+ "duracaoPassos": 36000,
+ "resultado": "vitoria",
+ "respostas": {
+  "diversao": 4,
+  "jogariaDeNovo": true,
+  "comentario": ""
+ },
+ "janelaPassos": 300,
+ "resumo": {
+  "primeiroTiroPasso": 5790,
+  "lutas": [
+   {
+    "luta": 1,
+    "inicioPasso": 5790,
+    "fimPasso": 6600,
+    "duracaoPassos": 810,
+    "x": 20,
+    "y": 67,
+    "lados": {
+     "0": {
+      "unidades": 5,
+      "mortes": 1
+     },
+     "1": {
+      "unidades": 2,
+      "mortes": 2
+     }
+    }
+   },
+   {
+    "luta": 2,
+    "inicioPasso": 22500,
+    "fimPasso": 22890,
+    "duracaoPassos": 390,
+    "x": 14,
+    "y": 64,
+    "lados": {
+     "0": {
+      "unidades": 10,
+      "mortes": 1
+     },
+     "1": {
+      "unidades": 10,
+      "mortes": 10
+     }
+    }
+   }
+  ],
+  "janelas": {
+   "total": 120,
+   "semComando": 7,
+   "porcentoSemComando": 5.8
+  },
+  "cemiteriosEsgotados": [
+   {
+    "no": "cemiterio-sudoeste",
+    "passo": 20700
+   }
+  ],
+  "primeiroCemiterioEsgotadoPasso": 20700,
+  "coletoresPerdidos": 1,
+  "ataques": [
+   {
+    "grupo": "onda-1",
+    "avisoPasso": null,
+    "ondaPasso": 4980,
+    "unidades": 2,
+    "avisoSegundos": null,
+    "primeiroTiroPasso": 5790
+   },
+   {
+    "grupo": "onda-2",
+    "avisoPasso": 10000,
+    "ondaPasso": 10450,
+    "unidades": 5,
+    "avisoSegundos": 15,
+    "primeiroTiroPasso": null
+   },
+   {
+    "grupo": "onda-4",
+    "avisoPasso": 21000,
+    "ondaPasso": 21450,
+    "unidades": 10,
+    "avisoSegundos": 15,
+    "primeiroTiroPasso": 22500
+   }
+  ]
+ },
+ "eventos": [
+  {
+   "passo": 91,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 211,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 451,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 691,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 931,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1171,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1411,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1651,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 1891,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2011,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2131,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2251,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2371,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2491,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2731,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 2971,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3091,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3211,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3451,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3691,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 3931,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4171,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4411,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4651,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4891,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 4980,
+   "grupo": "onda-1",
+   "unidades": 2,
+   "tipo": "onda"
+  },
+  {
+   "passo": 5011,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 5131,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 5251,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 5491,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 5731,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 5790,
+   "primeiro": 1,
+   "atirador": 1,
+   "alvo": 0,
+   "x": 20,
+   "y": 66,
+   "tipo": "tiro"
+  },
+  {
+   "passo": 5790,
+   "luta": 1,
+   "x": 21,
+   "y": 67,
+   "tipo": "lutaInicio"
+  },
+  {
+   "passo": 5790,
+   "luta": 1,
+   "atirador": 1,
+   "alvo": 0,
+   "x": 20,
+   "y": 66,
+   "tipo": "tiro"
+  },
+  {
+   "passo": 6400,
+   "tipo": "morte",
+   "dono": 0,
+   "coletor": 1,
+   "x": 22,
+   "y": 69
+  },
+  {
+   "passo": 6600,
+   "luta": 1,
+   "x": 20,
+   "y": 67,
+   "lados": {
+    "0": {
+     "unidades": 5,
+     "mortes": 1
+    },
+    "1": {
+     "unidades": 2,
+     "mortes": 2
+    }
+   },
+   "tipo": "lutaFim"
+  },
+  {
+   "passo": 6610,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 21,
+   "y": 67
+  },
+  {
+   "passo": 6610,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 21,
+   "y": 67
+  },
+  {
+   "passo": 6611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 6851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 7091,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 7331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 7571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 7811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 8051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 8291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 8531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 8771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 9011,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 9251,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 9491,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 9731,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 9971,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 10000,
+   "grupo": "onda-2",
+   "x": 14,
+   "y": 62,
+   "tipo": "aviso"
+  },
+  {
+   "passo": 10211,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 10450,
+   "grupo": "onda-2",
+   "unidades": 5,
+   "tipo": "onda"
+  },
+  {
+   "passo": 10451,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 10691,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 10931,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 11171,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 11411,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 11651,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 11891,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 12010,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 40,
+   "y": 66
+  },
+  {
+   "passo": 12010,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 40,
+   "y": 66
+  },
+  {
+   "passo": 12010,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 40,
+   "y": 66
+  },
+  {
+   "passo": 12010,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 40,
+   "y": 66
+  },
+  {
+   "passo": 12010,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 40,
+   "y": 66
+  },
+  {
+   "passo": 12131,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 12371,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 12611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 12851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 13091,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 13331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 13571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 13811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 14051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 14291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 14531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 14771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 15011,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 15251,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 15491,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 15731,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 15971,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 16211,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 16451,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 16691,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 16931,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 17171,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 17411,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 17651,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 17891,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 18131,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 18371,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 18611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 18851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 19091,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 19331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 19571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 19811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 20051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 20291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 20531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 20700,
+   "no": "cemiterio-sudoeste",
+   "tipo": "noEsgotado"
+  },
+  {
+   "passo": 20771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 21000,
+   "grupo": "onda-4",
+   "x": 14,
+   "y": 62,
+   "tipo": "aviso"
+  },
+  {
+   "passo": 21031,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 21271,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 21450,
+   "grupo": "onda-4",
+   "unidades": 10,
+   "tipo": "onda"
+  },
+  {
+   "passo": 21511,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 22500,
+   "luta": 2,
+   "x": 14,
+   "y": 64,
+   "tipo": "lutaInicio"
+  },
+  {
+   "passo": 22500,
+   "luta": 2,
+   "atirador": 0,
+   "alvo": 1,
+   "x": 14,
+   "y": 66,
+   "tipo": "tiro"
+  },
+  {
+   "passo": 22500,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22590,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22680,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22680,
+   "tipo": "morte",
+   "dono": 0,
+   "coletor": 0,
+   "x": 14,
+   "y": 66
+  },
+  {
+   "passo": 22770,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22860,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22890,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22890,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22890,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22890,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22890,
+   "tipo": "morte",
+   "dono": 1,
+   "coletor": 0,
+   "x": 14,
+   "y": 62
+  },
+  {
+   "passo": 22890,
+   "luta": 2,
+   "x": 14,
+   "y": 64,
+   "lados": {
+    "0": {
+     "unidades": 10,
+     "mortes": 1
+    },
+    "1": {
+     "unidades": 10,
+     "mortes": 10
+    }
+   },
+   "tipo": "lutaFim"
+  },
+  {
+   "passo": 23371,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 23611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 23851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 24091,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 24331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 24571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 24811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 25051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 25291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 25531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 25771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 26011,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 26251,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 26491,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 26731,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 26971,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 27211,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 27451,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 27691,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 27931,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 28171,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 28411,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 28651,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 28891,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 29131,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 29371,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 29611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 29851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 30091,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 30331,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 30571,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 30811,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 31051,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 31291,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 31531,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 31771,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 32011,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 32251,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 32491,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 32731,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 32971,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 33211,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 33451,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 33691,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 33931,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 34171,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 34411,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 34651,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 34891,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 35131,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 35371,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 35611,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 35851,
+   "comando": 1,
+   "n": 3,
+   "fila": 0,
+   "origem": "mouse",
+   "tipo": "comando"
+  },
+  {
+   "passo": 36000,
+   "resultado": "vitoria",
+   "tipo": "fim"
+  },
+  {
+   "diversao": 4,
+   "jogariaDeNovo": true,
+   "comentario": "",
+   "passo": 36000,
+   "tipo": "respostas"
+  }
+ ]
+}
