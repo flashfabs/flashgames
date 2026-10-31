@@ -1,0 +1,36 @@
+{
+  "versao": 1,
+  "id": "caixa-de-areia",
+  "largura": 96,
+  "altura": 96,
+  "simetria": "rotacao-180",
+  "camadas": {
+    "arquivo": "camadas.bin",
+    "ordem": ["solo","altura","passagem","cobertura","recurso","decoracao"]
+  },
+  "solos": [
+    {"nome":"terra-batida","passagem":0,"cobertura":0},
+    {"nome":"capim","passagem":0,"cobertura":0},
+    {"nome":"capim-alto","passagem":0,"cobertura":1},
+    {"nome":"cascalho","passagem":0,"cobertura":0},
+    {"nome":"asfalto-velho","passagem":0,"cobertura":0},
+    {"nome":"entulho","passagem":0,"cobertura":2},
+    {"nome":"lama","passagem":2,"cobertura":0},
+    {"nome":"agua-rasa","passagem":2,"cobertura":0},
+    {"nome":"agua-funda","passagem":1,"cobertura":0},
+    {"nome":"rocha","passagem":1,"cobertura":0}
+  ],
+  "decoracoes": [
+    {"nome":"pedra","bloqueia":0},
+    {"nome":"arvore-seca","bloqueia":0},
+    {"nome":"carcaca-de-onibus","bloqueia":1},
+    {"nome":"muro-em-ruina","bloqueia":1},
+    {"nome":"poste-caido","bloqueia":0},
+    {"nome":"pneus","bloqueia":0},
+    {"nome":"ponte-de-concreto","bloqueia":0}
+  ],
+  "jogadores": [
+    {"time":0,"faccao":"religadores","base":[7,80]},
+    {"time":1,"faccao":"desligados","base":[88,15]}
+  ]
+}
