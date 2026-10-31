@@ -25,6 +25,7 @@ export const MOTIVOS = {
   bloqueado: 'hud.bloqueado',
   nada_pronto: 'hud.nada_pronto',
   limite: 'hud.limite',
+  perto_das_pilhas: 'hud.perto_das_pilhas',
 };
 const DURACAO_DO_MOTIVO_MS = 2200;
 

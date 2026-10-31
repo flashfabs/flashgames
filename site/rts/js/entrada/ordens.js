@@ -13,6 +13,8 @@ const TIPO_DA_ACAO = Object.freeze({
 });
 
 const DURACAO_DA_MARCA_MS = 600;
+/** Units one command may carry (C1 v1, MAX_UNIDADES_POR_COMANDO of the simulation front); a bigger selection goes in parts. */
+export const MAXIMO_POR_COMANDO = 1024;
 
 export function criarOrdens({ simulacao, estado, efeitos, fila, som, latencia }) {
   // Points outside the map still order the units to its edge instead of being dropped by the simulation.
@@ -27,8 +29,11 @@ export function criarOrdens({ simulacao, estado, efeitos, fila, som, latencia })
       return null;
     }
     const destino = ponto ? prender(ponto) : null;
-    const comando = { tipo, unidades: ids, alvo, x: destino ? Math.floor(destino.x * FP) : 0, y: destino ? Math.floor(destino.y * FP) : 0, fila: naFila ? 1 : 0 };
-    simulacao.enviarComando(comando);
+    let comando = null;
+    for (let inicio = 0; inicio < ids.length; inicio += MAXIMO_POR_COMANDO) {
+      comando = { tipo, unidades: ids.slice(inicio, inicio + MAXIMO_POR_COMANDO), alvo, x: destino ? Math.floor(destino.x * FP) : 0, y: destino ? Math.floor(destino.y * FP) : 0, fila: naFila ? 1 : 0 };
+      simulacao.enviarComando(comando);
+    }
     if (destino) {
       efeitos.adicionar(EFEITO.ORDEM, destino.x, destino.y, 0, 0, DURACAO_DA_MARCA_MS, tipo === TIPO_COMANDO.MOVER ? 0.9 : 1.15);
       fila.ordenar(ids, destino, tipo, naFila, estado.tick);

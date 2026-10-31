@@ -16,6 +16,7 @@ import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/so
 import { relogio } from '../site/rts/js/interface/hud.js';
 import { criarIndice } from '../site/rts/js/entrada/indice.js';
 import { aplicarObjetivos, ESTADO_DO_OBJETIVO } from '../site/rts/js/interface/objetivos.js';
+import { criarOrdens, MAXIMO_POR_COMANDO } from '../site/rts/js/entrada/ordens.js';
 import {
   EVENTO, TAMANHO_EVENTO, FP, BANDEIRA, CATEGORIA, MOTIVO, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE,
   FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, TAMANHO_FAIXA, TAMANHO_REGISTRO_FILA,
@@ -299,6 +300,32 @@ test('objectives follow OBJETIVO events: index times four plus the state', () =>
   aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.CUMPRIDO }), evento(EVENTO.OBJETIVO, -1, { arg: 9 * 4 + 1 })));
   assert.deepEqual(estados, [2, 0, 1], 'an index beyond the list is ignored');
   assert.ok(!aplicarObjetivos(estados, eventos(evento(EVENTO.TIRO, 1))));
+});
+
+test('a selection bigger than one command allows goes in parts, and building commands carry their fields', () => {
+  const enviados = [];
+  const nada = () => {};
+  const ordens = criarOrdens({
+    simulacao: { enviarComando: c => enviados.push(c) },
+    estado: { mapa: { largura: 64, altura: 64 }, tick: 0 },
+    efeitos: { adicionar: nada },
+    fila: { ordenar: nada, limpar: nada },
+    som: { tocar: nada },
+    latencia: { anotar: nada },
+  });
+  const ids = Array.from({ length: MAXIMO_POR_COMANDO * 2 + 5 }, (_, k) => k + 1);
+  ordens.deContexto(ids, { x: 10, y: 10 }, SEM_ENTIDADE, false, 0);
+  assert.deepEqual(enviados.map(c => c.unidades.length), [MAXIMO_POR_COMANDO, MAXIMO_POR_COMANDO, 5]);
+  enviados.length = 0;
+  ordens.construir([7], 5, 3, 4, true, 0);
+  ordens.cancelar(7, FAIXA.CONSTRUCAO, 2, 0);
+  ordens.produzir([7, 8], 1, 2, 0);
+  assert.deepEqual(enviados.map(c => [c.tipo, c.unidades, c.arg, c.x, c.y, c.fila]), [
+    [7, [7], 5, 3 * FP + FP / 2, 4 * FP + FP / 2, 1],
+    [9, [7], 2, FAIXA.CONSTRUCAO, 0, 0],
+    [8, [7, 8], 1, 0, 0, 0],
+    [8, [7, 8], 1, 0, 0, 0],
+  ]);
 });
 
 test('the match clock reads game time from the tick', () => {

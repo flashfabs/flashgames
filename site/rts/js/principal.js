@@ -321,6 +321,7 @@ const MOTIVOS_DA_RECUSA = {
   [MOTIVO.CELULA_NAO_VENTOSA]: 'celula_nao_ventosa',
   [MOTIVO.FORA_DO_MAPA]: 'fora_da_area',
   [MOTIVO.LIMITE]: 'limite',
+  [MOTIVO.PERTO_DO_RECURSO]: 'perto_das_pilhas',
 };
 
 function tratarAlerta(alerta) {

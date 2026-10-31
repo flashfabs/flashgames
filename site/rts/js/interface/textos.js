@@ -34,6 +34,7 @@ export const PROVISORIOS = Object.freeze({
   'hud.bloqueado': 'Ainda não disponível',
   'hud.nada_pronto': 'Nada pronto para posicionar',
   'hud.limite': 'Limite desse tipo atingido',
+  'hud.perto_das_pilhas': 'Perto demais das pilhas',
   'hud.sem_energia': '{nome} sem energia',
   'hud.rajada': 'Rajada de vento em {s} s',
   'hud.rajada_em': 'Rajada de vento em {s} s',
