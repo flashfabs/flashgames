@@ -51,6 +51,8 @@ export const PROVISORIOS = Object.freeze({
   'alerta.coletor_perdido': 'Coletor destruído: a carga ficou no chão',
   'alerta.rede_cortada': 'Poste derrubado: parte da base ficou sem rede',
   'alerta.rajada_paga': 'Rajada: +{n} C',
+  'alerta.promocao': '{nome} subiu para o nível {n}',
+  'alerta.religado': '{nome} religado',
   'menu.titulo': 'Menu',
   'menu.continuar': 'Continuar',
   'menu.recomecar': 'Recomeçar',

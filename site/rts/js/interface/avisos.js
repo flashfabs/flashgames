@@ -18,6 +18,8 @@ const TEXTO_DO_ALERTA = {
   [ALERTA.COLETOR_PERDIDO]: 'alerta.coletor_perdido',
   [ALERTA.RAJADA]: 'hud.rajada',
   [ALERTA.RAJADA_PAGA]: 'alerta.rajada_paga',
+  [ALERTA.PROMOCAO]: 'alerta.promocao',
+  [ALERTA.RELIGADO]: 'alerta.religado',
   [ALERTA.RECURSO_ESGOTADO]: 'alerta.recurso_esgotado',
 };
 
@@ -46,7 +48,8 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso =
     const doAviso = alerta.tipo === ALERTA.AVISO_ATAQUE ? textoDoAviso(alerta.arg) : null;
     const id = doAviso && texto.tem(doAviso) ? doAviso : TEXTO_DO_ALERTA[alerta.tipo];
     if (!id) return '';
-    return texto(id, { nome: catalogo().nomeDoItem(alerta.arg), s: Math.round(alerta.arg / PASSOS_POR_SEGUNDO), n: alerta.arg });
+    const nome = alerta.tipoEntidade !== undefined ? catalogo().nome(alerta.tipoEntidade) : catalogo().nomeDoItem(alerta.arg);
+    return texto(id, { nome, s: Math.round(alerta.arg / PASSOS_POR_SEGUNDO), n: alerta.arg });
   }
 
   /** Shows an alert; refusals are not listed here (the command bar says them). */

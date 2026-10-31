@@ -42,7 +42,7 @@ import { criarObjetivos } from './interface/objetivos.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
 import { criarRegistro, nomesDosGrupos } from './telemetria/registro.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
-import { TIPO_COMANDO, SEM_ENTIDADE, VERSAO_SIMULACAO, VERSAO_COMANDOS } from './sim/contratos.js';
+import { TIPO_COMANDO, SEM_ENTIDADE, VERSAO_SIMULACAO, VERSAO_COMANDOS, EVENTO, TAMANHO_EVENTO, E_TIPO, E_X, E_Y, FP } from './sim/contratos.js';
 
 const parametros = new URLSearchParams(location.search);
 const opcoes = {
@@ -324,8 +324,17 @@ const SOM_DO_ALERTA = {
   [ALERTA.COLETOR_PERDIDO]: SOM.ALERTA,
   [ALERTA.RAJADA]: SOM.ALERTA,
   [ALERTA.RAJADA_PAGA]: SOM.PRODUCAO,
+  [ALERTA.PROMOCAO]: SOM.PRODUCAO,
+  [ALERTA.RELIGADO]: SOM.CONSTRUCAO,
   [ALERTA.RECURSO_ESGOTADO]: SOM.ALERTA,
 };
+
+// The mission may move the camera (CAMERA, at the event's point).
+function seguirCameraDaMissao(eventos) {
+  for (let o = 0; o + TAMANHO_EVENTO <= eventos.length; o += TAMANHO_EVENTO) {
+    if (eventos[o + E_TIPO] === EVENTO.CAMERA) centrarEm(eventos[o + E_X] / FP, eventos[o + E_Y] / FP);
+  }
+}
 
 function tratarAlerta(alerta) {
   if (alerta.tipo === ALERTA.RECUSA) {
@@ -365,6 +374,7 @@ simulacao.iniciar({
     leitura.atualizar(retrato, estado.jogadorLocal);
     fila.atualizar(retrato.tick, indice.posicao, indice.parada);
     for (const alerta of alertas.registrar(retrato.eventos, performance.now())) tratarAlerta(alerta);
+    seguirCameraDaMissao(retrato.eventos);
     somDaPartida.tocarEventos(retrato.eventos);
     if (colocacao.ativa) atualizarArea();
     colocacao.revalidar();

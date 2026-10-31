@@ -1,6 +1,6 @@
 // Alerts from the presentation events of each snapshot (C3): under attack (base, harvester, any unit), an attack on
 // the way (missions), production and construction finished, a building ready to place, power lost, a gust announced,
-// resource exhausted and refused commands. Attacks are grouped by place and time, so a long fight raises one alert, not
+// a unit promoted, a structure brought back, resource exhausted and refused commands. Attacks are grouped by place and time, so a long fight raises one alert, not
 // one per shot; the last alert with a place is kept for the "go to last alert" key.
 // Pure: no DOM; the caller answers who owns an entity and what kind of thing a type is.
 import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG, FP } from '../sim/contratos.js';
@@ -17,6 +17,8 @@ export const ALERTA = Object.freeze({
   COLETOR_PERDIDO: 'coletorPerdido',
   RAJADA: 'rajada',
   RAJADA_PAGA: 'rajadaPaga',
+  PROMOCAO: 'promocao',
+  RELIGADO: 'religado',
   RECURSO_ESGOTADO: 'recursoEsgotado',
   RECUSA: 'recusa',
 });
@@ -87,6 +89,10 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
         if (donoDe(entidade) !== jogador) continue;
         const qual = { [EVENTO.PRODUCAO_CONCLUIDA]: ALERTA.PRODUCAO, [EVENTO.CONSTRUCAO_CONCLUIDA]: ALERTA.CONSTRUCAO, [EVENTO.PREDIO_PRONTO]: ALERTA.PREDIO_PRONTO, [EVENTO.RAJADA]: ALERTA.RAJADA_PAGA }[tipo];
         novos.push({ tipo: qual, x: x / FP, y: y / FP, entidade, arg, quando: agora });
+      } else if (tipo === EVENTO.PROMOCAO || tipo === EVENTO.RELIGADO) {
+        // a unit of the player rose a level (arg), or a structure came to the player's side (its owner already changed)
+        if (donoDe(entidade) !== jogador) continue;
+        novos.push({ tipo: tipo === EVENTO.PROMOCAO ? ALERTA.PROMOCAO : ALERTA.RELIGADO, x: x / FP, y: y / FP, entidade, arg, tipoEntidade: tipoDe(entidade), quando: agora });
       } else if (tipo === EVENTO.REDE_CORTADA) {
         if (donoDe(entidade) !== jogador || agora < redeAte) continue;
         redeAte = agora + SILENCIO_DA_REDE_MS;

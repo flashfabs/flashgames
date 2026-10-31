@@ -189,6 +189,8 @@ test('a lost harvester, a paid gust and one alert for a cut pole, and owners of 
   ), 0);
   assert.deepEqual(novos.map(a => a.tipo), [ALERTA.COLETOR_PERDIDO, ALERTA.RAJADA_PAGA, ALERTA.SEM_ENERGIA]);
   assert.equal(alertas.registrar(eventos(evento(EVENTO.REDE_CORTADA, 6, { arg: 4 })), 9000).length, 1, 'after the silence it alerts again');
+  const promovidos = alertas.registrar(eventos(evento(EVENTO.PROMOCAO, 5, { arg: 2 }), evento(EVENTO.PROMOCAO, 9, { arg: 1 }), evento(EVENTO.RELIGADO, 6, { alvo: 5 })), 10000);
+  assert.deepEqual(promovidos.map(a => [a.tipo, a.arg, a.tipoEntidade]), [[ALERTA.PROMOCAO, 2, 4], [ALERTA.RELIGADO, 0, 4]]);
 });
 
 test('finished production and construction alert only for the player, with the kind made', () => {
