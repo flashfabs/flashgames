@@ -366,6 +366,8 @@ export function lerMapaDeArquivos({ cabecalho, camadas, entidades }, dados) {
       decoracao: camada.decoracao,
     },
     faccoes: jogadores.map(j => j.faccao),
+    solos: solos.slice(),
+    decoracoes: decoracoes.slice(),
     entidades: iniciais,
     nomesNos: nos.map(no => no.id),
     areas: entidades.areas ?? {},

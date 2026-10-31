@@ -6,7 +6,7 @@
 
 ## Papel na matriz
 
-Suporte: blindagem Leve, sem arma, cerca de 350 C, 250 de vida mais 10% por ser veículo dos Religadores, 1,6 célula por segundo, lotação 2; sai do Escritório Regional.
+Suporte: blindagem Leve, sem arma, cerca de 350 C, 250 de vida mais 10% por ser veículo dos Religadores, 1,6 célula por segundo, lotação 2; sai da Garagem (até 31/10/2026 saía do Escritório Regional; mudou para a grade do QG caber em 8 casas).
 
 Repara veículos e prédios (cerca de 12 de vida por segundo, encostado) e ergue o Poste Avançado, o posto avançado com rede própria que é a expansão da facção; ganha veterania por vida reparada.
 

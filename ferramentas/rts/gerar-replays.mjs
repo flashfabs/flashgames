@@ -1,5 +1,6 @@
-// Generates the golden replays in testes/rts-replays/: three scripted matches of 18,000 ticks (ten minutes of game)
-// with combat, orders of every kind and fog, recorded as seed, options and commands, plus the checksums they must give.
+// Generates the golden replays in testes/rts-replays/: four scripted matches of 18,000 ticks (ten minutes of game)
+// with combat, orders of every kind, fog and, in the sandbox one, the whole economy (harvesting, building, production,
+// spilled charge, gusts), recorded as seed, options and commands, plus the checksums they must give.
 // The checksums come from playing the saved JSON back, so the files prove themselves. Run after a deliberate change to
 // the simulation (with VERSAO_SIMULACAO bumped when the formats change) and commit the output:
 //   node ferramentas/rts/gerar-replays.mjs
@@ -7,9 +8,12 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { criarSimulacao, passo, agendarComando, somaDeVerificacao, REGRAS_LIVRES, REGRAS_PROTOTIPO } from '../../site/rts/js/sim/simulacao.js';
 import { executarReplay, criarGravador } from '../../site/rts/js/sim/replay.js';
-import { TIPO_COMANDO, FP, criarComando, idDe } from '../../site/rts/js/sim/contratos.js';
+import { TIPO_COMANDO, FP, FAIXA, CATEGORIA, criarComando, idDe } from '../../site/rts/js/sim/contratos.js';
 import { criarSorteio, sortear } from '../../site/rts/js/sim/matematica.js';
-import { gerarMapa } from '../../site/rts/js/sim/mapa.js';
+import { gerarMapa, camadasEmTexto } from '../../site/rts/js/sim/mapa.js';
+import { motivoPosicaoNaSimulacao } from '../../site/rts/js/sim/construcao.js';
+import { cabecaDaFaixa } from '../../site/rts/js/sim/producao.js';
+import { dadosExemplo, mapaExemplo } from '../../testes/rts-sim-exemplo.mjs';
 
 const PASSOS = 18000;
 const A_CADA = 600;
@@ -96,6 +100,69 @@ function exercitosLivres(semente, largura, altura, times, porTime) {
   return { largura, altura, unidades };
 }
 
+// One scripted economy order for `jogador` in the sandbox, read from the state like a player reads a snapshot: send
+// harvesters to a pile, queue something, place a ready building, set a rally point, attack, cancel, recycle or raise
+// a forward post.
+function inventarEconomia(sim, sorteio, jogador, seq) {
+  const vivas = [];
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.time[i] === jogador) vivas.push(i);
+  const de = filtro => vivas.filter(filtro);
+  const um = lista => lista[sortear(sorteio, lista.length)];
+  const t = i => sim.tipos[sim.tipo[i]];
+  const ids = lista => lista.map(i => idDe(i, sim.geracao[i]));
+  const base = { tick: sim.tick + 1, jogador, seq };
+  const produtores = de(i => t(i).categoria === CATEGORIA.PREDIO && sim.obra[i] === 0 && (t(i).produz.length > 0 || t(i).constroi.length > 0));
+  const coletores = de(i => t(i).coletor === 1);
+  const combatentes = de(i => t(i).categoria === CATEGORIA.UNIDADE && t(i).dano > 0);
+  const pilhas = [];
+  for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.categoriaPorTipo[sim.tipo[i]] === CATEGORIA.RECURSO && sim.carga[i] > 0) pilhas.push(i);
+  // a spot near one of the player's buildings where the kind may stand, or null
+  const lugar = tipo => {
+    const perto = de(i => t(i).categoria === CATEGORIA.PREDIO);
+    if (perto.length === 0) return null;
+    for (let tentativa = 0; tentativa < 30; tentativa++) {
+      const ancora = um(perto);
+      const cx = (sim.x[ancora] >> 10) - 9 + sortear(sorteio, 19);
+      const cy = (sim.y[ancora] >> 10) - 9 + sortear(sorteio, 19);
+      if (motivoPosicaoNaSimulacao(sim, jogador, tipo, cx, cy) === 0) return { x: cx * FP + 512, y: cy * FP + 512 };
+    }
+    return null;
+  };
+  const r = sortear(sorteio, 12);
+  if (r < 2 && coletores.length > 0 && pilhas.length > 0) return criarComando({ ...base, tipo: TIPO_COMANDO.COLETAR, unidades: ids(coletores), alvo: ids([um(pilhas)])[0] });
+  if (r < 5 && produtores.length > 0) {
+    const p = um(produtores);
+    const opcoes = [...t(p).produz, ...t(p).constroi];
+    return criarComando({ ...base, tipo: TIPO_COMANDO.PRODUZIR, unidades: ids([p]), arg: um(opcoes) });
+  }
+  if (r < 7) {
+    for (const p of produtores) {
+      const cabeca = cabecaDaFaixa(sim, p, FAIXA.CONSTRUCAO);
+      if (!cabeca.pronta) continue;
+      const onde = lugar(cabeca.item);
+      if (onde) return criarComando({ ...base, tipo: TIPO_COMANDO.CONSTRUIR, unidades: ids([p]), arg: cabeca.item, ...onde, fila: sortear(sorteio, 3) === 0 ? 1 : 0 });
+    }
+  }
+  if (r === 7 && produtores.length > 0) {
+    const alvo = pilhas.length > 0 && sortear(sorteio, 2) === 0 ? ids([um(pilhas)])[0] : -1;
+    return criarComando({ ...base, tipo: TIPO_COMANDO.PONTO_DE_ENCONTRO, unidades: ids(produtores), alvo, x: (4 + sortear(sorteio, sim.mapa.largura - 8)) * FP, y: (4 + sortear(sorteio, sim.mapa.altura - 8)) * FP });
+  }
+  if (r < 10 && combatentes.length > 0) {
+    const inimiga = sim.mapa.bases[(jogador + 1) % sim.mapa.bases.length];
+    return criarComando({ ...base, tipo: TIPO_COMANDO.ATACAR_MOVENDO, unidades: ids(combatentes), x: inimiga.x * FP + 512, y: inimiga.y * FP + 512 });
+  }
+  if (r === 10 && produtores.length > 0) return criarComando({ ...base, tipo: TIPO_COMANDO.CANCELAR, unidades: ids([um(produtores)]), x: sortear(sorteio, 2), arg: sortear(sorteio, 3) });
+  const equipes = de(i => t(i).ergue.length > 0);
+  if (equipes.length > 0) {
+    const tipo = t(equipes[0]).ergue[0];
+    const onde = lugar(tipo);
+    if (onde) return criarComando({ ...base, tipo: TIPO_COMANDO.CONSTRUIR, unidades: ids(equipes), arg: tipo, ...onde });
+  }
+  const postes = de(i => t(i).nome === 'poste');
+  if (postes.length > 2) return criarComando({ ...base, tipo: TIPO_COMANDO.RECICLAR, unidades: ids([um(postes)]) });
+  return null;
+}
+
 const CENARIOS = [
   {
     nome: 'prototipo-um-comandante',
@@ -121,6 +188,17 @@ const CENARIOS = [
     jogadores: [2, 0, 1],
     intervalo: 360,
   },
+  {
+    nome: 'caixa-economia',
+    descricao: 'The example sandbox (testes/rts-sim-exemplo.mjs) with its data and map embedded: both players harvest, queue units and buildings, place them, raise a forward post, set rally points, cancel, recycle and attack every 1.5 s, so harvesters die, charge spills, gusts pay and the network grows and breaks.',
+    opcoes: (() => {
+      const mapa = mapaExemplo();
+      return { semente: 5, dados: dadosExemplo(), arquivosMapa: { ...mapa, camadas: camadasEmTexto(mapa.camadas) }, cargaInicial: 3000 };
+    })(),
+    jogadores: [0, 1],
+    intervalo: 45,
+    inventar: inventarEconomia,
+  },
 ];
 
 mkdirSync(destino, { recursive: true });
@@ -134,7 +212,7 @@ for (const cenario of CENARIOS) {
     if ((sim.tick + 1) % cenario.intervalo === 0) {
       for (const jogador of cenario.jogadores) {
         const seq = seqs.get(jogador) ?? 0;
-        const comando = inventarComando(sim, sorteio, jogador, seq);
+        const comando = (cenario.inventar ?? inventarComando)(sim, sorteio, jogador, seq);
         if (!comando) continue;
         seqs.set(jogador, seq + 1);
         agendarComando(sim, comando);

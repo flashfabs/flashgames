@@ -53,6 +53,7 @@ export function combater(sim) {
     if (!sim.ativo[i]) continue;
     if (sim.recarga[i] > 0) sim.recarga[i]--;
     const tipo = sim.tipos[sim.tipo[i]];
+    if (tipo.dano === 0) continue; // no weapon: harvesters, builders, piles, sparks, most buildings
     let alvo = sim.alvo[i];
     if (alvo >= 0 && (!sim.ativo[alvo] || !noAlcance(sim, i, alvo, tipo.alcance))) alvo = -1;
     const o = ord.ordem[i];

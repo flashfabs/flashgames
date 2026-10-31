@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { ACAO } from '../site/rts/js/entrada/teclas.js';
 import { montarCartao, TECLAS_DA_GRADE, MAXIMO_DA_FILA } from '../site/rts/js/interface/cartao.js';
-import { criarCatalogo, catalogoDoMapa, nomeDoId } from '../site/rts/js/interface/catalogo.js';
+import { criarCatalogo, catalogoDoMapa, nomeDoId, habilidadeDoC5, HABILIDADE, BANDEIRA_CESTO_ERGUIDO } from '../site/rts/js/interface/catalogo.js';
 import { criarAlertas, ALERTA, RAIO_DO_ATAQUE, SILENCIO_DO_ATAQUE_MS } from '../site/rts/js/interface/alertas.js';
 import { criarTextos, PROVISORIOS, achatar } from '../site/rts/js/interface/textos.js';
 import { criarLeitura, lerFilas, TETO_PADRAO } from '../site/rts/js/interface/leitura.js';
@@ -15,6 +15,8 @@ import { resultadoDosEventos, nomeDoArquivo } from '../site/rts/js/interface/fim
 import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/som-da-partida.js';
 import { relogio } from '../site/rts/js/interface/hud.js';
 import { criarIndice } from '../site/rts/js/entrada/indice.js';
+import { aplicarObjetivos, ESTADO_DO_OBJETIVO } from '../site/rts/js/interface/objetivos.js';
+import { criarOrdens, MAXIMO_POR_COMANDO } from '../site/rts/js/entrada/ordens.js';
 import {
   EVENTO, TAMANHO_EVENTO, FP, BANDEIRA, CATEGORIA, MOTIVO, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE,
   FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, TAMANHO_FAIXA, TAMANHO_REGISTRO_FILA,
@@ -73,6 +75,21 @@ test('units get the orders in fixed places of the grid, and nothing selected get
 
 const item = (valor, progresso = 0) => ({ item: valor, tipo: valor >= ITEM_PESQUISA ? -1 : valor, pesquisa: valor >= ITEM_PESQUISA ? valor - ITEM_PESQUISA : -1, progresso });
 const semFila = { fila: [], obras: [], obra: null, pronto: -1 };
+
+test('abilities come from the C5 entry and take the free places of the unit card, the toggle showing its state', () => {
+  assert.equal(habilidadeDoC5({ religa: 1 }).codigo, HABILIDADE.RELIGAR);
+  assert.equal(habilidadeDoC5({ habilidade: { tipo: 'erguer' } }).codigo, HABILIDADE.CESTO);
+  assert.equal(habilidadeDoC5({ habilidade: { tipo: 'leitura' } }).alvo, 'predio');
+  assert.equal(habilidadeDoC5({ habilidade: { tipo: 'tocaia' } }), null, 'the enemy\'s abilities are not the player\'s');
+  const mapa = { tipos: [tipoEstatico({ nome: 'cesto-blindado' }), tipoEstatico({ nome: 'religador' }), tipoEstatico({ nome: 'equipe-de-manutencao', ergue: [3] }), tipoEstatico({ nome: 'poste-avancado', categoria: CATEGORIA.PREDIO, custo: 1000 })] };
+  const comHabilidades = catalogoDoMapa(mapa, textoComNomes, [{ nome: 'cesto-blindado', habilidade: { tipo: 'erguer' } }, { nome: 'religador', religa: 1 }]);
+  const selecao = [{ id: 1, tipo: 0, bandeiras: BANDEIRA_CESTO_ERGUIDO }, { id: 2, tipo: 0 }, { id: 3, tipo: 1 }, { id: 4, tipo: 2 }];
+  const cartao = montarCartao({ selecao, catalogo: comHabilidades, producao: () => null, carga: 2000, lotacao: { usada: 0, teto: 60 } });
+  assert.deepEqual([1, 2, 7].map(i => cartao.slots[i] && [cartao.slots[i].modo, cartao.slots[i].habilidade?.codigo ?? cartao.slots[i].tipo]), [['erguer', 3], ['habilidade', HABILIDADE.CESTO], ['habilidade', HABILIDADE.RELIGAR]]);
+  assert.deepEqual(cartao.slots[2].unidades, [1, 2]);
+  assert.equal(cartao.slots[2].texto, 'comando.baixar_cesto', 'the first basket is raised: the button lowers');
+  assert.equal(cartao.slots[7].texto, 'comando.religar');
+});
 
 test('a building card trains and researches in data order, counts its queues and says when Carga or population is short', () => {
   const filas = { 20: { ...semFila, fila: [item(1, 0.5), item(1), item(ITEM_PESQUISA)] }, 21: semFila };
@@ -289,6 +306,41 @@ test('sounds of the match fade with distance from the camera', () => {
   assert.equal(volumePelaDistancia(10 + ALCANCE_DO_SOM, 10, 10, 10), 0);
   const meio = volumePelaDistancia(10 + 24, 10, 10, 10);
   assert.ok(meio > 0 && meio < 1);
+});
+
+test('objectives follow OBJETIVO events: index times four plus the state', () => {
+  const estados = [0, 0, 0];
+  assert.ok(aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.ATIVO }), evento(EVENTO.OBJETIVO, -1, { arg: 2 * 4 + ESTADO_DO_OBJETIVO.ATIVO }))));
+  assert.deepEqual(estados, [1, 0, 1]);
+  aplicarObjetivos(estados, eventos(evento(EVENTO.OBJETIVO, -1, { arg: 0 * 4 + ESTADO_DO_OBJETIVO.CUMPRIDO }), evento(EVENTO.OBJETIVO, -1, { arg: 9 * 4 + 1 })));
+  assert.deepEqual(estados, [2, 0, 1], 'an index beyond the list is ignored');
+  assert.ok(!aplicarObjetivos(estados, eventos(evento(EVENTO.TIRO, 1))));
+});
+
+test('a selection bigger than one command allows goes in parts, and building commands carry their fields', () => {
+  const enviados = [];
+  const nada = () => {};
+  const ordens = criarOrdens({
+    simulacao: { enviarComando: c => enviados.push(c) },
+    estado: { mapa: { largura: 64, altura: 64 }, tick: 0 },
+    efeitos: { adicionar: nada },
+    fila: { ordenar: nada, limpar: nada },
+    som: { tocar: nada },
+    latencia: { anotar: nada },
+  });
+  const ids = Array.from({ length: MAXIMO_POR_COMANDO * 2 + 5 }, (_, k) => k + 1);
+  ordens.deContexto(ids, { x: 10, y: 10 }, SEM_ENTIDADE, false, 0);
+  assert.deepEqual(enviados.map(c => c.unidades.length), [MAXIMO_POR_COMANDO, MAXIMO_POR_COMANDO, 5]);
+  enviados.length = 0;
+  ordens.construir([7], 5, 3, 4, true, 0);
+  ordens.cancelar(7, FAIXA.CONSTRUCAO, 2, 0);
+  ordens.produzir([7, 8], 1, 2, 0);
+  assert.deepEqual(enviados.map(c => [c.tipo, c.unidades, c.arg, c.x, c.y, c.fila]), [
+    [7, [7], 5, 3 * FP + FP / 2, 4 * FP + FP / 2, 1],
+    [9, [7], 2, FAIXA.CONSTRUCAO, 0, 0],
+    [8, [7, 8], 1, 0, 0, 0],
+    [8, [7, 8], 1, 0, 0, 0],
+  ]);
 });
 
 test('the match clock reads game time from the tick', () => {

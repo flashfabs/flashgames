@@ -5,7 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/religadores_infantaria_turma_de_linha.py",
-  "commit": "6616030",
+  "commit": "8e09336",
+  "execucao": "20261031-010125",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -22,7 +23,7 @@
       "NVIDIA GeForce RTX 4090"
     ],
     "projecao": {
-      "origem": "padrao-embutido-v0",
+      "origem": "D:\\rts\\config\\projecao.json",
       "versao": 0,
       "elevacaoGraus": 55.0,
       "metrosPorCelula": 4.0,
@@ -32,9 +33,8 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0353,
-      "time": 0.0301,
-      "sombra": 0.0437
+      "cor": 0.0316,
+      "time": 0.0274
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

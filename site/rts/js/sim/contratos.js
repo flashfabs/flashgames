@@ -4,13 +4,13 @@
 // A contract change goes in its own commit, bumps its version and is announced to the consumers.
 
 /**
- * Version of the command envelope (the fields of Comando and their compact array form); frozen at 1 once the lockstep
- * spike validates it. Only the envelope freezes: new command kinds can still be added after that, and their rules are
- * versioned with VERSAO_SIMULACAO.
+ * Version of the command envelope (the fields of Comando, their ranges and their compact array form), frozen at 1 on
+ * 31/10/2026 after the lockstep spike ran ten minutes on four pages with no desync. Only the envelope is frozen: new
+ * command kinds can still be added, and their rules are versioned with VERSAO_SIMULACAO.
  */
-export const VERSAO_COMANDOS = 0;
+export const VERSAO_COMANDOS = 1;
 /** Version of the snapshot, events and static map formats, of the command kinds' rules and of every rule replays depend on. */
-export const VERSAO_SIMULACAO = 3;
+export const VERSAO_SIMULACAO = 4;
 
 // ---------- units of measure ----------
 
@@ -110,6 +110,7 @@ export const MOTIVO = Object.freeze({
   CELULA_NAO_VENTOSA: 10, // the kind needs a windy cell under its footprint
   FORA_DO_MAPA: 11,
   LIMITE: 12, // the player already has the most of that kind the rules allow
+  PERTO_DO_RECURSO: 13, // a depot too close to a battery pile (economy data, distanciaMinimaPilha)
 });
 
 /**
@@ -136,6 +137,8 @@ export function criarComando({ tick = 0, jogador, seq, tipo, unidades = [], alvo
 }
 
 const ehInteiro = v => Number.isInteger(v) && v >= -0x80000000 && v <= 0x7fffffff;
+/** Most unit ids one command may carry (about 11 KB of JSON); a bigger selection goes as several commands. */
+export const MAX_UNIDADES_POR_COMANDO = 1024;
 
 /** Structural check only (integer fields, ranges); game rules are checked by the simulation. */
 export function comandoValido(c) {
@@ -145,7 +148,7 @@ export function comandoValido(c) {
   if (c.jogador < 0 || c.jogador >= MAX_JOGADORES) return false;
   if (c.tipo < 1 || c.tipo > ULTIMO_TIPO_COMANDO) return false;
   if (c.fila !== 0 && c.fila !== 1) return false;
-  if (!Array.isArray(c.unidades) || c.unidades.length > MAX_SLOTS) return false;
+  if (!Array.isArray(c.unidades) || c.unidades.length > MAX_UNIDADES_POR_COMANDO) return false;
   for (const id of c.unidades) if (!ehInteiro(id) || id <= 0) return false;
   return true;
 }
@@ -397,6 +400,10 @@ export function transferiveisDoRetrato(retrato) {
  * @property {TipoEstatico[]} tipos every kind, indexed by the snapshot's `tipo`
  * @property {{nome: string, predio: number, custo: number, tempo: number}[]} pesquisas research, by index
  * @property {{x: number, y: number}[]} nos resource nodes of the map (cells), by index
+ * @property {string[]} solos     names of the ground kinds of the `solo` layer, by value (empty for a generated map)
+ * @property {string[]} decoracoes names of the decorations, the `decoracao` layer's value minus one
+ * @property {object} economia    economy rules: lotacaoMaxima, saturacao, distanciaMinimaPilha (cells), faiscaCarga,
+ *                                duracaoFaisca, intervaloRajada, avisoRajada (ticks), loteRajada, reciclarPorcento
  */
 
 /**

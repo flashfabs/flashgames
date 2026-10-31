@@ -6,7 +6,7 @@
 
 ## Papel na matriz
 
-QG: blindagem Estrutura, cerca de 3.000 de vida; tem a fila de construção da base (um prédio de cada vez), produz o Guincho de Células e a Equipe de Manutenção e é a raiz da rede, com raio de 8 células.
+QG: blindagem Estrutura, cerca de 3.000 de vida; tem a fila de construção da base (um prédio de cada vez), produz o Guincho de Células e é a raiz da rede, com raio de 8 células.
 
 É prédio elétrico: a interferência o desliga por alguns segundos, e desligado ele para a fila.
 

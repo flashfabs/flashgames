@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { criarSimulacao, passo, agendarComando, somaDeVerificacao, somasPorSubsistema, REGRAS_LIVRES } from '../site/rts/js/sim/simulacao.js';
 import {
   TIPO_COMANDO, FP, VISAO, criarComando, comandoValido, comandoParaArray, comandoDeArray, compararComandos,
-  idDe, slotDe, geracaoDe, proximaGeracao, MAX_GERACAO, alocarCamposRetrato, CAMPOS_RETRATO,
+  idDe, slotDe, geracaoDe, proximaGeracao, MAX_GERACAO, alocarCamposRetrato, CAMPOS_RETRATO, MAX_UNIDADES_POR_COMANDO, VERSAO_COMANDOS,
 } from '../site/rts/js/sim/contratos.js';
 import { anguloDe, seno, cosseno, raizInteira, diferencaAngulo, girarAngulo } from '../site/rts/js/sim/matematica.js';
 import { validarTiposUnidade, DADOS_PROTOTIPO } from '../site/rts/js/sim/dados.js';
@@ -41,6 +41,9 @@ test('commands validate structurally, keep a total order and survive the compact
   assert.ok(!comandoValido({ ...c, x: 1.5 }), 'floats are refused');
   assert.ok(!comandoValido({ ...c, jogador: 8 }));
   assert.ok(!comandoValido({ ...c, unidades: [0] }));
+  assert.ok(comandoValido({ ...c, unidades: Array.from({ length: MAX_UNIDADES_POR_COMANDO }, (_, k) => idDe(k, 1)) }));
+  assert.ok(!comandoValido({ ...c, unidades: Array.from({ length: MAX_UNIDADES_POR_COMANDO + 1 }, (_, k) => idDe(k, 1)) }), 'a bigger selection goes as several commands');
+  assert.equal(VERSAO_COMANDOS, 1, 'the envelope is frozen: a change to it needs the lockstep front');
   const lista = [{ ...c, jogador: 1, seq: 2 }, { ...c, jogador: 0, seq: 9 }, { ...c, tick: 8, jogador: 7 }];
   assert.deepEqual(lista.sort(compararComandos).map(x => [x.tick, x.jogador, x.seq]), [[8, 7, 4], [9, 0, 9], [9, 1, 2]]);
 });

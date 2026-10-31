@@ -24,6 +24,10 @@ const indice = lerJson(join(ASSETS, 'indice.json'));
 const entradas = Object.entries(indice.assets ?? {});
 const manifestos = new Map(entradas.map(([nome, entrada]) => [nome, lerJson(join(ASSETS, entrada.manifesto))]));
 const projecao = lerJson(join(RAIZ, 'site/rts/dados/projecao.json'));
+// Phase packages (the phase atlas): pages shared by the sprites of a phase, named after the phase, with their own
+// manifest and byte counts; a sprite manifest with a pacote field lists the shared pages it uses.
+const pacotes = Object.entries(indice.pacotes ?? {}).map(([fase, p]) => ({ fase, caminho: join(ASSETS, p.arquivo), entrada: p, dados: lerJson(join(ASSETS, p.arquivo)) }));
+const faseDoPacote = new Map(pacotes.map(p => [relative(ASSETS, p.caminho), p.fase]));
 
 /** Page files of a manifest by level: [{ arquivo, passe }] with paths relative to the assets folder. */
 function arquivosDasPaginas(nome) {
@@ -73,7 +77,9 @@ test('every manifest agrees with its index entry and with the projection', () =>
     if (m.pxPorCelula) {
       for (const nivel of NIVEIS) {
         if (m.pxPorCelula[nivel] === undefined) continue;
-        assert.equal(m.pxPorCelula[nivel], projecao.pxPorCelula[nivel], `${nome}: pxPorCelula ${nivel} diferente do projecao.json`);
+        // a big set piece may ship hd frames in uhd too (the renderer scales by pxPorCelula), never sharper than the level
+        assert.ok(Object.values(projecao.pxPorCelula).includes(m.pxPorCelula[nivel]) && m.pxPorCelula[nivel] <= projecao.pxPorCelula[nivel],
+          `${nome}: pxPorCelula ${nivel} ${m.pxPorCelula[nivel]} fora dos níveis do projecao.json`);
       }
     }
   }
@@ -87,7 +93,7 @@ test('every page file exists, is named after its asset and level, and carries th
         assert.ok(existsSync(arquivo), `${nome}: falta ${relative(RAIZ, arquivo)}`);
         const partes = ARQUIVO_PAGINA.exec(arquivo.split('/').at(-1));
         assert.ok(partes, `${nome}: nome fora do padrão ${arquivo}`);
-        assert.equal(partes.groups.asset, nome);
+        assert.equal(partes.groups.asset, m.pacote ? faseDoPacote.get(m.pacote) : nome);
         assert.equal(partes.groups.nivel, nivel);
         assert.equal(partes.groups.passe, passe);
         const hash = createHash('sha256').update(readFileSync(arquivo)).digest('hex').slice(0, 6);
@@ -119,8 +125,17 @@ test('frames fit inside their pages and every level has the same frames', () => 
 });
 
 test('the byte counts in the index and in each manifest are the real file sizes', () => {
+  for (const { fase, caminho, entrada, dados } of pacotes) {
+    for (const nivel of NIVEIS) {
+      const bytes = (dados.paginas[nivel] ?? []).reduce((soma, p) => soma + PASSES.filter(passe => p[passe]).reduce((s, passe) => s + statSync(join(caminho, '..', p[passe])).size, 0), 0);
+      assert.equal(dados.orcamento[nivel].bytesArquivos, bytes, `${fase}: orcamento.${nivel}.bytesArquivos`);
+      assert.equal(entrada.bytes?.[nivel], bytes, `${fase}: bytes.${nivel} do pacote no índice`);
+    }
+  }
   for (const [nome, entrada] of entradas) {
     const m = manifestos.get(nome);
+    // shared pages are counted once, in their package
+    if (m.pacote) continue;
     for (const [nivel, arquivos] of Object.entries(arquivosDasPaginas(nome))) {
       if (arquivos.length === 0) continue;
       const bytes = arquivos.reduce((soma, { arquivo }) => soma + statSync(arquivo).size, 0);
@@ -132,6 +147,10 @@ test('the byte counts in the index and in each manifest are the real file sizes'
 
 test('no file in the art folders is left out of the index', () => {
   const usados = new Set();
+  for (const { caminho, dados } of pacotes) {
+    usados.add(caminho);
+    for (const paginas of Object.values(dados.paginas)) for (const p of paginas) for (const passe of PASSES) if (p[passe]) usados.add(join(caminho, '..', p[passe]));
+  }
   for (const [nome, entrada] of entradas) {
     usados.add(join(ASSETS, entrada.manifesto));
     for (const arquivos of Object.values(arquivosDasPaginas(nome))) for (const { arquivo } of arquivos) usados.add(arquivo);

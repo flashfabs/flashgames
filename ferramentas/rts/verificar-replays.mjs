@@ -4,7 +4,7 @@
 //   /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m ferramentas/rts/verificar-replays.mjs
 import { executarReplay } from '../../site/rts/js/sim/replay.js';
 
-const NOMES = ['prototipo-um-comandante', 'prototipo-dois-comandantes', 'livre-tres-times'];
+const NOMES = ['prototipo-um-comandante', 'prototipo-dois-comandantes', 'livre-tres-times', 'caixa-economia'];
 const escrever = globalThis.print ?? console.log;
 const motor = globalThis.process?.versions?.v8 ? `V8 ${globalThis.process.versions.v8}` : 'JavaScriptCore';
 

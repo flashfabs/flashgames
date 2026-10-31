@@ -1,0 +1,42 @@
+{
+  "versao": 1,
+  "asset": "neutro-estrutura-holofote-de-estrada",
+  "brief": "neutro/holofote-de-estrada",
+  "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
+  "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
+  "script": "arte/blender/assets/neutro_estrutura_holofote_de_estrada.py",
+  "commit": "3ebe85e",
+  "execucao": "20261031-004239",
+  "ferramentas": [
+    {
+      "nome": "Blender",
+      "versao": "5.2.3 LTS",
+      "licenca": "GPL-3.0-or-later",
+      "uso": "modelagem, render Cycles e empacotamento"
+    }
+  ],
+  "ia": [],
+  "fontesExternas": [],
+  "render": {
+    "dispositivo": "OPTIX",
+    "gpus": [
+      "NVIDIA GeForce RTX 4090"
+    ],
+    "projecao": {
+      "origem": "D:\\rts\\config\\projecao.json",
+      "versao": 0,
+      "elevacaoGraus": 55.0,
+      "metrosPorCelula": 4.0,
+      "pxPorCelula": {
+        "hd": 64,
+        "uhd": 128
+      }
+    },
+    "segundosPorQuadro": {
+      "cor": 0.1351,
+      "time": 0.069,
+      "sombra": 0.1792
+    }
+  },
+  "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"
+}
