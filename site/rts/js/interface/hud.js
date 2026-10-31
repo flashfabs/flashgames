@@ -1,6 +1,16 @@
 // Top bar and minimap shortcuts: Carga and population against the ceiling (red when full, a pulse when Carga drops),
-// and the buttons for the next idle harvester (with how many there are), the last alert and the base. Values are
-// written only when they change.
+// the match clock, and the buttons for the next idle harvester (with how many there are), the last alert and the
+// base. Values are written only when they change.
+import { PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
+
+/** Game time of a tick as m:ss (or h:mm:ss past an hour). */
+export function relogio(tick) {
+  const total = Math.floor(tick / PASSOS_POR_SEGUNDO);
+  const dois = n => String(n).padStart(2, '0');
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  return h ? `${h}:${dois(m)}:${dois(total % 60)}` : `${m}:${dois(total % 60)}`;
+}
 
 export function criarHud({ topo, atalhos, texto, controles, canvasAlvo, acoes }) {
   const carga = topo.querySelector('[data-recurso="carga"]');
@@ -10,6 +20,7 @@ export function criarHud({ topo, atalhos, texto, controles, canvasAlvo, acoes })
   const botaoOcioso = atalhos.querySelector('[data-atalho="ocioso"]');
   const rotuloOcioso = botaoOcioso.querySelector('[data-rotulo]');
   const botaoAlerta = atalhos.querySelector('[data-atalho="alerta"]');
+  const estado = topo.querySelector('.topo-estado');
   let cargaAnterior = null;
   let textoLotacao = '';
   let ociososAnterior = -1;
@@ -23,8 +34,10 @@ export function criarHud({ topo, atalhos, texto, controles, canvasAlvo, acoes })
     acoes[botao.dataset.atalho]?.(e.timeStamp);
   });
 
-  /** @param {{carga: number, lotacao: {usada: number, teto: number}, ociosos: number[], temAlerta: boolean}} valores */
-  function atualizar({ carga: c, lotacao: l, ociosos, temAlerta }) {
+  /** @param {{carga: number, lotacao: {usada: number, teto: number}, ociosos: number[], temAlerta: boolean, tick: number}} valores */
+  function atualizar({ carga: c, lotacao: l, ociosos, temAlerta, tick }) {
+    const tempo = relogio(tick);
+    if (estado.textContent !== tempo) estado.textContent = tempo;
     if (c !== cargaAnterior) {
       if (cargaAnterior !== null && c < cargaAnterior) {
         carga.dataset.pulso = 'false';

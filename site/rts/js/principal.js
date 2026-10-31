@@ -36,7 +36,7 @@ import { criarSomDaPartida } from './interface/som-da-partida.js';
 import { criarFim } from './interface/fim.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
-import { TIPO_COMANDO, SEM_ENTIDADE, MOTIVO } from './sim/contratos.js';
+import { TIPO_COMANDO, SEM_ENTIDADE, MOTIVO, VERSAO_SIMULACAO, VERSAO_COMANDOS } from './sim/contratos.js';
 
 const parametros = new URLSearchParams(location.search);
 const opcoes = {
@@ -88,14 +88,26 @@ const somDaPartida = criarSomDaPartida({ som, camera, catalogo: obterCatalogo })
 const { afastado, padrao, aproximado } = projecao.zooms;
 const zoom = criarZoom({ canvas, camera, niveis: [afastado, padrao, aproximado], fatorInicial: opcoes.zoom });
 
-// The playtest log (C15, telemetry front) gets every command the page sends and every snapshot; it loads on its own
-// and the game runs without it.
+// The playtest log (C15, telemetry front) gets every command the page sends and every snapshot; it loads on its own,
+// starts when the static map tells the kinds, and the game runs without it.
 let registro = null;
 let controles = null;
-if (!opcoes.bench) {
-  import('./telemetria/registro.js')
-    .then(m => (registro = m.criarRegistro({ missao: 'caixa-de-areia', jogadorLocal: estado.jogadorLocal, dados: null })))
-    .catch(erro => console.warn('playtest log (C15) not available yet', erro));
+const moduloDoRegistro = opcoes.bench
+  ? Promise.resolve(null)
+  : import('./telemetria/registro.js').catch(erro => {
+      console.warn('playtest log (C15) not available', erro);
+      return null;
+    });
+function comecarRegistro(mapa) {
+  moduloDoRegistro.then(modulo => {
+    if (!modulo) return;
+    registro = modulo.criarRegistro({
+      missao: 'caixa-de-areia',
+      jogadorLocal: estado.jogadorLocal,
+      tipos: mapa.tipos.map(t => ({ nome: t.nome, coletor: t.coletor })),
+      versoes: { simulacao: VERSAO_SIMULACAO, comandos: VERSAO_COMANDOS },
+    });
+  });
 }
 
 // With ?teste=1 every command sent is also kept, so the end-to-end tests can read what the input produced.
@@ -310,6 +322,7 @@ simulacao.iniciar({
   teste: opcoes.teste,
   aoReceberMapa(mapa) {
     catalogo = catalogoDoMapa(mapa, texto);
+    comecarRegistro(mapa);
     render.definirMapa(mapa);
     camera.x = mapa.bases[0].x + 14;
     camera.y = mapa.bases[0].y - 10;
@@ -355,7 +368,7 @@ function quadro(agora) {
     recalcularCartao();
     barra.atualizar();
     painelSelecao.atualizar();
-    hud.atualizar({ carga: leitura.carga, lotacao: leitura.lotacao, ociosos: leitura.ociosos, temAlerta: alertas.ultimo !== null });
+    hud.atualizar({ carga: leitura.carga, lotacao: leitura.lotacao, ociosos: leitura.ociosos, temAlerta: alertas.ultimo !== null, tick: estado.tick });
     menu.atualizarAviso(controles.pausado);
   }
   const cpu = performance.now() - inicio;
@@ -409,6 +422,8 @@ if (opcoes.teste) {
     menu,
     fim,
     colocacao,
+    /** The playtest log (C15) once it loaded, or null. */
+    obterRegistro: () => registro,
     get catalogo() {
       return catalogo;
     },

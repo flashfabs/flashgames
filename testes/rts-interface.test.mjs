@@ -13,6 +13,7 @@ import { criarLeitura, lerFilas, TETO_PADRAO } from '../site/rts/js/interface/le
 import { cantoDaPegada, criarColocacao, regraDaPagina, areaDaRede } from '../site/rts/js/entrada/colocacao.js';
 import { resultadoDosEventos, nomeDoArquivo } from '../site/rts/js/interface/fim.js';
 import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/som-da-partida.js';
+import { relogio } from '../site/rts/js/interface/hud.js';
 import {
   EVENTO, TAMANHO_EVENTO, FP, BANDEIRA, CATEGORIA, MOTIVO, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE,
   FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, TAMANHO_FAIXA, TAMANHO_REGISTRO_FILA,
@@ -267,6 +268,12 @@ test('sounds of the match fade with distance from the camera', () => {
   assert.equal(volumePelaDistancia(10 + ALCANCE_DO_SOM, 10, 10, 10), 0);
   const meio = volumePelaDistancia(10 + 24, 10, 10, 10);
   assert.ok(meio > 0 && meio < 1);
+});
+
+test('the match clock reads game time from the tick', () => {
+  assert.equal(relogio(0), '0:00');
+  assert.equal(relogio(30 * 75), '1:15');
+  assert.equal(relogio(30 * 3725), '1:02:05');
 });
 
 test('each record of the event fixture has the C3 size', () => {
