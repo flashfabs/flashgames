@@ -99,11 +99,11 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     if (ladrilhosPedidos) return;
     ladrilhosPedidos = true;
     const nivel = nivelDoCanvas();
-    carregarIndice()
-      .then(indice => {
+    indice()
+      .then(i => {
         const urls = new Map();
         for (const nome of [LADRILHO_BASE, ...nomesSolos, LADRILHO_FACE]) {
-          const url = indice.urlDo(prefixoLadrilho(nome));
+          const url = i.urlDo(prefixoLadrilho(nome));
           if (url && !urls.has(nome)) urls.set(nome, url);
         }
         return carregarLadrilhos(urls, nivel);
@@ -142,25 +142,15 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     atualizarSolos();
     if (modoTerreno === 'ladrilhos') pedirLadrilhos();
     if (mapa.tipos) definirTipos(mapa.tipos);
+    // without kinds (the atlas viewer, the prototype's old flow) the placeholders stand in for every unit
+    else folhas.adicionarFichas(nivelDoCanvas());
   }
 
   // Decoration art from the index; once some arrives, the terrain is rebuilt without the blocks it replaces.
   function pedirDecoracoes(nomes) {
     const nivel = nivelDoCanvas();
     const mapa = mapaAtual;
-    carregarIndice()
-      .then(indice =>
-        Promise.all(
-          nomes.map((nome, i) => {
-            const url = indice.urlDo(`neutro-decoracao-${nome}`);
-            if (!url) return null;
-            return carregarManifesto(url)
-              .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
-              .then(() => decoComArte.add(i + 1))
-              .catch(erro => console.warn(`arte da decoração ${nome} indisponível`, erro));
-          }),
-        ),
-      )
+    Promise.all(nomes.map((nome, i) => carregarAsset(`neutro-decoracao-${nome}`, nivel).then(folha => folha && decoComArte.add(i + 1), () => null)))
       .then(() => {
         if (decoComArte.size > 0 && mapaAtual === mapa) aplicarMapa(mapa);
       })
@@ -171,25 +161,42 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
    * Kinds of the match (MapaEstatico.tipos): placeholders for the buildings, then the art of every kind the art
    * index lists, loaded in the background (each kind switches to its art as its sheet arrives).
    */
+  // The art index and each sprite asset are fetched once per page, however many times a map or the kinds arrive.
+  let indicePendente = null;
+  const indice = () => (indicePendente ??= carregarIndice());
+  const assetsPendentes = new Map();
+
+  /** Loads a sprite asset of the index once; resolves to its sheet, or null when the index does not list it. */
+  function carregarAsset(nome, nivel) {
+    let pendente = assetsPendentes.get(nome);
+    if (!pendente) {
+      pendente = indice().then(i => {
+        const url = i.urlDo(nome);
+        return url ? carregarManifesto(url).then(manifesto => folhas.adicionarManifesto(manifesto, nivel)) : null;
+      });
+      pendente.catch(erro => console.warn(`arte de ${nome} indisponível, fica a ficha`, erro));
+      assetsPendentes.set(nome, pendente);
+    }
+    return pendente;
+  }
+
+  /**
+   * Kinds of the match: their art from the index and, only for the kinds the index has no art for, the placeholders
+   * (each placeholder page is a whole layer of the texture array, which the art budget does not count).
+   */
   function definirTipos(tipos) {
     if (tiposAtuais === tipos) return;
     tiposAtuais = tipos;
-    const fixos = tipos.filter(t => t.categoria === CATEGORIA.PREDIO || t.categoria === CATEGORIA.ESTRUTURA || t.categoria === CATEGORIA.RECURSO);
-    folhas.adicionarFichasPredios(fixos.filter(t => !folhas.folha(`ficha-${t.nome}`)), CATEGORIA.RECURSO);
     unidades.definirAparencias(aparenciasDosTipos(tipos));
     const nivel = nivelDoCanvas();
-    carregarIndice()
-      .then(indice =>
-        Promise.all(
-          [...new Set(tipos.map(assetDoTipo).filter(Boolean))]
-            .filter(asset => !folhas.folha(asset) && indice.urlDo(asset))
-            .map(asset =>
-              carregarManifesto(indice.urlDo(asset))
-                .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
-                .catch(erro => console.warn(`arte de ${asset} indisponível, fica a ficha`, erro)),
-            ),
-        ),
-      )
+    indice()
+      .then(i => {
+        const semArte = tipos.filter(t => !i.urlDo(assetDoTipo(t)));
+        const fixo = t => t.categoria === CATEGORIA.PREDIO || t.categoria === CATEGORIA.ESTRUTURA || t.categoria === CATEGORIA.RECURSO;
+        if (semArte.some(t => !fixo(t))) folhas.adicionarFichas(nivel);
+        folhas.adicionarFichasPredios(semArte.filter(fixo), CATEGORIA.RECURSO, nivel);
+        for (const asset of new Set(tipos.map(assetDoTipo).filter(Boolean))) carregarAsset(asset, nivel).catch(() => {});
+      })
       .catch(erro => console.warn('arte dos tipos indisponível', erro));
   }
 
@@ -223,7 +230,6 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
     return quadro;
   }
 
-  folhas.adicionarFichas();
 
   /** Level of art for the current canvas: uhd unless hd would barely be magnified at the default zoom. */
   function nivelDoCanvas() {
@@ -375,16 +381,8 @@ export function criarRenderizador(canvas, projecao, { camera, visivel, escalaFix
      * many loaded.
      */
     async carregarFase(fase, nivel = nivelDoCanvas()) {
-      const indice = await carregarIndice();
-      const nomes = indice.daFase(fase).filter(nome => !folhas.folha(nome));
-      const lidos = await Promise.all(
-        nomes.map(nome =>
-          carregarManifesto(indice.urlDo(nome))
-            .then(manifesto => folhas.adicionarManifesto(manifesto, nivel))
-            .then(() => 1)
-            .catch(erro => (console.warn(`arte de ${nome} indisponível`, erro), 0)),
-        ),
-      );
+      const nomes = (await indice()).daFase(fase);
+      const lidos = await Promise.all(nomes.map(nome => carregarAsset(nome, nivel).then(folha => (folha ? 1 : 0), () => 0)));
       estatisticas.bytesTexturas = backend.bytesTexturas;
       return lidos.reduce((a, b) => a + b, 0);
     },

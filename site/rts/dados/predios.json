@@ -7,7 +7,7 @@
       "raioRede": 8, "deposito": 0, "filaConstrucao": 1, "nivel": 1, "requer": [], "ventosa": 0,
       "arma": null, "destrutivel": 1,
       "constroi": ["poste", "acumulador", "alojamento-da-turma", "torre-de-holofote", "cata-vento", "garagem", "almoxarifado-tecnico"],
-      "produz": ["guincho-de-celulas", "equipe-de-manutencao"]
+      "produz": ["guincho-de-celulas"]
     },
     {
       "nome": "acumulador", "faccao": "religadores", "papel": "deposito", "asset": "religadores-construcao-acumulador",
@@ -33,7 +33,7 @@
       "pegada": [4, 3], "custo": 800, "tempoMs": 40000, "vida": 1800, "blindagem": "estrutura", "eletrico": 1, "visao": 5,
       "raioRede": 0, "deposito": 0, "filaConstrucao": 0, "nivel": 1, "requer": ["acumulador"], "ventosa": 0, "construidoPor": "fila",
       "arma": null, "destrutivel": 1, "constroi": [],
-      "produz": ["guincho-de-celulas", "leiturista", "cesto-blindado", "lanca-bobinas"]
+      "produz": ["guincho-de-celulas", "leiturista", "equipe-de-manutencao", "cesto-blindado", "lanca-bobinas"]
     },
     {
       "nome": "cata-vento", "faccao": "religadores", "papel": "vento", "asset": "religadores-construcao-cata-vento",

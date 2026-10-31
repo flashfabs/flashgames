@@ -203,19 +203,29 @@ export const EVENTO = Object.freeze({
   REDE_CORTADA: 20,
   AVISO_ATAQUE: 21,
   ONDA: 22,
+  PROMOCAO: 23,
+  RELIGADO: 24,
+  CAMERA: 25,
+  LUZ: 26,
 });
 
 // Events travel as flat Int32Array records of TAMANHO_EVENTO integers; E_* are the offsets inside a record.
 // Positions are in world units at the moment of the event, so the presentation needs no lookup; a building's position
 // is the centre of its footprint. Without a target, alvo is SEM_ENTIDADE and (alvoX, alvoY) repeats (x, y).
 // TIRO: entidade at (x, y) fires at alvo at (alvoX, alvoY), arg is the shooter's kind.
+// IMPACTO: entidade was hit by alvo (the shooter), arg is the weapon index (armas.json).
+// EXPLOSAO: (x, y) is the point of impact of an area weapon, entidade the shooter, arg the weapon index.
 // MORTE: entidade (unit, building, node) died at (x, y), alvo is the killer, arg is the dead entity's kind.
 // SURGIMENTO: entidade appeared (spawned or respawned) at (x, y), arg is its kind.
 // PRODUCAO_CONCLUIDA: entidade is the new unit at the producer's exit, alvo the producer, arg the kind; for research,
 //   entidade is the building, alvo SEM_ENTIDADE and arg ITEM_PESQUISA + research index.
 // PREDIO_PRONTO: entidade is the headquarters, arg the building kind now waiting to be placed.
 // CONSTRUCAO_CONCLUIDA: entidade is the finished building standing on the map, arg its kind.
-// SOB_ATAQUE: entidade was hit, alvo is the attacker; at most one per entity every few seconds (combat module).
+// SOB_ATAQUE: entidade was hit, alvo is the attacker; at most one per team every 5 s, or far from the last one (combat
+//   module).
+// MENSAGEM_MISSAO: arg is the index of the text in the mission's texts, (x, y) an optional area to point at.
+// OBJETIVO: arg is objective index * 4 + state (1 active, 2 done, 3 failed).
+// VITORIA, DERROTA: arg is the player.
 // RECURSO_ESGOTADO: entidade is a battery pile that ran dry, arg the index of its node in the map's `nos`.
 // COMANDO_RECUSADO: entidade is the producer or first unit of the command (SEM_ENTIDADE if none), (x, y) the command's
 //   point, alvoX the player, alvoY the command kind, arg a MOTIVO.
@@ -226,6 +236,10 @@ export const EVENTO = Object.freeze({
 // REDE_CORTADA: entidade is a building that lost power, arg its kind.
 // AVISO_ATAQUE: no entity, (x, y) the centre of the area the attack will reach, arg the mission group (missions).
 // ONDA: no entity, (x, y) where the group appears, arg the mission group (missions).
+// PROMOCAO: entidade rose a veterancy level, arg the new level 1..3.
+// RELIGADO: entidade is a structure brought back, alvo the unit that did it; its owner is now that unit's.
+// CAMERA: no entity, (x, y) where the mission moves the local camera.
+// LUZ: no entity, arg the lighting scene the mission asks for (dusk, night).
 export const TAMANHO_EVENTO = 9;
 export const E_TIPO = 0;
 export const E_TICK = 1;

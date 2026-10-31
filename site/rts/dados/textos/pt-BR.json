@@ -35,6 +35,7 @@
     "hud.ataque_em": "Ataque em {s} s",
     "hud.ondas": "Ondas: {n} de {total}",
     "hud.objetivos": "Objetivos",
+    "hud.mais": "Mais",
     "hud.fora_da_area": "Fora da rede",
     "hud.terreno_improprio": "Terreno impróprio para construir",
     "hud.celula_nao_ventosa": "Precisa de um ponto de vento",
@@ -161,7 +162,7 @@
     "predio.alojamento-da-turma.nome": "Alojamento da Turma",
     "predio.alojamento-da-turma.dica": "Quartel: Turma de Linha, Soldador e Religador.",
     "predio.garagem.nome": "Garagem",
-    "predio.garagem.dica": "Oficina: Guincho, Leiturista e, no nível 2, Cesto Blindado e Lança-Bobinas.",
+    "predio.garagem.dica": "Oficina: Guincho, Leiturista, Equipe de Manutenção e, no nível 2, Cesto Blindado e Lança-Bobinas.",
     "predio.cata-vento.nome": "Cata-vento",
     "predio.cata-vento.dica": "Só no alto, numa célula ventosa. Cada rajada anunciada paga um lote de Carga.",
     "predio.torre-de-holofote.nome": "Torre de Holofote",
@@ -228,6 +229,7 @@
     "radio.locutor.caixa_derrota": "E o vale volta para o escuro. Fiquem com a gente, que o intervalo comercial é a guerra.",
     "radio.locutor.coletor_perdido": "Que lance! O guincho largou a carga no meio da estrada. Quem passar, recolhe!",
     "radio.supervisora.caixa_cemiterio_acabando": "Equipe 14, o cemitério da base está no fim. Tem carga no ferro-velho a sudeste: mandem a Manutenção erguer um Poste Avançado lá.",
+    "radio.supervisora.caixa_base_caiu": "Equipe 14, perdemos a base. Se a Manutenção erguer um Poste Avançado em 90 segundos, a ordem de serviço continua aberta.",
     "radio.supervisora.caixa_torre_religada": "Torre Antiga religada e lançada na nossa conta. Bom serviço."
   }
 }
