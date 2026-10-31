@@ -1,7 +1,8 @@
 // Measures the simulation step with 2,000 units (prototype rules, seed 7) over a scripted match with bursts of 20
 // simultaneous orders: p50, p99 and worst step, the worst flow-field slice and the mean fog update. Prints JSON.
 // Wall time suffers when the machine is busy (the process gets descheduled), so CPU time per step is reported too;
-// run it on a quiet machine for the wall numbers and say which ones a result quotes.
+// run it on a quiet machine for the wall numbers and say which ones a result quotes. The step is timed stage by stage
+// by passo-medido.mjs, over the simulation's own list of stages.
 // With --retrato it also builds the per-tick snapshot after each step, as the worker does, so the garbage the snapshot
 // leaves behind is collected during the steps like in the game. With --caixa the match is the design front's sandbox
 // (site/rts/dados/ and its map) with about 2,000 units: both sides' armies, harvesters at work on every node, and the
@@ -11,16 +12,12 @@ import { cpus, loadavg } from 'node:os';
 import { readFileSync } from 'node:fs';
 import { criarSimulacao, agendarComando } from '../../site/rts/js/sim/simulacao.js';
 import { TIPO_COMANDO, FP, CATEGORIA, EVENTO, MOTIVO, TAMANHO_EVENTO, criarComando, idDe } from '../../site/rts/js/sim/contratos.js';
-import { avancarCaminhos } from '../../site/rts/js/sim/caminhos.js';
-import { atualizarNeblina } from '../../site/rts/js/sim/neblina.js';
-import { montarBaldes, mover } from '../../site/rts/js/sim/movimento.js';
-import { combater } from '../../site/rts/js/sim/combate.js';
-import { aplicarMudancasDaGrade } from '../../site/rts/js/sim/pegadas.js';
 import { criarEntidade } from '../../site/rts/js/sim/entidades.js';
 import { celulaLivreMaisProxima } from '../../site/rts/js/sim/mapa.js';
 import { colocarPredio, motivoPosicaoNaSimulacao } from '../../site/rts/js/sim/construcao.js';
 import * as simulacao from '../../site/rts/js/sim/simulacao.js';
 import { montarRetrato } from '../../site/rts/js/sim/retrato.js';
+import { criarMedidor, resumir, media, quantil } from './passo-medido.mjs';
 
 const passos = Number(process.argv.find(a => /^\d+$/.test(a)) ?? 9000);
 const comRetrato = process.argv.includes('--retrato');
@@ -78,15 +75,9 @@ function cabeDeposito(caixa, tipo, cx, cy) {
   return motivo === 0 || motivo === MOTIVO.FORA_DA_AREA;
 }
 
-// the step, unrolled so each part can be timed (same order as passo())
-const internos = simulacao.__internos;
+const medidor = criarMedidor();
 let entregas = 0;
-const tempos = { passo: [], cpu: [], caminhos: [], neblina: [], economia: [], comandos: [], combateMovimento: [], retrato: [] };
-const agora = () => performance.now();
-const cpu = () => {
-  const { user, system } = process.cpuUsage();
-  return (user + system) / 1000;
-};
+const tempoRetrato = [];
 
 function ordensEmRajada() {
   const { largura, altura, bloqueado } = sim.mapa;
@@ -103,72 +94,22 @@ function ordensEmRajada() {
 
 for (let k = 0; k < passos; k++) {
   if ((sim.tick + 1) % 900 === 0) ordensEmRajada();
-  const inicio = agora();
-  const inicioCpu = cpu();
-  sim.tick++;
-  sim.eventos.length = 0;
-  internos.classificarEntidades(sim);
-  internos.aplicarComandos(sim);
-  tempos.comandos.push(agora() - inicio);
-  const e0 = agora();
-  internos.avancarEconomia(sim);
-  internos.avancarObras(sim);
-  internos.atualizarRede(sim);
-  internos.avancarProducao(sim);
-  let economia = agora() - e0;
-  internos.conduzirComputador(sim);
-  internos.renascer(sim);
-  aplicarMudancasDaGrade(sim);
-  const c0 = agora();
-  avancarCaminhos(sim.caminhos, sim.expansoesPorPasso);
-  tempos.caminhos.push(agora() - c0);
-  const m0 = agora();
-  montarBaldes(sim);
-  combater(sim);
-  mover(sim);
-  tempos.combateMovimento.push(agora() - m0);
-  const d0 = agora();
-  internos.processarDerrames(sim);
-  economia += agora() - d0;
-  aplicarMudancasDaGrade(sim);
-  const n0 = agora();
-  atualizarNeblina(sim);
-  tempos.neblina.push(agora() - n0);
-  const f0 = agora();
-  internos.atualizarFantasmas(sim);
-  economia += agora() - f0;
-  tempos.economia.push(economia);
+  medidor.passo(sim);
   for (let e = 0; e < sim.eventos.length; e += TAMANHO_EVENTO) if (sim.eventos[e] === EVENTO.DESCARGA) entregas++;
-  tempos.passo.push(agora() - inicio);
-  tempos.cpu.push(cpu() - inicioCpu);
   if (comRetrato) {
-    const r0 = agora();
+    const r0 = performance.now();
     montarRetrato(sim, { soma: simulacao.somaDeVerificacao(sim) });
-    tempos.retrato.push(agora() - r0);
+    tempoRetrato.push(performance.now() - r0);
   }
 }
 
-const ordenar = lista => [...lista].sort((a, b) => a - b);
-const quantil = (lista, q) => +ordenar(lista)[Math.min(lista.length - 1, Math.floor(q * lista.length))].toFixed(2);
-const media = lista => +(lista.reduce((a, b) => a + b, 0) / lista.length).toFixed(3);
 console.log(JSON.stringify({
   node: process.version,
   cpu: cpus()[0].model,
   cargaDaMaquina: loadavg().map(v => +v.toFixed(1)),
   unidades: sim.capacidade,
   passos,
-  passoP50: quantil(tempos.passo, 0.5),
-  passoP99: quantil(tempos.passo, 0.99),
-  passoMax: +Math.max(...tempos.passo).toFixed(2),
-  passoMaxDepoisDoAquecimento: +Math.max(...tempos.passo.slice(30)).toFixed(2),
-  cpuP50: quantil(tempos.cpu, 0.5),
-  cpuP99: quantil(tempos.cpu, 0.99),
-  cpuMax: +Math.max(...tempos.cpu.slice(30)).toFixed(2),
-  campoMax: +Math.max(...tempos.caminhos).toFixed(2),
-  campoP99: quantil(tempos.caminhos, 0.99),
-  neblinaMedia: media(tempos.neblina),
-  economiaMedia: media(tempos.economia),
-  economiaP99: quantil(tempos.economia, 0.99),
+  ...resumir(medidor),
   cenario: naCaixa ? 'caixa-de-areia' : 'prototipo',
   entregas,
   // harvesters by task (estado.js TAREFA) at the end
@@ -177,12 +118,5 @@ console.log(JSON.stringify({
     for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.coletorPorTipo[sim.tipo[i]]) contagem[sim.tarefa[i]] = (contagem[sim.tarefa[i]] ?? 0) + 1;
     return contagem;
   })(),
-  // the three worst steps after warming up, and what each part of them took
-  piores: tempos.passo
-    .map((ms, k) => [ms, k])
-    .slice(30)
-    .sort((a, b) => b[0] - a[0])
-    .slice(0, 3)
-    .map(([ms, k]) => ({ tick: k + 1, ms: +ms.toFixed(2), comandos: +tempos.comandos[k].toFixed(2), economia: +tempos.economia[k].toFixed(2), caminhos: +tempos.caminhos[k].toFixed(2), combateMovimento: +tempos.combateMovimento[k].toFixed(2), neblina: +tempos.neblina[k].toFixed(2) })),
-  ...(comRetrato ? { retratoMedia: media(tempos.retrato), retratoP99: quantil(tempos.retrato, 0.99) } : {}),
+  ...(comRetrato ? { retratoMedia: media(tempoRetrato), retratoP99: quantil(tempoRetrato, 0.99) } : {}),
 }));

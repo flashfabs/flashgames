@@ -3,7 +3,7 @@
 // Prints JSON with the mean and worst fog update per tick.
 //   node ferramentas/rts/medir-neblina.mjs [ticks=3000]
 import { cpus, loadavg } from 'node:os';
-import { criarSimulacao, agendarComando, REGRAS_LIVRES, __internos } from '../../site/rts/js/sim/simulacao.js';
+import { criarSimulacao, agendarComando, REGRAS_LIVRES, ETAPAS_DO_PASSO } from '../../site/rts/js/sim/simulacao.js';
 import { TIPO_COMANDO, FP, criarComando, idDe } from '../../site/rts/js/sim/contratos.js';
 import { gerarMapa } from '../../site/rts/js/sim/mapa.js';
 import { DADOS_PROTOTIPO } from '../../site/rts/js/sim/dados.js';
@@ -39,7 +39,7 @@ const tempos = [];
 for (let k = 0; k < passos; k++) {
   sim.tick++;
   sim.eventos.length = 0;
-  __internos.aplicarComandos(sim);
+  ETAPAS_DO_PASSO.find(([nome]) => nome === 'comandos')[1](sim);
   avancarCaminhos(sim.caminhos, sim.expansoesPorPasso);
   montarBaldes(sim);
   combater(sim);
