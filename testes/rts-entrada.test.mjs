@@ -21,9 +21,18 @@ test('no binding uses Ctrl or Cmd with a key the browser keeps, and those keys m
   assert.equal(acaoDaTecla(tecla('Digit1', { metaKey: true })), null, 'Cmd and a digit switch tabs');
 });
 
-test('Esc only cancels, and F10 is not bound yet', () => {
+test('Esc only cancels and never opens the menu; F10 is the menu', () => {
   assert.deepEqual(acaoDaTecla(tecla('Escape')), { acao: ACAO.CANCELAR, grupo: undefined, fila: false });
-  assert.equal(acaoDaTecla(tecla('F10')), null);
+  assert.equal(acaoDaTecla(tecla('F10')).acao, ACAO.MENU);
+  assert.ok(ATALHOS_PADRAO.filter(atalho => atalho.code === 'Escape').every(atalho => atalho.acao === ACAO.CANCELAR));
+});
+
+test('B goes to the base, the period to the next idle harvester and V to the last alert', () => {
+  assert.equal(acaoDaTecla(tecla('KeyB')).acao, ACAO.BASE);
+  assert.equal(acaoDaTecla(tecla('Period')).acao, ACAO.COLETOR_OCIOSO);
+  assert.equal(acaoDaTecla(tecla('NumpadDecimal')).acao, ACAO.COLETOR_OCIOSO);
+  assert.equal(acaoDaTecla(tecla('KeyV')).acao, ACAO.ULTIMO_ALERTA);
+  assert.equal(rotuloDoAtalho(ATALHOS_PADRAO.find(atalho => atalho.code === 'Period'), false), '.');
 });
 
 test('command keys follow the physical key and take Shift as the queue mark', () => {
