@@ -49,6 +49,7 @@
     "alerta.coletor_perdido": "Coletor destruído: a carga ficou no chão",
     "alerta.producao_concluida": "{nome} pronto",
     "alerta.construcao_concluida": "{nome} concluído",
+    "alerta.predio_pronto": "{nome} pronto para posicionar",
     "alerta.recurso_esgotado": "Cemitério esgotado",
     "alerta.rajada": "Rajada de vento chegando ao alto",
     "alerta.rajada_paga": "Rajada: +{n} C",
