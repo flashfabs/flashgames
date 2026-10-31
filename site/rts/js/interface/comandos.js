@@ -4,6 +4,7 @@
 // the selection to it, and after "Guardar" stores the selection in it. Buttons give focus back so keys keep working.
 import { ACAO, ATALHOS_PADRAO, E_MAC as eMac, rotuloDoAtalho } from '../entrada/teclas.js';
 import { LETRAS_DA_GRADE } from './cartao.js';
+import { MOTIVO } from '../sim/contratos.js';
 
 const UTILIDADES = [
   { acao: ACAO.PAUSAR, rotulo: 'Pausa' },
@@ -27,6 +28,22 @@ export const MOTIVOS = {
   limite: 'hud.limite',
   perto_das_pilhas: 'hud.perto_das_pilhas',
 };
+/** A MOTIVO of the simulation (COMANDO_RECUSADO, motivoPosicao) as one of the reasons above. */
+export const RAZAO_DO_MOTIVO = Object.freeze({
+  [MOTIVO.SEM_CARGA]: 'carga',
+  [MOTIVO.LOTACAO_CHEIA]: 'lotacao',
+  [MOTIVO.FILA_CHEIA]: 'fila',
+  [MOTIVO.NAO_PRODUZ]: 'bloqueado',
+  [MOTIVO.BLOQUEADO]: 'bloqueado',
+  [MOTIVO.NADA_PRONTO]: 'nada_pronto',
+  [MOTIVO.FORA_DA_AREA]: 'fora_da_area',
+  [MOTIVO.TERRENO_OCUPADO]: 'terreno_ocupado',
+  [MOTIVO.TERRENO_IMPROPRIO]: 'terreno_improprio',
+  [MOTIVO.CELULA_NAO_VENTOSA]: 'celula_nao_ventosa',
+  [MOTIVO.FORA_DO_MAPA]: 'fora_da_area',
+  [MOTIVO.LIMITE]: 'limite',
+  [MOTIVO.PERTO_DO_RECURSO]: 'perto_das_pilhas',
+});
 const DURACAO_DO_MOTIVO_MS = 2200;
 
 function teclaDe(acao, mods = '') {
@@ -86,7 +103,10 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
     let nome = '';
     let info = '';
     let progresso = -1;
-    if (slot?.texto) {
+    if (slot?.modo === 'pagina') {
+      nome = texto(slot.texto);
+      info = `${slot.pagina + 1}/${slot.paginas}`;
+    } else if (slot?.texto) {
       nome = texto(slot.texto);
     } else if (slot) {
       nome = slot.modo === 'pesquisar' ? catalogo().pesquisa(slot.pesquisa)?.nomeVisivel ?? '?' : catalogo().nome(slot.tipo);
@@ -96,14 +116,14 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
       if (slot.quantidade > 1) info += ` ·${slot.quantidade}`;
       progresso = slot.progresso;
     }
-    const assinatura = slot ? `${nome}|${info}|${slot.falta ?? ''}|${slot.modo ?? ''}|${Math.round(progresso * 50)}` : '';
+    const assinatura = slot ? `${nome}|${info}|${slot.falta ?? ''}|${slot.modo ?? ''}|${slot.pronto ?? ''}|${Math.round(progresso * 50)}` : '';
     if (assinatura === assinaturas[i]) return;
     assinaturas[i] = assinatura;
     botao.dataset.vazio = String(!slot);
     botao.querySelector('[data-nome]').textContent = nome;
     botao.querySelector('[data-info]').textContent = info;
     botao.dataset.falta = String(Boolean(slot?.falta));
-    botao.dataset.pronto = String(slot?.modo === 'posicionar');
+    botao.dataset.pronto = String(slot?.modo === 'posicionar' || Boolean(slot?.pronto));
     botao.disabled = false;
     botao.title = slot ? `${nome} (${LETRAS_DA_GRADE[i]})${slot.falta ? ` · ${texto(MOTIVOS[slot.falta])}` : ''}` : '';
     const barra = botao.querySelector('.progresso');

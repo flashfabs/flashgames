@@ -10,7 +10,8 @@ import { criarCatalogo, catalogoDoMapa, nomeDoId, habilidadeDoC5, HABILIDADE, BA
 import { criarAlertas, ALERTA, RAIO_DO_ATAQUE, SILENCIO_DO_ATAQUE_MS } from '../site/rts/js/interface/alertas.js';
 import { criarTextos, PROVISORIOS, achatar } from '../site/rts/js/interface/textos.js';
 import { criarLeitura, lerFilas, TETO_PADRAO } from '../site/rts/js/interface/leitura.js';
-import { cantoDaPegada, criarColocacao, regraDaPagina, areaDaRede } from '../site/rts/js/entrada/colocacao.js';
+import { cantoDaPegada, criarColocacao, areaDaRede } from '../site/rts/js/entrada/colocacao.js';
+import { MOTIVOS, RAZAO_DO_MOTIVO } from '../site/rts/js/interface/comandos.js';
 import { resultadoDosEventos, nomeDoArquivo } from '../site/rts/js/interface/fim.js';
 import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/som-da-partida.js';
 import { relogio } from '../site/rts/js/interface/hud.js';
@@ -106,17 +107,33 @@ test('a building card trains and researches in data order, counts its queues and
   assert.equal(montarCartao({ ...entrada, producao: () => cheias }).slots[0].falta, 'fila');
 });
 
-test('the headquarters trains, queues buildings in its construction lane and offers to place the one that is ready', () => {
+test('the headquarters queues buildings in its construction lane, trains, and offers to place the one that is ready', () => {
   const base = { selecao: [{ id: 30, tipo: 3 }], catalogo, carga: 1000, lotacao: { usada: 0, teto: 60 } };
   const livre = montarCartao({ ...base, producao: () => semFila });
-  assert.deepEqual(livre.slots.slice(0, 5).map(s => s && [s.tipo, s.modo]), [[0, 'produzir'], [2, 'produzir'], [4, 'construir'], [5, 'construir'], [7, 'construir']]);
+  assert.deepEqual(livre.slots.slice(0, 6).map(s => s && [s.tipo, s.modo]), [[4, 'construir'], [5, 'construir'], [7, 'construir'], [0, 'produzir'], [2, 'produzir'], null]);
+  assert.equal(livre.paginas, 1);
   const emObra = montarCartao({ ...base, producao: () => ({ ...semFila, obras: [item(4, 0.25), item(5)], obra: { tipo: 4, progresso: 0.25 } }) });
-  assert.deepEqual([emObra.slots[2].progresso, emObra.slots[2].quantidade, emObra.slots[3].quantidade, emObra.slots[3].progresso], [0.25, 1, 1, -1]);
+  assert.deepEqual([emObra.slots[0].progresso, emObra.slots[0].quantidade, emObra.slots[1].quantidade, emObra.slots[1].progresso], [0.25, 1, 1, -1]);
   const pronto = montarCartao({ ...base, producao: () => ({ ...semFila, obras: [item(5, 1)], pronto: 5 }) });
-  assert.equal(pronto.slots[3].modo, 'posicionar');
-  assert.equal(pronto.slots[2].modo, 'construir');
+  assert.equal(pronto.slots[1].modo, 'posicionar');
+  assert.equal(pronto.slots[0].modo, 'construir');
   const cheia = montarCartao({ ...base, producao: () => ({ ...semFila, obras: new Array(MAXIMO_DA_FILA).fill(item(5)) }) });
-  assert.equal(cheia.slots[2].falta, 'fila');
+  assert.equal(cheia.slots[0].falta, 'fila');
+});
+
+test('more items than the grid holds go in pages turned by F, which lights up when a building waits on another page', () => {
+  const tipos = MAPA.tipos.map((t, k) => (k === 3 ? { ...t, constroi: [4, 5, 6, 7, 8, 4, 5], produz: [0, 2] } : t));
+  const cat = catalogoDoMapa({ ...MAPA, tipos }, textoComNomes);
+  const base = { selecao: [{ id: 30, tipo: 3 }], catalogo: cat, carga: 5000, lotacao: { usada: 0, teto: 60 } };
+  const um = montarCartao({ ...base, producao: () => semFila });
+  assert.equal(um.paginas, 2);
+  assert.deepEqual([um.slots[7].modo, um.slots[7].pagina], ['pagina', 0]);
+  assert.equal(um.slots.slice(0, 7).filter(Boolean).length, 7);
+  const dois = montarCartao({ ...base, producao: () => semFila, pagina: 1 });
+  assert.deepEqual(dois.slots.slice(0, 3).map(s => s && s.tipo), [0, 2, null], 'the units on the second page');
+  assert.equal(montarCartao({ ...base, producao: () => semFila, pagina: 2 }).pagina, 0, 'turning past the last page comes back to the first');
+  const prontoNaOutra = montarCartao({ ...base, producao: () => ({ ...semFila, obras: [item(4, 1)], pronto: 4 }), pagina: 1 });
+  assert.equal(prontoNaOutra.slots[7].pronto, true);
 });
 
 test('attacks on the player raise one alert per place while the fight goes on, by what was hit', () => {
@@ -261,36 +278,20 @@ test('placing follows the pointer cell by cell, redraws only on change, and the 
 
 });
 
-test('the page\'s placing rule: inside the powered network, flat passable ground, windy cell when asked, nobody on it', () => {
+test('the shaded building area is the powered network\'s reach, and every refusal reason has a text', () => {
   const largura = 24;
-  const mapa = { largura, altura: 24, bloqueado: new Uint8Array(576), nivel: new Uint8Array(576), ventosa: new Uint8Array(576) };
-  mapa.bloqueado[3 * largura + 3] = 1;
-  mapa.nivel[10 * largura + 4] = 1;
-  mapa.ventosa[6 * largura + 6] = 1;
-  // the headquarters (network root, radius 8) at (6, 6) and a rifleman standing at (8.5, 8.5)
-  const retrato = {
-    n: 2,
-    id: Int32Array.from([1, 2]),
-    tipo: Uint16Array.from([3, 1]),
-    dono: Uint8Array.from([0, 0]),
-    bandeiras: Uint16Array.from([BANDEIRA.ENERGIZADO, 0]),
-    x: Int32Array.from([6 * FP, 8 * FP + 512]),
-    y: Int32Array.from([6 * FP, 8 * FP + 512]),
-  };
+  const mapa = { largura, altura: 24 };
+  // the headquarters (network root, radius 8) at (6, 6)
+  const retrato = { n: 1, id: Int32Array.from([1]), tipo: Uint16Array.from([3]), dono: Uint8Array.from([0]), bandeiras: Uint16Array.from([BANDEIRA.ENERGIZADO]), x: Int32Array.from([6 * FP]), y: Int32Array.from([6 * FP]) };
   const area = areaDaRede(mapa, retrato, catalogo, 0);
   assert.equal(area[6 * largura + 13], 1);
   assert.equal(area[6 * largura + 15], 0, 'beyond the radius');
-  assert.equal(areaDaRede(mapa, retrato, catalogo, 1), null, 'no network of that player: no network rule');
-  const contexto = { mapa, retrato, catalogo, area };
-  assert.equal(regraDaPagina(contexto, 4, 10, 4), null);
-  assert.equal(regraDaPagina(contexto, 4, 16, 4), 'fora_da_area');
-  assert.equal(regraDaPagina(contexto, 4, 2, 2), 'terreno_improprio', 'rock');
-  assert.equal(regraDaPagina(contexto, 4, 4, 9), 'terreno_improprio', 'two height levels');
-  assert.equal(regraDaPagina(contexto, 4, 8, 8), 'terreno_ocupado', 'a unit stands there');
-  assert.equal(regraDaPagina(contexto, 4, 5, 5), 'terreno_ocupado', 'the headquarters stands there');
-  assert.equal(regraDaPagina(contexto, 7, 11, 11), 'celula_nao_ventosa');
-  assert.equal(regraDaPagina({ ...contexto, retrato: { ...retrato, n: 0 } }, 7, 6, 6), null);
-  assert.equal(regraDaPagina(contexto, 4, 23, 4), 'fora_da_area', 'off the map');
+  assert.equal(areaDaRede(mapa, retrato, catalogo, 1), null, 'no network of that player');
+  for (const codigo of Object.values(MOTIVO)) {
+    const razao = RAZAO_DO_MOTIVO[codigo];
+    assert.ok(razao && MOTIVOS[razao], `MOTIVO ${codigo} has no reason with a text`);
+    assert.ok(PROVISORIOS[MOTIVOS[razao]], `${MOTIVOS[razao]} is not among the texts the interface asked for`);
+  }
 });
 
 test('victory or defeat of the local player ends the match; the saved log has a dated name', () => {

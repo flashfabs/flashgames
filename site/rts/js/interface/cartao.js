@@ -1,7 +1,7 @@
 // The command card: what the Q W E R / A S D F grid offers for the current selection. Units get the orders in fixed
-// places (Q move, R patrol, A attack-move, S stop, D hold) and, when they raise buildings on site, those buildings in
-// the free places; a building gets what it trains and researches, and the headquarters what it builds, in the order
-// of the game data. Pure: the caller renders and runs it.
+// places (Q move, R patrol, A attack-move, S stop, D hold) and, when they raise buildings or have abilities, those in
+// the free places; a building gets what it builds (the headquarters), trains and researches, in the order of the game
+// data, in pages turned by F when there are more than eight. Pure: the caller renders and runs it.
 import { ACAO } from '../entrada/teclas.js';
 import { BANDEIRA_CESTO_ERGUIDO } from './catalogo.js';
 import { MAX_FILA, ITEM_PESQUISA } from '../sim/contratos.js';
@@ -27,7 +27,7 @@ const LIVRES_NA_UNIDADE = Object.freeze([1, 2, 7]);
  * @property {number} slot          0..7
  * @property {string} [acao]        ACAO.* for unit orders
  * @property {string} [texto]       text id of the label (unit orders)
- * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'|'habilidade'} [modo]
+ * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'|'habilidade'|'pagina'} [modo]
  * @property {import('./catalogo.js').Habilidade} [habilidade] modo 'habilidade'
  * @property {number[]} [unidades]  modo 'habilidade': the selected units that have it
  * @property {boolean} [ativa]      modo 'habilidade': a toggle that is on (the basket raised)
@@ -47,9 +47,10 @@ const LIVRES_NA_UNIDADE = Object.freeze([1, 2, 7]);
  * @param {(id: number) => import('./leitura.js').ProducaoDoPredio | null} entrada.producao
  * @param {number} entrada.carga
  * @param {{usada: number, teto: number}} entrada.lotacao
- * @returns {{tipo: 'vazio'|'unidades'|'predio', slots: (SlotDoCartao|null)[], predios: number[], construtores: number[], tipoDoPredio: number}}
+ * @param {number} [entrada.pagina] page of a building card with more items than the grid holds
+ * @returns {{tipo: 'vazio'|'unidades'|'predio', slots: (SlotDoCartao|null)[], predios: number[], construtores: number[], tipoDoPredio: number, pagina?: number, paginas?: number}}
  */
-export function montarCartao({ selecao, catalogo, producao, carga, lotacao }) {
+export function montarCartao({ selecao, catalogo, producao, carga, lotacao, pagina = 0 }) {
   const slots = new Array(TECLAS_DA_GRADE.length).fill(null);
   const unidades = selecao.filter(e => catalogo.ehUnidade(e.tipo));
   if (unidades.length) {
@@ -103,35 +104,33 @@ export function montarCartao({ selecao, catalogo, producao, carga, lotacao }) {
     return { quantidade, progresso };
   }
 
-  let slot = 0;
-  for (const tipo of info.produz) {
-    if (slot >= slots.length) break;
-    const dados = catalogo.info(tipo);
-    const falta = carga < dados.custo ? 'carga' : lotacao.usada + dados.lotacao > lotacao.teto ? 'lotacao' : cheias ? 'fila' : null;
-    slots[slot] = { slot, tipo, modo: 'produzir', custo: dados.custo, ...naFila('fila', tipo), falta };
-    slot += 1;
-  }
-  for (const pesquisa of catalogo.pesquisasDe(primeiro.tipo)) {
-    if (slot >= slots.length) break;
-    const falta = carga < pesquisa.custo ? 'carga' : cheias ? 'fila' : null;
-    slots[slot] = { slot, tipo: -1, pesquisa: pesquisa.indice, modo: 'pesquisar', custo: pesquisa.custo, ...naFila('fila', ITEM_PESQUISA + pesquisa.indice), falta };
-    slot += 1;
-  }
-  // The headquarters queues buildings in its construction lane; the head waits to be placed once ready.
+  // Every item the building offers, buildings to place first (the headquarters' main job), then training, then
+  // research; more than the grid holds go in pages, with F turning them.
+  const itens = [];
   if (info.constroi.length > 0) {
     const sede = filas[0];
     const obrasCheias = sede.obras.length >= MAXIMO_DA_FILA;
     for (const tipo of info.constroi) {
-      if (slot >= slots.length) break;
       const custo = catalogo.info(tipo).custo;
-      if (sede.pronto === tipo) {
-        slots[slot] = { slot, tipo, modo: 'posicionar', custo, quantidade: naFila('obras', tipo).quantidade, progresso: 1, falta: null };
-      } else {
-        const fila = naFila('obras', tipo);
-        slots[slot] = { slot, tipo, modo: 'construir', custo, ...fila, falta: carga < custo ? 'carga' : obrasCheias ? 'fila' : null };
-      }
-      slot += 1;
+      if (sede.pronto === tipo) itens.push({ tipo, modo: 'posicionar', custo, quantidade: naFila('obras', tipo).quantidade, progresso: 1, falta: null });
+      else itens.push({ tipo, modo: 'construir', custo, ...naFila('obras', tipo), falta: carga < custo ? 'carga' : obrasCheias ? 'fila' : null });
     }
   }
-  return { tipo: 'predio', slots, predios, construtores: [], tipoDoPredio: primeiro.tipo };
+  for (const tipo of info.produz) {
+    const dados = catalogo.info(tipo);
+    const falta = carga < dados.custo ? 'carga' : lotacao.usada + dados.lotacao > lotacao.teto ? 'lotacao' : cheias ? 'fila' : null;
+    itens.push({ tipo, modo: 'produzir', custo: dados.custo, ...naFila('fila', tipo), falta });
+  }
+  for (const pesquisa of catalogo.pesquisasDe(primeiro.tipo)) {
+    const falta = carga < pesquisa.custo ? 'carga' : cheias ? 'fila' : null;
+    itens.push({ tipo: -1, pesquisa: pesquisa.indice, modo: 'pesquisar', custo: pesquisa.custo, ...naFila('fila', ITEM_PESQUISA + pesquisa.indice), falta });
+  }
+  const porPagina = itens.length > slots.length ? slots.length - 1 : slots.length;
+  const paginas = Math.max(1, Math.ceil(itens.length / porPagina));
+  const atual = ((pagina % paginas) + paginas) % paginas;
+  itens.slice(atual * porPagina, (atual + 1) * porPagina).forEach((item, slot) => (slots[slot] = { slot, ...item }));
+  if (paginas > 1) slots[slots.length - 1] = { slot: slots.length - 1, modo: 'pagina', texto: 'hud.mais', pagina: atual, paginas };
+  // A ready building waiting on another page still calls attention on the page turner.
+  if (paginas > 1 && itens.some((item, k) => item.modo === 'posicionar' && Math.floor(k / porPagina) !== atual)) slots[slots.length - 1].pronto = true;
+  return { tipo: 'predio', slots, predios, construtores: [], tipoDoPredio: primeiro.tipo, pagina: atual, paginas };
 }

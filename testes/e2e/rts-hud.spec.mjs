@@ -128,3 +128,100 @@ test('the top bar shows Carga and population as the snapshot says', async ({ pag
   await expect.poll(() => page.evaluate(() => window.__rts.hud.carga)).toBe(esperado.carga);
   await expect.poll(() => page.evaluate(() => window.__rts.hud.lotacao.teto)).toBe(esperado.teto);
 });
+
+// The sandbox played only through the HUD: the headquarters builds and the player places an accumulator (the depot),
+// trains a harvester on the grid's second page, and sends the idle harvester to a pile with a context click.
+// ?carga=3000 starts with Carga while the mission's start trigger is not in the simulation yet.
+test('the sandbox through the HUD: build, place, train and harvest', async ({ page }) => {
+  await page.goto('/rts/?partida=caixa-de-areia&teste=1&carga=3000');
+  await page.waitForFunction(() => window.__rts?.estado.atual?.n > 0 && window.__rts.versaoGancho && window.__rts.catalogo.tamanho > 0);
+  await page.evaluate(() => window.__rts.pausar(true));
+  const tipoDe = nome => page.evaluate(n => window.__rts.estado.mapa.tipos.findIndex(t => t.nome === n), nome);
+  const acumulador = await tipoDe('acumulador');
+  const guincho = await tipoDe('guincho-de-celulas');
+  const tecla = code => page.evaluate(c => dispatchEvent(new KeyboardEvent('keydown', { code: c, key: c, bubbles: true, cancelable: true })), code);
+  const ultimoComando = () => page.evaluate(() => window.__rts.comandos.at(-1));
+
+  // B centres on the headquarters and selects it; its card opens with the buildings.
+  await page.locator('#tela').focus();
+  await page.keyboard.press('KeyB');
+  await expect.poll(() => page.evaluate(() => window.__rts.hud.cartao.tipo)).toBe('predio');
+  const slotDo = tipo => page.evaluate(t => window.__rts.hud.cartao.slots.findIndex(s => s && s.tipo === t), tipo);
+  const casa = await slotDo(acumulador);
+  expect(casa).toBeGreaterThanOrEqual(0);
+  const teclaDaCasa = ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyA', 'KeyS', 'KeyD', 'KeyF'][casa];
+  await tecla(teclaDaCasa);
+  expect(await ultimoComando()).toMatchObject({ tipo: 8, arg: acumulador });
+
+  // Built in the construction lane, then placed where the simulation's own rule allows.
+  await expect.poll(async () => {
+    await page.evaluate(() => window.__rts.avancar(150));
+    return page.evaluate(() => window.__rts.hud.filaDoSelecionado?.pronto);
+  }, { timeout: 60_000, intervals: [100] }).toBe(acumulador);
+  await expect(page.locator('#alertas')).toContainText('pronto para posicionar');
+  await tecla(teclaDaCasa);
+  await expect.poll(() => page.evaluate(() => window.__rts.controles.modo)).toBe('colocar');
+  const lugar = await page.evaluate(async tipo => {
+    const { motivoPosicao } = await import('/rts/js/sim/construcao.js');
+    const r = window.__rts;
+    const base = document.getElementById('base').getBoundingClientRect().top;
+    for (let y = 120; y < base - 40; y += 12) {
+      for (let x = 200; x < innerWidth - 200; x += 12) {
+        const p = r.paraMundo(x, y);
+        const [largura, altura] = r.estado.mapa.tipos[tipo].pegada;
+        const cx = Math.floor(p.x - largura / 2 + 0.5);
+        const cy = Math.floor(p.y - altura / 2 + 0.5);
+        if (motivoPosicao(r.estado.mapa, r.estado.atual, 0, tipo, cx, cy) === 0) return { x, y };
+      }
+    }
+    return null;
+  }, acumulador);
+  expect(lugar).not.toBeNull();
+  await page.mouse.move(lugar.x, lugar.y);
+  await page.mouse.click(lugar.x, lugar.y);
+  expect(await ultimoComando()).toMatchObject({ tipo: 7, arg: acumulador });
+  await expect.poll(async () => {
+    await page.evaluate(() => window.__rts.avancar(300));
+    return page.evaluate(t => window.__rts.entidades(e => e.tipo === t && e.dono === 0 && !(e.bandeiras & 8)).length, acumulador);
+  }, { timeout: 60_000, intervals: [100] }).toBe(1);
+  expect(await page.evaluate(() => window.__rts.eventosDo('COMANDO_RECUSADO').length)).toBe(0);
+
+  // F turns the headquarters' card to the units; Q trains a harvester.
+  await page.keyboard.press('KeyB');
+  await tecla('KeyF');
+  await expect.poll(() => slotDo(guincho)).toBe(0);
+  await tecla('KeyQ');
+  expect(await ultimoComando()).toMatchObject({ tipo: 8, arg: guincho });
+  await expect.poll(async () => {
+    await page.evaluate(() => window.__rts.avancar(300));
+    return page.evaluate(() => window.__rts.eventosDo('PRODUCAO_CONCLUIDA').length);
+  }, { timeout: 60_000, intervals: [100] }).toBeGreaterThan(0);
+  await expect(page.locator('#alertas')).toContainText('Guincho de Células pronto');
+
+  // The period picks an idle harvester; a context click on a pile sends it to harvest there.
+  await expect.poll(() => page.evaluate(() => window.__rts.hud.coletoresOciosos)).toBeGreaterThan(0);
+  await tecla('Period');
+  const coletor = await page.evaluate(() => [...window.__rts.selecionadas][0]);
+  const pilha = await page.evaluate(id => {
+    const r = window.__rts;
+    const a = r.estado.atual;
+    const c = r.indice.centro([id]);
+    let melhor = -1;
+    let d2 = Infinity;
+    for (let k = 0; k < a.n; k++) {
+      if (r.catalogo.categoria(a.tipo[k]) !== 'recurso') continue;
+      const d = (a.x[k] / r.FP - c.x) ** 2 + (a.y[k] / r.FP - c.y) ** 2;
+      if (d < d2) [melhor, d2] = [a.id[k], d];
+    }
+    Object.assign(r.camera, r.indice.centro([melhor]));
+    return melhor;
+  }, coletor);
+  await page.evaluate(() => new Promise(pronto => requestAnimationFrame(() => requestAnimationFrame(pronto))));
+  const naPilha = await page.evaluate(id => window.__rts.naTela(id), pilha);
+  await page.mouse.click(naPilha.x, naPilha.y, { button: 'right' });
+  expect(await ultimoComando()).toMatchObject({ tipo: 11, alvo: pilha, unidades: [coletor] });
+  await expect.poll(async () => {
+    await page.evaluate(() => window.__rts.avancar(300));
+    return page.evaluate(id => window.__rts.entidades(e => e.id === id)[0]?.carga ?? 0, coletor);
+  }, { timeout: 60_000, intervals: [100] }).toBeGreaterThan(0);
+});

@@ -4,7 +4,7 @@
 // benchmark pins 1 unless told otherwise), semente, zoom (factor of projecao.json, 0.75 to 1.25), atlas=0, avancar,
 // roda=auto|zoom|arrastar (what a wheel without Ctrl does), painel=1 (measurement panel), inicio=0|1 (start screen;
 // shown by default, skipped in tests and the benchmark), partida=<mission id>&dificuldade=facil|normal|dificil (a
-// mission's match instead of the prototype's armies), terreno=ladrilhos|procedural (ground splatted from the art's
+// mission's match instead of the prototype's armies; carga=<n> starts every player with that Carga), terreno=ladrilhos|procedural (ground splatted from the art's
 // tiles by soil, the default, or procedural noise), teste=1 (exposes window.__rts for the end-to-end tests).
 import { criarRenderizador } from './render/renderizador.js';
 import { carregarProjecao } from './render/projecao.js';
@@ -18,12 +18,13 @@ import { criarFilaVisual } from './entrada/fila.js';
 import { criarIndice } from './entrada/indice.js';
 import { criarOrdens } from './entrada/ordens.js';
 import { criarMedidorDeLatencia } from './entrada/latencia.js';
-import { criarColocacao, regraDaPagina, areaDaRede } from './entrada/colocacao.js';
+import { criarColocacao, areaDaRede } from './entrada/colocacao.js';
+import { motivoPosicao } from './sim/construcao.js';
 import { ACAO } from './entrada/teclas.js';
 import { aplicarSelecao } from './entrada/selecao.js';
 import { criarMinimapa } from './interface/minimapa.js';
 import { criarPainel } from './interface/painel.js';
-import { criarBarraDeComandos } from './interface/comandos.js';
+import { criarBarraDeComandos, RAZAO_DO_MOTIVO } from './interface/comandos.js';
 import { criarSobreposicao } from './interface/sobreposicao.js';
 import { carregarTextos } from './interface/textos.js';
 import { carregarPartida } from './interface/partida.js';
@@ -41,7 +42,7 @@ import { criarObjetivos } from './interface/objetivos.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
 import { criarRegistro, nomesDosGrupos } from './telemetria/registro.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
-import { TIPO_COMANDO, SEM_ENTIDADE, MOTIVO, VERSAO_SIMULACAO, VERSAO_COMANDOS } from './sim/contratos.js';
+import { TIPO_COMANDO, SEM_ENTIDADE, VERSAO_SIMULACAO, VERSAO_COMANDOS } from './sim/contratos.js';
 
 const parametros = new URLSearchParams(location.search);
 const opcoes = {
@@ -58,6 +59,7 @@ const opcoes = {
   teste: parametros.get('teste') === '1',
   partida: parametros.get('partida'),
   dificuldade: parametros.get('dificuldade') ?? 'normal',
+  carga: parametros.has('carga') ? Number(parametros.get('carga')) : null,
 };
 opcoes.painel = parametros.get('painel') === '1' || opcoes.teste || opcoes.bench;
 opcoes.inicio = !opcoes.bench && (opcoes.teste ? parametros.get('inicio') === '1' : parametros.get('inicio') !== '0');
@@ -137,8 +139,8 @@ const fonteDeComandos = {
 };
 const ordens = criarOrdens({ simulacao: fonteDeComandos, estado, efeitos, fila, som, latencia });
 
-// Building placement: the renderer draws the ghost and shades the network area while placing, which follows the
-// snapshots (poles built or cut).
+// Building placement: the renderer draws the ghost and shades the network area while placing (the page's reading of
+// the network reach, for the eye; validity is the simulation's rule), which follows the snapshots (poles built or cut).
 let fantasma = null;
 let areaDeConstrucao = null;
 function atualizarArea() {
@@ -146,7 +148,12 @@ function atualizarArea() {
   render.definirAreaDeConstrucao(areaDeConstrucao);
 }
 const colocacao = criarColocacao({
-  validar: (tipo, cx, cy) => regraDaPagina({ mapa: estado.mapa, retrato: estado.atual, catalogo, area: areaDeConstrucao }, tipo, cx, cy),
+  // The simulation's own placement rule, on the latest snapshot: the ghost says what CONSTRUIR will answer.
+  validar(tipo, cx, cy) {
+    if (!estado.mapa || !estado.atual) return 'fora_da_area';
+    const motivo = motivoPosicao(estado.mapa, estado.atual, estado.jogadorLocal, tipo, cx, cy);
+    return motivo === 0 ? null : (RAZAO_DO_MOTIVO[motivo] ?? 'posicao');
+  },
   desenhar(novo) {
     const comecou = novo && !fantasma;
     fantasma = novo;
@@ -156,13 +163,24 @@ const colocacao = criarColocacao({
 });
 
 let cartaoAtual = { tipo: 'vazio', slots: new Array(8).fill(null), predios: [], tipoDoPredio: -1 };
+// Page of a building card with more than eight items; back to the first when another kind of building is selected.
+let paginaDoCartao = 0;
+function virarPagina() {
+  paginaDoCartao += 1;
+  aoMudar();
+}
 function recalcularCartao() {
   const selecao = [];
   for (const id of selecionadas) {
     const k = indice.k(id);
     if (k >= 0) selecao.push({ id, tipo: estado.atual.tipo[k], bandeiras: estado.atual.bandeiras[k] });
   }
-  cartaoAtual = montarCartao({ selecao, catalogo, producao: leitura.producao, carga: leitura.carga, lotacao: leitura.lotacao });
+  const tipoAntes = cartaoAtual.tipoDoPredio;
+  cartaoAtual = montarCartao({ selecao, catalogo, producao: leitura.producao, carga: leitura.carga, lotacao: leitura.lotacao, pagina: paginaDoCartao });
+  if (cartaoAtual.tipoDoPredio !== tipoAntes && paginaDoCartao !== 0) {
+    paginaDoCartao = 0;
+    cartaoAtual = montarCartao({ selecao, catalogo, producao: leitura.producao, carga: leitura.carga, lotacao: leitura.lotacao, pagina: 0 });
+  }
   return cartaoAtual;
 }
 
@@ -262,6 +280,7 @@ controles = ligarControles({
   producao: leitura.producao,
   colocacao,
   acoes: { [ACAO.BASE]: irParaBase, [ACAO.COLETOR_OCIOSO]: irParaColetorOcioso, [ACAO.ULTIMO_ALERTA]: irParaUltimoAlerta },
+  aoVirarPagina: virarPagina,
   bloqueado: () => menu.bloqueado || fim.aberto,
   roda: opcoes.roda,
   aoMudar,
@@ -307,26 +326,10 @@ const SOM_DO_ALERTA = {
   [ALERTA.RAJADA_PAGA]: SOM.PRODUCAO,
   [ALERTA.RECURSO_ESGOTADO]: SOM.ALERTA,
 };
-// COMANDO_RECUSADO.arg (MOTIVO) as the status line's reasons (interface/comandos.js MOTIVOS).
-const MOTIVOS_DA_RECUSA = {
-  [MOTIVO.SEM_CARGA]: 'carga',
-  [MOTIVO.LOTACAO_CHEIA]: 'lotacao',
-  [MOTIVO.FILA_CHEIA]: 'fila',
-  [MOTIVO.NAO_PRODUZ]: 'bloqueado',
-  [MOTIVO.BLOQUEADO]: 'bloqueado',
-  [MOTIVO.NADA_PRONTO]: 'nada_pronto',
-  [MOTIVO.FORA_DA_AREA]: 'fora_da_area',
-  [MOTIVO.TERRENO_OCUPADO]: 'terreno_ocupado',
-  [MOTIVO.TERRENO_IMPROPRIO]: 'terreno_improprio',
-  [MOTIVO.CELULA_NAO_VENTOSA]: 'celula_nao_ventosa',
-  [MOTIVO.FORA_DO_MAPA]: 'fora_da_area',
-  [MOTIVO.LIMITE]: 'limite',
-  [MOTIVO.PERTO_DO_RECURSO]: 'perto_das_pilhas',
-};
 
 function tratarAlerta(alerta) {
   if (alerta.tipo === ALERTA.RECUSA) {
-    barra.atualizar(MOTIVOS_DA_RECUSA[alerta.arg] ?? 'bloqueado');
+    barra.atualizar(RAZAO_DO_MOTIVO[alerta.arg] ?? 'bloqueado');
     som.tocar(SOM.RECUSA);
     return;
   }
@@ -343,13 +346,16 @@ simulacao.iniciar({
   // A mission's match: the raw files go to the worker, which compiles and validates them (the format is being agreed
   // with the simulation front; until the worker reads `partida`, the prototype's armies still play).
   ...(arquivosDaPartida && { dados: arquivosDaPartida.dados, partida: { missao: arquivosDaPartida.missao, ...arquivosDaPartida.mapa }, dificuldade: opcoes.dificuldade }),
+  ...(Number.isInteger(opcoes.carga) && { cargaInicial: opcoes.carga }),
   aoReceberMapa(mapa) {
     catalogo = catalogoDoMapa(mapa, texto, arquivosDaPartida?.dados.unidades.unidades ?? []);
     comecarRegistro(mapa);
     menu.marcarPronto();
     render.definirMapa(mapa);
-    camera.x = mapa.bases[0].x + 14;
-    camera.y = mapa.bases[0].y - 10;
+    // A mission opens on the player's base; the prototype a little ahead of it, on the army.
+    const base = mapa.bases[estado.jogadorLocal] ?? mapa.bases[0];
+    camera.x = base.x + (arquivosDaPartida ? 0 : 14);
+    camera.y = base.y - (arquivosDaPartida ? 0 : 10);
     minimapa.preparar();
   },
   aoReceberEstado(retrato) {
