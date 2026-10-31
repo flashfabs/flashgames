@@ -396,7 +396,8 @@ simulacao.iniciar({
 });
 menu.segurarNoInicio();
 
-if (opcoes.atlas) {
+// the prototype tank only serves the prototype armies; its 4096 px strip would widen every sprite layer of a mission
+if (opcoes.atlas && !opcoes.partida) {
   render.carregarPrototipo().then(folha => {
     if (folha) atlasInfo.descricao = `${folha.direcoes} direções, Blender`;
   });
