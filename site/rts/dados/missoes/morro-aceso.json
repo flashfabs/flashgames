@@ -1,0 +1,579 @@
+{
+  "versao": 1,
+  "id": "morro-aceso",
+  "mapa": "morro-aceso",
+  "titulo": "missao.morro-aceso.titulo",
+  "objetivos": [
+    {"id":"montar-operacao","texto":"missao.morro-aceso.objetivo.montar","tipo":"principal"},
+    {"id":"formar-turma","texto":"missao.morro-aceso.objetivo.turma","tipo":"principal"},
+    {"id":"tomar-cemiterio","texto":"missao.morro-aceso.objetivo.cemiterio","tipo":"principal"},
+    {"id":"segurar-ponte","texto":"missao.morro-aceso.objetivo.ponte","tipo":"principal"},
+    {"id":"religar-subestacao","texto":"missao.morro-aceso.objetivo.subestacao","tipo":"principal"},
+    {"id":"religar-torre","texto":"missao.morro-aceso.objetivo.torre","tipo":"opcional"},
+    {"id":"abrir-ferro-velho","texto":"missao.morro-aceso.objetivo.ferro_velho","tipo":"opcional"},
+    {"id":"resgatar-caminhao","texto":"missao.morro-aceso.objetivo.resgate","tipo":"opcional"},
+    {"id":"religar-basculante","texto":"missao.morro-aceso.objetivo.basculante","tipo":"opcional"},
+    {"id":"desmontar-acampamento","texto":"missao.morro-aceso.objetivo.acampamento","tipo":"opcional"}
+  ],
+  "grupos": {
+    "comboio": ["comboio-1","comboio-2","comboio-3","comboio-4","comboio-5"],
+    "posto": ["posto-torre","posto-chapa-1","posto-chapa-2","posto-chapa-3"],
+    "posto-guarda": ["posto-chapa-1","posto-chapa-2","posto-chapa-3"],
+    "acampamento": ["catraca-carrocao-mae","catraca-paiol","catraca-barracao","catraca-ferraria"],
+    "guarnicao-acampamento": ["catraca-chapa-1","catraca-chapa-2","catraca-chapa-3","catraca-chapa-4","catraca-arpoador-1","catraca-arpoador-2"],
+    "guarnicao-desfiladeiro": ["desfiladeiro-chapa-1","desfiladeiro-chapa-2","desfiladeiro-arpoador-1"],
+    "tocaia-resgate": ["tocaia-chapa-1","tocaia-chapa-2"],
+    "patrulha-varzea": ["patrulha-cv-1","patrulha-cv-2"]
+  },
+  "variaveis": {"religadores":0},
+  "gatilhos": [
+    {
+      "id": "inicio",
+      "quando": {"se":"tempo","segundos":0},
+      "acoes": [
+        {"faz":"recursos","jogador":0,"somar":{"facil":2000,"normal":1500,"dificil":1200}},
+        {"faz":"recursos","jogador":1,"somar":2500},
+        {"faz":"revelar","jogador":0,"area":"base-jogador"},
+        {"faz":"revelar","jogador":0,"area":"entulho"},
+        {"faz":"revelar","jogador":0,"area":"estrada-sul"},
+        {"faz":"bloquear","jogador":0,"tipos":["alojamento-da-turma","torre-de-holofote","almoxarifado-tecnico","religador"]},
+        {"faz":"religavel","grupo":"subestacao-do-morro","segundos":{"facil":60,"normal":90,"dificil":120}},
+        {"faz":"religavel","grupo":"caminhao-tombado","segundos":15,"por":"reparo"},
+        {"faz":"ordenar","grupo":"comboio","ordem":"mover","rota":"rota-comboio"},
+        {"faz":"ordenar","grupo":"catraca-canhao","ordem":"segurar"},
+        {"faz":"camera","area":"estrada-sul"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_chegada"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_abertura"},
+        {"faz":"objetivo","objetivo":"montar-operacao","estado":"ativo"},
+        {"faz":"objetivo","objetivo":"religar-subestacao","estado":"ativo"}
+      ]
+    },
+    {
+      "id": "comboio-chegou",
+      "quando": {"se":"contagem","grupo":"comboio","area":"base-jogador","minimo":3},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_entulho","area":"entulho"}
+      ]
+    },
+    {
+      "id": "dica-ocioso",
+      "quando": {"se":"parado","jogador":0,"segundos":90},
+      "repete": true,
+      "intervaloSegundos": 90,
+      "acoes": [
+        {"faz":"mensagem","texto":"dica.ocioso"}
+      ]
+    },
+    {
+      "id": "lembrete-operacao",
+      "quando": {"se":"todas","condicoes":[{"se":"tempo","segundos":210},{"se":"nao","condicao":{"se":"disparou","gatilho":"operacao-montada"}}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_lembrete_operacao","area":"entulho"}
+      ]
+    },
+    {
+      "id": "operacao-montada",
+      "quando": {"se":"todas","condicoes":[{"se":"contagem","jogador":0,"tipos":["acumulador"],"minimo":1},{"se":"coletores","jogador":0,"minimo":2}]},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"montar-operacao","estado":"cumprido"},
+        {"faz":"liberar","jogador":0,"tipos":["alojamento-da-turma"]},
+        {"faz":"objetivo","objetivo":"formar-turma","estado":"ativo"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_operacao_ok"}
+      ]
+    },
+    {
+      "id": "lembrete-turma",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"operacao-montada","segundos":180},{"se":"nao","condicao":{"se":"disparou","gatilho":"turma-formada"}}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_lembrete_turma"}
+      ]
+    },
+    {
+      "id": "turma-formada",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"operacao-montada"},{"se":"contagem","jogador":0,"tipos":["alojamento-da-turma"],"minimo":1},{"se":"contagem","jogador":0,"tipos":["turma-de-linha"],"minimo":4}]},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"formar-turma","estado":"cumprido"},
+        {"faz":"liberar","jogador":0,"tipos":["torre-de-holofote"]},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_turma_ok"}
+      ]
+    },
+    {
+      "id": "rolimas",
+      "quando": {"se":"todas","condicoes":[{"se":"tempo","segundos":{"facil":300,"normal":240,"dificil":210}},{"se":"alguma","condicoes":[{"se":"disparou","gatilho":"operacao-montada"},{"se":"tempo","segundos":{"facil":390,"normal":330,"dificil":300}}]}]},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"assedio-ruinas","area":"nascedouro-ruinas","unidades":[{"tipo":"rolima","quantos":{"facil":2,"normal":2,"dificil":3}}]},
+        {"faz":"mensagem","texto":"radio.locutor.morro_rolimas","area":"ruinas"}
+      ]
+    },
+    {
+      "id": "carga-no-chao",
+      "quando": {"se":"coletores","jogador":0,"perdidosMinimo":1},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.coletor_perdido"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_faisca"}
+      ]
+    },
+    {
+      "id": "ordem-cemiterio",
+      "quando": {"se":"alguma","condicoes":[{"se":"todas","condicoes":[{"se":"disparou","gatilho":"rolimas"},{"se":"vivos","grupo":"assedio-ruinas","maximo":0}]},{"se":"depoisDe","gatilho":"rolimas","segundos":120}]},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"tomar-cemiterio","estado":"ativo"},
+        {"faz":"revelar","jogador":0,"area":"ponte-velha"},
+        {"faz":"revelar","jogador":0,"area":"cemiterio-norte"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_cemiterio","area":"cemiterio-norte"}
+      ]
+    },
+    {
+      "id": "entulho-acabando",
+      "quando": {"se":"recursos","no":"entulho","maximo":600},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_entulho_acabando","area":"cemiterio-norte"}
+      ]
+    },
+    {
+      "id": "lembrete-cemiterio",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"ordem-cemiterio","segundos":240},{"se":"nao","condicao":{"se":"disparou","gatilho":"cemiterio-tomado"}}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_lembrete_cemiterio","area":"cemiterio-norte"}
+      ]
+    },
+    {
+      "id": "posto-derrubado",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"ordem-cemiterio"},{"se":"vivos","grupo":"posto","maximo":0}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_posto_caiu"}
+      ]
+    },
+    {
+      "id": "cemiterio-tomado",
+      "quando": {"se":"todas","condicoes":[{"se":"vivos","grupo":"posto","maximo":0},{"se":"contagem","jogador":0,"tipos":["acumulador","poste-avancado"],"area":"cemiterio-norte","minimo":1}]},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"tomar-cemiterio","estado":"cumprido"},
+        {"faz":"criar","jogador":0,"area":"estrada-sul","unidades":[{"tipo":"religador","quantos":1}]},
+        {"faz":"variavel","nome":"religadores","somar":1},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_cemiterio_ok","area":"estrada-sul"}
+      ]
+    },
+    {
+      "id": "aviso-ponte",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"ordem-cemiterio"},{"se":"alguma","condicoes":[{"se":"depoisDe","gatilho":"cemiterio-tomado","segundos":30},{"se":"tempo","segundos":{"facil":720,"normal":600,"dificil":540}}]}]},
+      "acoes": [
+        {"faz":"aviso","grupo":"onda-ponte","area":"chegada-ponte","texto":"alerta.morro_onda_ponte"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_aviso_ponte"},
+        {"faz":"objetivo","objetivo":"segurar-ponte","estado":"ativo"}
+      ]
+    },
+    {
+      "id": "onda-ponte",
+      "quando": {"se":"depoisDe","gatilho":"aviso-ponte","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"onda-ponte","area":"saida-acampamento","unidades":[{"tipo":"chapa","quantos":{"facil":2,"normal":3,"dificil":4}},{"tipo":"arpoador","quantos":{"facil":1,"normal":1,"dificil":2}},{"tipo":"rolima","quantos":{"facil":0,"normal":1,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "torre-opcional",
+      "quando": {"se":"contagem","jogador":0,"tipos":["religador"],"minimo":1},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"religar-torre","estado":"ativo"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_torre","area":"colina"}
+      ]
+    },
+    {
+      "id": "ponte-segura",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"onda-ponte"},{"se":"vivos","grupo":"onda-ponte","maximo":0}]},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"segurar-ponte","estado":"cumprido"},
+        {"faz":"liberar","jogador":0,"tipos":["almoxarifado-tecnico"]},
+        {"faz":"mensagem","texto":"radio.locutor.morro_ponte_ok"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_almoxarifado"}
+      ]
+    },
+    {
+      "id": "torre-religada",
+      "quando": {"se":"dono","grupo":"torre-antiga-colina","jogador":0},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"religar-torre","estado":"cumprido"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_torre_ok"}
+      ]
+    },
+    {
+      "id": "holofote-religado",
+      "quando": {"se":"dono","grupo":"holofote-ponte-velha","jogador":0},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_holofote_ok"}
+      ]
+    },
+    {
+      "id": "m4-rota",
+      "quando": {"se":"alguma","condicoes":[{"se":"disparou","gatilho":"ponte-segura"},{"se":"tempo","segundos":{"facil":1140,"normal":1020,"dificil":960}}]},
+      "acoes": [
+        {"faz":"revelar","jogador":0,"area":"colina"},
+        {"faz":"revelar","jogador":0,"area":"desfiladeiro"},
+        {"faz":"revelar","jogador":0,"area":"varzea"},
+        {"faz":"revelar","jogador":0,"area":"morro"},
+        {"faz":"revelar","jogador":0,"area":"ferro-velho"},
+        {"faz":"revelar","jogador":0,"area":"basculante"},
+        {"faz":"revelar","jogador":0,"area":"vau"},
+        {"faz":"revelar","jogador":0,"area":"resgate"},
+        {"faz":"objetivo","objetivo":"abrir-ferro-velho","estado":"ativo"},
+        {"faz":"objetivo","objetivo":"resgatar-caminhao","estado":"ativo"},
+        {"faz":"objetivo","objetivo":"religar-basculante","estado":"ativo"},
+        {"faz":"objetivo","objetivo":"desmontar-acampamento","estado":"ativo"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_rotas","area":"morro"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_rotas"},
+        {"faz":"ordenar","grupo":"catraca-canhao","ordem":"mover","rota":"rota-canhao"}
+      ]
+    },
+    {
+      "id": "canhao-no-posto",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"m4-rota"},{"se":"contagem","grupo":"catraca-canhao","area":"colina","minimo":1}]},
+      "acoes": [
+        {"faz":"ordenar","grupo":"catraca-canhao","ordem":"segurar"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_canhao","area":"colina"}
+      ]
+    },
+    {
+      "id": "cemiterio-apagando",
+      "quando": {"se":"depoisDe","gatilho":"m4-rota","segundos":30},
+      "repete": true,
+      "intervaloSegundos": 30,
+      "acoes": [
+        {"faz":"recursos","no":"cemiterio-norte","somar":{"facil":-80,"normal":-100,"dificil":-120}}
+      ]
+    },
+    {
+      "id": "aviso-cemiterio-apagando",
+      "quando": {"se":"depoisDe","gatilho":"m4-rota","segundos":31},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_cemiterio_apaga","area":"cemiterio-norte"}
+      ]
+    },
+    {
+      "id": "cemiterio-acabando",
+      "quando": {"se":"recursos","no":"cemiterio-norte","maximo":2000},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_cemiterio_acabando","area":"ferro-velho"},
+        {"faz":"objetivo","objetivo":"abrir-ferro-velho","estado":"ativo"}
+      ]
+    },
+    {
+      "id": "religador-sem-cemiterio",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"m4-rota","segundos":120},{"se":"variavel","nome":"religadores","maximo":0}]},
+      "acoes": [
+        {"faz":"criar","jogador":0,"area":"estrada-sul","unidades":[{"tipo":"religador","quantos":1}]},
+        {"faz":"variavel","nome":"religadores","somar":1},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_religador_sem_cemiterio","area":"estrada-sul"}
+      ]
+    },
+    {
+      "id": "aviso-assedio-1",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"m4-rota","segundos":{"facil":150,"normal":120,"dificil":90}},{"se":"nao","condicao":{"se":"disparou","gatilho":"climax"}}]},
+      "acoes": [
+        {"faz":"aviso","grupo":"assedio-1","area":"chegada-sul","texto":"alerta.morro_onda_sul"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_aviso_sul"}
+      ]
+    },
+    {
+      "id": "assedio-1",
+      "quando": {"se":"depoisDe","gatilho":"aviso-assedio-1","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"assedio-1","area":"nascedouro-leste","unidades":[{"tipo":"carro-vela","quantos":{"facil":1,"normal":2,"dificil":2}},{"tipo":"chapa","quantos":{"facil":2,"normal":2,"dificil":3}},{"tipo":"arpoador","quantos":{"facil":0,"normal":1,"dificil":2}},{"tipo":"rolima","quantos":{"facil":0,"normal":0,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "aviso-assedio-2",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"assedio-1","segundos":{"facil":180,"normal":150,"dificil":120}},{"se":"nao","condicao":{"se":"disparou","gatilho":"climax"}}]},
+      "acoes": [
+        {"faz":"aviso","grupo":"assedio-2","area":"chegada-ponte","texto":"alerta.morro_onda_ponte"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_aviso_ponte_2"}
+      ]
+    },
+    {
+      "id": "assedio-2",
+      "quando": {"se":"depoisDe","gatilho":"aviso-assedio-2","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"assedio-2","area":"saida-acampamento","unidades":[{"tipo":"chapa","quantos":{"facil":2,"normal":3,"dificil":4}},{"tipo":"arpoador","quantos":{"facil":1,"normal":2,"dificil":2}},{"tipo":"carro-vela","quantos":{"facil":0,"normal":1,"dificil":1}},{"tipo":"canhao-de-caldeira","quantos":{"facil":0,"normal":0,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "aviso-assedio-3",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"assedio-2","segundos":{"facil":180,"normal":150,"dificil":120}},{"se":"nao","condicao":{"se":"disparou","gatilho":"climax"}}]},
+      "acoes": [
+        {"faz":"aviso","grupo":"assedio-3","area":"chegada-sul","texto":"alerta.morro_onda_sul"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_aviso_sul"}
+      ]
+    },
+    {
+      "id": "assedio-3",
+      "quando": {"se":"depoisDe","gatilho":"aviso-assedio-3","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"assedio-3","area":"nascedouro-leste","unidades":[{"tipo":"carro-vela","quantos":{"facil":1,"normal":2,"dificil":3}},{"tipo":"chapa","quantos":{"facil":2,"normal":3,"dificil":3}},{"tipo":"arpoador","quantos":{"facil":1,"normal":1,"dificil":2}},{"tipo":"canhao-de-caldeira","quantos":{"facil":0,"normal":1,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "aviso-assedio-4",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"assedio-3","segundos":{"facil":210,"normal":180,"dificil":150}},{"se":"nao","condicao":{"se":"disparou","gatilho":"climax"}}]},
+      "acoes": [
+        {"faz":"aviso","grupo":"assedio-4","area":"chegada-ponte","texto":"alerta.morro_onda_ponte"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_aviso_ponte_2"}
+      ]
+    },
+    {
+      "id": "assedio-4",
+      "quando": {"se":"depoisDe","gatilho":"aviso-assedio-4","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"assedio-4","area":"saida-acampamento","unidades":[{"tipo":"chapa","quantos":{"facil":4,"normal":4,"dificil":5}},{"tipo":"arpoador","quantos":{"facil":1,"normal":2,"dificil":2}},{"tipo":"carro-vela","quantos":{"facil":1,"normal":1,"dificil":2}},{"tipo":"locomovel","quantos":{"facil":0,"normal":0,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "ferro-velho-aberto",
+      "quando": {"se":"contagem","jogador":0,"tipos":["poste-avancado","acumulador"],"area":"ferro-velho","minimo":1},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"abrir-ferro-velho","estado":"cumprido"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_ferro_velho_ok"}
+      ]
+    },
+    {
+      "id": "resgate-feito",
+      "quando": {"se":"dono","grupo":"caminhao-tombado","jogador":0},
+      "acoes": [
+        {"faz":"destruir","grupo":"caminhao-tombado"},
+        {"faz":"criar","jogador":0,"area":"resgate","unidades":[{"tipo":"cesto-blindado","quantos":1}],"veterania":2},
+        {"faz":"objetivo","objetivo":"resgatar-caminhao","estado":"cumprido"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_resgate_ok","area":"resgate"}
+      ]
+    },
+    {
+      "id": "basculante-religada",
+      "quando": {"se":"dono","grupo":"ponte-basculante","jogador":0},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"religar-basculante","estado":"cumprido"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_basculante_ok","area":"basculante"}
+      ]
+    },
+    {
+      "id": "acampamento-ameacado",
+      "quando": {"se":"alguma","condicoes":[{"se":"atingido","grupo":"acampamento","segundos":2},{"se":"perto","grupo":"acampamento","jogador":0,"celulas":9}]},
+      "acoes": [
+        {"faz":"empacotar","grupo":"acampamento","segundos":5},
+        {"faz":"objetivo","objetivo":"desmontar-acampamento","estado":"ativo"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_acampamento_foge","area":"acampamento"}
+      ]
+    },
+    {
+      "id": "acampamento-foge",
+      "quando": {"se":"contagem","grupo":"acampamento","tipos":["carrocao-mae-empacotado","paiol-empacotado","barracao-empacotado","ferraria-a-vapor-empacotado"],"minimo":1},
+      "acoes": [
+        {"faz":"ordenar","grupo":"acampamento","ordem":"mover","rota":"rota-fuga"}
+      ]
+    },
+    {
+      "id": "acampamento-na-grota",
+      "quando": {"se":"contagem","grupo":"acampamento","tipos":["carrocao-mae-empacotado","paiol-empacotado","barracao-empacotado","ferraria-a-vapor-empacotado"],"area":"refugio-grota","minimo":1},
+      "repete": true,
+      "intervaloSegundos": 5,
+      "acoes": [
+        {"faz":"desempacotar","grupo":"acampamento","area":"refugio-grota","segundos":5}
+      ]
+    },
+    {
+      "id": "acampamento-remontado",
+      "quando": {"se":"contagem","grupo":"acampamento","tipos":["carrocao-mae","paiol","barracao","ferraria-a-vapor"],"area":"refugio-grota","minimo":1},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_acampamento_montado","area":"refugio-grota"}
+      ]
+    },
+    {
+      "id": "acampamento-desmontado",
+      "quando": {"se":"vivos","grupo":"acampamento","maximo":0},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"desmontar-acampamento","estado":"cumprido"},
+        {"faz":"recursos","jogador":0,"somar":2000},
+        {"faz":"mensagem","texto":"radio.locutor.morro_acampamento_desmontado"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_recompensa"}
+      ]
+    },
+    {
+      "id": "religador-caiu",
+      "quando": {"se":"todas","condicoes":[{"se":"variavel","nome":"religadores","minimo":1},{"se":"contagem","jogador":0,"tipos":["religador"],"maximo":0},{"se":"nao","condicao":{"se":"disparou","gatilho":"subestacao-religada"}}]},
+      "repete": true,
+      "intervaloSegundos": 60,
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_religador_caiu"}
+      ]
+    },
+    {
+      "id": "religador-reposto",
+      "quando": {"se":"todas","condicoes":[{"se":"depoisDe","gatilho":"religador-caiu","segundos":40},{"se":"contagem","jogador":0,"tipos":["religador"],"maximo":0},{"se":"nao","condicao":{"se":"disparou","gatilho":"subestacao-religada"}}]},
+      "repete": true,
+      "intervaloSegundos": 60,
+      "acoes": [
+        {"faz":"criar","jogador":0,"area":"estrada-sul","unidades":[{"tipo":"religador","quantos":1}]},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_religador_reposto","area":"estrada-sul"}
+      ]
+    },
+    {
+      "id": "climax",
+      "quando": {"se":"religando","grupo":"subestacao-do-morro","jogador":0},
+      "acoes": [
+        {"faz":"aviso","grupo":"onda-final-varzea","area":"flanco-morro-sul","texto":"alerta.morro_onda_final_varzea"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_climax","area":"morro"}
+      ]
+    },
+    {
+      "id": "aviso-final-desfiladeiro",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"climax"},{"se":"nao","condicao":{"se":"objetivo","objetivo":"desmontar-acampamento","estado":"cumprido"}}]},
+      "acoes": [
+        {"faz":"aviso","grupo":"onda-final-desfiladeiro","area":"flanco-morro-oeste","texto":"alerta.morro_onda_final_desfiladeiro"}
+      ]
+    },
+    {
+      "id": "onda-final-varzea",
+      "quando": {"se":"depoisDe","gatilho":"climax","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"onda-final-varzea","area":"nascedouro-leste","unidades":[{"tipo":"chapa","quantos":{"facil":2,"normal":3,"dificil":4}},{"tipo":"arpoador","quantos":{"facil":1,"normal":1,"dificil":2}},{"tipo":"carro-vela","quantos":{"facil":1,"normal":2,"dificil":2}},{"tipo":"locomovel","quantos":{"facil":1,"normal":1,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "onda-final-desfiladeiro",
+      "quando": {"se":"depoisDe","gatilho":"aviso-final-desfiladeiro","segundos":{"facil":25,"normal":15,"dificil":10}},
+      "acoes": [
+        {"faz":"criar","jogador":1,"grupo":"onda-final-desfiladeiro","area":"nascedouro-acampamento","unidades":[{"tipo":"chapa","quantos":{"facil":2,"normal":3,"dificil":3}},{"tipo":"arpoador","quantos":{"facil":1,"normal":1,"dificil":2}},{"tipo":"rolima","quantos":{"facil":0,"normal":1,"dificil":1}},{"tipo":"locomovel","quantos":{"facil":0,"normal":0,"dificil":1}}]}
+      ]
+    },
+    {
+      "id": "reforco-cestos",
+      "quando": {"se":"religacao","grupo":"subestacao-do-morro","jogador":0,"faltamSegundos":45},
+      "acoes": [
+        {"faz":"criar","jogador":0,"area":"reforco-morro","unidades":[{"tipo":"cesto-blindado","quantos":2}]},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_reforco","area":"reforco-morro"}
+      ]
+    },
+    {
+      "id": "narra-meio",
+      "quando": {"se":"religacao","grupo":"subestacao-do-morro","jogador":0,"minimoPorcento":50},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_meio"}
+      ]
+    },
+    {
+      "id": "narra-quase",
+      "quando": {"se":"religacao","grupo":"subestacao-do-morro","jogador":0,"minimoPorcento":85},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_quase"}
+      ]
+    },
+    {
+      "id": "religacao-pausada",
+      "quando": {"se":"todas","condicoes":[{"se":"disparou","gatilho":"climax"},{"se":"nao","condicao":{"se":"religando","grupo":"subestacao-do-morro","jogador":0}},{"se":"nao","condicao":{"se":"dono","grupo":"subestacao-do-morro","jogador":0}}]},
+      "repete": true,
+      "intervaloSegundos": 20,
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_pausou","area":"morro"}
+      ]
+    },
+    {
+      "id": "subestacao-religada",
+      "quando": {"se":"dono","grupo":"subestacao-do-morro","jogador":0},
+      "acoes": [
+        {"faz":"objetivo","objetivo":"religar-subestacao","estado":"cumprido"},
+        {"faz":"luz","cena":"entardecer","ponto":"subestacao"},
+        {"faz":"camera","ponto":"subestacao"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_luzes"},
+        {"faz":"mensagem","texto":"radio.supervisora.morro_fecho"},
+        {"faz":"ordenar","grupo":"guarnicao-acampamento","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"guarnicao-desfiladeiro","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"posto-guarda","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"tocaia-resgate","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"onda-ponte","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"assedio-ruinas","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"assedio-2","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"assedio-4","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"onda-final-desfiladeiro","ordem":"mover","area":"nascedouro-acampamento"},
+        {"faz":"ordenar","grupo":"patrulha-varzea","ordem":"mover","area":"nascedouro-leste"},
+        {"faz":"ordenar","grupo":"assedio-1","ordem":"mover","area":"nascedouro-leste"},
+        {"faz":"ordenar","grupo":"assedio-3","ordem":"mover","area":"nascedouro-leste"},
+        {"faz":"ordenar","grupo":"onda-final-varzea","ordem":"mover","area":"nascedouro-leste"}
+      ]
+    },
+    {
+      "id": "vitoria",
+      "quando": {"se":"depoisDe","gatilho":"subestacao-religada","segundos":20},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_proxima"},
+        {"faz":"vitoria","jogador":0}
+      ]
+    },
+    {
+      "id": "base-caiu",
+      "quando": {"se":"contagem","jogador":0,"tipos":["escritorio-regional","poste-avancado","garagem"],"maximo":0},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_base_caiu"}
+      ]
+    },
+    {
+      "id": "derrota",
+      "quando": {"se":"todas","condicoes":[{"se":"contagem","jogador":0,"tipos":["escritorio-regional","poste-avancado","garagem"],"maximo":0},{"se":"alguma","condicoes":[{"se":"contagem","jogador":0,"tipos":["equipe-de-manutencao"],"maximo":0},{"se":"recursos","jogador":0,"maximo":999},{"se":"depoisDe","gatilho":"base-caiu","segundos":90}]}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.locutor.morro_derrota"},
+        {"faz":"derrota","jogador":0}
+      ]
+    },
+    {
+      "id": "faltam-10",
+      "quando": {"se":"todas","condicoes":[{"se":"tempo","segundos":{"facil":2100,"normal":1800,"dificil":1500}},{"se":"nao","condicao":{"se":"disparou","gatilho":"subestacao-religada"}}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_faltam_10","area":"morro"}
+      ]
+    },
+    {
+      "id": "faltam-3",
+      "quando": {"se":"todas","condicoes":[{"se":"tempo","segundos":{"facil":2520,"normal":2220,"dificil":1920}},{"se":"nao","condicao":{"se":"disparou","gatilho":"subestacao-religada"}}]},
+      "acoes": [
+        {"faz":"mensagem","texto":"radio.supervisora.morro_faltam_3","area":"morro"}
+      ]
+    },
+    {
+      "id": "anoitecer",
+      "quando": {"se":"todas","condicoes":[{"se":"tempo","segundos":{"facil":2700,"normal":2400,"dificil":2100}},{"se":"nao","condicao":{"se":"disparou","gatilho":"subestacao-religada"}},{"se":"nao","condicao":{"se":"religando","grupo":"subestacao-do-morro","jogador":0}}]},
+      "acoes": [
+        {"faz":"luz","cena":"noite"},
+        {"faz":"mensagem","texto":"radio.locutor.morro_anoiteceu"},
+        {"faz":"derrota","jogador":0}
+      ]
+    }
+  ],
+  "equipes": [
+    {"id":"posto","grupo":"posto-guarda","jogador":1,"faz":"guardar","area":"cemiterio-norte","alcance":6,"ate":"subestacao-religada"},
+    {"id":"guarnicao-acampamento","grupo":"guarnicao-acampamento","jogador":1,"faz":"guardar","area":"acampamento","alcance":6,"ate":"subestacao-religada"},
+    {"id":"guarnicao-desfiladeiro","grupo":"guarnicao-desfiladeiro","jogador":1,"faz":"guardar","area":"desfiladeiro","alcance":5,"ate":"subestacao-religada"},
+    {"id":"tocaia-resgate","grupo":"tocaia-resgate","jogador":1,"faz":"guardar","area":"resgate","alcance":4,"ate":"subestacao-religada"},
+    {"id":"patrulha-varzea","grupo":"patrulha-varzea","jogador":1,"faz":"patrulhar","rota":"rota-patrulha-varzea","alcance":6,"recuar":30,"recuo":"nascedouro-leste","ate":"subestacao-religada"},
+    {"id":"assedio-ruinas","grupo":"assedio-ruinas","jogador":1,"faz":"atacar","desde":"rolimas","rota":"rota-ruinas","area":"entulho","aviso":0,"coletores":100,"ate":"subestacao-religada"},
+    {"id":"onda-ponte","grupo":"onda-ponte","jogador":1,"faz":"atacar","desde":"onda-ponte","rota":"rota-ponte-velha","area":"base-jogador","aviso":0,"ate":"subestacao-religada"},
+    {"id":"assedio-1","grupo":"assedio-1","jogador":1,"faz":"atacar","desde":"assedio-1","rota":"rota-sul","area":"base-jogador","aviso":0,"recuar":25,"recuo":"varzea","ate":"subestacao-religada"},
+    {"id":"assedio-2","grupo":"assedio-2","jogador":1,"faz":"atacar","desde":"assedio-2","rota":"rota-ponte-velha","area":"base-jogador","aviso":0,"recuar":25,"recuo":"acampamento","ate":"subestacao-religada"},
+    {"id":"assedio-3","grupo":"assedio-3","jogador":1,"faz":"atacar","desde":"assedio-3","rota":"rota-sul","area":"base-jogador","aviso":0,"recuar":25,"recuo":"varzea","ate":"subestacao-religada"},
+    {"id":"assedio-4","grupo":"assedio-4","jogador":1,"faz":"atacar","desde":"assedio-4","rota":"rota-ponte-velha","area":"base-jogador","aviso":0,"recuar":25,"recuo":"acampamento","ate":"subestacao-religada"},
+    {"id":"onda-final-varzea","grupo":"onda-final-varzea","jogador":1,"faz":"atacar","desde":"onda-final-varzea","rota":"rota-final-varzea","area":"subestacao-entorno","aviso":0,"ate":"subestacao-religada"},
+    {"id":"onda-final-desfiladeiro","grupo":"onda-final-desfiladeiro","jogador":1,"faz":"atacar","desde":"onda-final-desfiladeiro","rota":"rota-final-desfiladeiro","area":"subestacao-entorno","aviso":0,"ate":"subestacao-religada"},
+    {"id":"acampamento","grupo":"acampamento","jogador":1,"faz":"reconstruir","espera":20,"ate":"subestacao-religada"}
+  ],
+  "licoes": [
+    {"id":"selecionar-e-mover","texto":"Selecionar e mover no primeiro minuto e meio","momento":"M0","se":{"evento":"comando","campos":{"comando":1},"antesDeSegundos":90}},
+    {"id":"construir-na-rede","texto":"Erguer o Acumulador na rede antes dos 4 minutos","momento":"M1","se":{"evento":"construcao","campos":{"tipoUnidade":"acumulador"},"antesDeSegundos":240}},
+    {"id":"coletar","texto":"Mandar os guinchos coletar","momento":"M1","se":{"evento":"comando","campos":{"comando":11}}},
+    {"id":"fila-e-reuniao","texto":"Fila de produção e ponto de reunião","momento":"M1","se":{"todas":[{"evento":"comando","campos":{"comando":10}},{"evento":"comando","campos":{"comando":8},"vezes":3}]}},
+    {"id":"atacar-mover-em-grupo","texto":"Atacar-mover com um grupo de 3 ou mais","momento":"M2","se":{"evento":"comando","campos":{"comando":3},"minimos":{"n":3}}},
+    {"id":"carga-derramada","texto":"Recolher a carga derramada","momento":"M2","se":{"evento":"comando","campos":{"comando":11,"alvoTipo":"faisca"}}},
+    {"id":"holofote-no-gargalo","texto":"Holofote na travessia","momento":"M3","se":{"alguma":[{"evento":"construcao","campos":{"tipoUnidade":"torre-de-holofote"}},{"evento":"religado","campos":{"tipoUnidade":"holofote-de-estrada"}}]}},
+    {"id":"reparar","texto":"Reparar com a Equipe de Manutenção","momento":"M3","se":{"evento":"comando","campos":{"comando":12}}},
+    {"id":"religar","texto":"Religar uma estrutura do mapa","momento":"M3","se":{"alguma":[{"evento":"religado"},{"evento":"comando","campos":{"comando":13,"arg":1}}]}},
+    {"id":"nivel-2","texto":"Erguer o Almoxarifado Técnico (nível 2)","momento":"M4","se":{"evento":"construcao","campos":{"tipoUnidade":"almoxarifado-tecnico"}}},
+    {"id":"expandir","texto":"Expandir com um Poste Avançado","momento":"M4","se":{"evento":"construcao","campos":{"tipoUnidade":"poste-avancado"}}},
+    {"id":"escolher-rota","texto":"Tomar uma das duas estradas até o Morro","momento":"M4","se":{"alguma":[{"evento":"area","campos":{"area":"desfiladeiro"}},{"evento":"area","campos":{"area":"varzea"}}]}},
+    {"id":"artilharia","texto":"Lidar com artilharia: treinar Lança-Bobinas ou mirar o Canhão de Caldeira","momento":"M4","se":{"alguma":[{"evento":"producao","campos":{"tipoUnidade":"lanca-bobinas"}},{"evento":"comando","campos":{"comando":2,"alvoTipo":"canhao-de-caldeira"}}]}},
+    {"id":"poupar-veterano","texto":"Tirar um veterano da luta ou repará-lo","momento":"M4","se":{"alguma":[{"evento":"comando","campos":{"comando":1},"minimos":{"veterania":1}},{"evento":"comando","campos":{"comando":12},"minimos":{"alvoVeterania":1}}]}},
+    {"id":"defender-o-ponto","texto":"Defender a Subestação escolhendo alvos","momento":"M5","se":{"todas":[{"evento":"area","campos":{"area":"subestacao-entorno"}},{"evento":"comando","campos":{"comando":2},"vezes":3}]}}
+  ]
+}

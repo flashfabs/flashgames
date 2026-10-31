@@ -57,7 +57,7 @@ for (const nome of missoes) {
     const rotulos = rotulosDaMissao(missao);
     assert.ok(rotulos.length > 0);
     assert.deepEqual(nomesDosGrupos(missao), rotulos);
-    for (const g of missao.gatilhos) for (const a of g.acoes ?? g.faz ?? []) if (a.faz === 'aviso' || a.faz === 'criar') assert.ok(rotulos.includes(a.grupo), a.grupo);
+    for (const g of missao.gatilhos) for (const a of g.acoes ?? g.faz ?? []) if (a.faz === 'aviso' || (a.faz === 'criar' && a.grupo !== undefined)) assert.ok(rotulos.includes(a.grupo), a.grupo);
     // every text id is listed once, objectives first
     const textos = textosDaMissao(missao);
     assert.equal(new Set(textos).size, textos.length);
@@ -76,7 +76,7 @@ function partidaDaMissao(missao, dificuldade) {
     mapa: { largura: c.largura, altura: c.altura, bloqueado: c.bloqueado, relevo: c.relevo, nivel: c.nivel, bases: c.bases },
     dados: arquivos,
     missao,
-    lugares: { mapa: missao.mapa, areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas },
+    lugares: { mapa: missao.mapa, areas: mapa.areas, pontos: mapa.pontos, rotas: mapa.rotas, nos: mapa.nomesNos },
     dificuldade,
     regras: REGRAS_LIVRES,
     capacidade: 400,

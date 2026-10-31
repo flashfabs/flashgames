@@ -210,3 +210,111 @@ test('the home yard is known from the first tick, so the first minute teaches co
     assert.ok(reveladas.some(a => p.x >= a.x && p.x < a.x + a.largura && p.y >= a.y && p.y < a.y + a.altura), `pilha em ${p.x},${p.y} começa escondida`);
   }
 });
+
+// ---------- "Morro Aceso", the first mission (stage E4) ----------
+
+const morro = missoes.find(m => m.id === 'morro-aceso');
+const gatilhoDe = id => morro.gatilhos.find(g => g.id === id);
+const acoesDe = (id, faz) => gatilhoDe(id).acoes.filter(a => a.faz === faz);
+const somaDaOnda = (id, dificuldade) => acoesDe(id, 'criar').reduce((s, a) => s + a.unidades.reduce((t, u) => t + valor(u.quantos, dificuldade), 0), 0);
+// the first `tempo` a condition waits for, at a difficulty (its fallback clock)
+const relogio = (c, dificuldade) => [...condicoes(c)].filter(x => x.se === 'tempo').map(x => valor(x.segundos, dificuldade)).sort((a, b) => b - a)[0];
+
+test('morro-aceso: ten objectives, five main and five optional, the camp among the optional ones', () => {
+  assert.equal(morro.objetivos.length, 10);
+  assert.equal(morro.objetivos.filter(o => o.tipo === 'principal').length, 5);
+  assert.ok(morro.objetivos.some(o => o.id === 'desmontar-acampamento' && o.tipo === 'opcional'));
+  // every objective is shown by some trigger and closed by another
+  for (const o of morro.objetivos) {
+    const estados = morro.gatilhos.flatMap(g => g.acoes.filter(a => a.faz === 'objetivo' && a.objetivo === o.id).map(a => a.estado));
+    assert.ok(estados.includes('ativo') && estados.includes('cumprido'), `${o.id}: ${estados.join(', ')}`);
+  }
+});
+
+test('morro-aceso: taking the camp down pays a clear reward, and the camp packs up and runs to its refuge first', () => {
+  const desmontado = gatilhoDe('acampamento-desmontado');
+  assert.deepEqual(desmontado.quando, { se: 'vivos', grupo: 'acampamento', maximo: 0 });
+  assert.ok(desmontado.acoes.some(a => a.faz === 'recursos' && a.jogador === 0 && a.somar > 0), 'Carga na conta');
+  // the second half of the reward: the attack through the gorge at the climax only comes while the camp stands
+  assert.deepEqual(gatilhoDe('aviso-final-desfiladeiro').quando.condicoes[1], { se: 'nao', condicao: { se: 'objetivo', objetivo: 'desmontar-acampamento', estado: 'cumprido' } });
+  // every building of the camp has its packed kind, and the threat packs them
+  for (const etiqueta of morro.grupos.acampamento) {
+    const tipo = mapaDe(morro).entidades.find(e => e.etiqueta === etiqueta).tipo;
+    assert.ok(unidades.some(u => u.nome === `${tipo}-empacotado`), `${tipo}-empacotado`);
+  }
+  assert.ok(acoesDe('acampamento-ameacado', 'empacotar').length === 1);
+  assert.equal(acoesDe('acampamento-foge', 'ordenar')[0].rota, 'rota-fuga');
+  assert.equal(acoesDe('acampamento-na-grota', 'desempacotar')[0].area, 'refugio-grota');
+});
+
+test('morro-aceso: difficulty in data, as the phase table asks', () => {
+  for (const [dificuldade, carga, ponte, aviso, religacao, final] of [['facil', 2000, 3, 25, 60, 8], ['normal', 1500, 5, 15, 90, 12], ['dificil', 1200, 7, 10, 120, 16]]) {
+    assert.equal(valor(acoesDe('inicio', 'recursos').find(a => a.jogador === 0).somar, dificuldade), carga, `${dificuldade}: Carga inicial`);
+    assert.equal(somaDaOnda('onda-ponte', dificuldade), ponte, `${dificuldade}: onda da Ponte Velha`);
+    for (const g of morro.gatilhos.filter(x => acoesDe(x.id, 'criar').some(a => a.jogador === 1) && x.quando.se === 'depoisDe')) assert.equal(valor(g.quando.segundos, dificuldade), aviso, `${dificuldade}: aviso de ${g.id}`);
+    assert.equal(valor(acoesDe('inicio', 'religavel').find(a => a.grupo === 'subestacao-do-morro').segundos, dificuldade), religacao, `${dificuldade}: religação final`);
+    assert.equal(somaDaOnda('onda-final-varzea', dificuldade) + somaDaOnda('onda-final-desfiladeiro', dificuldade), final, `${dificuldade}: onda final`);
+  }
+  const locomoveis = dificuldade => ['onda-final-varzea', 'onda-final-desfiladeiro'].reduce((s, id) => s + acoesDe(id, 'criar').reduce((t, a) => t + a.unidades.filter(u => u.tipo === 'locomovel').reduce((q, u) => q + valor(u.quantos, dificuldade), 0), 0), 0);
+  assert.deepEqual(DIFICULDADES.map(locomoveis), [1, 1, 2], 'o primeiro Locomóvel no clímax, e um segundo no Difícil');
+});
+
+test('morro-aceso: the moments follow each other, each with a fallback clock, and night ends a match that drags', () => {
+  for (const dificuldade of DIFICULDADES) {
+    const m2 = relogio(gatilhoDe('rolimas').quando, dificuldade);
+    const m3 = relogio(gatilhoDe('aviso-ponte').quando, dificuldade);
+    const m4 = relogio(gatilhoDe('m4-rota').quando, dificuldade);
+    const noite = relogio(gatilhoDe('anoitecer').quando, dificuldade);
+    assert.ok(m2 >= 4 * 60 && m2 <= 7 * 60, `${dificuldade}: primeiro tiro previsto aos ${m2} s`);
+    assert.ok(m2 < m3 && m3 < m4 && m4 + 10 * 60 < noite, `${dificuldade}: ${m2}, ${m3}, ${m4}, ${noite}`);
+    assert.ok(noite >= 35 * 60, `${dificuldade}: a noite chega aos ${noite} s, longe da mediana de 20 a 25 min`);
+    // the radio warns ten and three minutes ahead
+    assert.equal(relogio(gatilhoDe('faltam-10').quando, dificuldade), noite - 600);
+    assert.equal(relogio(gatilhoDe('faltam-3').quando, dificuldade), noite - 180);
+  }
+  // the climax starts when the player starts re-powering the substation; the win comes after the close
+  assert.deepEqual(gatilhoDe('climax').quando, { se: 'religando', grupo: 'subestacao-do-morro', jogador: 0 });
+  assert.deepEqual(gatilhoDe('vitoria').quando, { se: 'depoisDe', gatilho: 'subestacao-religada', segundos: 20 });
+  assert.ok(acoesDe('subestacao-religada', 'luz').some(a => a.cena === 'entardecer' && a.ponto === 'subestacao'));
+  const fins = morro.gatilhos.filter(g => g.acoes.some(a => a.faz === 'vitoria' || a.faz === 'derrota')).map(g => g.id).sort();
+  assert.deepEqual(fins, ['anoitecer', 'derrota', 'vitoria']);
+});
+
+test('morro-aceso: every enemy wave the triggers create has a team that drives it, and the Religador always comes back', () => {
+  const equipes = new Map(morro.equipes.map(e => [e.grupo, e]));
+  for (const g of morro.gatilhos) {
+    for (const a of g.acoes.filter(x => x.faz === 'criar' && x.jogador === 1)) {
+      const equipe = equipes.get(a.grupo);
+      assert.ok(equipe && equipe.faz === 'atacar' && equipe.desde === g.id, `${a.grupo}: equipe que ataca desde ${g.id}`);
+      assert.equal(equipe.aviso, 0, `${a.grupo}: o aviso é do gatilho`);
+    }
+  }
+  for (const nome of ['posto-guarda', 'guarnicao-acampamento', 'guarnicao-desfiladeiro', 'patrulha-varzea', 'acampamento']) assert.ok(equipes.has(nome), nome);
+  assert.deepEqual([...new Set(morro.equipes.map(e => e.faz))].sort(), ['atacar', 'guardar', 'patrulhar', 'reconstruir']);
+  // the Religador comes with the North Yard, without it after a while, and again whenever it falls
+  for (const id of ['cemiterio-tomado', 'religador-sem-cemiterio', 'religador-reposto']) assert.ok(acoesDe(id, 'criar').some(a => a.jogador === 0 && a.unidades.some(u => u.tipo === 'religador')), id);
+  assert.ok(acoesDe('inicio', 'bloquear')[0].tipos.includes('religador'), 'the player never trains one');
+});
+
+test('morro-aceso: briefing, about forty radio lines, and the lessons read events the play-test log writes', () => {
+  const briefing = Object.keys(textos).filter(id => id.startsWith('briefing.morro-aceso.'));
+  assert.ok(briefing.length >= 4 && briefing.length <= 8, `${briefing.length} falas de briefing`);
+  briefing.forEach((id, k) => assert.match(id, new RegExp(`^briefing\\.morro-aceso\\.${k + 1}\\.(supervisora|locutor)$`)));
+  const falas = new Set(morro.gatilhos.flatMap(g => g.acoes.filter(a => a.faz === 'mensagem' && a.texto.startsWith('radio.')).map(a => a.texto)));
+  assert.ok(falas.size >= 35 && falas.size <= 55, `${falas.size} falas de rádio`);
+  // the C15 entries the log writes (site/rts/js/telemetria/registro.js) and the page notes
+  const EVENTOS = new Set(['comando', 'construcao', 'producao', 'religado', 'promocao', 'area', 'tiro', 'morte', 'aviso', 'onda', 'fim', 'noEsgotado', 'lutaInicio', 'lutaFim', 'briefingPulado', 'reiniciar']);
+  const nomes = new Set([...unidades, ...predios].map(t => t.nome).concat(['pilha', 'faisca']));
+  const areas = new Set(Object.keys(mapaDe(morro).areas));
+  const folhas = c => (c.todas ?? c.alguma ?? [c]).flatMap(x => (x.todas || x.alguma ? folhas(x) : [x]));
+  assert.ok(morro.licoes.length >= 10);
+  for (const licao of morro.licoes) {
+    assert.match(licao.momento, /^M[0-6]$/);
+    for (const c of folhas(licao.se)) {
+      assert.ok(EVENTOS.has(c.evento), `${licao.id}: evento ${c.evento}`);
+      for (const campo of ['tipoUnidade', 'alvoTipo']) if (c.campos?.[campo]) assert.ok(nomes.has(c.campos[campo]), `${licao.id}: ${c.campos[campo]}`);
+      if (c.campos?.area) assert.ok(areas.has(c.campos.area), `${licao.id}: área ${c.campos.area}`);
+    }
+  }
+  assert.deepEqual([...new Set(morro.licoes.map(l => l.momento))].sort(), ['M0', 'M1', 'M2', 'M3', 'M4', 'M5']);
+});

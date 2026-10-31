@@ -33,7 +33,7 @@ for (const { nome, json } of missoes) {
 
   test(`${nome}: the computer's Carga from the script is only a starting stock, the same in every difficulty`, () => {
     for (const { gatilho, acao } of acoes(json)) {
-      if (acao.faz !== 'recursos' || acao.jogador === JOGADOR_LOCAL) continue;
+      if (acao.faz !== 'recursos' || acao.jogador === JOGADOR_LOCAL || acao.no !== undefined) continue;
       assert.ok(noInicio(gatilho), `${gatilho.id}: Carga para o jogador ${acao.jogador} depois do começo`);
       assert.equal(typeof acao.somar, 'number', `${gatilho.id}: Carga do jogador ${acao.jogador} muda com a dificuldade`);
     }
