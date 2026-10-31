@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/desligados_construcao_barracao.py",
-  "commit": "3ebe85e",
-  "execucao": "20261031-003839",
+  "commit": "f069ca5",
+  "execucao": "20261031-005205",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.325,
-      "time": 0.1376,
-      "sombra": 0.383
+      "cor": 0.2802,
+      "time": 0.1356,
+      "sombra": 0.3868
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

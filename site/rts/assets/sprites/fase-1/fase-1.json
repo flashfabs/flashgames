@@ -1,0 +1,794 @@
+{
+ "versao": 1,
+ "fase": "fase-1",
+ "paginas": {
+  "uhd": [
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p0.cor.fb33a5.webp",
+    "time": "fase-1@uhd-p0.time.966d2b.webp",
+    "sombra": "fase-1@uhd-p0.sombra.2be3a8.webp"
+   },
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p1.cor.1c6e95.webp",
+    "time": "fase-1@uhd-p1.time.b7b67e.webp",
+    "sombra": "fase-1@uhd-p1.sombra.0ecf93.webp"
+   },
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p2.cor.ecf8a9.webp",
+    "time": "fase-1@uhd-p2.time.d8edb0.webp",
+    "sombra": "fase-1@uhd-p2.sombra.b2810b.webp"
+   },
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p3.cor.469a4a.webp",
+    "time": "fase-1@uhd-p3.time.2252b2.webp",
+    "sombra": "fase-1@uhd-p3.sombra.055d5f.webp"
+   },
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p4.cor.df84db.webp",
+    "time": "fase-1@uhd-p4.time.312472.webp",
+    "sombra": "fase-1@uhd-p4.sombra.ef6ba0.webp"
+   },
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p5.cor.5ec43e.webp",
+    "time": "fase-1@uhd-p5.time.c57996.webp",
+    "sombra": "fase-1@uhd-p5.sombra.2ce523.webp"
+   },
+   {
+    "largura": 2048,
+    "altura": 2048,
+    "cor": "fase-1@uhd-p6.cor.368386.webp",
+    "time": "fase-1@uhd-p6.time.3ed73a.webp",
+    "sombra": "fase-1@uhd-p6.sombra.501e55.webp"
+   }
+  ],
+  "hd": [
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p0.cor.66c980.webp",
+    "time": "fase-1@hd-p0.time.a43ff0.webp",
+    "sombra": "fase-1@hd-p0.sombra.921869.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p1.cor.ecb440.webp",
+    "time": "fase-1@hd-p1.time.1c8dfd.webp",
+    "sombra": "fase-1@hd-p1.sombra.785e81.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p2.cor.222477.webp",
+    "time": "fase-1@hd-p2.time.7d8f48.webp",
+    "sombra": "fase-1@hd-p2.sombra.123421.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p3.cor.869de3.webp",
+    "time": "fase-1@hd-p3.time.f557c0.webp",
+    "sombra": "fase-1@hd-p3.sombra.15be9d.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p4.cor.22016a.webp",
+    "time": "fase-1@hd-p4.time.354b58.webp",
+    "sombra": "fase-1@hd-p4.sombra.24d578.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p5.cor.62e927.webp",
+    "time": "fase-1@hd-p5.time.8ba9ae.webp",
+    "sombra": "fase-1@hd-p5.sombra.1c355c.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p6.cor.989b60.webp",
+    "time": "fase-1@hd-p6.time.125f81.webp",
+    "sombra": "fase-1@hd-p6.sombra.29d436.webp"
+   },
+   {
+    "largura": 1024,
+    "altura": 1024,
+    "cor": "fase-1@hd-p7.cor.9f9a86.webp",
+    "time": "fase-1@hd-p7.time.06329c.webp",
+    "sombra": "fase-1@hd-p7.sombra.ab21bd.webp"
+   }
+  ]
+ },
+ "orcamento": {
+  "uhd": {
+   "bytesArquivos": 5661282,
+   "bytesGpuEstimados": 234881024,
+   "camadas": 7,
+   "pixels": 24807430,
+   "ocupacao": 0.845
+  },
+  "hd": {
+   "bytesArquivos": 1951768,
+   "bytesGpuEstimados": 67108864,
+   "camadas": 8,
+   "pixels": 6973018,
+   "ocupacao": 0.831
+  }
+ },
+ "assets": {
+  "desligados-construcao-barracao": {
+   "execucao": "20261031-005205",
+   "orcamento": {
+    "uhd": {
+     "pixels": 506160,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 1
+    },
+    "hd": {
+     "pixels": 126540,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "desligados-construcao-carrocao-mae": {
+   "execucao": "20261031-005224",
+   "orcamento": {
+    "uhd": {
+     "pixels": 650508,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 3
+    },
+    "hd": {
+     "pixels": 162627,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "desligados-construcao-ferraria-a-vapor": {
+   "execucao": "20261031-005242",
+   "orcamento": {
+    "uhd": {
+     "pixels": 989940,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 247485,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "desligados-construcao-paiol": {
+   "execucao": "20261031-005301",
+   "orcamento": {
+    "uhd": {
+     "pixels": 397948,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 1
+    },
+    "hd": {
+     "pixels": 99487,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 1
+    }
+   }
+  },
+  "desligados-construcao-palicada": {
+   "execucao": "20261031-011634",
+   "orcamento": {
+    "uhd": {
+     "pixels": 276376,
+     "quadrosUnicos": 17,
+     "paginasUsadas": 3
+    },
+    "hd": {
+     "pixels": 69094,
+     "quadrosUnicos": 17,
+     "paginasUsadas": 6
+    }
+   }
+  },
+  "desligados-construcao-torre-de-vigia": {
+   "execucao": "20261031-005330",
+   "orcamento": {
+    "uhd": {
+     "pixels": 509336,
+     "quadrosUnicos": 20,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 127334,
+     "quadrosUnicos": 20,
+     "paginasUsadas": 3
+    }
+   }
+  },
+  "desligados-infantaria-arpoador": {
+   "execucao": "20261031-005347",
+   "orcamento": {
+    "uhd": {
+     "pixels": 600596,
+     "quadrosUnicos": 152,
+     "paginasUsadas": 7
+    },
+    "hd": {
+     "pixels": 150149,
+     "quadrosUnicos": 152,
+     "paginasUsadas": 6
+    }
+   }
+  },
+  "desligados-infantaria-chapa": {
+   "execucao": "20261031-005411",
+   "orcamento": {
+    "uhd": {
+     "pixels": 637396,
+     "quadrosUnicos": 153,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 159349,
+     "quadrosUnicos": 153,
+     "paginasUsadas": 4
+    }
+   }
+  },
+  "desligados-veiculo-canhao-de-caldeira": {
+   "execucao": "20261031-005436",
+   "orcamento": {
+    "uhd": {
+     "pixels": 1221848,
+     "quadrosUnicos": 84,
+     "paginasUsadas": 5
+    },
+    "hd": {
+     "pixels": 305462,
+     "quadrosUnicos": 84,
+     "paginasUsadas": 5
+    }
+   }
+  },
+  "desligados-veiculo-carro-vela": {
+   "execucao": "20261031-005500",
+   "orcamento": {
+    "uhd": {
+     "pixels": 712680,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 5
+    },
+    "hd": {
+     "pixels": 178170,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 7
+    }
+   }
+  },
+  "desligados-veiculo-carroca-de-pedal": {
+   "execucao": "20261031-005517",
+   "orcamento": {
+    "uhd": {
+     "pixels": 953020,
+     "quadrosUnicos": 44,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 238255,
+     "quadrosUnicos": 44,
+     "paginasUsadas": 4
+    }
+   }
+  },
+  "desligados-veiculo-locomovel": {
+   "execucao": "20261031-005534",
+   "orcamento": {
+    "uhd": {
+     "pixels": 740776,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 6
+    },
+    "hd": {
+     "pixels": 185194,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 7
+    }
+   }
+  },
+  "desligados-veiculo-rolima": {
+   "execucao": "20261031-005549",
+   "orcamento": {
+    "uhd": {
+     "pixels": 199432,
+     "quadrosUnicos": 36,
+     "paginasUsadas": 6
+    },
+    "hd": {
+     "pixels": 49858,
+     "quadrosUnicos": 36,
+     "paginasUsadas": 5
+    }
+   }
+  },
+  "efeito-explosao-media": {
+   "execucao": "20261031-005600",
+   "orcamento": {
+    "uhd": {
+     "pixels": 442680,
+     "quadrosUnicos": 16,
+     "paginasUsadas": 7
+    },
+    "hd": {
+     "pixels": 110670,
+     "quadrosUnicos": 16,
+     "paginasUsadas": 7
+    }
+   }
+  },
+  "neutro-decoracao-arvore-seca": {
+   "execucao": "20261031-005746",
+   "orcamento": {
+    "uhd": {
+     "pixels": 147116,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 36779,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "neutro-decoracao-carcaca-de-onibus": {
+   "execucao": "20261031-005758",
+   "orcamento": {
+    "uhd": {
+     "pixels": 250076,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 62519,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 3
+    }
+   }
+  },
+  "neutro-decoracao-muro-em-ruina": {
+   "execucao": "20261031-005809",
+   "orcamento": {
+    "uhd": {
+     "pixels": 59508,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 3
+    },
+    "hd": {
+     "pixels": 14877,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "neutro-decoracao-pedra": {
+   "execucao": "20261031-005820",
+   "orcamento": {
+    "uhd": {
+     "pixels": 6112,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 1528,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 3
+    }
+   }
+  },
+  "neutro-decoracao-pneus": {
+   "execucao": "20261031-005832",
+   "orcamento": {
+    "uhd": {
+     "pixels": 16012,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 4003,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 1
+    }
+   }
+  },
+  "neutro-decoracao-ponte-de-concreto": {
+   "execucao": "20261031-005843",
+   "orcamento": {
+    "uhd": {
+     "pixels": 118192,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 1
+    },
+    "hd": {
+     "pixels": 29548,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 1
+    }
+   }
+  },
+  "neutro-decoracao-poste-caido": {
+   "execucao": "20261031-005854",
+   "orcamento": {
+    "uhd": {
+     "pixels": 87224,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 1
+    },
+    "hd": {
+     "pixels": 21806,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "neutro-estrutura-holofote-de-estrada": {
+   "execucao": "20261031-004239",
+   "orcamento": {
+    "uhd": {
+     "pixels": 520712,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 130178,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "neutro-estrutura-ponte-basculante": {
+   "execucao": "20261031-005905",
+   "orcamento": {
+    "uhd": {
+     "pixels": 504822,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 504822,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 1
+    }
+   }
+  },
+  "neutro-estrutura-subestacao": {
+   "execucao": "20261031-005925",
+   "orcamento": {
+    "uhd": {
+     "pixels": 523392,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 1
+    },
+    "hd": {
+     "pixels": 523392,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "neutro-estrutura-torre-antiga": {
+   "execucao": "20261031-004356",
+   "orcamento": {
+    "uhd": {
+     "pixels": 997492,
+     "quadrosUnicos": 36,
+     "paginasUsadas": 5
+    },
+    "hd": {
+     "pixels": 249373,
+     "quadrosUnicos": 36,
+     "paginasUsadas": 7
+    }
+   }
+  },
+  "neutro-recurso-faisca-de-carga": {
+   "execucao": "20261031-005947",
+   "orcamento": {
+    "uhd": {
+     "pixels": 13312,
+     "quadrosUnicos": 8,
+     "paginasUsadas": 3
+    },
+    "hd": {
+     "pixels": 3328,
+     "quadrosUnicos": 8,
+     "paginasUsadas": 3
+    }
+   }
+  },
+  "neutro-recurso-pilha-de-baterias": {
+   "execucao": "20261031-005958",
+   "orcamento": {
+    "uhd": {
+     "pixels": 96108,
+     "quadrosUnicos": 9,
+     "paginasUsadas": 3
+    },
+    "hd": {
+     "pixels": 24027,
+     "quadrosUnicos": 9,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-acumulador": {
+   "execucao": "20261031-004411",
+   "orcamento": {
+    "uhd": {
+     "pixels": 689820,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 172455,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-almoxarifado-tecnico": {
+   "execucao": "20261031-004424",
+   "orcamento": {
+    "uhd": {
+     "pixels": 575076,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 1
+    },
+    "hd": {
+     "pixels": 143769,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-alojamento-da-turma": {
+   "execucao": "20261031-004437",
+   "orcamento": {
+    "uhd": {
+     "pixels": 479540,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 119885,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-cata-vento": {
+   "execucao": "20261031-010009",
+   "orcamento": {
+    "uhd": {
+     "pixels": 689248,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 172312,
+     "quadrosUnicos": 4,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-escritorio-regional": {
+   "execucao": "20261031-010022",
+   "orcamento": {
+    "uhd": {
+     "pixels": 1003960,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 250990,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-garagem": {
+   "execucao": "20261031-004522",
+   "orcamento": {
+    "uhd": {
+     "pixels": 882584,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 220646,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-poste": {
+   "execucao": "20261031-004537",
+   "orcamento": {
+    "uhd": {
+     "pixels": 149832,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    },
+    "hd": {
+     "pixels": 37458,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 3
+    }
+   }
+  },
+  "religadores-construcao-poste-avancado": {
+   "execucao": "20261031-004549",
+   "orcamento": {
+    "uhd": {
+     "pixels": 426212,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 3
+    },
+    "hd": {
+     "pixels": 106553,
+     "quadrosUnicos": 3,
+     "paginasUsadas": 2
+    }
+   }
+  },
+  "religadores-construcao-torre-de-holofote": {
+   "execucao": "20261031-004602",
+   "orcamento": {
+    "uhd": {
+     "pixels": 543840,
+     "quadrosUnicos": 20,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 135960,
+     "quadrosUnicos": 20,
+     "paginasUsadas": 5
+    }
+   }
+  },
+  "religadores-infantaria-religador": {
+   "execucao": "20261031-010044",
+   "orcamento": {
+    "uhd": {
+     "pixels": 872392,
+     "quadrosUnicos": 163,
+     "paginasUsadas": 7
+    },
+    "hd": {
+     "pixels": 218098,
+     "quadrosUnicos": 163,
+     "paginasUsadas": 8
+    }
+   }
+  },
+  "religadores-infantaria-soldador": {
+   "execucao": "20261031-010106",
+   "orcamento": {
+    "uhd": {
+     "pixels": 507756,
+     "quadrosUnicos": 152,
+     "paginasUsadas": 5
+    },
+    "hd": {
+     "pixels": 126939,
+     "quadrosUnicos": 152,
+     "paginasUsadas": 7
+    }
+   }
+  },
+  "religadores-infantaria-turma-de-linha": {
+   "execucao": "20261031-010125",
+   "orcamento": {
+    "uhd": {
+     "pixels": 446720,
+     "quadrosUnicos": 153,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 111680,
+     "quadrosUnicos": 153,
+     "paginasUsadas": 4
+    }
+   }
+  },
+  "religadores-veiculo-cesto-blindado": {
+   "execucao": "20261031-010147",
+   "orcamento": {
+    "uhd": {
+     "pixels": 1952448,
+     "quadrosUnicos": 84,
+     "paginasUsadas": 7
+    },
+    "hd": {
+     "pixels": 488112,
+     "quadrosUnicos": 84,
+     "paginasUsadas": 8
+    }
+   }
+  },
+  "religadores-veiculo-equipe-de-manutencao": {
+   "execucao": "20261031-010206",
+   "orcamento": {
+    "uhd": {
+     "pixels": 851552,
+     "quadrosUnicos": 36,
+     "paginasUsadas": 4
+    },
+    "hd": {
+     "pixels": 212888,
+     "quadrosUnicos": 36,
+     "paginasUsadas": 4
+    }
+   }
+  },
+  "religadores-veiculo-guincho-de-celulas": {
+   "execucao": "20261031-010221",
+   "orcamento": {
+    "uhd": {
+     "pixels": 1370908,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 5
+    },
+    "hd": {
+     "pixels": 342727,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 4
+    }
+   }
+  },
+  "religadores-veiculo-lanca-bobinas": {
+   "execucao": "20261031-010238",
+   "orcamento": {
+    "uhd": {
+     "pixels": 1006944,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 6
+    },
+    "hd": {
+     "pixels": 251736,
+     "quadrosUnicos": 52,
+     "paginasUsadas": 7
+    }
+   }
+  },
+  "religadores-veiculo-leiturista": {
+   "execucao": "20261031-010253",
+   "orcamento": {
+    "uhd": {
+     "pixels": 179824,
+     "quadrosUnicos": 44,
+     "paginasUsadas": 5
+    },
+    "hd": {
+     "pixels": 44956,
+     "quadrosUnicos": 44,
+     "paginasUsadas": 5
+    }
+   }
+  }
+ },
+ "conta": "bytesGpuEstimados = camadas x largura x altura x 6 (cor RGBA8, time R8, sombra R8) x 4/3 de mipmaps, como no backend WebGL2"
+}

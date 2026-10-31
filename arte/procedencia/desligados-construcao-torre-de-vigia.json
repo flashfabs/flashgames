@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/desligados_construcao_torre_de_vigia.py",
-  "commit": "3ebe85e",
-  "execucao": "20261031-004008",
+  "commit": "ab89c89",
+  "execucao": "20261031-005330",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0409,
-      "time": 0.0198,
-      "sombra": 0.3398
+      "cor": 0.0384,
+      "time": 0.0205,
+      "sombra": 0.3438
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

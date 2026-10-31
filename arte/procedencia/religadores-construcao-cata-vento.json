@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/religadores_construcao_cata_vento.py",
-  "commit": "337fdbc",
-  "execucao": "20261031-004450",
+  "commit": "8e09336",
+  "execucao": "20261031-010009",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.1677,
-      "time": 0.065,
-      "sombra": 0.226
+      "cor": 0.1944,
+      "time": 0.0794,
+      "sombra": 0.2303
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

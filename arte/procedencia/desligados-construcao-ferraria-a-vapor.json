@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/desligados_construcao_ferraria_a_vapor.py",
-  "commit": "3ebe85e",
-  "execucao": "20261031-003911",
+  "commit": "f069ca5",
+  "execucao": "20261031-005242",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.4424,
-      "time": 0.1294,
-      "sombra": 0.6114
+      "cor": 0.3371,
+      "time": 0.1261,
+      "sombra": 0.5411
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

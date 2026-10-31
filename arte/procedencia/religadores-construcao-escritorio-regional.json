@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/religadores_construcao_escritorio_regional.py",
-  "commit": "337fdbc",
-  "execucao": "20261031-004505",
+  "commit": "8e09336",
+  "execucao": "20261031-010022",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.363,
-      "time": 0.1056,
-      "sombra": 0.5148
+      "cor": 0.3913,
+      "time": 0.1271,
+      "sombra": 0.5079
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

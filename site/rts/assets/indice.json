@@ -10,10 +10,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 81802,
-        "hd": 22156
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-construcao-carrocao-mae": {
       "manifesto": "sprites/construcao/desligados-construcao-carrocao-mae.json",
@@ -24,10 +21,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 99060,
-        "hd": 24560
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-construcao-ferraria-a-vapor": {
       "manifesto": "sprites/construcao/desligados-construcao-ferraria-a-vapor.json",
@@ -38,10 +32,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 122158,
-        "hd": 27242
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-construcao-paiol": {
       "manifesto": "sprites/construcao/desligados-construcao-paiol.json",
@@ -52,10 +43,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 75742,
-        "hd": 20220
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-construcao-palicada": {
       "manifesto": "sprites/construcao/desligados-construcao-palicada.json",
@@ -66,10 +54,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 316638,
-        "hd": 108084
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-construcao-torre-de-vigia": {
       "manifesto": "sprites/construcao/desligados-construcao-torre-de-vigia.json",
@@ -80,10 +65,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 115220,
-        "hd": 31714
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-infantaria-arpoador": {
       "manifesto": "sprites/infantaria/desligados-infantaria-arpoador.json",
@@ -94,10 +76,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 295994,
-        "hd": 112346
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-infantaria-chapa": {
       "manifesto": "sprites/infantaria/desligados-infantaria-chapa.json",
@@ -108,10 +87,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 285182,
-        "hd": 107684
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-veiculo-canhao-de-caldeira": {
       "manifesto": "sprites/veiculo/desligados-veiculo-canhao-de-caldeira.json",
@@ -122,10 +98,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 461200,
-        "hd": 169378
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-veiculo-carro-vela": {
       "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela.json",
@@ -136,10 +109,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 226792,
-        "hd": 73556
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-veiculo-carro-vela-portao": {
       "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela-portao.json",
@@ -164,10 +134,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 306466,
-        "hd": 110422
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-veiculo-locomovel": {
       "manifesto": "sprites/veiculo/desligados-veiculo-locomovel.json",
@@ -178,10 +145,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 248874,
-        "hd": 81014
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "desligados-veiculo-rolima": {
       "manifesto": "sprites/veiculo/desligados-veiculo-rolima.json",
@@ -192,10 +156,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 97528,
-        "hd": 30416
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "efeito-explosao-media": {
       "manifesto": "sprites/efeito/efeito-explosao-media.json",
@@ -206,10 +167,7 @@
         "portao",
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 52792,
-        "hd": 21028
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "interface-icone-escritorio-regional": {
       "manifesto": "interface/interface-icone-escritorio-regional.json",
@@ -223,6 +181,19 @@
       "bytes": {
         "uhd": 12708,
         "hd": 3776
+      }
+    },
+    "interface-icones": {
+      "manifesto": "interface/interface-icones.json",
+      "tipo": "interface",
+      "categoria": "icone",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 73304,
+        "hd": 30982
       }
     },
     "interface-retrato-turma-de-linha": {
@@ -240,6 +211,83 @@
         "hd": 25906
       }
     },
+    "neutro-decoracao-arvore-seca": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-arvore-seca.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-decoracao-carcaca-de-onibus": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-carcaca-de-onibus.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-decoracao-muro-em-ruina": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-muro-em-ruina.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-decoracao-pedra": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-pedra.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-decoracao-pneus": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-pneus.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-decoracao-ponte-de-concreto": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-ponte-de-concreto.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-decoracao-poste-caido": {
+      "manifesto": "sprites/decoracao/neutro-decoracao-poste-caido.json",
+      "tipo": "decoracao",
+      "categoria": "decoracao",
+      "brief": "neutro/terreno-vale",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
     "neutro-estrutura-holofote-de-estrada": {
       "manifesto": "sprites/estrutura/neutro-estrutura-holofote-de-estrada.json",
       "tipo": "unidade",
@@ -249,10 +297,29 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 86678,
-        "hd": 20212
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-estrutura-ponte-basculante": {
+      "manifesto": "sprites/estrutura/neutro-estrutura-ponte-basculante.json",
+      "tipo": "unidade",
+      "categoria": "estrutura",
+      "brief": "neutro/ponte-basculante",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-estrutura-subestacao": {
+      "manifesto": "sprites/estrutura/neutro-estrutura-subestacao.json",
+      "tipo": "unidade",
+      "categoria": "estrutura",
+      "brief": "neutro/subestacao",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "neutro-estrutura-torre-antiga": {
       "manifesto": "sprites/estrutura/neutro-estrutura-torre-antiga.json",
@@ -263,10 +330,29 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 153292,
-        "hd": 36000
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-recurso-faisca-de-carga": {
+      "manifesto": "sprites/recurso/neutro-recurso-faisca-de-carga.json",
+      "tipo": "recurso",
+      "categoria": "recurso",
+      "brief": "neutro/faisca-de-carga",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "neutro-recurso-pilha-de-baterias": {
+      "manifesto": "sprites/recurso/neutro-recurso-pilha-de-baterias.json",
+      "tipo": "recurso",
+      "categoria": "recurso",
+      "brief": "neutro/pilha-de-baterias",
+      "acabamento": "cinza",
+      "fases": [
+        "fase-1"
+      ],
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-acumulador": {
       "manifesto": "sprites/construcao/religadores-construcao-acumulador.json",
@@ -277,10 +363,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 117906,
-        "hd": 33190
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-almoxarifado-tecnico": {
       "manifesto": "sprites/construcao/religadores-construcao-almoxarifado-tecnico.json",
@@ -291,10 +374,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 84334,
-        "hd": 20784
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-alojamento-da-turma": {
       "manifesto": "sprites/construcao/religadores-construcao-alojamento-da-turma.json",
@@ -305,10 +385,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 60334,
-        "hd": 16392
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-cata-vento": {
       "manifesto": "sprites/construcao/religadores-construcao-cata-vento.json",
@@ -319,10 +396,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 145118,
-        "hd": 34986
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-escritorio-regional": {
       "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional.json",
@@ -333,10 +407,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 142848,
-        "hd": 32222
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-escritorio-regional-portao": {
       "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional-portao.json",
@@ -361,10 +432,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 98028,
-        "hd": 24390
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-poste": {
       "manifesto": "sprites/construcao/religadores-construcao-poste.json",
@@ -375,10 +443,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 45190,
-        "hd": 12036
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-poste-avancado": {
       "manifesto": "sprites/construcao/religadores-construcao-poste-avancado.json",
@@ -389,10 +454,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 61526,
-        "hd": 17142
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-construcao-torre-de-holofote": {
       "manifesto": "sprites/construcao/religadores-construcao-torre-de-holofote.json",
@@ -403,10 +465,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 102658,
-        "hd": 27378
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-infantaria-religador": {
       "manifesto": "sprites/infantaria/religadores-infantaria-religador.json",
@@ -417,10 +476,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 368432,
-        "hd": 132116
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-infantaria-soldador": {
       "manifesto": "sprites/infantaria/religadores-infantaria-soldador.json",
@@ -431,10 +487,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 285584,
-        "hd": 105642
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-infantaria-turma-de-linha": {
       "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha.json",
@@ -445,10 +498,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 268186,
-        "hd": 98520
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-infantaria-turma-de-linha-portao": {
       "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha-portao.json",
@@ -473,10 +523,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 646618,
-        "hd": 214830
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-veiculo-cesto-blindado-portao": {
       "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-portao.json",
@@ -529,10 +576,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 341506,
-        "hd": 115756
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-veiculo-guincho-de-celulas": {
       "manifesto": "sprites/veiculo/religadores-veiculo-guincho-de-celulas.json",
@@ -543,10 +587,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 418140,
-        "hd": 146852
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-veiculo-lanca-bobinas": {
       "manifesto": "sprites/veiculo/religadores-veiculo-lanca-bobinas.json",
@@ -557,10 +598,7 @@
       "fases": [
         "fase-1"
       ],
-      "bytes": {
-        "uhd": 335214,
-        "hd": 114762
-      }
+      "pacote": "sprites/fase-1/fase-1.json"
     },
     "religadores-veiculo-leiturista": {
       "manifesto": "sprites/veiculo/religadores-veiculo-leiturista.json",
@@ -571,9 +609,136 @@
       "fases": [
         "fase-1"
       ],
+      "pacote": "sprites/fase-1/fase-1.json"
+    },
+    "terreno-agua-funda": {
+      "manifesto": "terreno/terreno-agua-funda.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
       "bytes": {
-        "uhd": 103784,
-        "hd": 34848
+        "uhd": 8218,
+        "hd": 3260
+      }
+    },
+    "terreno-agua-rasa": {
+      "manifesto": "terreno/terreno-agua-rasa.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 32384,
+        "hd": 12170
+      }
+    },
+    "terreno-asfalto-velho": {
+      "manifesto": "terreno/terreno-asfalto-velho.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 27714,
+        "hd": 12138
+      }
+    },
+    "terreno-capim": {
+      "manifesto": "terreno/terreno-capim.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 34486,
+        "hd": 11488
+      }
+    },
+    "terreno-capim-alto": {
+      "manifesto": "terreno/terreno-capim-alto.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 51680,
+        "hd": 22252
+      }
+    },
+    "terreno-cascalho": {
+      "manifesto": "terreno/terreno-cascalho.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 17590,
+        "hd": 2984
+      }
+    },
+    "terreno-entulho": {
+      "manifesto": "terreno/terreno-entulho.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 36216,
+        "hd": 14534
+      }
+    },
+    "terreno-lama": {
+      "manifesto": "terreno/terreno-lama.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 10912,
+        "hd": 3976
+      }
+    },
+    "terreno-rocha": {
+      "manifesto": "terreno/terreno-rocha.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 59048,
+        "hd": 26452
+      }
+    },
+    "terreno-rocha-face": {
+      "manifesto": "terreno/terreno-rocha-face.json",
+      "tipo": "terreno",
+      "categoria": "terreno",
+      "acabamento": "portao",
+      "fases": [
+        "fase-1"
+      ],
+      "bytes": {
+        "uhd": 28724,
+        "hd": 12434
       }
     },
     "terreno-terra-batida": {
@@ -620,9 +785,21 @@
       "desligados-veiculo-locomovel",
       "desligados-veiculo-rolima",
       "efeito-explosao-media",
+      "interface-icones",
       "interface-retrato-turma-de-linha",
+      "neutro-decoracao-arvore-seca",
+      "neutro-decoracao-carcaca-de-onibus",
+      "neutro-decoracao-muro-em-ruina",
+      "neutro-decoracao-pedra",
+      "neutro-decoracao-pneus",
+      "neutro-decoracao-ponte-de-concreto",
+      "neutro-decoracao-poste-caido",
       "neutro-estrutura-holofote-de-estrada",
+      "neutro-estrutura-ponte-basculante",
+      "neutro-estrutura-subestacao",
       "neutro-estrutura-torre-antiga",
+      "neutro-recurso-faisca-de-carga",
+      "neutro-recurso-pilha-de-baterias",
       "religadores-construcao-acumulador",
       "religadores-construcao-almoxarifado-tecnico",
       "religadores-construcao-alojamento-da-turma",
@@ -640,6 +817,16 @@
       "religadores-veiculo-guincho-de-celulas",
       "religadores-veiculo-lanca-bobinas",
       "religadores-veiculo-leiturista",
+      "terreno-agua-funda",
+      "terreno-agua-rasa",
+      "terreno-asfalto-velho",
+      "terreno-capim",
+      "terreno-capim-alto",
+      "terreno-cascalho",
+      "terreno-entulho",
+      "terreno-lama",
+      "terreno-rocha",
+      "terreno-rocha-face",
       "terreno-terra-batida"
     ],
     "portao": [
@@ -658,5 +845,21 @@
       "teste-veiculo-tanque"
     ]
   },
-  "pacotes": {}
+  "pacotes": {
+    "fase-1": {
+      "arquivo": "sprites/fase-1/fase-1.json",
+      "bytes": {
+        "uhd": 5661282,
+        "hd": 1951768
+      },
+      "bytesGpuEstimados": {
+        "uhd": 234881024,
+        "hd": 67108864
+      },
+      "camadas": {
+        "uhd": 7,
+        "hd": 8
+      }
+    }
+  }
 }

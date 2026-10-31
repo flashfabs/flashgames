@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/desligados_veiculo_carro_vela.py",
-  "commit": "3ebe85e",
-  "execucao": "20261031-004140",
+  "commit": "8e09336",
+  "execucao": "20261031-005500",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,8 +33,8 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0335,
-      "time": 0.0209
+      "cor": 0.0304,
+      "time": 0.021
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

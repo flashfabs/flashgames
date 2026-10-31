@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/desligados_construcao_carrocao_mae.py",
-  "commit": "3ebe85e",
-  "execucao": "20261031-003855",
+  "commit": "f069ca5",
+  "execucao": "20261031-005224",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.3916,
-      "time": 0.1288,
-      "sombra": 0.4887
+      "cor": 0.3103,
+      "time": 0.1301,
+      "sombra": 0.501
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

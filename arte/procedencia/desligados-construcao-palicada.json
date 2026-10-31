@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/desligados_construcao_palicada.py",
-  "commit": "3ebe85e",
-  "execucao": "20261031-003944",
+  "commit": "7c4d893",
+  "execucao": "20261031-011634",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,9 +33,9 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0549,
-      "time": 0.0541,
-      "sombra": 0.0969
+      "cor": 0.0552,
+      "time": 0.0349,
+      "sombra": 0.0777
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

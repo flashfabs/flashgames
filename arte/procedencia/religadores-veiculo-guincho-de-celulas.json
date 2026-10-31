@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/religadores_veiculo_guincho_de_celulas.py",
-  "commit": "337fdbc",
-  "execucao": "20261031-004932",
+  "commit": "8e09336",
+  "execucao": "20261031-010221",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,8 +33,8 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0608,
-      "time": 0.0334
+      "cor": 0.0594,
+      "time": 0.033
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"

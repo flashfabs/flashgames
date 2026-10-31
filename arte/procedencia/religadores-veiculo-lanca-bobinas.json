@@ -5,8 +5,8 @@
   "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
   "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
   "script": "arte/blender/assets/religadores_veiculo_lanca_bobinas.py",
-  "commit": "337fdbc",
-  "execucao": "20261031-004949",
+  "commit": "8e09336",
+  "execucao": "20261031-010238",
   "ferramentas": [
     {
       "nome": "Blender",
@@ -33,8 +33,8 @@
       }
     },
     "segundosPorQuadro": {
-      "cor": 0.0429,
-      "time": 0.0259
+      "cor": 0.0413,
+      "time": 0.0248
     }
   },
   "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"
