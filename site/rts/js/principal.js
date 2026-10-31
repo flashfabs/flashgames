@@ -16,7 +16,7 @@ import { criarFilaVisual } from './entrada/fila.js';
 import { criarIndice } from './entrada/indice.js';
 import { criarOrdens } from './entrada/ordens.js';
 import { criarMedidorDeLatencia } from './entrada/latencia.js';
-import { criarColocacao, validarPeloMapa } from './entrada/colocacao.js';
+import { criarColocacao, regraDaPagina, areaDaRede } from './entrada/colocacao.js';
 import { ACAO } from './entrada/teclas.js';
 import { aplicarSelecao } from './entrada/selecao.js';
 import { criarMinimapa } from './interface/minimapa.js';
@@ -24,7 +24,7 @@ import { criarPainel } from './interface/painel.js';
 import { criarBarraDeComandos } from './interface/comandos.js';
 import { criarSobreposicao } from './interface/sobreposicao.js';
 import { carregarTextos } from './interface/textos.js';
-import { catalogoDoPrototipo } from './interface/catalogo.js';
+import { criarCatalogo, catalogoDoMapa } from './interface/catalogo.js';
 import { montarCartao } from './interface/cartao.js';
 import { criarLeitura } from './interface/leitura.js';
 import { criarAlertas, ALERTA, ALERTAS_DE_PERIGO } from './interface/alertas.js';
@@ -36,8 +36,7 @@ import { criarSomDaPartida } from './interface/som-da-partida.js';
 import { criarFim } from './interface/fim.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
-import { DADOS_PROTOTIPO } from './sim/dados.js';
-import { TIPO_COMANDO, SEM_ENTIDADE } from './sim/contratos.js';
+import { TIPO_COMANDO, SEM_ENTIDADE, MOTIVO } from './sim/contratos.js';
 
 const parametros = new URLSearchParams(location.search);
 const opcoes = {
@@ -63,8 +62,8 @@ painelElemento.hidden = !opcoes.painel;
 const atlasInfo = { descricao: '' };
 
 const [projecao, texto] = await Promise.all([carregarProjecao(), carregarTextos()]);
-// The kinds the match runs on; the prototype's until the match data of the simulation arrives.
-let catalogo = catalogoDoPrototipo(DADOS_PROTOTIPO, texto);
+// The kinds the match runs on, from the static map the worker sends first (MapaEstatico.tipos).
+let catalogo = criarCatalogo([], texto);
 const obterCatalogo = () => catalogo;
 const camera = criarCamera(opcoes.zoom, projecao);
 const selecionadas = new Set();
@@ -111,16 +110,21 @@ const fonteDeComandos = {
 };
 const ordens = criarOrdens({ simulacao: fonteDeComandos, estado, efeitos, fila, som, latencia });
 
-// Building placement: the ghost goes to the renderer when it has one, else to the SVG layer.
+// Building placement: the ghost goes to the renderer when it has one, else to the SVG layer; the network area is
+// shaded while placing and follows the snapshots (poles built or cut).
 let fantasma = null;
+let areaDeConstrucao = null;
+function atualizarArea() {
+  areaDeConstrucao = colocacao.ativa ? areaDaRede(estado.mapa, estado.atual, catalogo, estado.jogadorLocal) : null;
+  render.definirAreaDeConstrucao?.(areaDeConstrucao);
+}
 const colocacao = criarColocacao({
-  validar(tipo, cx, cy) {
-    const [largura, altura] = catalogo.info(tipo).pegada;
-    return validarPeloMapa(estado.mapa, estado.atual, cx, cy, largura, altura);
-  },
+  validar: (tipo, cx, cy) => regraDaPagina({ mapa: estado.mapa, retrato: estado.atual, catalogo, area: areaDeConstrucao }, tipo, cx, cy),
   desenhar(novo) {
+    const comecou = novo && !fantasma;
     fantasma = novo;
     render.definirFantasma?.(novo);
+    if (comecou || !novo) atualizarArea();
   },
 });
 
@@ -239,7 +243,18 @@ barra = criarBarraDeComandos({ raiz: document.getElementById('comandos'), utilid
 painelSelecao = criarPainelDeSelecao({ raiz: document.getElementById('selecao'), selecionadas, indice, estado, catalogo: obterCatalogo, leitura, texto, controles, ordens, canvasAlvo: canvas, aoMudar });
 const hud = criarHud({ topo: document.getElementById('topo'), atalhos: document.getElementById('atalhos-mapa'), texto, controles, canvasAlvo: canvas, acoes: acoesDoMapa });
 const avisos = criarAvisos({ lista: document.getElementById('alertas'), texto, catalogo: obterCatalogo, aoEscolher: alerta => centrarEm(alerta.x, alerta.y) });
-const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, fantasma: () => (render.definirFantasma ? null : fantasma) });
+// Rally points of the selected buildings, drawn from the building to the point.
+function encontros() {
+  const linhas = [];
+  for (const id of selecionadas) {
+    const ponto = leitura.producao(id)?.encontro;
+    if (!ponto || ponto.x < 0) continue;
+    const de = indice.centro([id]);
+    if (de) linhas.push({ de, para: ponto });
+  }
+  return linhas;
+}
+const sobreposicao = criarSobreposicao({ svg: document.getElementById('sobreposicao'), canvas, camera, fila, selecionadas, fantasma: () => (render.definirFantasma ? null : fantasma), encontros });
 const minimapa = criarMinimapa({
   minimapa: document.getElementById('minimapa'),
   camera,
@@ -254,13 +269,33 @@ const minimapa = criarMinimapa({
   },
 });
 
-const SOM_DO_ALERTA = { [ALERTA.PRODUCAO]: SOM.PRODUCAO, [ALERTA.CONSTRUCAO]: SOM.CONSTRUCAO, [ALERTA.RECURSO_ESGOTADO]: SOM.ALERTA };
-// Refusal reasons the simulation sends in COMANDO_RECUSADO.arg, in its order (provisional until the event exists).
-const MOTIVOS_DA_RECUSA = ['carga', 'lotacao', 'posicao', 'fila'];
+const SOM_DO_ALERTA = {
+  [ALERTA.PRODUCAO]: SOM.PRODUCAO,
+  [ALERTA.CONSTRUCAO]: SOM.CONSTRUCAO,
+  [ALERTA.PREDIO_PRONTO]: SOM.PRODUCAO,
+  [ALERTA.SEM_ENERGIA]: SOM.ALERTA,
+  [ALERTA.RAJADA]: SOM.ALERTA,
+  [ALERTA.RECURSO_ESGOTADO]: SOM.ALERTA,
+};
+// COMANDO_RECUSADO.arg (MOTIVO) as the status line's reasons (interface/comandos.js MOTIVOS).
+const MOTIVOS_DA_RECUSA = {
+  [MOTIVO.SEM_CARGA]: 'carga',
+  [MOTIVO.LOTACAO_CHEIA]: 'lotacao',
+  [MOTIVO.FILA_CHEIA]: 'fila',
+  [MOTIVO.NAO_PRODUZ]: 'bloqueado',
+  [MOTIVO.BLOQUEADO]: 'bloqueado',
+  [MOTIVO.NADA_PRONTO]: 'nada_pronto',
+  [MOTIVO.FORA_DA_AREA]: 'fora_da_area',
+  [MOTIVO.TERRENO_OCUPADO]: 'terreno_ocupado',
+  [MOTIVO.TERRENO_IMPROPRIO]: 'terreno_improprio',
+  [MOTIVO.CELULA_NAO_VENTOSA]: 'celula_nao_ventosa',
+  [MOTIVO.FORA_DO_MAPA]: 'fora_da_area',
+  [MOTIVO.LIMITE]: 'limite',
+};
 
 function tratarAlerta(alerta) {
   if (alerta.tipo === ALERTA.RECUSA) {
-    barra.atualizar(MOTIVOS_DA_RECUSA[alerta.arg - 1]);
+    barra.atualizar(MOTIVOS_DA_RECUSA[alerta.arg] ?? 'bloqueado');
     som.tocar(SOM.RECUSA);
     return;
   }
@@ -274,6 +309,7 @@ simulacao.iniciar({
   avancar: opcoes.avancar,
   teste: opcoes.teste,
   aoReceberMapa(mapa) {
+    catalogo = catalogoDoMapa(mapa, texto);
     render.definirMapa(mapa);
     camera.x = mapa.bases[0].x + 14;
     camera.y = mapa.bases[0].y - 10;
@@ -287,6 +323,7 @@ simulacao.iniciar({
     fila.atualizar(retrato.tick, indice.posicao, indice.parada);
     for (const alerta of alertas.registrar(retrato.eventos, performance.now())) tratarAlerta(alerta);
     somDaPartida.tocarEventos(retrato.eventos);
+    if (colocacao.ativa) atualizarArea();
     colocacao.revalidar();
     registro?.anotarRetrato(retrato);
     fim.verificar(retrato.eventos);

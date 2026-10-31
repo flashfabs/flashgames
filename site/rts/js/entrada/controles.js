@@ -7,7 +7,7 @@ import { FP, SEM_ENTIDADE } from '../sim/contratos.js';
 import { ACAO, ACOES_COM_ALVO, SETAS, E_MAC, acaoDaTecla, modificadores } from './teclas.js';
 import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO } from './selecao.js';
 import { paraMundo, paraTela } from './camera.js';
-import { TECLAS_DA_GRADE, predioComMenorFila } from '../interface/cartao.js';
+import { TECLAS_DA_GRADE } from '../interface/cartao.js';
 
 /** Client pixels from the window edge where the camera scrolls. */
 const BORDA_PX = 8;
@@ -42,7 +42,6 @@ export function ligarControles({
   visivel,
   catalogo,
   cartao,
-  producao,
   colocacao,
   acoes = {},
   bloqueado = () => false,
@@ -91,7 +90,12 @@ export function ligarControles({
     const jogador = estado.jogadorLocal;
     if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) < ARRASTO_MINIMO) {
       const k = entidadeNoPonto(atual, projetar, e.clientX, e.clientY, j => atual.dono[j] === jogador);
-      if (k < 0) {
+      // With nothing of the player's there, a visible resource pile is picked alone, to read what is left in it.
+      const recurso = k < 0 ? entidadeNoPonto(atual, projetar, e.clientX, e.clientY, j => cat().ehRecurso(atual.tipo[j]) && visivel(atual.x[j] / FP, atual.y[j] / FP)) : -1;
+      if (recurso >= 0) {
+        aplicarSelecao(selecionadas, [atual.id[recurso]], 'trocar');
+        ultimoClique = null;
+      } else if (k < 0) {
         if (!e.shiftKey) selecionadas.clear();
         ultimoClique = null;
       } else {
@@ -189,11 +193,12 @@ export function ligarControles({
 
   // ---------- placing buildings ----------
 
-  function comecarColocacao(tipo, construtor) {
+  /** Places a building of `tipo`: construtores is [the headquarters holding it ready] or the units raising it on site. */
+  function comecarColocacao(tipo, construtores) {
     const [largura, altura] = cat().info(tipo).pegada;
     modo = MODO_COLOCAR;
     modoComFila = false;
-    colocacao.comecar(tipo, construtor, largura, altura);
+    colocacao.comecar(tipo, construtores, largura, altura);
     if (ponteiro.dentro) {
       const { x, y } = ponto(ponteiro.x, ponteiro.y);
       colocacao.apontar(x, y);
@@ -207,6 +212,7 @@ export function ligarControles({
     const atual = colocacao.estado;
     if (!atual.valido) {
       som.tocar('recusa');
+      aoMudar(atual.motivo ?? 'posicao');
       return;
     }
     ordens.construir(atual.construtor, atual.tipo, atual.cx, atual.cy, e.shiftKey, e.timeStamp);
@@ -256,8 +262,8 @@ export function ligarControles({
   }
 
   /**
-   * Runs a slot of the command card (interface/cartao.js): a unit order, training (Shift trains five), starting a
-   * building at the headquarters, or placing the one that is ready.
+   * Runs a slot of the command card (interface/cartao.js): a unit order, training or research (Shift queues five),
+   * queueing a building at the headquarters, placing the one that is ready, or raising one on site with units.
    */
   function executarSlot(slot, { fila = false } = {}, timeStamp = performance.now()) {
     if (!slot) return false;
@@ -265,23 +271,26 @@ export function ligarControles({
       executar({ acao: slot.acao, fila }, timeStamp);
       return true;
     }
-    const { predios: deles } = cartao();
+    const { predios: deles, construtores } = cartao();
     if (slot.modo === 'posicionar') {
-      comecarColocacao(slot.tipo, deles[0]);
+      comecarColocacao(slot.tipo, [deles[0]]);
       som.tocar('clique');
       return true;
     }
-    if (slot.falta || slot.ocupado) {
+    if (slot.falta) {
       som.tocar('recusa');
-      aoMudar(slot.falta ?? 'ocupado');
+      aoMudar(slot.falta);
       return true;
     }
-    if (slot.modo === 'construir') {
-      ordens.produzir(deles[0], slot.tipo, 1, timeStamp);
-    } else {
-      const quantos = fila ? LOTE_COM_SHIFT : 1;
-      for (let i = 0; i < quantos; i++) ordens.produzir(predioComMenorFila(deles, producao), slot.tipo, 1, timeStamp);
+    if (slot.modo === 'erguer') {
+      comecarColocacao(slot.tipo, construtores);
+      som.tocar('clique');
+      return true;
     }
+    // The simulation gives each item to the listed building with the shortest queue.
+    const quantos = fila && slot.modo !== 'construir' ? LOTE_COM_SHIFT : 1;
+    if (slot.modo === 'pesquisar') ordens.pesquisar(deles, slot.pesquisa, timeStamp);
+    else ordens.produzir(deles, slot.tipo, quantos, timeStamp);
     avisar();
     return true;
   }

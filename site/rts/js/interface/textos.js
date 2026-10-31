@@ -42,6 +42,7 @@ export const PROVISORIOS = Object.freeze({
   'alerta.coletor_sob_ataque': 'Coletor sob ataque',
   'alerta.producao_concluida': '{nome} pronto',
   'alerta.construcao_concluida': '{nome} concluído',
+  'alerta.predio_pronto': '{nome} pronto para posicionar',
   'alerta.recurso_esgotado': 'Cemitério esgotado',
   'menu.titulo': 'Menu',
   'menu.continuar': 'Continuar',

@@ -1,13 +1,15 @@
 // The command card: what the Q W E R / A S D F grid offers for the current selection. Units get the orders in fixed
-// places (Q move, R patrol, A attack-move, S stop, D hold), so the hand learns them once; a building gets what it
-// trains, and the headquarters what it builds, in the order of the game data. Pure: the caller renders and runs it.
+// places (Q move, R patrol, A attack-move, S stop, D hold) and, when they raise buildings on site, those buildings in
+// the free places; a building gets what it trains and researches, and the headquarters what it builds, in the order
+// of the game data. Pure: the caller renders and runs it.
 import { ACAO } from '../entrada/teclas.js';
+import { MAX_FILA, ITEM_PESQUISA } from '../sim/contratos.js';
 
 /** Physical keys of the grid, slot by slot, row by row. */
 export const TECLAS_DA_GRADE = Object.freeze(['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyA', 'KeyS', 'KeyD', 'KeyF']);
 export const LETRAS_DA_GRADE = Object.freeze(['Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F']);
-/** Items a building queue holds; the simulation drops the rest. */
-export const MAXIMO_DA_FILA = 5;
+/** Items a building lane holds; the simulation refuses the rest. */
+export const MAXIMO_DA_FILA = MAX_FILA;
 
 const ORDENS_DE_UNIDADE = Object.freeze([
   { slot: 0, acao: ACAO.MOVER, texto: 'comando.mover' },
@@ -16,26 +18,21 @@ const ORDENS_DE_UNIDADE = Object.freeze([
   { slot: 5, acao: ACAO.PARAR, texto: 'comando.parar' },
   { slot: 6, acao: ACAO.SEGURAR, texto: 'comando.segurar' },
 ]);
+/** Places of the unit card left for buildings raised on site: W, E and F. */
+const LIVRES_NA_UNIDADE = Object.freeze([1, 2, 7]);
 
 /**
  * @typedef {object} SlotDoCartao
  * @property {number} slot          0..7
  * @property {string} [acao]        ACAO.* for unit orders
  * @property {string} [texto]       text id of the label (unit orders)
- * @property {number} [tipo]        kind to train or build
- * @property {'produzir'|'construir'|'posicionar'} [modo]
+ * @property {'produzir'|'pesquisar'|'construir'|'posicionar'|'erguer'} [modo]
+ * @property {number} [tipo]        kind to train, build or raise (-1 for research)
+ * @property {number} [pesquisa]    research index (modo 'pesquisar')
  * @property {number} [custo]
  * @property {number} [quantidade]  items of this kind queued in the selected buildings
  * @property {number} [progresso]   0..1 of the item being made, -1 when none of this kind is in progress
  * @property {string|null} [falta]  'carga', 'lotacao' or 'fila' when the simulation would refuse it now
- * @property {boolean} [ocupado]    another building is in progress at the headquarters
- */
-
-/**
- * @typedef {object} ProducaoDoPredio
- * @property {{tipo: number, progresso: number}[]} fila  units being trained, head first; progresso 0..1 for the head
- * @property {{tipo: number, progresso: number} | null} obra  building being built by the headquarters
- * @property {number} pronto  building kind finished and waiting to be placed, -1 when none
  */
 
 /**
@@ -43,71 +40,76 @@ const ORDENS_DE_UNIDADE = Object.freeze([
  * @param {object} entrada
  * @param {{id: number, tipo: number}[]} entrada.selecao  own entities in the selection
  * @param {ReturnType<typeof import('./catalogo.js').criarCatalogo>} entrada.catalogo
- * @param {(id: number) => ProducaoDoPredio | null} entrada.producao
+ * @param {(id: number) => import('./leitura.js').ProducaoDoPredio | null} entrada.producao
  * @param {number} entrada.carga
  * @param {{usada: number, teto: number}} entrada.lotacao
- * @returns {{tipo: 'vazio'|'unidades'|'predio', slots: (SlotDoCartao|null)[], predios: number[], tipoDoPredio: number}}
+ * @returns {{tipo: 'vazio'|'unidades'|'predio', slots: (SlotDoCartao|null)[], predios: number[], construtores: number[], tipoDoPredio: number}}
  */
 export function montarCartao({ selecao, catalogo, producao, carga, lotacao }) {
   const slots = new Array(TECLAS_DA_GRADE.length).fill(null);
-  if (selecao.some(e => catalogo.ehUnidade(e.tipo))) {
+  const unidades = selecao.filter(e => catalogo.ehUnidade(e.tipo));
+  if (unidades.length) {
     for (const ordem of ORDENS_DE_UNIDADE) slots[ordem.slot] = { ...ordem };
-    return { tipo: 'unidades', slots, predios: [], tipoDoPredio: -1 };
+    // Buildings the selected units can raise on site; the first unit able to raise it goes.
+    const ergue = [...new Set(unidades.flatMap(e => catalogo.info(e.tipo).ergue))];
+    ergue.slice(0, LIVRES_NA_UNIDADE.length).forEach((tipo, i) => {
+      const custo = catalogo.info(tipo).custo;
+      slots[LIVRES_NA_UNIDADE[i]] = { slot: LIVRES_NA_UNIDADE[i], modo: 'erguer', tipo, custo, quantidade: 0, progresso: -1, falta: carga < custo ? 'carga' : null };
+    });
+    const construtores = unidades.filter(e => catalogo.info(e.tipo).ergue.length > 0).map(e => e.id);
+    return { tipo: 'unidades', slots, predios: [], construtores, tipoDoPredio: -1 };
   }
   const primeiro = selecao.find(e => catalogo.ehPredio(e.tipo));
-  if (!primeiro) return { tipo: 'vazio', slots, predios: [], tipoDoPredio: -1 };
+  if (!primeiro) return { tipo: 'vazio', slots, predios: [], construtores: [], tipoDoPredio: -1 };
   // Several buildings of the first one's kind work as one: the card counts their queues together.
   const predios = selecao.filter(e => e.tipo === primeiro.tipo).map(e => e.id);
   const info = catalogo.info(primeiro.tipo);
-  const filas = predios.map(id => producao(id) ?? { fila: [], obra: null, pronto: -1 });
+  const filas = predios.map(id => producao(id) ?? { fila: [], obras: [], obra: null, pronto: -1 });
   const cheias = filas.every(p => p.fila.length >= MAXIMO_DA_FILA);
 
-  info.produz.slice(0, slots.length).forEach((tipo, slot) => {
-    const dados = catalogo.info(tipo);
+  /** Count and head progress of `item` (a kind, or research as ITEM_PESQUISA + index) in the given lane of every building. */
+  function naFila(faixa, item) {
     let quantidade = 0;
     let progresso = -1;
     for (const p of filas) {
-      p.fila.forEach((item, posicao) => {
-        if (item.tipo !== tipo) return;
+      p[faixa].forEach((entrada, posicao) => {
+        if (entrada.item !== item) return;
         quantidade += 1;
-        if (posicao === 0) progresso = Math.max(progresso, item.progresso);
+        if (posicao === 0) progresso = Math.max(progresso, entrada.progresso);
       });
     }
-    const falta = carga < dados.custo ? 'carga' : lotacao.usada + dados.lotacao > lotacao.teto ? 'lotacao' : cheias ? 'fila' : null;
-    slots[slot] = { slot, tipo, modo: 'produzir', custo: dados.custo, quantidade, progresso, falta };
-  });
-
-  // The headquarters builds one building at a time and then waits for it to be placed.
-  if (info.constroi.length > 0) {
-    const fila = filas[0];
-    const emObra = fila.obra?.tipo ?? -1;
-    const deslocamento = info.produz.length;
-    info.constroi.slice(0, slots.length - deslocamento).forEach((tipo, i) => {
-      const slot = deslocamento + i;
-      const dados = catalogo.info(tipo);
-      if (fila.pronto === tipo) {
-        slots[slot] = { slot, tipo, modo: 'posicionar', custo: dados.custo, quantidade: 1, progresso: 1, falta: null };
-        return;
-      }
-      const ocupado = fila.pronto !== -1 || (emObra !== -1 && emObra !== tipo);
-      const progresso = emObra === tipo ? fila.obra.progresso : -1;
-      const falta = progresso < 0 && carga < dados.custo ? 'carga' : null;
-      slots[slot] = { slot, tipo, modo: 'construir', custo: dados.custo, quantidade: progresso < 0 ? 0 : 1, progresso, falta, ocupado };
-    });
+    return { quantidade, progresso };
   }
-  return { tipo: 'predio', slots, predios, tipoDoPredio: primeiro.tipo };
-}
 
-/** The building among `predios` with the shortest queue, the one that should take the next item. */
-export function predioComMenorFila(predios, producao) {
-  let melhor = predios[0] ?? -1;
-  let menor = Infinity;
-  for (const id of predios) {
-    const tamanho = producao(id)?.fila.length ?? 0;
-    if (tamanho < menor) {
-      menor = tamanho;
-      melhor = id;
+  let slot = 0;
+  for (const tipo of info.produz) {
+    if (slot >= slots.length) break;
+    const dados = catalogo.info(tipo);
+    const falta = carga < dados.custo ? 'carga' : lotacao.usada + dados.lotacao > lotacao.teto ? 'lotacao' : cheias ? 'fila' : null;
+    slots[slot] = { slot, tipo, modo: 'produzir', custo: dados.custo, ...naFila('fila', tipo), falta };
+    slot += 1;
+  }
+  for (const pesquisa of catalogo.pesquisasDe(primeiro.tipo)) {
+    if (slot >= slots.length) break;
+    const falta = carga < pesquisa.custo ? 'carga' : cheias ? 'fila' : null;
+    slots[slot] = { slot, tipo: -1, pesquisa: pesquisa.indice, modo: 'pesquisar', custo: pesquisa.custo, ...naFila('fila', ITEM_PESQUISA + pesquisa.indice), falta };
+    slot += 1;
+  }
+  // The headquarters queues buildings in its construction lane; the head waits to be placed once ready.
+  if (info.constroi.length > 0) {
+    const sede = filas[0];
+    const obrasCheias = sede.obras.length >= MAXIMO_DA_FILA;
+    for (const tipo of info.constroi) {
+      if (slot >= slots.length) break;
+      const custo = catalogo.info(tipo).custo;
+      if (sede.pronto === tipo) {
+        slots[slot] = { slot, tipo, modo: 'posicionar', custo, quantidade: naFila('obras', tipo).quantidade, progresso: 1, falta: null };
+      } else {
+        const fila = naFila('obras', tipo);
+        slots[slot] = { slot, tipo, modo: 'construir', custo, ...fila, falta: carga < custo ? 'carga' : obrasCheias ? 'fila' : null };
+      }
+      slot += 1;
     }
   }
-  return melhor;
+  return { tipo: 'predio', slots, predios, construtores: [], tipoDoPredio: primeiro.tipo };
 }

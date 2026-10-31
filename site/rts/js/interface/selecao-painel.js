@@ -1,8 +1,13 @@
 // Selection panel of the bottom bar: for many entities, one button per kind with how many and their mean health
-// (clicking one keeps only that kind); for one building, its queue with the progress of the item being made and a
-// button per item that cancels it; for one unit, its name and health. Refreshed a few times a second and touched
-// only when what it shows changes.
-const VIDA_MAXIMA = 255;
+// (clicking one keeps only that kind); for one building, its state (under construction, without power) and both
+// queues with the progress of the head and a button per item that cancels it; for one unit, its health and, for a
+// harvester, its load; for a resource pile, harvesters at it and what is left. Refreshed a few times a second and
+// touched only when what it shows changes.
+import { BANDEIRA, FAIXA, FAIXA_ESTADO } from '../sim/contratos.js';
+
+const MAXIMO_DO_BYTE = 255;
+/** Harvesters a node serves at once (the "3/3" of the panel); the design's saturation. */
+const SATURACAO = 3;
 
 export function criarPainelDeSelecao({ raiz, selecionadas, indice, estado, catalogo, leitura, texto, controles, ordens, canvasAlvo, aoMudar }) {
   let anterior = '';
@@ -18,7 +23,7 @@ export function criarPainelDeSelecao({ raiz, selecionadas, indice, estado, catal
       for (const id of [...selecionadas]) if (indice.tipo(id) !== tipo) selecionadas.delete(id);
       aoMudar();
     } else if (botao.dataset.cancelar !== undefined) {
-      ordens.cancelar(Number(botao.dataset.predio), Number(botao.dataset.cancelar), e.timeStamp);
+      ordens.cancelar(Number(botao.dataset.predio), Number(botao.dataset.faixa), Number(botao.dataset.cancelar), e.timeStamp);
     }
   });
 
@@ -32,27 +37,55 @@ export function criarPainelDeSelecao({ raiz, selecionadas, indice, estado, catal
       const tipo = atual.tipo[k];
       const g = grupos.get(tipo) ?? { tipo, n: 0, vida: 0 };
       g.n += 1;
-      g.vida += atual.vida[k] / VIDA_MAXIMA;
+      g.vida += atual.vida[k] / MAXIMO_DO_BYTE;
       grupos.set(tipo, g);
     }
     return [...grupos.values()];
   }
 
-  const barraDeVida = fracao => `<span class="barra-vida"><i style="width:${Math.round(fracao * 100)}%"></i></span>`;
+  const barra = (fracao, classe = 'barra-vida') => `<span class="${classe}"><i style="width:${Math.round(fracao * 100)}%"></i></span>`;
+
+  function itemDaFila(id, faixa, item, posicao, legenda) {
+    const pct = Math.floor(item.progresso * 100);
+    return `<button type="button" class="botao item-fila" data-predio="${id}" data-faixa="${faixa}" data-cancelar="${posicao}" title="${texto('comando.cancelar')}"><b>${catalogo().nomeDoItem(item.item)}</b><small>${legenda ?? (posicao === 0 ? `${pct}%` : texto('hud.fila'))}</small>${posicao === 0 ? barra(item.progresso, 'progresso') : ''}</button>`;
+  }
 
   function htmlDaFila(id) {
     const producao = leitura.producao(id);
     if (!producao) return '';
     const itens = [];
-    if (producao.pronto >= 0) itens.push(`<span class="botao item-fila"><b>${catalogo().nome(producao.pronto)}</b><small>${texto('hud.pronto_posicionar')}</small></span>`);
-    if (producao.obra) {
-      itens.push(`<span class="botao item-fila"><b>${catalogo().nome(producao.obra.tipo)}</b><small>${Math.floor(producao.obra.progresso * 100)}%</small><span class="progresso"><i style="width:${Math.round(producao.obra.progresso * 100)}%"></i></span></span>`);
-    }
+    producao.obras.forEach((item, posicao) => {
+      const legenda = posicao === 0 && producao.pronto >= 0 ? texto('hud.pronto_posicionar') : undefined;
+      itens.push(itemDaFila(id, FAIXA.CONSTRUCAO, item, posicao, legenda));
+    });
     producao.fila.forEach((item, posicao) => {
-      const pct = posicao === 0 ? Math.floor(item.progresso * 100) : 0;
-      itens.push(`<button type="button" class="botao item-fila" data-predio="${id}" data-cancelar="${posicao}" title="${texto('comando.cancelar')}"><b>${catalogo().nome(item.tipo)}</b><small>${posicao === 0 ? `${pct}%` : texto('hud.fila')}</small>${posicao === 0 ? `<span class="progresso"><i style="width:${pct}%"></i></span>` : ''}</button>`);
+      const legenda = posicao === 0 && producao.estadoFila === FAIXA_ESTADO.ESPERA_LOTACAO ? texto('hud.lotacao_cheia') : undefined;
+      itens.push(itemDaFila(id, FAIXA.UNIDADES, item, posicao, legenda));
     });
     return itens.length ? `<div class="selecao-fila">${itens.join('')}</div>` : `<div class="selecao-detalhe">${texto('hud.fila_vazia')}</div>`;
+  }
+
+  // The line under the name of one selected entity.
+  function detalhe(id, k) {
+    const atual = estado.atual;
+    const tipo = atual.tipo[k];
+    const cat = catalogo();
+    const bandeiras = atual.bandeiras[k];
+    if (cat.ehPredio(tipo)) {
+      if (bandeiras & BANDEIRA.EM_OBRA) {
+        const fracao = atual.progresso[k] / MAXIMO_DO_BYTE;
+        return `<div class="selecao-detalhe">${texto('hud.em_construcao', { pct: Math.floor(fracao * 100) })}</div>${barra(fracao, 'progresso')}`;
+      }
+      const semEnergia = cat.info(tipo).precisaRede && !(bandeiras & BANDEIRA.ENERGIZADO) ? `<div class="selecao-detalhe selecao-alerta">${texto('hud.sem_energia', { nome: cat.nome(tipo) })}</div>` : '';
+      return semEnergia + htmlDaFila(id);
+    }
+    if (cat.ehRecurso(tipo)) {
+      const ocupacao = cat.categoria(tipo) === 'recurso' ? `${texto('hud.saturacao', { n: atual.ocupacao[k], max: SATURACAO })} · ` : '';
+      return `<div class="selecao-detalhe">${ocupacao}${Math.round((atual.carga[k] / MAXIMO_DO_BYTE) * 100)}%</div>${barra(atual.carga[k] / MAXIMO_DO_BYTE, 'progresso')}`;
+    }
+    const vida = barra(atual.vida[k] / MAXIMO_DO_BYTE);
+    if (cat.ehColetor(tipo)) return `${vida}<div class="selecao-detalhe">${texto('hud.carga')} ${Math.round((atual.carga[k] / MAXIMO_DO_BYTE) * 100)}%</div>`;
+    return vida;
   }
 
   function atualizar() {
@@ -65,15 +98,11 @@ export function criarPainelDeSelecao({ raiz, selecionadas, indice, estado, catal
       const [id] = selecionadas;
       const k = indice.k(id);
       const tipo = grupos[0].tipo;
-      const atual = estado.atual;
-      const vida = Math.round((atual.vida[k] / VIDA_MAXIMA) * 100);
-      const detalhe = catalogo().ehPredio(tipo)
-        ? htmlDaFila(id)
-        : `<div class="selecao-detalhe">${barraDeVida(atual.vida[k] / VIDA_MAXIMA)}</div>`;
-      html = `<div class="selecao-titulo"><b>${catalogo().nome(tipo)}</b><span>${vida}%</span></div>${detalhe}`;
+      const vida = Math.round((estado.atual.vida[k] / MAXIMO_DO_BYTE) * 100);
+      html = `<div class="selecao-titulo"><b>${catalogo().nome(tipo)}</b><span>${catalogo().ehRecurso(tipo) ? '' : `${vida}%`}</span></div>${detalhe(id, k)}`;
     } else {
       const titulo = texto('hud.selecionadas', { n: selecionadas.size });
-      const tipos = grupos.map(g => `<button type="button" class="botao selecao-tipo" data-tipo="${g.tipo}" title="Só ${catalogo().nome(g.tipo)}"><b>${catalogo().nome(g.tipo)} ×${g.n}</b>${barraDeVida(g.vida / g.n)}</button>`).join('');
+      const tipos = grupos.map(g => `<button type="button" class="botao selecao-tipo" data-tipo="${g.tipo}" title="Só ${catalogo().nome(g.tipo)}"><b>${catalogo().nome(g.tipo)} ×${g.n}</b>${barra(g.vida / g.n)}</button>`).join('');
       html = `<div class="selecao-titulo"><b>${titulo}</b></div><div class="selecao-tipos">${tipos}</div>`;
     }
     if (html === anterior) return;

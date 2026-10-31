@@ -1,16 +1,71 @@
 // What the HUD reads from each snapshot (C2) for the local player: Carga, population against its ceiling, the queues
-// of the player's buildings and the idle harvesters. Rebuilt once per snapshot, so the DOM code only asks.
-// Fields the simulation does not send yet fall back to what can be derived (population from the kinds' data, idle
-// harvesters from the "no order" flag), and the fallback goes away with the field.
-import { BANDEIRA } from '../sim/contratos.js';
+// and rally points of the player's buildings, and the idle harvesters. Rebuilt once per snapshot, so the DOM code
+// only asks.
+import {
+  BANDEIRA, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE, FP,
+  FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, TAMANHO_FAIXA, TAMANHO_REGISTRO_FILA,
+} from '../sim/contratos.js';
 
-/** Population ceiling of the first phase when the snapshot does not say it. */
+/** Population ceiling of the first phase when the snapshot carries none. */
 export const TETO_PADRAO = 60;
-/** Values in queue records: progress is sent in thousandths. */
 const ESCALA_PROGRESSO = 1000;
 
+/**
+ * @typedef {object} ItemDaFila
+ * @property {number} item       kind, or ITEM_PESQUISA + research index
+ * @property {number} tipo       kind, -1 for research
+ * @property {number} pesquisa   research index, -1 for a kind
+ * @property {number} progresso  0..1 for the head, 0 for the rest
+ */
+
+/**
+ * @typedef {object} ProducaoDoPredio
+ * @property {ItemDaFila[]} fila      unit lane (units and research), head first
+ * @property {number} estadoFila      FAIXA_ESTADO of the unit lane's head
+ * @property {ItemDaFila[]} obras     construction lane of the headquarters, head first
+ * @property {{tipo: number, progresso: number} | null} obra  building being built (the construction lane's head)
+ * @property {number} pronto          building kind waiting to be placed, -1 when none
+ * @property {{x: number, y: number, alvo: number} | null} encontro rally point in cells
+ */
+
+function lerFaixa(filas, base) {
+  const estado = filas[base + FX_ESTADO];
+  const n = filas[base + FX_N];
+  const progresso = filas[base + FX_PROGRESSO] / ESCALA_PROGRESSO;
+  const itens = [];
+  for (let k = 0; k < n; k++) {
+    const item = filas[base + FX_ITENS + k];
+    if (item < 0) continue;
+    const pesquisa = item >= ITEM_PESQUISA ? item - ITEM_PESQUISA : -1;
+    itens.push({ item, tipo: pesquisa < 0 ? item : -1, pesquisa, progresso: k === 0 ? progresso : 0 });
+  }
+  return { estado, itens };
+}
+
+/** Queue records of Retrato.filas by producer id. */
+export function lerFilas(filas, saida = new Map()) {
+  saida.clear();
+  for (let o = 0; o + TAMANHO_REGISTRO_FILA <= filas.length; o += TAMANHO_REGISTRO_FILA) {
+    const unidades = lerFaixa(filas, o + FL_FAIXAS + FAIXA.UNIDADES * TAMANHO_FAIXA);
+    const construcao = lerFaixa(filas, o + FL_FAIXAS + FAIXA.CONSTRUCAO * TAMANHO_FAIXA);
+    const cabeca = construcao.itens[0] ?? null;
+    const pronto = construcao.estado === FAIXA_ESTADO.PRONTO && cabeca ? cabeca.tipo : -1;
+    const ex = filas[o + FL_ENCONTRO_X];
+    const alvo = filas[o + FL_ENCONTRO_ALVO];
+    saida.set(filas[o + FL_PRODUTOR], {
+      fila: unidades.itens,
+      estadoFila: unidades.estado,
+      obras: construcao.itens,
+      obra: cabeca && pronto < 0 ? { tipo: cabeca.tipo, progresso: cabeca.progresso } : null,
+      pronto,
+      encontro: ex < 0 && alvo === SEM_ENTIDADE ? null : { x: ex / FP, y: filas[o + FL_ENCONTRO_Y] / FP, alvo },
+    });
+  }
+  return saida;
+}
+
 export function criarLeitura({ catalogo }) {
-  const producoes = new Map(); // building id → ProducaoDoPredio
+  const producoes = new Map();
   const ociosos = [];
   const lotacao = { usada: 0, teto: TETO_PADRAO };
   let carga = 0;
@@ -20,42 +75,22 @@ export function criarLeitura({ catalogo }) {
   function atualizar(retrato, jogador) {
     const cat = catalogo();
     carga = retrato.recursos?.[jogador] ?? 0;
-    producoes.clear();
     ociosos.length = 0;
     qg = -1;
-    let usada = 0;
-    const flagOciosa = BANDEIRA.OCIOSA ?? BANDEIRA.PARADA;
     for (let k = 0; k < retrato.n; k++) {
       if (retrato.dono[k] !== jogador) continue;
       const tipo = retrato.tipo[k];
-      usada += cat.info(tipo).lotacao;
-      if (qg < 0 && cat.ehQG(tipo)) qg = retrato.id[k];
-      if (cat.ehColetor(tipo) && retrato.bandeiras[k] & flagOciosa) ociosos.push(retrato.id[k]);
+      if (qg < 0 && cat.ehQG(tipo) && !(retrato.bandeiras[k] & BANDEIRA.EM_OBRA)) qg = retrato.id[k];
+      if (cat.ehColetor(tipo) && retrato.bandeiras[k] & BANDEIRA.OCIOSA) ociosos.push(retrato.id[k]);
     }
-    if (retrato.lotacao) {
-      lotacao.usada = retrato.lotacao[jogador * 2];
-      lotacao.teto = retrato.lotacao[jogador * 2 + 1];
+    if (retrato.lotacao && retrato.lotacao.length >= 2 * (jogador + 1) && retrato.lotacao[2 * jogador + 1] > 0) {
+      lotacao.usada = retrato.lotacao[2 * jogador];
+      lotacao.teto = retrato.lotacao[2 * jogador + 1];
     } else {
-      lotacao.usada = usada;
+      lotacao.usada = 0;
       lotacao.teto = TETO_PADRAO;
     }
-    lerFilas(retrato);
-  }
-
-  // Queue records of the local player's buildings: [building id, kind, progress in thousandths, slot], slot 0 for the
-  // units being trained (in order), 1 for the building under construction and 2 for a building ready to be placed.
-  function lerFilas(retrato) {
-    const filas = retrato.filas;
-    if (!filas) return;
-    for (let o = 0; o + 4 <= filas.length; o += 4) {
-      const id = filas[o];
-      let p = producoes.get(id);
-      if (!p) producoes.set(id, (p = { fila: [], obra: null, pronto: -1 }));
-      const item = { tipo: filas[o + 1], progresso: filas[o + 2] / ESCALA_PROGRESSO };
-      if (filas[o + 3] === 0) p.fila.push(item);
-      else if (filas[o + 3] === 1) p.obra = item;
-      else p.pronto = item.tipo;
-    }
+    lerFilas(retrato.filas ?? [], producoes);
   }
 
   return {
@@ -66,13 +101,17 @@ export function criarLeitura({ catalogo }) {
     get lotacao() {
       return lotacao;
     },
-    /** Queue of a building, or null when it has none (or the snapshot carries no queues). */
+    /** Queue of a building, or null when it is not a producer of the local player. */
     producao: id => producoes.get(id) ?? null,
+    /** Every producer of the local player and its queue. */
+    get producoes() {
+      return producoes;
+    },
     /** Idle harvesters of the local player, in slot order. */
     get ociosos() {
       return ociosos;
     },
-    /** The local player's headquarters, or -1. */
+    /** The local player's finished headquarters, or -1. */
     get qg() {
       return qg;
     },

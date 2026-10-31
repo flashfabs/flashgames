@@ -72,18 +72,25 @@ export function criarOrdens({ simulacao, estado, efeitos, fila, som, latencia })
     coletar(ids, alvo, ponto, naFila, timeStamp) {
       return enviar(TIPO_COMANDO.COLETAR, ids, { ponto, alvo, naFila, timeStamp });
     },
-    /** One item of `tipo` in a building's queue; at the headquarters, a building kind starts being built. */
-    produzir(predio, tipo, quantidade, timeStamp) {
-      return enviarDePredio(TIPO_COMANDO.PRODUZIR, [predio], { arg: tipo, timeStamp, quantidade });
+    /** `quantidade` items of `tipo` (a unit, or a building at the headquarters); the simulation picks the shortest queue among `predios`. */
+    produzir(predios, tipo, quantidade, timeStamp) {
+      return enviarDePredio(TIPO_COMANDO.PRODUZIR, predios, { arg: tipo, timeStamp, quantidade });
     },
-    /** Takes item `posicao` out of a building's queue. */
-    cancelar(predio, posicao, timeStamp) {
-      return enviarDePredio(TIPO_COMANDO.CANCELAR, [predio], { arg: posicao, timeStamp });
+    /** Research `indice` (MapaEstatico.pesquisas) in one of the buildings. */
+    pesquisar(predios, indice, timeStamp) {
+      return enviarDePredio(TIPO_COMANDO.PESQUISAR, predios.slice(0, 1), { arg: indice, timeStamp });
     },
-    /** Places the building of `tipo` the headquarters has ready, with its top-left cell at (cx, cy). */
-    construir(construtor, tipo, cx, cy, naFila, timeStamp) {
-      const comando = enviarDePredio(TIPO_COMANDO.CONSTRUIR, [construtor], { arg: tipo, x: cx * FP, y: cy * FP, naFila, timeStamp });
-      if (comando) efeitos.adicionar(EFEITO.ORDEM, cx, cy, 0, 0, DURACAO_DA_MARCA_MS, 1.3);
+    /** Takes item `posicao` out of lane `faixa` (FAIXA.*) of a building's queue. */
+    cancelar(predio, faixa, posicao, timeStamp) {
+      return enviarDePredio(TIPO_COMANDO.CANCELAR, [predio], { x: faixa, arg: posicao, timeStamp });
+    },
+    /**
+     * Places a building of `tipo` with its top-left cell at (cx, cy): construtores is [the headquarters holding it
+     * ready] or the units that raise it on site. The point sent is the centre of that cell.
+     */
+    construir(construtores, tipo, cx, cy, naFila, timeStamp) {
+      const comando = enviarDePredio(TIPO_COMANDO.CONSTRUIR, construtores, { arg: tipo, x: cx * FP + (FP >> 1), y: cy * FP + (FP >> 1), naFila, timeStamp });
+      if (comando) efeitos.adicionar(EFEITO.ORDEM, cx + 0.5, cy + 0.5, 0, 0, DURACAO_DA_MARCA_MS, 1.3);
       return comando;
     },
     /** Where the units of these buildings gather; a target entity makes them follow or harvest it. */

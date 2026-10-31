@@ -12,7 +12,20 @@ const UTILIDADES = [
 ];
 
 const MODOS = { [ACAO.ATACAR_MOVENDO]: 'atacar-movendo', [ACAO.MOVER]: 'mover', [ACAO.PATRULHAR]: 'patrulhar' };
-const MOTIVOS = { carga: 'hud.sem_carga', lotacao: 'hud.lotacao_cheia', fila: 'hud.fila_cheia', posicao: 'hud.posicao_invalida' };
+/** Why a command is refused, as the status line says it. */
+export const MOTIVOS = {
+  carga: 'hud.sem_carga',
+  lotacao: 'hud.lotacao_cheia',
+  fila: 'hud.fila_cheia',
+  posicao: 'hud.posicao_invalida',
+  fora_da_area: 'hud.fora_da_area',
+  terreno_ocupado: 'hud.terreno_ocupado',
+  terreno_improprio: 'hud.terreno_improprio',
+  celula_nao_ventosa: 'hud.celula_nao_ventosa',
+  bloqueado: 'hud.bloqueado',
+  nada_pronto: 'hud.nada_pronto',
+  limite: 'hud.limite',
+};
 const DURACAO_DO_MOTIVO_MS = 2200;
 
 function teclaDe(acao, mods = '') {
@@ -75,14 +88,14 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
     if (slot?.acao) {
       nome = texto(slot.texto);
     } else if (slot) {
-      nome = catalogo().nome(slot.tipo);
+      nome = slot.modo === 'pesquisar' ? catalogo().pesquisa(slot.pesquisa)?.nomeVisivel ?? '?' : catalogo().nome(slot.tipo);
       if (slot.modo === 'posicionar') info = 'pronto';
       else if (slot.progresso >= 0) info = `${Math.floor(slot.progresso * 100)}%`;
       else info = `${slot.custo} C`;
       if (slot.quantidade > 1) info += ` ·${slot.quantidade}`;
       progresso = slot.progresso;
     }
-    const assinatura = slot ? `${nome}|${info}|${slot.falta ?? ''}|${slot.ocupado ?? ''}|${slot.modo ?? ''}|${Math.round(progresso * 50)}` : '';
+    const assinatura = slot ? `${nome}|${info}|${slot.falta ?? ''}|${slot.modo ?? ''}|${Math.round(progresso * 50)}` : '';
     if (assinatura === assinaturas[i]) return;
     assinaturas[i] = assinatura;
     botao.dataset.vazio = String(!slot);
@@ -90,7 +103,7 @@ export function criarBarraDeComandos({ raiz, utilidades, controles, grupos, indi
     botao.querySelector('[data-info]').textContent = info;
     botao.dataset.falta = String(Boolean(slot?.falta));
     botao.dataset.pronto = String(slot?.modo === 'posicionar');
-    botao.disabled = Boolean(slot?.ocupado);
+    botao.disabled = false;
     botao.title = slot ? `${nome} (${LETRAS_DA_GRADE[i]})${slot.falta ? ` · ${texto(MOTIVOS[slot.falta])}` : ''}` : '';
     const barra = botao.querySelector('.progresso');
     barra.hidden = !(progresso >= 0 && progresso < 1);

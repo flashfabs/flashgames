@@ -1,6 +1,7 @@
-// Alerts from the presentation events of each snapshot (C3): under attack (base, harvester, any unit), production and
-// construction finished, resource exhausted and refused commands. Attacks are grouped by place and time, so a long
-// fight raises one alert, not one per shot; the last alert with a place is kept for the "go to last alert" key.
+// Alerts from the presentation events of each snapshot (C3): under attack (base, harvester, any unit), an attack on
+// the way (missions), production and construction finished, a building ready to place, power lost, a gust announced,
+// resource exhausted and refused commands. Attacks are grouped by place and time, so a long fight raises one alert, not
+// one per shot; the last alert with a place is kept for the "go to last alert" key.
 // Pure: no DOM; the caller answers who owns an entity and what kind of thing a type is.
 import { EVENTO, TAMANHO_EVENTO, E_TIPO, E_ENTIDADE, E_ALVO, E_X, E_Y, E_ALVO_X, E_ALVO_Y, E_ARG, FP } from '../sim/contratos.js';
 
@@ -8,14 +9,20 @@ export const ALERTA = Object.freeze({
   SOB_ATAQUE: 'sobAtaque',
   BASE_SOB_ATAQUE: 'baseSobAtaque',
   COLETOR_SOB_ATAQUE: 'coletorSobAtaque',
+  AVISO_ATAQUE: 'avisoAtaque',
   PRODUCAO: 'producao',
   CONSTRUCAO: 'construcao',
+  PREDIO_PRONTO: 'predioPronto',
+  SEM_ENERGIA: 'semEnergia',
+  RAJADA: 'rajada',
   RECURSO_ESGOTADO: 'recursoEsgotado',
   RECUSA: 'recusa',
 });
 
 /** Kinds that mean danger: they ping the minimap and sound the alarm. */
-export const ALERTAS_DE_PERIGO = new Set([ALERTA.SOB_ATAQUE, ALERTA.BASE_SOB_ATAQUE, ALERTA.COLETOR_SOB_ATAQUE]);
+export const ALERTAS_DE_PERIGO = new Set([ALERTA.SOB_ATAQUE, ALERTA.BASE_SOB_ATAQUE, ALERTA.COLETOR_SOB_ATAQUE, ALERTA.AVISO_ATAQUE]);
+/** Kinds without a place worth going to. */
+const SEM_LUGAR = new Set([ALERTA.RECUSA, ALERTA.RAJADA]);
 
 /** Attacks closer than this (cells) to an alert still running join it instead of raising a new one. */
 export const RAIO_DO_ATAQUE = 12;
@@ -67,19 +74,26 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
         ataque(entidade, x, y, agora, novos);
       } else if (tipo === EVENTO.TIRO && !temSobAtaque) {
         if (donoDe(entidade) !== jogador) ataque(eventos[o + E_ALVO], eventos[o + E_ALVO_X], eventos[o + E_ALVO_Y], agora, novos);
-      } else if (tipo === EVENTO.PRODUCAO_CONCLUIDA || tipo === EVENTO.CONSTRUCAO_CONCLUIDA) {
+      } else if (tipo === EVENTO.AVISO_ATAQUE) {
+        ataques.push({ x: x / FP, y: y / FP, ate: agora + SILENCIO_DO_ATAQUE_MS });
+        novos.push({ tipo: ALERTA.AVISO_ATAQUE, x: x / FP, y: y / FP, entidade: -1, arg, quando: agora });
+      } else if (tipo === EVENTO.PRODUCAO_CONCLUIDA || tipo === EVENTO.CONSTRUCAO_CONCLUIDA || tipo === EVENTO.PREDIO_PRONTO || tipo === EVENTO.REDE_CORTADA) {
+        // the new unit, the researching building, the finished building, the headquarters or the unpowered building
         if (donoDe(entidade) !== jogador) continue;
-        novos.push({ tipo: tipo === EVENTO.PRODUCAO_CONCLUIDA ? ALERTA.PRODUCAO : ALERTA.CONSTRUCAO, x: x / FP, y: y / FP, entidade, arg, quando: agora });
+        const qual = { [EVENTO.PRODUCAO_CONCLUIDA]: ALERTA.PRODUCAO, [EVENTO.CONSTRUCAO_CONCLUIDA]: ALERTA.CONSTRUCAO, [EVENTO.PREDIO_PRONTO]: ALERTA.PREDIO_PRONTO, [EVENTO.REDE_CORTADA]: ALERTA.SEM_ENERGIA }[tipo];
+        novos.push({ tipo: qual, x: x / FP, y: y / FP, entidade, arg, quando: agora });
+      } else if (tipo === EVENTO.RAJADA_ANUNCIADA) {
+        novos.push({ tipo: ALERTA.RAJADA, x: 0, y: 0, entidade: -1, arg, quando: agora });
       } else if (tipo === EVENTO.RECURSO_ESGOTADO) {
         novos.push({ tipo: ALERTA.RECURSO_ESGOTADO, x: x / FP, y: y / FP, entidade, arg, quando: agora });
-      } else if (EVENTO.COMANDO_RECUSADO !== undefined && tipo === EVENTO.COMANDO_RECUSADO) {
-        // a refused command carries its player where an entity would be
-        if (entidade !== jogador) continue;
-        novos.push({ tipo: ALERTA.RECUSA, x: x / FP, y: y / FP, entidade: -1, arg, quando: agora });
+      } else if (tipo === EVENTO.COMANDO_RECUSADO) {
+        // the refused command's player is in alvoX, its kind in alvoY and the reason (MOTIVO) in arg
+        if (eventos[o + E_ALVO_X] !== jogador) continue;
+        novos.push({ tipo: ALERTA.RECUSA, x: x / FP, y: y / FP, entidade, arg, quando: agora });
       }
     }
     for (let i = ataques.length - 1; i >= 0; i--) if (ataques[i].ate < agora) ataques.splice(i, 1);
-    for (const alerta of novos) if (alerta.tipo !== ALERTA.RECUSA) ultimo = alerta;
+    for (const alerta of novos) if (!SEM_LUGAR.has(alerta.tipo)) ultimo = alerta;
     return novos;
   }
 

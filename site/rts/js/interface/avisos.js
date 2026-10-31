@@ -1,6 +1,7 @@
 // Alert list at the top right: each alert is a line for a few seconds, newest at the bottom, at most a handful at
 // once; clicking one brings the camera to where it happened. Danger alerts are marked for the eye and the alarm.
 import { ALERTA, ALERTAS_DE_PERIGO } from './alertas.js';
+import { PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
 
 const DURACAO_MS = 6000;
 const MAXIMO = 4;
@@ -9,8 +10,12 @@ const TEXTO_DO_ALERTA = {
   [ALERTA.SOB_ATAQUE]: 'alerta.sob_ataque',
   [ALERTA.BASE_SOB_ATAQUE]: 'alerta.base_sob_ataque',
   [ALERTA.COLETOR_SOB_ATAQUE]: 'alerta.coletor_sob_ataque',
+  [ALERTA.AVISO_ATAQUE]: 'hud.aviso_ataque',
   [ALERTA.PRODUCAO]: 'alerta.producao_concluida',
   [ALERTA.CONSTRUCAO]: 'alerta.construcao_concluida',
+  [ALERTA.PREDIO_PRONTO]: 'alerta.predio_pronto',
+  [ALERTA.SEM_ENERGIA]: 'hud.sem_energia',
+  [ALERTA.RAJADA]: 'hud.rajada',
   [ALERTA.RECURSO_ESGOTADO]: 'alerta.recurso_esgotado',
 };
 
@@ -34,7 +39,7 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher }) {
   function textoDe(alerta) {
     const id = TEXTO_DO_ALERTA[alerta.tipo];
     if (!id) return '';
-    return texto(id, { nome: catalogo().nome(alerta.arg) });
+    return texto(id, { nome: catalogo().nomeDoItem(alerta.arg), s: Math.round(alerta.arg / PASSOS_POR_SEGUNDO) });
   }
 
   /** Shows an alert; refusals are not listed here (the command bar says them). */
