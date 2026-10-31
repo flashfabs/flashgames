@@ -1,13 +1,27 @@
 // Lookup from entity id (with generation) to its index in the latest snapshot, rebuilt once per snapshot, so selection,
-// groups and queue points can ask "is this unit alive and where is it" without scanning.
+// groups and queue points can ask "is this unit alive and where is it" without scanning. Owner and kind of an entity
+// that died in this snapshot's ticks still answer from the previous one, so its events (hit, harvester lost) can be
+// told apart.
 import { FP, BANDEIRA } from '../sim/contratos.js';
 
 export function criarIndice() {
-  const porId = new Map();
+  let porId = new Map();
+  let anteriores = new Map();
   let retrato = null;
+  let anterior = null;
+
+  // [owner, kind] of an entity in the latest snapshot or, gone since, in the one before; null when neither has it
+  function donoETipo(id) {
+    const k = porId.get(id);
+    if (k !== undefined) return [retrato.dono[k], retrato.tipo[k]];
+    const j = anteriores.get(id);
+    return j === undefined ? null : [anterior.dono[j], anterior.tipo[j]];
+  }
 
   return {
     atualizar(novo) {
+      [anteriores, porId] = [porId, anteriores];
+      anterior = retrato;
       retrato = novo;
       porId.clear();
       for (let k = 0; k < novo.n; k++) porId.set(novo.id[k], k);
@@ -25,6 +39,10 @@ export function criarIndice() {
       const k = porId.get(id);
       return k === undefined ? -1 : retrato.tipo[k];
     },
+    /** Owner of the entity, also when it died since the previous snapshot; -1 when unknown. */
+    donoRecente: id => donoETipo(id)?.[0] ?? -1,
+    /** Kind of the entity, also when it died since the previous snapshot; -1 when unknown. */
+    tipoRecente: id => donoETipo(id)?.[1] ?? -1,
     /** Cell position of the unit, written to saida; false when it is gone. */
     posicao(id, saida) {
       const k = porId.get(id);

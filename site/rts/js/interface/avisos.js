@@ -14,12 +14,18 @@ const TEXTO_DO_ALERTA = {
   [ALERTA.PRODUCAO]: 'alerta.producao_concluida',
   [ALERTA.CONSTRUCAO]: 'alerta.construcao_concluida',
   [ALERTA.PREDIO_PRONTO]: 'alerta.predio_pronto',
-  [ALERTA.SEM_ENERGIA]: 'hud.sem_energia',
+  [ALERTA.SEM_ENERGIA]: 'alerta.rede_cortada',
+  [ALERTA.COLETOR_PERDIDO]: 'alerta.coletor_perdido',
   [ALERTA.RAJADA]: 'hud.rajada',
+  [ALERTA.RAJADA_PAGA]: 'alerta.rajada_paga',
   [ALERTA.RECURSO_ESGOTADO]: 'alerta.recurso_esgotado',
 };
 
-export function criarAvisos({ lista, texto, catalogo, aoEscolher }) {
+/**
+ * @param {object} opcoes
+ * @param {(grupo: number) => string | null} [opcoes.textoDoAviso] text id the mission gives an attack warning of that group
+ */
+export function criarAvisos({ lista, texto, catalogo, aoEscolher, textoDoAviso = () => null }) {
   const vivos = [];
 
   lista.addEventListener('click', e => {
@@ -37,9 +43,10 @@ export function criarAvisos({ lista, texto, catalogo, aoEscolher }) {
 
   /** The line an alert shows. */
   function textoDe(alerta) {
-    const id = TEXTO_DO_ALERTA[alerta.tipo];
+    const doAviso = alerta.tipo === ALERTA.AVISO_ATAQUE ? textoDoAviso(alerta.arg) : null;
+    const id = doAviso && texto.tem(doAviso) ? doAviso : TEXTO_DO_ALERTA[alerta.tipo];
     if (!id) return '';
-    return texto(id, { nome: catalogo().nomeDoItem(alerta.arg), s: Math.round(alerta.arg / PASSOS_POR_SEGUNDO) });
+    return texto(id, { nome: catalogo().nomeDoItem(alerta.arg), s: Math.round(alerta.arg / PASSOS_POR_SEGUNDO), n: alerta.arg });
   }
 
   /** Shows an alert; refusals are not listed here (the command bar says them). */

@@ -37,6 +37,7 @@ import { criarMenu } from './interface/menu.js';
 import { criarSomDaPartida } from './interface/som-da-partida.js';
 import { criarFim } from './interface/fim.js';
 import { criarSomProvisorio, SOM } from './audio/provisorio.js';
+import { criarRegistro, nomesDosGrupos } from './telemetria/registro.js';
 import { criarPonteSimulacao } from './ponte-simulacao.js';
 import { TIPO_COMANDO, SEM_ENTIDADE, MOTIVO, VERSAO_SIMULACAO, VERSAO_COMANDOS } from './sim/contratos.js';
 
@@ -80,7 +81,7 @@ criarResolucao({ canvas, palco, modo: opcoes.resolucao, aoMudar: render.redimens
 
 const indice = criarIndice();
 const leitura = criarLeitura({ catalogo: obterCatalogo });
-const alertas = criarAlertas({ jogador: estado.jogadorLocal, donoDe: indice.dono, tipoDe: indice.tipo, categoria: tipo => catalogo.categoria(tipo) });
+const alertas = criarAlertas({ jogador: estado.jogadorLocal, donoDe: indice.donoRecente, tipoDe: indice.tipoRecente, categoria: tipo => catalogo.categoria(tipo) });
 const painel = criarPainel({ painel: painelElemento, canvas, estado, resolucao: opcoes.resolucao, info: render.info, atlasInfo });
 const medicao = criarMedicao({ ativa: opcoes.bench, segundos: opcoes.segundos, estado, camera, canvas, render, modo: opcoes.resolucao, saida: document.getElementById('resultado') });
 
@@ -92,20 +93,14 @@ const somDaPartida = criarSomDaPartida({ som, camera, catalogo: obterCatalogo })
 const { afastado, padrao, aproximado } = projecao.zooms;
 const zoom = criarZoom({ canvas, camera, niveis: [afastado, padrao, aproximado], fatorInicial: opcoes.zoom });
 
-// The playtest log (C15, telemetry front) gets every command the page sends and every snapshot; it loads on its own,
-// starts when the static map tells the kinds, and the game runs without it.
+// The playtest log (C15, telemetry front) gets every command the page sends and every snapshot; it starts when the
+// static map tells the kinds.
 let registro = null;
 let controles = null;
-const moduloDoRegistro = opcoes.bench
-  ? Promise.resolve(null)
-  : import('./telemetria/registro.js').catch(erro => {
-      console.warn('playtest log (C15) not available', erro);
-      return null;
-    });
 function comecarRegistro(mapa) {
-  moduloDoRegistro.then(modulo => {
-    if (!modulo) return;
-    registro = modulo.criarRegistro({
+  if (opcoes.bench) return;
+  try {
+    registro = criarRegistro({
       missao: arquivosDaPartida?.missao.id ?? 'prototipo',
       jogadorLocal: estado.jogadorLocal,
       dificuldade: opcoes.dificuldade,
@@ -114,7 +109,18 @@ function comecarRegistro(mapa) {
       missaoDados: arquivosDaPartida?.missao,
       versoes: { simulacao: VERSAO_SIMULACAO, comandos: VERSAO_COMANDOS },
     });
-  });
+  } catch (erro) {
+    console.error('playtest log (C15) did not start; the match goes on without it', erro);
+  }
+}
+
+// Attack warnings name their mission group by index (the log's order); the mission gives each warning its text.
+const textosDosAvisos = new Map();
+if (arquivosDaPartida) {
+  const grupos = nomesDosGrupos(arquivosDaPartida.missao);
+  for (const gatilho of arquivosDaPartida.missao.gatilhos ?? []) {
+    for (const acao of gatilho.faz ?? []) if (acao.faz === 'aviso' && acao.texto) textosDosAvisos.set(grupos.indexOf(acao.grupo), acao.texto);
+  }
 }
 
 // With ?teste=1 every command sent is also kept, so the end-to-end tests can read what the input produced.
@@ -261,7 +267,7 @@ controles = ligarControles({
 barra = criarBarraDeComandos({ raiz: document.getElementById('comandos'), utilidades: document.getElementById('utilidades'), controles, grupos, indice, selecionadas, canvasAlvo: canvas, telaCheia, texto, catalogo: obterCatalogo, cartao: () => cartaoAtual });
 painelSelecao = criarPainelDeSelecao({ raiz: document.getElementById('selecao'), selecionadas, indice, estado, catalogo: obterCatalogo, leitura, texto, controles, ordens, canvasAlvo: canvas, aoMudar });
 const hud = criarHud({ topo: document.getElementById('topo'), atalhos: document.getElementById('atalhos-mapa'), texto, controles, canvasAlvo: canvas, acoes: acoesDoMapa });
-const avisos = criarAvisos({ lista: document.getElementById('alertas'), texto, catalogo: obterCatalogo, aoEscolher: alerta => centrarEm(alerta.x, alerta.y) });
+const avisos = criarAvisos({ lista: document.getElementById('alertas'), texto, catalogo: obterCatalogo, aoEscolher: alerta => centrarEm(alerta.x, alerta.y), textoDoAviso: grupo => textosDosAvisos.get(grupo) ?? null });
 // Rally points of the selected buildings, drawn from the building to the point.
 function encontros() {
   const linhas = [];
@@ -293,7 +299,9 @@ const SOM_DO_ALERTA = {
   [ALERTA.CONSTRUCAO]: SOM.CONSTRUCAO,
   [ALERTA.PREDIO_PRONTO]: SOM.PRODUCAO,
   [ALERTA.SEM_ENERGIA]: SOM.ALERTA,
+  [ALERTA.COLETOR_PERDIDO]: SOM.ALERTA,
   [ALERTA.RAJADA]: SOM.ALERTA,
+  [ALERTA.RAJADA_PAGA]: SOM.PRODUCAO,
   [ALERTA.RECURSO_ESGOTADO]: SOM.ALERTA,
 };
 // COMANDO_RECUSADO.arg (MOTIVO) as the status line's reasons (interface/comandos.js MOTIVOS).
@@ -378,7 +386,7 @@ function quadro(agora) {
     recalcularCartao();
     barra.atualizar();
     painelSelecao.atualizar();
-    hud.atualizar({ carga: leitura.carga, lotacao: leitura.lotacao, ociosos: leitura.ociosos, temAlerta: alertas.ultimo !== null, tick: estado.tick });
+    hud.atualizar({ carga: leitura.carga, lotacao: leitura.lotacao, ociosos: leitura.ociosos, temAlerta: alertas.ultimo !== null, tick: estado.tick, proximaRajada: estado.atual?.proximaRajada ?? 0 });
     menu.atualizarAviso(controles.pausado);
   }
   const cpu = performance.now() - inicio;

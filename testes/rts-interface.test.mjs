@@ -14,6 +14,7 @@ import { cantoDaPegada, criarColocacao, regraDaPagina, areaDaRede } from '../sit
 import { resultadoDosEventos, nomeDoArquivo } from '../site/rts/js/interface/fim.js';
 import { volumePelaDistancia, ALCANCE_DO_SOM } from '../site/rts/js/interface/som-da-partida.js';
 import { relogio } from '../site/rts/js/interface/hud.js';
+import { criarIndice } from '../site/rts/js/entrada/indice.js';
 import {
   EVENTO, TAMANHO_EVENTO, FP, BANDEIRA, CATEGORIA, MOTIVO, FAIXA, FAIXA_ESTADO, ITEM_PESQUISA, SEM_ENTIDADE,
   FL_PRODUTOR, FL_ENCONTRO_X, FL_ENCONTRO_Y, FL_ENCONTRO_ALVO, FL_FAIXAS, FX_ESTADO, FX_PROGRESSO, FX_N, FX_ITENS, TAMANHO_FAIXA, TAMANHO_REGISTRO_FILA,
@@ -134,6 +135,26 @@ test('refusals, ready buildings, power loss, gusts and attack warnings become al
   ), 0);
   assert.deepEqual(novos.map(a => [a.tipo, a.arg]), [[ALERTA.RECUSA, MOTIVO.SEM_CARGA], [ALERTA.PREDIO_PRONTO, 5], [ALERTA.SEM_ENERGIA, 4], [ALERTA.RAJADA, 300], [ALERTA.AVISO_ATAQUE, 0]]);
   assert.deepEqual([alertas.ultimo.tipo, alertas.ultimo.x], [ALERTA.AVISO_ATAQUE, 60], 'a gust has no place to go to');
+});
+
+test('a lost harvester, a paid gust and one alert for a cut pole, and owners of the just-dead come from the snapshot before', () => {
+  const indice = criarIndice();
+  const retrato = ids => ({ n: ids.length, id: Int32Array.from(ids), dono: Uint8Array.from(ids.map(id => (id === 9 ? 1 : 0))), tipo: Uint16Array.from(ids.map(id => (id === 3 ? 0 : 4))), x: new Int32Array(ids.length), y: new Int32Array(ids.length), bandeiras: new Uint16Array(ids.length) });
+  indice.atualizar(retrato([3, 5, 6, 9]));
+  indice.atualizar(retrato([5, 6, 9]));
+  assert.equal(indice.dono(3), -1);
+  assert.equal(indice.donoRecente(3), 0, 'the harvester died in these ticks');
+  assert.equal(indice.tipoRecente(3), 0);
+  const alertas = criarAlertas({ jogador: 0, donoDe: indice.donoRecente, tipoDe: indice.tipoRecente, categoria: catalogo.categoria });
+  const novos = alertas.registrar(eventos(
+    evento(EVENTO.CARGA_DERRAMADA, 3, { x: 30, y: 30, arg: 100 }),
+    evento(EVENTO.RAJADA, 5, { arg: 40 }),
+    evento(EVENTO.RAJADA, 9, { arg: 40 }),
+    evento(EVENTO.REDE_CORTADA, 5, { arg: 4 }),
+    evento(EVENTO.REDE_CORTADA, 6, { arg: 4 }),
+  ), 0);
+  assert.deepEqual(novos.map(a => a.tipo), [ALERTA.COLETOR_PERDIDO, ALERTA.RAJADA_PAGA, ALERTA.SEM_ENERGIA]);
+  assert.equal(alertas.registrar(eventos(evento(EVENTO.REDE_CORTADA, 6, { arg: 4 })), 9000).length, 1, 'after the silence it alerts again');
 });
 
 test('finished production and construction alert only for the player, with the kind made', () => {

@@ -14,7 +14,9 @@ export const ALERTA = Object.freeze({
   CONSTRUCAO: 'construcao',
   PREDIO_PRONTO: 'predioPronto',
   SEM_ENERGIA: 'semEnergia',
+  COLETOR_PERDIDO: 'coletorPerdido',
   RAJADA: 'rajada',
+  RAJADA_PAGA: 'rajadaPaga',
   RECURSO_ESGOTADO: 'recursoEsgotado',
   RECUSA: 'recusa',
 });
@@ -28,6 +30,8 @@ const SEM_LUGAR = new Set([ALERTA.RECUSA, ALERTA.RAJADA]);
 export const RAIO_DO_ATAQUE = 12;
 /** An attack alert stays running this long after its last hit (ms); after that the same place alerts again. */
 export const SILENCIO_DO_ATAQUE_MS = 8000;
+/** A cut pole turns many buildings off at once: one power alert in this long (ms). */
+const SILENCIO_DA_REDE_MS = 8000;
 
 /**
  * @param {object} opcoes
@@ -40,6 +44,7 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
   // running attack alerts: { x, y, ate }
   const ataques = [];
   let ultimo = null;
+  let redeAte = -Infinity;
   // Once the simulation sends SOB_ATAQUE, shots stop being read as attacks (they were only the stand-in).
   let temSobAtaque = false;
 
@@ -77,11 +82,19 @@ export function criarAlertas({ jogador, donoDe, tipoDe, categoria }) {
       } else if (tipo === EVENTO.AVISO_ATAQUE) {
         ataques.push({ x: x / FP, y: y / FP, ate: agora + SILENCIO_DO_ATAQUE_MS });
         novos.push({ tipo: ALERTA.AVISO_ATAQUE, x: x / FP, y: y / FP, entidade: -1, arg, quando: agora });
-      } else if (tipo === EVENTO.PRODUCAO_CONCLUIDA || tipo === EVENTO.CONSTRUCAO_CONCLUIDA || tipo === EVENTO.PREDIO_PRONTO || tipo === EVENTO.REDE_CORTADA) {
-        // the new unit, the researching building, the finished building, the headquarters or the unpowered building
+      } else if (tipo === EVENTO.PRODUCAO_CONCLUIDA || tipo === EVENTO.CONSTRUCAO_CONCLUIDA || tipo === EVENTO.PREDIO_PRONTO || tipo === EVENTO.RAJADA) {
+        // the new unit, the researching building, the finished building, the headquarters or the paid windmill
         if (donoDe(entidade) !== jogador) continue;
-        const qual = { [EVENTO.PRODUCAO_CONCLUIDA]: ALERTA.PRODUCAO, [EVENTO.CONSTRUCAO_CONCLUIDA]: ALERTA.CONSTRUCAO, [EVENTO.PREDIO_PRONTO]: ALERTA.PREDIO_PRONTO, [EVENTO.REDE_CORTADA]: ALERTA.SEM_ENERGIA }[tipo];
+        const qual = { [EVENTO.PRODUCAO_CONCLUIDA]: ALERTA.PRODUCAO, [EVENTO.CONSTRUCAO_CONCLUIDA]: ALERTA.CONSTRUCAO, [EVENTO.PREDIO_PRONTO]: ALERTA.PREDIO_PRONTO, [EVENTO.RAJADA]: ALERTA.RAJADA_PAGA }[tipo];
         novos.push({ tipo: qual, x: x / FP, y: y / FP, entidade, arg, quando: agora });
+      } else if (tipo === EVENTO.REDE_CORTADA) {
+        if (donoDe(entidade) !== jogador || agora < redeAte) continue;
+        redeAte = agora + SILENCIO_DA_REDE_MS;
+        novos.push({ tipo: ALERTA.SEM_ENERGIA, x: x / FP, y: y / FP, entidade, arg, quando: agora });
+      } else if (tipo === EVENTO.CARGA_DERRAMADA) {
+        // the harvester is dead by now: its owner comes from the snapshot before
+        if (donoDe(entidade) !== jogador) continue;
+        novos.push({ tipo: ALERTA.COLETOR_PERDIDO, x: x / FP, y: y / FP, entidade, arg, quando: agora });
       } else if (tipo === EVENTO.RAJADA_ANUNCIADA) {
         novos.push({ tipo: ALERTA.RAJADA, x: 0, y: 0, entidade: -1, arg, quando: agora });
       } else if (tipo === EVENTO.RECURSO_ESGOTADO) {

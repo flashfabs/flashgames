@@ -1,5 +1,5 @@
 // Top bar and minimap shortcuts: Carga and population against the ceiling (red when full, a pulse when Carga drops),
-// the match clock, and the buttons for the next idle harvester (with how many there are), the last alert and the
+// the match clock with the countdown to the next wind gust, and the buttons for the next idle harvester (with how many there are), the last alert and the
 // base. Values are written only when they change.
 import { PASSOS_POR_SEGUNDO } from '../sim/contratos.js';
 
@@ -34,9 +34,12 @@ export function criarHud({ topo, atalhos, texto, controles, canvasAlvo, acoes })
     acoes[botao.dataset.atalho]?.(e.timeStamp);
   });
 
-  /** @param {{carga: number, lotacao: {usada: number, teto: number}, ociosos: number[], temAlerta: boolean, tick: number}} valores */
-  function atualizar({ carga: c, lotacao: l, ociosos, temAlerta, tick }) {
-    const tempo = relogio(tick);
+  /**
+   * @param {{carga: number, lotacao: {usada: number, teto: number}, ociosos: number[], temAlerta: boolean, tick: number, proximaRajada: number}} valores
+   */
+  function atualizar({ carga: c, lotacao: l, ociosos, temAlerta, tick, proximaRajada = 0 }) {
+    const rajada = proximaRajada > tick ? ` · ${texto('hud.rajada_em', { s: Math.ceil((proximaRajada - tick) / PASSOS_POR_SEGUNDO) })}` : '';
+    const tempo = relogio(tick) + rajada;
     if (estado.textContent !== tempo) estado.textContent = tempo;
     if (c !== cargaAnterior) {
       if (cargaAnterior !== null && c < cargaAnterior) {
