@@ -8,6 +8,7 @@ import { EVENTO, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, DONO_NEUTRO } from './con
 import * as estado from './estado.js';
 import { slotVivo, emitirEvento } from './entidades.js';
 import { retirarVisao } from './neblina.js';
+import { trocarDonoNaGrade } from './pegadas.js';
 import { ordenarGrupo, limparOrdens } from './ordens.js';
 
 // a unit works on a structure within the structure's radius plus this distance
@@ -123,7 +124,7 @@ export function sendoReligada(sim, j, jogador = -1) {
 export function trocarDono(sim, i, jogador) {
   if (!sim.ativo[i] || sim.time[i] === jogador) return;
   retirarVisao(sim, i);
-  sim.time[i] = jogador;
+  trocarDonoNaGrade(sim, i, jogador);
   limparOrdens(sim, i);
   sim.alvo[i] = -1;
   sim.parada[i] = 1;

@@ -1,7 +1,8 @@
 // Footprints: buildings, building sites, piles and map structures block the cells under them in the grid that flow
 // fields, movement and orders read (sim.grade), on top of the terrain. A footprint is a rectangle of cells whose centre
-// is the entity's position, so its top-left cell follows from the position and the kind's size.
-import { FP, FP_BITS, CATEGORIA } from './contratos.js';
+// is the entity's position, so its top-left cell follows from the position and the kind's size. A passage (a bascule
+// bridge) blocks like any structure while neutral and, once re-powered, opens its cells instead, even over water.
+import { FP, FP_BITS, CATEGORIA, DONO_NEUTRO } from './contratos.js';
 import { atualizarPedagio, invalidarCampos } from './caminhos.js';
 
 /** Work units a tick of full speed adds to a building site or a production lane. */
@@ -24,13 +25,15 @@ export function carimbarPegada(sim, i, sinal) {
   const [largura, altura] = sim.tipos[sim.tipo[i]].pegada;
   const x0 = cantoDaPegada(sim.x[i], largura);
   const y0 = cantoDaPegada(sim.y[i], altura);
-  const { grade, pegadas } = sim;
+  const { grade, pegadas, passagens } = sim;
   const terreno = sim.mapa.bloqueado;
+  const abre = sim.passagemPorTipo[sim.tipo[i]] === 1 && sim.time[i] !== DONO_NEUTRO;
   for (let y = y0; y < y0 + altura; y++) {
     for (let x = x0; x < x0 + largura; x++) {
       const c = y * grade.largura + x;
-      pegadas[c] += sinal;
-      grade.bloqueado[c] = terreno[c] || pegadas[c] > 0 ? 1 : 0;
+      if (abre) passagens[c] += sinal;
+      else pegadas[c] += sinal;
+      grade.bloqueado[c] = (terreno[c] && passagens[c] === 0) || pegadas[c] > 0 ? 1 : 0;
     }
   }
   atualizarPedagio(sim.caminhos, x0, y0, x0 + largura - 1, y0 + altura - 1);
@@ -40,10 +43,22 @@ export function carimbarPegada(sim, i, sinal) {
 /** Rebuilds the grid from the terrain and every live footprint (after loading a saved state). */
 export function reconstruirGrade(sim) {
   sim.pegadas.fill(0);
+  sim.passagens.fill(0);
   sim.grade.bloqueado.set(sim.mapa.bloqueado);
   for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && temPegada(sim.categoriaPorTipo[sim.tipo[i]])) carimbarPegada(sim, i, 1);
   atualizarPedagio(sim.caminhos, 0, 0, sim.grade.largura - 1, sim.grade.altura - 1);
   sim.gradeMudou = 0;
+}
+
+/**
+ * Gives entity i to `dono`, stamping its footprint again under the new owner: a passage re-powered by a team opens its
+ * cells, and the flow fields start over at the end of the tick. Every owner change of an entity goes through here.
+ */
+export function trocarDonoNaGrade(sim, i, dono) {
+  const pegada = temPegada(sim.categoriaPorTipo[sim.tipo[i]]);
+  if (pegada) carimbarPegada(sim, i, -1);
+  sim.time[i] = dono;
+  if (pegada) carimbarPegada(sim, i, 1);
 }
 
 /** End of tick: when footprints changed, the flow fields start over on the new grid. */

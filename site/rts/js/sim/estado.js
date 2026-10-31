@@ -110,6 +110,7 @@ export function criarEstado({ opcoes, mapa, dados, regras, capacidade, times, se
     // flow fields, movement and orders read this, the terrain alone stays in mapa.bloqueado
     grade: { largura: mapa.largura, altura: mapa.altura, bloqueado: mapa.bloqueado.slice() },
     pegadas: new Uint8Array(mapa.largura * mapa.altura), // footprints covering each cell
+    passagens: new Uint8Array(mapa.largura * mapa.altura), // re-powered passages (bascule bridges) opening each cell
     gradeMudou: 0, // a footprint changed this tick: fields are recomputed
     tipos,
     economia: dados.economia,
@@ -138,6 +139,8 @@ export function criarEstado({ opcoes, mapa, dados, regras, capacidade, times, se
   sim.raioPorTipo = Int32Array.from(tipos, tipo => tipo.raio);
   sim.coletorPorTipo = Uint8Array.from(tipos, tipo => tipo.coletor);
   sim.categoriaPorTipo = Uint8Array.from(tipos, tipo => tipo.categoria);
+  // structures that become ground when re-powered (a bascule bridge lowers its deck over the water)
+  sim.passagemPorTipo = Uint8Array.from(tipos, tipo => (tipo.extras?.papel === 'religavel-passagem' ? 1 : 0));
   sim.caminhos = criarCaminhos(sim.grade);
   sim.extras = {};
   for (const [grupo, criar] of CRIADORES_EXTRAS) sim.extras[grupo] = criar(sim, opcoes);

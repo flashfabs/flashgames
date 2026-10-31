@@ -39,6 +39,10 @@ const ARGUMENTOS = [
 // On the Windows PC the ANGLE backend comes from SALINHA_ANGLE, chosen by scripts/rtx-testes.sh after checking which one reaches the NVIDIA card.
 const ANGLE = process.env.SALINHA_ANGLE ?? (process.platform === 'win32' ? 'd3d11' : 'metal');
 const COM_GPU = [`--use-angle=${ANGLE}`, '--enable-gpu', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
+// The PC's test runner also gives the functional tests the GPU (SALINHA_GPU_FUNCIONAIS=1): headless Chrome launched
+// over SSH on Windows otherwise draws in SwiftShader, and the RTS pages stall for seconds once the grey kit's texture
+// arrays load. The Mac and the GitHub runner keep their defaults.
+const GPU_NOS_FUNCIONAIS = process.env.SALINHA_GPU_FUNCIONAIS === '1';
 
 export default defineConfig({
   testDir: 'testes/e2e',
@@ -48,7 +52,11 @@ export default defineConfig({
   workers: Number(process.env.SALINHA_PROCESSOS ?? 1),
   fullyParallel: false,
   projects: [
-    { name: 'funcionais', testIgnore: /(desempenho|longo|galeria|rts-determinismo)\.spec\.mjs$/ },
+    {
+      name: 'funcionais',
+      testIgnore: /(desempenho|longo|galeria|rts-determinismo)\.spec\.mjs$/,
+      ...(GPU_NOS_FUNCIONAIS ? { use: { launchOptions: { args: [...ARGUMENTOS, ...COM_GPU] } } } : {}),
+    },
     { name: 'desempenho', testMatch: /(desempenho|longo|galeria)\.spec\.mjs$/, use: { launchOptions: { args: [...ARGUMENTOS, ...COM_GPU] } } },
     // The same matches in the three engines; npm run e2e runs them with --project='rts-determinismo-*'.
     ...['chromium', 'firefox', 'webkit'].map((motor) => ({
