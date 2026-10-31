@@ -6,7 +6,7 @@
 
 ## Papel na matriz
 
-Oficina: blindagem Estrutura, cerca de 800 C, 40 segundos, 1.800 de vida; produz Guincho de Células e Leiturista, e no nível 2 o Cesto Blindado e o Lança-Bobinas.
+Oficina: blindagem Estrutura, cerca de 800 C, 40 segundos, 1.800 de vida; produz Guincho de Células, Leiturista e Equipe de Manutenção, e no nível 2 o Cesto Blindado e o Lança-Bobinas.
 
 É prédio elétrico: fora da rede produz a 50%, e a interferência o desliga por alguns segundos.
 

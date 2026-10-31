@@ -226,7 +226,7 @@
     },
     {
       "id": "derrota",
-      "quando": {"se": "contagem", "jogador": 0, "tipos": ["escritorio-regional", "poste-avancado", "equipe-de-manutencao"], "maximo": 0},
+      "quando": {"se": "contagem", "jogador": 0, "tipos": ["escritorio-regional", "poste-avancado", "equipe-de-manutencao", "garagem"], "maximo": 0},
       "acoes": [
         {"faz": "mensagem", "texto": "radio.locutor.caixa_derrota"},
         {"faz": "derrota", "jogador": 0}
