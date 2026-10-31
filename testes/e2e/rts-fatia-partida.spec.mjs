@@ -1,10 +1,13 @@
 // The grey slice played end to end through the test hook, on the design front's sandbox (site/rts/dados/missoes/
 // caixa-de-areia.json): the match starts with the player's base and the enemy camp, harvesters bring Carga, the
-// headquarters builds and places buildings, a producer trains a unit, the army fights, and both end conditions
-// are reached, defeat and victory, with the play-test log (C15) closing with that result and readable by the pacing
-// checker. Orders go through the same commands the interface sends; the worker fast-forwards between them.
+// accumulator (the depot) and a barracks are built and placed, a producer trains a unit, the army fights, and both
+// end conditions are reached: defeat by recycling the headquarters and losing the crew, victory by holding through
+// the six waves with the scripted player of rts-roteiro.mjs, with the play-test log (C15) closing with that result and
+// readable by the pacing checker. Orders go through the same commands the interface sends; the worker fast-forwards
+// between them.
 import { test, expect } from '@playwright/test';
 import { validarRegistro, conferirRegistro } from '../../ferramentas/rts/ritmo/ritmo.mjs';
+import { criarRoteiro, decidir, DECISAO_SEGUNDOS } from './rts-roteiro.mjs';
 
 const SEGUNDO = 30;
 const MINUTO = 60 * SEGUNDO;
@@ -79,7 +82,8 @@ test('a match: collect, build, produce and fight', async ({ page }) => {
   test.setTimeout(5 * 60 * 1000);
   await abrirCaixa(page);
 
-  await test.step('harvesters bring Carga to the headquarters', async () => {
+  await test.step('harvesters bring Carga to the accumulator, the depot', async () => {
+    await construir(page, 'acumulador');
     const r = await retrato(page);
     const guinchos = minhas(r, 'guincho-de-celulas').map(e => e.id);
     const qg = minhas(r, 'escritorio-regional')[0];
@@ -93,10 +97,9 @@ test('a match: collect, build, produce and fight', async ({ page }) => {
     expect(pilha?.carga ?? 0).toBeLessThan(255);
   });
 
-  await test.step('the headquarters builds an accumulator and a barracks', async () => {
-    const acumulador = await construir(page, 'acumulador');
-    expect(acumulador.dono).toBe(0);
+  await test.step('the headquarters builds a barracks', async () => {
     const alojamento = await construir(page, 'alojamento-da-turma');
+    expect(alojamento.dono).toBe(0);
     await avancarAte(page, r => r.entidades.find(e => e.id === alojamento.id)?.progresso === 255, MINUTO, 5 * SEGUNDO, 'o alojamento terminado');
   });
 
@@ -124,7 +127,7 @@ test('a match: collect, build, produce and fight', async ({ page }) => {
   });
 });
 
-test('defeat: without headquarters, forward post and maintenance crew the player loses', async ({ page }) => {
+test('defeat: without headquarters, forward post, garage and maintenance crew the player loses', async ({ page }) => {
   test.setTimeout(5 * 60 * 1000);
   await abrirCaixa(page);
   const r = await retrato(page);
@@ -138,6 +141,7 @@ test('defeat: without headquarters, forward post and maintenance crew the player
   let tick = r.tick;
   while ((await eventos(page, 'DERROTA')).length === 0 && tick < fim) tick = (await avancar(page, 10 * SEGUNDO)).tick;
   expect((await eventos(page, 'DERROTA')).length, 'DERROTA em até 10 min de jogo').toBeGreaterThan(0);
+  expect((await eventos(page, 'DERROTA'))[0].arg, 'a derrota é do jogador 0').toBe(0);
   expect(await eventos(page, 'VITORIA')).toHaveLength(0);
   const registro = await page.evaluate(() => window.__rts.registro());
   if (registro) {
@@ -146,40 +150,28 @@ test('defeat: without headquarters, forward post and maintenance crew the player
   }
 });
 
-test('victory: an army built at the base takes the camp down, and the log reads in the pacing checker', async ({ page }) => {
+test('victory: holding the base and the harvested yard through the six waves wins, and the log reads in the pacing checker', async ({ page }) => {
   test.setTimeout(10 * 60 * 1000);
   await abrirCaixa(page);
-  const inicio = await retrato(page);
-  const guinchos = minhas(inicio, 'guincho-de-celulas').map(e => e.id);
-  const qg = minhas(inicio, 'escritorio-regional')[0];
-  const pilhas = inicio.entidades.filter(e => e.nome === 'pilha').sort((a, b) => Math.hypot(a.x - qg.x, a.y - qg.y) - Math.hypot(b.x - qg.x, b.y - qg.y));
-  await comando(page, { tipo: 'COLETAR', unidades: guinchos, alvo: pilhas[0].id });
-  await construir(page, 'acumulador');
-  const alojamento = await construir(page, 'alojamento-da-turma');
-  const turma = await tipoDe(page, 'turma-de-linha');
-  const guarda = { x: qg.x + 6 * 1024, y: qg.y - 6 * 1024 };
-  await comando(page, { tipo: 'PONTO_DE_ENCONTRO', unidades: [alojamento.id], x: guarda.x, y: guarda.y });
-  const acampamento = ['barracao', 'ferraria-a-vapor', 'carrocao-mae'];
-  // a plain plan: keep the barracks busy, gather a dozen squads at the guard point, then take the camp building by building
-  const fim = inicio.tick + 25 * MINUTO;
-  let atacando = false;
+  // the scripted player of rts-roteiro.mjs, tuned against the real simulation in Node: it wins on Normal at about 20 min
+  const mapa = await page.evaluate(() => ({ tipos: window.__rts.estado.mapa.tipos.map(({ nome, custo, categoria }) => ({ nome, custo, categoria })) }));
+  const roteiro = criarRoteiro();
+  const fim = (await retrato(page)).tick + 26 * MINUTO;
   let r = await retrato(page);
-  while ((await eventos(page, 'VITORIA')).length === 0 && (await eventos(page, 'DERROTA')).length === 0 && r.tick < fim) {
-    const fila = r.filas.find(f => f.produtor === alojamento.id);
-    if (fila && fila.faixas.UNIDADES.itens.length < 2 && r.recursos[0] >= 100) await comando(page, { tipo: 'PRODUZIR', unidades: [alojamento.id], arg: turma });
-    const exercito = minhas(r, 'turma-de-linha');
-    atacando ||= exercito.length >= 12 || r.tick - inicio.tick > 12 * MINUTO;
-    const alvo = acampamento.map(nome => deles(r, nome)[0]).find(Boolean);
-    const paradas = exercito.filter(e => e.bandeiras & 1).map(e => e.id);
-    if (atacando && alvo && paradas.length > 0) await comando(page, { tipo: 'ATACAR', unidades: paradas, alvo: alvo.id });
-    else if (!atacando && paradas.length > 0) await comando(page, { tipo: 'ATACAR_MOVENDO', unidades: paradas, x: guarda.x, y: guarda.y });
-    r = await avancar(page, 10 * SEGUNDO);
+  const terminou = async () => (await eventos(page, 'VITORIA')).length + (await eventos(page, 'DERROTA')).length > 0;
+  while (!(await terminou()) && r.tick < fim) {
+    for (const ordem of decidir(r, roteiro, mapa)) await comando(page, ordem);
+    r = await avancar(page, DECISAO_SEGUNDOS * SEGUNDO);
   }
   expect((await eventos(page, 'DERROTA')).length, 'derrota antes da vitória').toBe(0);
-  expect((await eventos(page, 'VITORIA')).length, 'VITORIA em até 25 min de jogo').toBeGreaterThan(0);
+  const vitoria = await eventos(page, 'VITORIA');
+  expect(vitoria.length, 'VITORIA em até 26 min de jogo').toBeGreaterThan(0);
+  expect(vitoria[0].arg, 'a vitória é do jogador 0').toBe(0);
+  test.info().annotations.push({ type: 'vitória', description: `aos ${(vitoria[0].tick / MINUTO).toFixed(1)} min de jogo` });
   const registro = await page.evaluate(() => window.__rts.registro());
   test.skip(registro === null, 'a página ainda não entrega o registro ao gancho');
   expect(validarRegistro(registro)).toEqual([]);
+  expect(registro.eventos.filter(e => e.tipo === 'comando' && e.origem === 'teste').length, 'as ordens do roteiro no registro').toBeGreaterThan(0);
   const conferido = conferirRegistro(registro);
   expect(conferido.valido).toBe(true);
   expect(conferido.criterios.find(c => c.id === 'duracao').texto).toContain('vitoria');

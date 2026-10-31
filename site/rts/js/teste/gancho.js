@@ -151,11 +151,14 @@ export function ligarGancho(rts, { simulacao, estado, opcoes = {}, dados = null,
   }
 
   /**
-   * Sends an order as the local player, the same path the input uses. Positions are world units (1 cell = FP);
-   * celula() gives the centre of a cell.
+   * Sends an order as the local player, the same path the input uses, and notes it in the play-test log (C15) with
+   * origin 'teste', as the interface does for the player's orders. Positions are world units (1 cell = FP); celula()
+   * gives the centre of a cell.
    */
   function comando({ tipo, unidades = [], alvo = SEM_ENTIDADE, x = 0, y = 0, arg = 0, fila = 0 }) {
-    simulacao.enviarComando({ tipo, unidades, alvo, x, y, arg, fila });
+    const ordem = { tipo, unidades, alvo, x, y, arg, fila };
+    obterRegistro?.()?.anotarComando?.(ordem, 'teste');
+    simulacao.enviarComando(ordem);
   }
 
   Object.assign(rts, {
