@@ -545,8 +545,10 @@ Pendências da F9: o Safari de verdade (Victor, em "Medições que esperam o Mac
 | --- | --- | --- | --- |
 | Caixa de areia com as equipes das ondas, sem ninguém jogando | Mac, Node 22 | a base cai aos 12,5, 11,2 e 7,9 min no Fácil, Normal e Difícil; sem as equipes, só pelos gatilhos, aos 15,9, 14,1 e 14,2 min | `ia-harness.mjs --minutos 25`, 31/10/2026 |
 | Custo das equipes, caixa de areia com 40 Turmas defendendo e 20 Chapas a mais na guarnição, 25 min | Mac, M5 Pro | 0,007 ms por passo em média; decisão p99 0,19 ms, pior 0,7 ms; a primeira decisão, que também monta o mapa estático da costura, 2 a 4 ms | idem, `--exercito 40 --reforco 20` |
+| O mesmo no Fácil, partida de 23,8 min com as 7 ondas e 4.292 decisões | PC da RTX 4090, i7-12700KF, Node 24, com o e2e de outra sessão rodando | 0,015 ms por passo em média (meta 1 ms); decisão p50 0,11 ms, p99 0,44 ms, pior 1,0 ms no passo 41 (aquecimento); a primeira decisão, uma vez por partida, 3,2 ms, um pouco acima da meta de 3 ms do pior passo: compila as equipes e monta o mapa estático da costura | `ferramentas/rts/rtx-node.sh -- ferramentas/rts/ia-harness.mjs --minutos 25 --dificuldade facil --exercito 40 --reforco 20`, 31/10/2026 |
+| Medidas anteriores no PC com outras execuções segurando a máquina | PC, idem | pior decisão de 3,3 a 13 ms no relógio de parede, com p99 de 0,24 a 0,9 ms: pausas da máquina, não decisões caras (o relatório agora lista as cinco piores com o passo) | idem, primeira versão do harness |
 
-Pendências da F6: as equipes do Morro Aceso, que a sessão de design da onda 3 escreve (recado em `rts-design-recados.md`); o registro C15 ler o tamanho da onda no alvo do ONDA (sessão de design); na onda 5, a escaramuça em três camadas, a dificuldade por comportamento e o harness de 100 partidas.
+Pendências da F6: adiantar para o carregamento da partida o que a primeira decisão faz (compilar as equipes e montar o mapa estático da costura, com a `rts-motor-economia`), para ela caber nos 3 ms; as equipes do Morro Aceso, que a sessão de design da onda 3 escreve (recado em `rts-design-recados.md`); o registro C15 ler o tamanho da onda no alvo do ONDA (sessão de design); na onda 5, a escaramuça em três camadas, a dificuldade por comportamento e o harness de 100 partidas.
 
 ### F4
 
