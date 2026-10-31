@@ -14,15 +14,32 @@ const LUTA_PAUSA = 5 * PASSOS_POR_SEGUNDO;
 const MASCARA_SLOT = (1 << BITS_SLOT) - 1;
 
 /**
- * Names of the mission groups in the order their index travels in AVISO_ATAQUE and ONDA: the declared groups first,
- * then every new name in a create or warning action, in trigger order.
+ * Labels of the mission in the order AVISO_ATAQUE and ONDA count them, the same walk as rotulosDaMissao in the
+ * trigger evaluator: the members of every union first, then every group a condition or an action names, in trigger
+ * order (conditions before actions), union names left out.
  */
 export function nomesDosGrupos(missao) {
-  const nomes = [...Object.keys(missao?.grupos ?? {})];
-  for (const gatilho of missao?.gatilhos ?? []) {
-    for (const acao of gatilho.faz ?? []) if ((acao.faz === 'criar' || acao.faz === 'aviso') && acao.grupo && !nomes.includes(acao.grupo)) nomes.push(acao.grupo);
+  const unioes = missao?.grupos && typeof missao.grupos === 'object' ? missao.grupos : {};
+  const rotulos = [];
+  const somar = nome => {
+    if (typeof nome === 'string' && !(nome in unioes) && !rotulos.includes(nome)) rotulos.push(nome);
+  };
+  for (const membros of Object.values(unioes)) if (Array.isArray(membros)) membros.forEach(somar);
+  const doItem = item => {
+    somar(item.grupo);
+    if (item.faz === 'atacar') somar(item.alvo);
+  };
+  const condicao = c => {
+    if (!c || typeof c !== 'object') return;
+    doItem(c);
+    if (Array.isArray(c.condicoes)) c.condicoes.forEach(condicao);
+    if (c.condicao) condicao(c.condicao);
+  };
+  for (const g of Array.isArray(missao?.gatilhos) ? missao.gatilhos : []) {
+    condicao(g?.quando);
+    for (const a of Array.isArray(g?.acoes) ? g.acoes : []) if (a && typeof a === 'object') doItem(a);
   }
-  return nomes;
+  return rotulos;
 }
 
 /**

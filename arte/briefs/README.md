@@ -3,7 +3,7 @@
 Um brief por unidade, construção ou estrutura neutra, escrito pela frente de design (`rts-design`) para a frente de arte (`rts-arte`) modelar no Blender, primeiro no kit cinza e depois na arte final.
 As facções, a premissa do mundo e o bloco de originalidade de cada facção ficam em [faccoes.md](faccoes.md).
 
-Os números de jogo citados aqui (custo, vida, alcance, tempos) são hipóteses da tabela de partida do plano e servem só para dar contexto ao papel; os valores de verdade passam a morar em `site/rts/dados/` quando a etapa de dados chegar, e o teste de jogo vai mudá-los.
+Os números de jogo citados aqui (custo, vida, alcance, tempos) são hipóteses da tabela de partida do plano e servem só para dar contexto ao papel; desde 31/10/2026 os valores de verdade moram em `site/rts/dados/` (unidades, prédios, armas, economia e pesquisas), e o teste de jogo vai mudá-los lá, não aqui.
 
 ## Índice da fase 1
 
@@ -47,13 +47,21 @@ Os quatro marcados com "portão" são os do portão de estilo; os três marcados
 | [Ponte Basculante](neutro-estrutura-ponte-basculante.md) | neutra religável, passagem | |
 | [Subestação](neutro-estrutura-subestacao.md) | neutra religável, objetivo final | |
 
-Ainda sem brief, para a próxima rodada: os nós de recurso do mapa (Cemitério de Baterias, Pilha de Entulho, Ferro-Velho Leste), as faíscas da carga derramada, a Ponte Velha e o resto do terreno, e os retratos da Supervisora e do Locutor.
+Recursos e terreno, para o kit cinza da caixa de areia (31/10/2026):
+
+| Brief | Papel | Nota |
+| --- | --- | --- |
+| [Pilha de Baterias](neutro-recurso-pilha-de-baterias.md) | recurso, pilha dos cemitérios | |
+| [Faísca de Carga](neutro-recurso-faisca-de-carga.md) | recurso, carga derramada | |
+| [Terreno do vale](neutro-terreno-vale.md) | solos e decorações | |
+
+Ainda sem brief, para a onda 3: as peças só da fase 1 (Ponte Velha, caminhão tombado, os nós com cara própria como o Ferro-Velho e a Pilha de Entulho) e os retratos da Supervisora e do Locutor.
 
 ## Nome dos arquivos
 
 - `<faccao>-<categoria>-<nome>.md`, tudo em minúsculas, sem acento, com hífen.
 - `faccao`: `religadores`, `desligados` ou `neutro`.
-- `categoria`: `unidade`, `construcao` ou `estrutura` (estrutura neutra religável do mapa).
+- `categoria`: `unidade`, `construcao`, `estrutura` (estrutura neutra religável do mapa), `recurso` (pilha e faísca) ou `terreno` (solos e decorações).
 - O `id` de cada brief é `<faccao>/<nome>`, o mesmo que a ficha de origem do asset vai usar.
 
 ## Seções de todo brief
