@@ -3,7 +3,8 @@
 // Options: unidades, res=nativa|4k|1080p, bench&seg (measurement), escala=auto|1|0.85|0.75|0.67|0.5 (render scale; the
 // benchmark pins 1 unless told otherwise), semente, zoom (factor of projecao.json, 0.75 to 1.25), atlas=0, avancar,
 // roda=auto|zoom|arrastar (what a wheel without Ctrl does), painel=1 (measurement panel), inicio=0|1 (start screen;
-// shown by default, skipped in tests and the benchmark), teste=1 (exposes window.__rts for the end-to-end tests).
+// shown by default, skipped in tests and the benchmark), partida=<mission id>&dificuldade=facil|normal|dificil (a
+// mission's match instead of the prototype's armies), teste=1 (exposes window.__rts for the end-to-end tests).
 import { criarRenderizador } from './render/renderizador.js';
 import { carregarProjecao } from './render/projecao.js';
 import { criarResolucao } from './render/resolucao.js';
@@ -24,6 +25,7 @@ import { criarPainel } from './interface/painel.js';
 import { criarBarraDeComandos } from './interface/comandos.js';
 import { criarSobreposicao } from './interface/sobreposicao.js';
 import { carregarTextos } from './interface/textos.js';
+import { carregarPartida } from './interface/partida.js';
 import { criarCatalogo, catalogoDoMapa } from './interface/catalogo.js';
 import { montarCartao } from './interface/cartao.js';
 import { criarLeitura } from './interface/leitura.js';
@@ -51,6 +53,8 @@ const opcoes = {
   avancar: Number(parametros.get('avancar') ?? 0),
   roda: parametros.get('roda') ?? 'auto',
   teste: parametros.get('teste') === '1',
+  partida: parametros.get('partida'),
+  dificuldade: parametros.get('dificuldade') ?? 'normal',
 };
 opcoes.painel = parametros.get('painel') === '1' || opcoes.teste || opcoes.bench;
 opcoes.inicio = !opcoes.bench && (opcoes.teste ? parametros.get('inicio') === '1' : parametros.get('inicio') !== '0');
@@ -61,7 +65,7 @@ const painelElemento = document.getElementById('painel');
 painelElemento.hidden = !opcoes.painel;
 const atlasInfo = { descricao: '' };
 
-const [projecao, texto] = await Promise.all([carregarProjecao(), carregarTextos()]);
+const [projecao, texto, arquivosDaPartida] = await Promise.all([carregarProjecao(), carregarTextos(), opcoes.partida ? carregarPartida(opcoes.partida) : null]);
 // The kinds the match runs on, from the static map the worker sends first (MapaEstatico.tipos).
 let catalogo = criarCatalogo([], texto);
 const obterCatalogo = () => catalogo;
@@ -102,9 +106,12 @@ function comecarRegistro(mapa) {
   moduloDoRegistro.then(modulo => {
     if (!modulo) return;
     registro = modulo.criarRegistro({
-      missao: 'caixa-de-areia',
+      missao: arquivosDaPartida?.missao.id ?? 'prototipo',
       jogadorLocal: estado.jogadorLocal,
+      dificuldade: opcoes.dificuldade,
       tipos: mapa.tipos.map(t => ({ nome: t.nome, coletor: t.coletor })),
+      mapa: arquivosDaPartida?.mapa.entidades,
+      missaoDados: arquivosDaPartida?.missao,
       versoes: { simulacao: VERSAO_SIMULACAO, comandos: VERSAO_COMANDOS },
     });
   });
@@ -320,6 +327,9 @@ simulacao.iniciar({
   unidadesPorTime: opcoes.unidades >> 1,
   avancar: opcoes.avancar,
   teste: opcoes.teste,
+  // A mission's match: the raw files go to the worker, which compiles and validates them (the format is being agreed
+  // with the simulation front; until the worker reads `partida`, the prototype's armies still play).
+  ...(arquivosDaPartida && { dados: arquivosDaPartida.dados, partida: { missao: arquivosDaPartida.missao, ...arquivosDaPartida.mapa }, dificuldade: opcoes.dificuldade }),
   aoReceberMapa(mapa) {
     catalogo = catalogoDoMapa(mapa, texto);
     comecarRegistro(mapa);
