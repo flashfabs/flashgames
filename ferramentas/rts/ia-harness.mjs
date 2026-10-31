@@ -5,12 +5,15 @@
 // timed inside the step, from the seam's ativo() through its context (the team's view) and decidir() to the commands
 // applied, by wrapping the behaviours module (usarComportamentos), so the match plays exactly as without the
 // measurement. Prints JSON: decisions, mean cost per step, p50, p99 and worst decision, commands, warnings and
-// waves, and how the match ended.
+// waves, and how the match ended. Wall time suffers when the machine is busy (other sessions' tests on the shared PC):
+// the load average goes with the numbers, and the five worst decisions with their ticks, to tell a hard decision from
+// a pause of the machine; the first decision, which also builds the seam's static map once per match, is apart.
 // Run long or heavy measurements on the RTX 4090 PC: ferramentas/rts/rtx-node.sh -- ferramentas/rts/ia-harness.mjs ...
 //   node ferramentas/rts/ia-harness.mjs [--missao caixa-de-areia] [--dificuldade normal] [--minutos 20]
 //        [--exercito 0] (player infantry holding the base) [--reforco 0] (extra garrison units guarding the camp)
 // The wave 5 harness of 100 computer-against-computer matches grows from this file.
 import { readFileSync } from 'node:fs';
+import { cpus, loadavg } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { criarSimulacao, passo, REGRAS_LIVRES } from '../../site/rts/js/sim/simulacao.js';
 import { FP, EVENTO, TAMANHO_EVENTO, E_TIPO, CATEGORIA } from '../../site/rts/js/sim/contratos.js';
@@ -95,10 +98,12 @@ const ms = v => Math.round(v * 1000) / 1000;
 export function medir(sim, minutos) {
   const c = equipesDaPartida(sim);
   if (!c) throw new Error('a missão não tem equipes');
-  const porJogador = new Map(c.jogadores.map(j => [j, { decisoes: [], comandos: 0 }]));
+  const porJogador = new Map(c.jogadores.map(j => [j, { decisoes: [], ticks: [], comandos: 0 }]));
+  const cargaAntes = loadavg()[0];
   const eventos = { avisos: 0, ondas: 0 };
   const passos = minutos * 60 * 30;
   const relogio = () => performance.now();
+
   // a decision runs from ativo() returning true, through the context the seam builds, to decidir() returning
   let inicio = 0;
   const anterior = usarComportamentos({
@@ -111,6 +116,7 @@ export function medir(sim, minutos) {
       const saida = comportamentos.decidir(ctx);
       const m = porJogador.get(ctx.time);
       m.decisoes.push(relogio() - inicio);
+      m.ticks.push(ctx.tick);
       m.comandos += saida.comandos.length;
     },
   });
@@ -134,20 +140,24 @@ export function medir(sim, minutos) {
     return n;
   };
   const jogadores = [...porJogador].map(([jogador, m]) => {
-    const totais = m.decisoes;
-    const soma = totais.reduce((a, b) => a + b, 0);
+    // the first decision also builds the seam's static map, once per match: reported apart
+    const totais = m.decisoes.slice(1);
+    const soma = m.decisoes.reduce((a, b) => a + b, 0);
+    const piores = totais.map((t, k) => [t, m.ticks[k + 1]]).sort((a, b) => b[0] - a[0]).slice(0, 5);
     return {
       jogador,
-      decisoes: totais.length,
+      decisoes: m.decisoes.length,
       msPorPassoMedia: ms(soma / Math.max(1, sim.tick)),
+      msPrimeiraDecisao: ms(m.decisoes[0] ?? 0),
       msDecisaoP50: ms(percentil(totais, 50)),
       msDecisaoP99: ms(percentil(totais, 99)),
       msDecisaoMaximo: ms(Math.max(0, ...totais)),
+      pioresDecisoes: piores.map(([t, tick]) => ({ ms: ms(t), tick })),
       comandos: m.comandos,
       unidadesNoFim: unidades(jogador),
     };
   });
-  return { passos: sim.tick, fim, eventos, jogadores, unidadesDoJogadorNoFim: unidades(0) };
+  return { passos: sim.tick, fim, eventos, jogadores, unidadesDoJogadorNoFim: unidades(0), cpu: cpus()[0]?.model, nucleos: cpus().length, cargaMedia: [Math.round(cargaAntes * 10) / 10, Math.round(loadavg()[0] * 10) / 10] };
 }
 
 function argumentos(lista) {
