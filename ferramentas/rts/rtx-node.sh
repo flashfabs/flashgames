@@ -3,10 +3,12 @@
 # benchmarks leave the Mac alone. What runs is this worktree as it is now (committed or not), limited to what the
 # simulation and its tools need.
 #
-# Usage: ferramentas/rts/rtx-node.sh [--trazer <path>]... -- <node args...>
+# Usage: ferramentas/rts/rtx-node.sh [--quieto] [--trazer <path>]... -- <node args...>
 #   e.g. ferramentas/rts/rtx-node.sh --trazer testes/rts-replays -- ferramentas/rts/gerar-replays.mjs
 #        ferramentas/rts/rtx-node.sh -- ferramentas/rts/medir-passo.mjs
 # --trazer copies a file or folder back from the PC's copy into this worktree after the run (repeatable).
+# --quieto runs node holding the PC's test lock (D:\rts\trava-testes, in the executor's ticket queue) through
+# rtx-quieto.ps1, so no end-to-end run of another session shares the CPU with a measurement.
 # On the PC the copy lives in D:\rts\testes\<session>\node (only that folder is written). The exit code is node's.
 # Environment: RTX_HOST (default rtx4090), RTX_SESSAO (default: the worktree folder name).
 set -euo pipefail
@@ -23,11 +25,13 @@ erro() { echo "error: $*" >&2; exit 1; }
 [[ "$sessao" =~ ^[A-Za-z0-9._-]+$ ]] || erro "RTX_SESSAO must be plain letters, digits, dots, dashes and underscores: $sessao"
 
 trazer=()
+quieto=0
 while (($#)); do
   case "$1" in
+    --quieto) quieto=1; shift ;;
     --trazer) (($# >= 2)) || erro "--trazer needs a path"; trazer+=("$2"); shift 2 ;;
     --) shift; break ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) erro "unknown option $1 (the node arguments go after --)" ;;
   esac
 done
@@ -55,7 +59,12 @@ argumentos=""
 for a in "$@"; do argumentos+=" '${a//\'/\'\'}'"; done
 echo "NODE on $host ($(git -C "$raiz" rev-parse --short HEAD)$([[ -n "$(git -C "$raiz" status --porcelain)" ]] && echo ' with changes')): node$argumentos" >&2
 codigo=0
-ssh "${ssh_opcoes[@]}" "$host" "cd $remoto; node --version; & node$argumentos; exit \$LASTEXITCODE" || codigo=$?
+if ((quieto)); then
+  lista="$(node -e 'process.stdout.write(Buffer.from(JSON.stringify(process.argv.slice(1))).toString("base64"))' -- "$@")"
+  ssh "${ssh_opcoes[@]}" "$host" "cd $remoto; node --version; & powershell -NoProfile -ExecutionPolicy Bypass -File ferramentas\\rts\\rtx-quieto.ps1 -Sessao '$sessao' -Argumentos64 '$lista'; exit \$LASTEXITCODE" || codigo=$?
+else
+  ssh "${ssh_opcoes[@]}" "$host" "cd $remoto; node --version; & node$argumentos; exit \$LASTEXITCODE" || codigo=$?
+fi
 
 for caminho in "${trazer[@]}"; do
   destino="$raiz/$(dirname "$caminho")"
