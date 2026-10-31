@@ -68,6 +68,8 @@ export function salvar(sim) {
     onda: sim.onda,
     comandos: sim.comandos.map(comandoParaArray),
     caminhos: resumoDosCaminhos(sim.caminhos),
+    // a footprint changed since the last end of tick (only outside a step, by a tool or a test): the fields still start over
+    gradeMudou: sim.gradeMudou,
     indice,
   };
   const texto = new TextEncoder().encode(JSON.stringify(cabecalho));
@@ -137,6 +139,7 @@ export function carregar(buffer) {
   // the grid the fields were computed on: terrain plus every footprint
   reconstruirGrade(sim);
   refazerCaminhos(sim.caminhos, cabecalho.caminhos);
+  sim.gradeMudou = cabecalho.gradeMudou ?? 0;
   // buckets are not state (every reader inside the step rebuilds them first); these serve the first snapshot
   montarBaldes(sim);
   return sim;
