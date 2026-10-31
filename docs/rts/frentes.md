@@ -55,7 +55,7 @@ Trava presa há mais de 45 minutos com o dono parado pode ser removida, avisando
 | F5 Design, mundo e fase 1 | `rts-design`, 8825 | `site/rts/dados/{unidades,predios,armas}.json`, `site/rts/dados/missoes/`, `site/rts/dados/mapas/`, `site/rts/dados/textos/pt-BR.json`, `site/rts/js/telemetria/`, `arte/briefs/`, `arte/mapas-fonte/`, `ferramentas/mapas/` | 1 (só briefs), 2, 3, 5 |
 | F6 IA inimiga | `rts-ia`, 8826 | `site/rts/js/sim/comportamentos/` (determinístico, sob a barreira da F1a), `site/rts/js/ia/`, `ferramentas/rts/ia-harness.mjs`, `testes/rts-ia*.test.mjs` | 3, 5 |
 | F7 Interface e controles | `rts-interface`, 8823 | `site/rts/index.html`, `site/rts/css/`, `site/rts/js/principal.js`, `site/rts/js/entrada/`, `site/rts/js/interface/` | 1 a 6 |
-| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
+| F8 Qualidade e coordenação | `rts-qualidade`, 8820 | `testes/e2e/rts-*` (menos `rts-desempenho`), `site/rts/js/teste/` (o gancho `window.__rts`, carregado só com `?teste=1`), `ferramentas/rts/ritmo/` (conferidor de ritmo), `testes/rts-gancho.test.mjs`, `testes/rts-ritmo.test.mjs`, `testes/rts-originalidade.test.mjs`, `testes/rts-orcamento.json`, `testes/rts-orcamento.test.mjs`, `testes/rts-manifesto.test.mjs`, `testes/rts-procedencia.test.mjs`, `testes/rts-licencas.json`, `playwright.config.mjs`, `package.json`, `scripts/`, `netlify.toml`, `.github/workflows/`, `prototipos/diagnostico/`, `docs/rts/` | todas |
 | F9 Rede | `rts-rede`, 8828 | `prototipos/rts-lockstep/` e, na E8, `site/rts/js/rede/`; `site/js/sala.js` só em acordo | 2 (curta), 6 |
 
 Divisão do motor a partir da onda 2 (plano, E3): a F1 vira duas sessões, F1a e F1b, pela tabela acima. `contratos.js` e `simulacao.js` são da F1a; a F1b liga os seus módulos neles com uma ou duas linhas ditas no commit e, acima disso, pede à F1a por mensagem. Mudança de contrato (C1 a C4) passa pela F1a, que sobe a versão e avisa os consumidores.
@@ -79,7 +79,7 @@ Na fase 1, o RTS não toca em `site/js/sala.js`, `site/js/app.js`, `site/index.h
 | C10 | Sons: evento para ids de som, categoria, prioridade e variações | `site/rts/dados/sons.json` | F4 | F4 | `versao` |
 | C11 | Textos de interface, briefings, falas e legendas por id | `site/rts/dados/textos/pt-BR.json` | F5 | F7, F4 | ids estáveis |
 | C12 | Orçamentos de memória e de download por nível e por fase | `testes/rts-orcamento.json` | F8 | todos | — |
-| C13 | Procedência por asset (autores, ferramentas, modelos de IA com licença, prompt, semente, edições humanas) e lista de licenças permitidas | `arte/procedencia/` e teste da F8 | F8 (esquema e lista), F3 e F4 (conteúdo) | F8 | — |
+| C13 | Procedência por asset (autores, ferramentas, modelos de IA com licença, prompt, semente, edições humanas) e lista de licenças permitidas | `arte/procedencia/`, `testes/rts-licencas.json` e `testes/rts-procedencia.test.mjs` | F8 (esquema e lista), F3 e F4 (conteúdo) | F8 | — |
 | C14 | Pedido de asset por mensagem à F3: id, tipo, brief de uma linha, animações, prioridade; a F3 entrega antes um provisório | mensagem entre sessões | F3 | todos | — |
 | C15 | Registro do kit de teste, exportado em JSON pelo jogador, sem rede | `site/rts/js/telemetria/` | F5 | F8 | campo `versao` |
 | C16 | Pacote de turno do lockstep e soma por subsistema; mensagens abaixo de 16.000 bytes | `site/rts/js/rede/` | F9 | F1a | `VERSAO_PROTOCOLO` da sala |
@@ -140,6 +140,7 @@ site/rts/js/render/, js/ativos/                WebGL2 e carregador de atlas (F2)
 site/rts/js/entrada/, js/interface/            mouse, teclado, trackpad, HUD, menus (F7)
 site/rts/js/audio/                             motor de áudio (F4)
 site/rts/js/telemetria/                        registro do kit de teste (F5)
+site/rts/js/teste/                             gancho dos testes de ponta a ponta, só com ?teste=1 (F8)
 site/rts/js/rede/                              lockstep, na E8 (F9)
 site/rts/dados/                                projecao.json (F2), dados de jogo, missões, mapas, textos (F5), sons.json (F4)
 site/rts/assets/                               índice, sprites, terreno, interface, vídeo (F3), áudio (F4)

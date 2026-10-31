@@ -3,10 +3,14 @@
 // messages between the main thread and the worker. Pure data and integer helpers, no DOM, safe in a Worker and Node.
 // A contract change goes in its own commit, bumps its version and is announced to the consumers.
 
-/** Version of the command format; frozen at 1 once the lockstep spike validates it. */
+/**
+ * Version of the command envelope (the fields of Comando and their compact array form); frozen at 1 once the lockstep
+ * spike validates it. Only the envelope freezes: new command kinds can still be added after that, and their rules are
+ * versioned with VERSAO_SIMULACAO.
+ */
 export const VERSAO_COMANDOS = 0;
-/** Version of the snapshot, events and static map formats, and of the simulation rules replays depend on. */
-export const VERSAO_SIMULACAO = 2;
+/** Version of the snapshot, events and static map formats, of the command kinds' rules and of every rule replays depend on. */
+export const VERSAO_SIMULACAO = 3;
 
 // ---------- units of measure ----------
 
@@ -19,6 +23,8 @@ export const VOLTA = 256;
 /** Simulation speeds offered to the player, in percent of PASSOS_POR_SEGUNDO. */
 export const VELOCIDADES = Object.freeze([75, 100, 125]);
 export const MAX_JOGADORES = 8;
+/** Owner of neutral entities (resource nodes, spilled charge, dead structures of the map); never a player or a team. */
+export const DONO_NEUTRO = 255;
 
 // ---------- entity ids with generation ----------
 
@@ -37,7 +43,7 @@ export const proximaGeracao = geracao => (geracao >= MAX_GERACAO ? 1 : geracao +
 
 // ---------- commands (C1) ----------
 
-/** Command kinds; 0 is never valid. */
+/** Command kinds; 0 is never valid. What each one reads is described below, field by field. */
 export const TIPO_COMANDO = Object.freeze({
   MOVER: 1,
   ATACAR: 2,
@@ -53,23 +59,74 @@ export const TIPO_COMANDO = Object.freeze({
   REPARAR: 12,
   HABILIDADE: 13,
   DESISTIR: 14,
+  PESQUISAR: 15,
+  RECICLAR: 16,
 });
-const ULTIMO_TIPO_COMANDO = 14;
+const ULTIMO_TIPO_COMANDO = 16;
+
+// What each kind reads (fields not listed are ignored; ids are ids with generation, kinds are indices of
+// MapaEstatico.tipos, positions are world units):
+// MOVER, ATACAR_MOVENDO, PATRULHAR: unidades, (x, y), fila (MOVER and ATACAR_MOVENDO only).
+// ATACAR: unidades, alvo, fila.
+// PARAR, SEGURAR_POSICAO: unidades.
+// PRODUZIR: unidades = producer buildings, arg = unit or building kind. The item goes to the listed producer that
+//   can make it with the shortest queue in its lane (ties to the lowest slot); with no producer listed, to any of the
+//   player's producers the same way. Cost is paid when queued; buildings queue in the construction lane of the
+//   headquarters, units in the unit lane.
+// CONSTRUIR: arg = building kind, (x, y) = a point inside the top-left cell of its footprint. Two forms:
+//   unidades = the headquarters holding that kind ready to place (FAIXA_ESTADO.PRONTO): the building appears there at
+//   once; with fila = 1 the same kind is queued again right after (posts in a row with Shift).
+//   unidades = builder units whose kind lists it in `ergue`: the cost is paid now, the first of them walks to the
+//   site and raises it there (or, with alvo = an unfinished building of the player, resumes it).
+// CANCELAR: unidades = [producer], x = lane (FAIXA.*), arg = position in that lane's queue (0 = the head, also a
+//   building waiting to be placed); refunds the whole cost.
+// PONTO_DE_ENCONTRO: unidades = producers, (x, y) = rally point, alvo = optional entity (a resource node sends new
+//   harvesters to it, a unit or building makes new units follow it); x = y = -1 with no alvo clears the point.
+// COLETAR: unidades = harvesters, alvo = a battery pile (its node), a spark of spilled charge or one of the player's
+//   depots (to unload now); with no alvo, the node nearest to (x, y) that the team has explored.
+// REPARAR: unidades = support units, alvo = the unit or building to repair.
+// HABILIDADE: unidades, arg = ability code, alvo and (x, y) as the ability needs (codes defined by the combat module).
+// DESISTIR: no field; the player concedes.
+// PESQUISAR: unidades = [building], arg = research index (MapaEstatico.pesquisas); queues in the unit lane.
+// RECICLAR: unidades = the player's finished buildings; each is taken down and returns half its cost.
+
+/** Production lanes of a producer building: units (and research) and, in the headquarters, buildings. */
+export const FAIXA = Object.freeze({ UNIDADES: 0, CONSTRUCAO: 1 });
+/** Items queued per lane. */
+export const MAX_FILA = 5;
+/** Queue items are kinds, or research as ITEM_PESQUISA + research index. */
+export const ITEM_PESQUISA = 0x1000;
+/** Why a command was refused, in the arg of EVENTO.COMANDO_RECUSADO. */
+export const MOTIVO = Object.freeze({
+  SEM_CARGA: 1, // not enough Carga to pay
+  LOTACAO_CHEIA: 2, // the queue head waits: population at the cap
+  FILA_CHEIA: 3, // MAX_FILA items in the lane already
+  NAO_PRODUZ: 4, // that producer or builder cannot make that kind
+  BLOQUEADO: 5, // a required building, research or mission unlock is missing
+  NADA_PRONTO: 6, // no building of that kind ready to place
+  FORA_DA_AREA: 7, // outside the player's building area (for the Religadores, the powered network)
+  TERRENO_OCUPADO: 8, // a building, a resource node or a unit stands on the footprint
+  TERRENO_IMPROPRIO: 9, // blocked ground or more than one height level under the footprint
+  CELULA_NAO_VENTOSA: 10, // the kind needs a windy cell under its footprint
+  FORA_DO_MAPA: 11,
+  LIMITE: 12, // the player already has the most of that kind the rules allow
+});
 
 /**
  * The only input of the simulation. Control groups, camera, selection and pause are not commands.
- * The simulation validates ownership, existence, cost and position and silently drops what is invalid,
- * the same way on every machine; within a tick, commands apply in total order (jogador, seq).
+ * The simulation validates ownership, existence, cost and position and drops what is invalid, the same way on every
+ * machine (refusals a player should hear about raise EVENTO.COMANDO_RECUSADO); within a tick, commands apply in total
+ * order (jogador, seq).
  * @typedef {object} Comando
  * @property {number} tick      tick the command runs on, set by the command source, never by the interface
  * @property {number} jogador   player index, 0..MAX_JOGADORES-1
  * @property {number} seq       per-player sequence number, strictly increasing
  * @property {number} tipo      TIPO_COMANDO.*
- * @property {number[]} unidades ids with generation of the units being ordered (may be empty)
+ * @property {number[]} unidades ids with generation of the units or buildings being ordered (may be empty)
  * @property {number} alvo      target entity id, or SEM_ENTIDADE
- * @property {number} x         target point in world units (1 cell = FP)
+ * @property {number} x         target point in world units (1 cell = FP); some kinds use it as a small integer (above)
  * @property {number} y
- * @property {number} arg       unit or building kind, ability, mode; 0 when unused
+ * @property {number} arg       unit or building kind, queue position, research, ability; 0 when unused
  * @property {number} fila      1 appends to the units' order queue (Shift), 0 replaces it
  */
 
@@ -134,14 +191,38 @@ export const EVENTO = Object.freeze({
   VITORIA: 11,
   DERROTA: 12,
   SURGIMENTO: 13,
+  PREDIO_PRONTO: 14,
+  COMANDO_RECUSADO: 15,
+  CARGA_DERRAMADA: 16,
+  DESCARGA: 17,
+  RAJADA_ANUNCIADA: 18,
+  RAJADA: 19,
+  REDE_CORTADA: 20,
+  AVISO_ATAQUE: 21,
+  ONDA: 22,
 });
 
 // Events travel as flat Int32Array records of TAMANHO_EVENTO integers; E_* are the offsets inside a record.
-// Positions are in world units at the moment of the event, so the presentation needs no lookup.
+// Positions are in world units at the moment of the event, so the presentation needs no lookup; a building's position
+// is the centre of its footprint. Without a target, alvo is SEM_ENTIDADE and (alvoX, alvoY) repeats (x, y).
 // TIRO: entidade at (x, y) fires at alvo at (alvoX, alvoY), arg is the shooter's kind.
-// MORTE: entidade died at (x, y), alvo is the killer, arg is the dead entity's kind.
+// MORTE: entidade (unit, building, node) died at (x, y), alvo is the killer, arg is the dead entity's kind.
 // SURGIMENTO: entidade appeared (spawned or respawned) at (x, y), arg is its kind.
-// Without a target, alvo is SEM_ENTIDADE and (alvoX, alvoY) repeats (x, y).
+// PRODUCAO_CONCLUIDA: entidade is the new unit at the producer's exit, alvo the producer, arg the kind; for research,
+//   entidade is the building, alvo SEM_ENTIDADE and arg ITEM_PESQUISA + research index.
+// PREDIO_PRONTO: entidade is the headquarters, arg the building kind now waiting to be placed.
+// CONSTRUCAO_CONCLUIDA: entidade is the finished building standing on the map, arg its kind.
+// SOB_ATAQUE: entidade was hit, alvo is the attacker; at most one per entity every few seconds (combat module).
+// RECURSO_ESGOTADO: entidade is a battery pile that ran dry, arg the index of its node in the map's `nos`.
+// COMANDO_RECUSADO: entidade is the producer or first unit of the command (SEM_ENTIDADE if none), (x, y) the command's
+//   point, alvoX the player, alvoY the command kind, arg a MOTIVO.
+// CARGA_DERRAMADA: entidade is the dead harvester (stale id) at (x, y), arg the Carga spilled as sparks.
+// DESCARGA: entidade is the harvester, alvo the depot, arg the Carga delivered to the harvester's owner.
+// RAJADA_ANUNCIADA: no entity, alvoX is the tick the gust arrives, arg the ticks until then.
+// RAJADA: entidade is a windmill on a windy cell, arg the Carga it paid its owner.
+// REDE_CORTADA: entidade is a building that lost power, arg its kind.
+// AVISO_ATAQUE: no entity, (x, y) the centre of the area the attack will reach, arg the mission group (missions).
+// ONDA: no entity, (x, y) where the group appears, arg the mission group (missions).
 export const TAMANHO_EVENTO = 9;
 export const E_TIPO = 0;
 export const E_TICK = 1;
@@ -155,11 +236,26 @@ export const E_ARG = 8;
 
 // ---------- snapshot (C2) ----------
 
-/** Bits of Retrato.bandeiras. */
+/** Bits of Retrato.bandeiras. Bits from 512 up are reserved for the combat module (raised turret, stunned, hidden). */
 export const BANDEIRA = Object.freeze({
   PARADA: 1, // has no order to follow
   EM_COMBATE: 2, // has a target in range
   PRESA: 4, // movement stalled by blocking (stuck detection)
+  EM_OBRA: 8, // building under construction; progresso tells how far
+  ENERGIZADO: 16, // building with power (on the network, or not needing it); a network node that conducts
+  OCIOSA: 32, // harvester with nothing to do (no node, no spark, nothing to unload)
+  COLETANDO: 64, // harvester loading at a node, picking a spark or unloading at a depot
+  ESGOTADO: 128, // resource node with nothing left
+  PRODUZINDO: 256, // producer with a queue advancing
+});
+
+/** What an entity is; MapaEstatico.tipos[tipo].categoria. */
+export const CATEGORIA = Object.freeze({
+  UNIDADE: 0,
+  PREDIO: 1,
+  RECURSO: 2, // a battery pile of a resource node: fixed, finite, dims as it empties
+  FAISCA: 3, // spilled charge on the ground, any harvester picks it for a while
+  ESTRUTURA: 4, // neutral map structure that can be brought back (combat module)
 });
 
 /**
@@ -168,9 +264,9 @@ export const BANDEIRA = Object.freeze({
  */
 export const CAMPOS_RETRATO = Object.freeze([
   ['id', Int32Array], // id with generation; match entities between snapshots by id, never by index
-  ['tipo', Uint16Array], // unit or building kind
-  ['dono', Uint8Array], // player index
-  ['x', Int32Array], // position in world units
+  ['tipo', Uint16Array], // index of MapaEstatico.tipos
+  ['dono', Uint8Array], // player index, DONO_NEUTRO for neutral entities
+  ['x', Int32Array], // position in world units; for buildings and nodes, the centre of the footprint
   ['y', Int32Array],
   ['nivel', Uint8Array], // height level of the cell, 0..3
   ['dirCorpo', Uint8Array], // body facing, 0..255
@@ -180,7 +276,46 @@ export const CAMPOS_RETRATO = Object.freeze([
   ['vida', Uint8Array], // health as a fraction of the maximum, 1..255 while alive
   ['bandeiras', Uint16Array], // BANDEIRA.*
   ['alvo', Int32Array], // id of the current target, or SEM_ENTIDADE
+  ['progresso', Uint8Array], // building: construction done, 0..255 (255 finished); 255 for everything else
+  ['carga', Uint8Array], // harvester: load as a fraction of its capacity; pile: what is left of its start; spark: what is left of its life; 0..255
+  ['ocupacao', Uint8Array], // battery pile: harvesters loading at its node now (the "2/3" of the interface); 0 otherwise
+  ['ligacao', Int32Array], // building: id of the network node its cable comes from, SEM_ENTIDADE if none
+  ['veterania', Uint8Array], // veterancy level 0..3
 ]);
+
+/** Fields of the building ghosts (enemy buildings and resource nodes last seen where the team cannot see now). */
+export const CAMPOS_FANTASMA = Object.freeze([
+  ['id', Int32Array],
+  ['tipo', Uint16Array],
+  ['dono', Uint8Array],
+  ['x', Int32Array],
+  ['y', Int32Array],
+  ['vida', Uint8Array], // as last seen, 1..255
+  ['carga', Uint8Array], // nodes: what was left when last seen, 0..255
+]);
+
+// Retrato.filas: one record of TAMANHO_REGISTRO_FILA integers per producer building of the local player, in slot
+// order. FL_* are offsets in the record; the two lanes (FAIXA.*) follow at FL_FAIXAS + faixa * TAMANHO_FAIXA, with
+// FX_* offsets inside a lane. Items are kinds or ITEM_PESQUISA + research; -1 marks an empty position.
+export const FL_PRODUTOR = 0; // id with generation
+export const FL_ENCONTRO_X = 1; // rally point in world units, -1 when none
+export const FL_ENCONTRO_Y = 2;
+export const FL_ENCONTRO_ALVO = 3; // rally entity id, or SEM_ENTIDADE
+export const FL_FAIXAS = 4;
+export const FX_ESTADO = 0; // FAIXA_ESTADO.*
+export const FX_PROGRESSO = 1; // head item done, 0..1000
+export const FX_N = 2; // items queued, the head included
+export const FX_ITENS = 3; // MAX_FILA items, the head first
+export const TAMANHO_FAIXA = FX_ITENS + MAX_FILA;
+export const TAMANHO_REGISTRO_FILA = FL_FAIXAS + 2 * TAMANHO_FAIXA;
+/** State of a lane's head. */
+export const FAIXA_ESTADO = Object.freeze({
+  VAZIA: 0,
+  PRODUZINDO: 1, // advancing (at half speed when the producer has no power: see BANDEIRA.ENERGIZADO)
+  ESPERA_LOTACAO: 2, // a unit waits for room under the population cap
+  PRONTO: 3, // a building waits to be placed (CONSTRUIR)
+  ESPERA_REQUISITO: 4, // a required building is gone
+});
 
 /**
  * One snapshot per tick, worker to main thread.
@@ -206,8 +341,17 @@ export const CAMPOS_RETRATO = Object.freeze([
  * @property {Uint8Array} vida
  * @property {Uint16Array} bandeiras
  * @property {Int32Array} alvo
+ * @property {Uint8Array} progresso
+ * @property {Uint8Array} carga
+ * @property {Uint8Array} ocupacao
+ * @property {Int32Array} ligacao
+ * @property {Uint8Array} veterania
  * @property {Uint8Array} visao      VISAO.* per cell for the local player's team, row-major
- * @property {Int32Array} recursos   per player
+ * @property {Int32Array} recursos   Carga per player
+ * @property {Int32Array} lotacao    per player: population used (units alive plus heads in production), then the cap
+ * @property {Int32Array} filas      TAMANHO_REGISTRO_FILA integers per producer of the local player
+ * @property {object} fantasmas      the local team's building ghosts: n plus every field of CAMPOS_FANTASMA
+ * @property {number} proximaRajada  tick of the next wind gust, 0 when there is none
  * @property {Int32Array} eventos    TAMANHO_EVENTO integers per event, for the ticks since the previous snapshot
  */
 
@@ -218,10 +362,18 @@ export function alocarCamposRetrato(n) {
   return campos;
 }
 
+/** Allocates the ghost arrays for n ghosts. */
+export function alocarFantasmas(n) {
+  const fantasmas = { n };
+  for (const [nome, Tipo] of CAMPOS_FANTASMA) fantasmas[nome] = new Tipo(n);
+  return fantasmas;
+}
+
 /** Buffers to transfer with postMessage. */
 export function transferiveisDoRetrato(retrato) {
   const lista = CAMPOS_RETRATO.map(([nome]) => retrato[nome].buffer);
-  lista.push(retrato.visao.buffer, retrato.recursos.buffer, retrato.eventos.buffer);
+  lista.push(retrato.visao.buffer, retrato.recursos.buffer, retrato.lotacao.buffer, retrato.filas.buffer, retrato.eventos.buffer);
+  for (const [nome] of CAMPOS_FANTASMA) lista.push(retrato.fantasmas[nome].buffer);
   return lista;
 }
 
@@ -235,9 +387,46 @@ export function transferiveisDoRetrato(retrato) {
  * @property {Uint8Array} bloqueado 1 where ground units cannot pass
  * @property {Uint8Array} relevo  0..255 visual relief
  * @property {Uint8Array} nivel   height level 0..3 per cell
+ * @property {Uint8Array} ventosa 1 on windy cells, where windmills can stand
+ * @property {Uint8Array} cobertura 0 none, 1 brush, 2 ruins (combat module)
+ * @property {Uint8Array} solo    ground kind per cell, for the terrain art (0 when the map has no such layer)
+ * @property {Uint8Array} decoracao decoration id per cell, presentation only
  * @property {{x: number, y: number}[]} bases start cells per player
  * @property {number} jogadorLocal the player the snapshot's visao belongs to
- * @property {{jogador: number, time: number}[]} jogadores
+ * @property {{jogador: number, time: number, faccao: string}[]} jogadores
+ * @property {TipoEstatico[]} tipos every kind, indexed by the snapshot's `tipo`
+ * @property {{nome: string, predio: number, custo: number, tempo: number}[]} pesquisas research, by index
+ * @property {{x: number, y: number}[]} nos resource nodes of the map (cells), by index
+ */
+
+/**
+ * A kind as the presentation and the interface see it (the simulation's compiled kind, minus the internals).
+ * Costs in Carga, times in ticks, sizes in cells; kind lists are indices of MapaEstatico.tipos.
+ * @typedef {object} TipoEstatico
+ * @property {string} nome       unique, lowercase with hyphens
+ * @property {number} categoria  CATEGORIA.*
+ * @property {string} faccao     '' for neutral kinds
+ * @property {string} asset      sprite manifest name (C9), '' when it has none yet
+ * @property {number[]} pegada   [largura, altura] footprint in cells; [1, 1] for units and sparks
+ * @property {number} custo
+ * @property {number} tempo      production or construction time
+ * @property {number} lotacao    population points
+ * @property {number} vida
+ * @property {number} visao      sight radius in cells
+ * @property {number[]} produz   units this producer makes, in its unit lane, in the order of the command grid
+ * @property {number[]} constroi buildings the headquarters makes in its construction lane, in grid order
+ * @property {number[]} ergue    buildings this unit raises on site
+ * @property {number[]} requer   buildings that must stand before this kind can be queued
+ * @property {number} raioRede   network radius in cells (0: not a network node)
+ * @property {number} raizRede   1: powers the network by itself (headquarters, forward post)
+ * @property {number} precisaRede 1: works at half speed without power
+ * @property {number} raioConstrucao building area around it for factions without a network, cells
+ * @property {number} exigeVentosa 1: must stand on a windy cell
+ * @property {number} filaConstrucao 1: has the construction lane (headquarters)
+ * @property {number} deposito   1: harvesters unload here
+ * @property {number} coletor    1: harvester
+ * @property {number} capacidade Carga a harvester carries
+ * @property {number} limite     most of this kind a player may have, 0 for no limit
  */
 
 // ---------- team view for computer players (C4) ----------
@@ -248,10 +437,13 @@ export function transferiveisDoRetrato(retrato) {
  * @typedef {object} VistaDoTime
  * @property {number} tick
  * @property {number} time
- * @property {Int32Array} recursos   own players' resources
+ * @property {Int32Array} recursos   Carga of each player, indexed by player, with only this team's players filled
+ * @property {Int32Array} lotacao    [used, cap] of each player, same rule
+ * @property {Int32Array} filas      records of the team's producers, as Retrato.filas
  * @property {object} proprias       own entities, every field of CAMPOS_RETRATO plus n
- * @property {object} inimigas       enemy entities on visible cells, same layout
- * @property {object} fantasmas      enemy buildings last seen on cells not visible now: id, tipo, dono, x, y, n
+ * @property {object} inimigas       other entities (enemies and neutral) on visible cells, same layout
+ * @property {object} fantasmas      buildings and nodes of others last seen on cells not visible now (CAMPOS_FANTASMA)
+ * @property {number} proximaRajada  tick of the next wind gust, 0 when none
  * @property {Uint8Array} visao      VISAO.* per cell for this team
  */
 
@@ -259,12 +451,13 @@ export function transferiveisDoRetrato(retrato) {
 
 /** Main thread to worker. */
 export const PARA_TRABALHADOR = Object.freeze({
-  INICIAR: 'iniciar', // { opcoes: criarSimulacao options plus avancar (ticks to fast-forward) and jogadorLocal }
+  INICIAR: 'iniciar', // { opcoes: criarSimulacao options plus avancar (ticks to fast-forward), jogadorLocal and teste }
   COMANDO: 'comando', // { comando }: a Comando without tick; the worker schedules it for the next tick
   PAUSAR: 'pausar', // { valor: boolean, motivo: 'jogador' | 'visibilidade' }; the clock runs only with no reason left
   VELOCIDADE: 'velocidade', // { percentual: one of VELOCIDADES }
   SALVAR: 'salvar', // {}
   CARREGAR: 'carregar', // { bytes: ArrayBuffer from SALVO }; answered with PRONTO
+  AVANCAR: 'avancar', // { passos }: only when INICIAR had opcoes.teste; runs the ticks at once, paused or not, and answers one RETRATO
 });
 
 /** Worker to main thread. */

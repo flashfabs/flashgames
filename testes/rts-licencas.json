@@ -1,0 +1,11 @@
+{
+  "versao": 1,
+  "descricao": "Contrato C13: licenças permitidas na procedência dos assets do RTS (arte/procedencia/). O jogo é tratado como comercial desde já: só entra no jogo o que vem de licença que permite uso comercial. Ferramentas: a licença da ferramenta não passa para o que ela gera, então vale qualquer licença de software livre conhecida. Modelos de IA: só para conceito (decisão D04) e, se a saída entrar no jogo, com licença comercial, prompt e semente registrados e edição humana substancial. Fontes externas: só o que não pede nada ou pede só atribuição. Licença nova entra aqui com a aprovação do Victor.",
+  "ferramentas": ["GPL-3.0-or-later", "GPL-2.0-or-later", "LGPL-2.1-or-later", "LGPL-3.0-or-later", "MPL-2.0", "Apache-2.0", "MIT", "MIT-CMU", "HPND", "BSD-2-Clause", "BSD-3-Clause", "PSF-2.0", "Zlib", "ISC", "CC0-1.0"],
+  "ia": ["Apache-2.0", "MIT", "BSD-3-Clause", "CreativeML-OpenRAIL++-M"],
+  "fontesExternas": ["CC0-1.0", "CC-BY-4.0", "OFL-1.1", "cessao-de-direitos", "propria"],
+  "pedemAtribuicao": ["CC-BY-4.0", "OFL-1.1"],
+  "pendentes": {
+    "Stable-Audio-Community": "licença comunitária com limite de receita e atribuição; precisa da decisão do Victor antes de qualquer som gerado por ela entrar"
+  }
+}
