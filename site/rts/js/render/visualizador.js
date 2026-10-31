@@ -57,7 +57,7 @@ function criarLado(elemento) {
   const render = criarRenderizador(canvas, projecao, { camera, visivel: () => true, escalaFixa: 1 });
   const relevo = new Uint8Array(MAPA * MAPA);
   for (let i = 0; i < relevo.length; i++) relevo[i] = 96 + ((i * 37) % 64);
-  render.definirMapa({ largura: MAPA, altura: MAPA, bloqueado: new Uint8Array(MAPA * MAPA), relevo });
+  render.definirMapa({ largura: MAPA, altura: MAPA, bloqueado: new Uint8Array(MAPA * MAPA), relevo, solo: new Uint8Array(MAPA * MAPA), solos: ['terra-batida'] });
   render.atualizarNeblina(new Uint8Array(MAPA * MAPA).fill(255));
   return {
     elemento,

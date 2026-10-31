@@ -14,15 +14,32 @@ const LUTA_PAUSA = 5 * PASSOS_POR_SEGUNDO;
 const MASCARA_SLOT = (1 << BITS_SLOT) - 1;
 
 /**
- * Names of the mission groups in the order their index travels in AVISO_ATAQUE and ONDA: the declared groups first,
- * then every new name in a create or warning action, in trigger order.
+ * Labels of the mission in the order AVISO_ATAQUE and ONDA count them, the same walk as rotulosDaMissao in the
+ * trigger evaluator: the members of every union first, then every group a condition or an action names, in trigger
+ * order (conditions before actions), union names left out.
  */
 export function nomesDosGrupos(missao) {
-  const nomes = [...Object.keys(missao?.grupos ?? {})];
-  for (const gatilho of missao?.gatilhos ?? []) {
-    for (const acao of gatilho.faz ?? []) if ((acao.faz === 'criar' || acao.faz === 'aviso') && acao.grupo && !nomes.includes(acao.grupo)) nomes.push(acao.grupo);
+  const unioes = missao?.grupos && typeof missao.grupos === 'object' ? missao.grupos : {};
+  const rotulos = [];
+  const somar = nome => {
+    if (typeof nome === 'string' && !(nome in unioes) && !rotulos.includes(nome)) rotulos.push(nome);
+  };
+  for (const membros of Object.values(unioes)) if (Array.isArray(membros)) membros.forEach(somar);
+  const doItem = item => {
+    somar(item.grupo);
+    if (item.faz === 'atacar') somar(item.alvo);
+  };
+  const condicao = c => {
+    if (!c || typeof c !== 'object') return;
+    doItem(c);
+    if (Array.isArray(c.condicoes)) c.condicoes.forEach(condicao);
+    if (c.condicao) condicao(c.condicao);
+  };
+  for (const g of Array.isArray(missao?.gatilhos) ? missao.gatilhos : []) {
+    condicao(g?.quando);
+    for (const a of Array.isArray(g?.acoes) ? g.acoes : []) if (a && typeof a === 'object') doItem(a);
   }
-  return nomes;
+  return rotulos;
 }
 
 /**
@@ -90,7 +107,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
     for (const [dono, ids] of luta.lados) lados[dono] = { unidades: ids.size, mortes: luta.mortes.get(dono) ?? 0 };
     const resumo = { luta: luta.id, inicioPasso: luta.inicio, fimPasso: luta.ultimo, duracaoPassos: luta.ultimo - luta.inicio, x: Math.trunc(luta.sx / luta.n / FP), y: Math.trunc(luta.sy / luta.n / FP), lados };
     lutas.push(resumo);
-    anotar('lutaFim', { passo: luta.ultimo, luta: luta.id, x: resumo.x, y: resumo.y, lados });
+    anotar('lutaFim', { passo: luta.ultimo, luta: luta.id, duracaoPassos: resumo.duracaoPassos, x: resumo.x, y: resumo.y, lados });
   }
 
   function fecharLutasParadas(agoraPasso) {
@@ -143,7 +160,7 @@ export function criarRegistro({ missao, jogadorLocal = 0, dificuldade = 'normal'
   function morte(t, id, tipo, x, y) {
     const dono = donoDe(id);
     const coletor = ehColetor(tipo) ? 1 : 0;
-    anotar('morte', { passo: t, tipo: nomeTipo(tipo), dono, coletor, x: Math.trunc(x / FP), y: Math.trunc(y / FP) });
+    anotar('morte', { passo: t, tipoUnidade: nomeTipo(tipo), dono, coletor, x: Math.trunc(x / FP), y: Math.trunc(y / FP) });
     if (coletor && dono === jogadorLocal) coletoresPerdidos++;
     for (const luta of lutasAbertas) {
       if (luta.lados.get(dono)?.has(id)) luta.mortes.set(dono, (luta.mortes.get(dono) ?? 0) + 1);
