@@ -57,7 +57,9 @@ test('the end screen asks the playtest questions and keeps the match paused', as
   const fim = page.locator('#fim');
   await expect(fim).toBeVisible();
   await expect(fim.locator('h2')).toHaveText('Partida encerrada');
-  const parado = await tick(page);
+  // the pause reaches the worker a moment after the screen opens: take the tick once it stops moving
+  let parado = await tick(page);
+  await expect.poll(async () => parado === (parado = await tick(page)), { intervals: [250] }).toBe(true);
   await fim.getByText('4', { exact: true }).click();
   await fim.getByText('Sim', { exact: true }).click();
   await fim.locator('textarea').fill('Gostei da grade de comandos.');
