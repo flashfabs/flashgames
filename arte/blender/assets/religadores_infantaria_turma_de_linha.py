@@ -3,16 +3,16 @@
 and lamp, battery backpack, coiled cable and a two-handed pin gun.
 
 Proof that a character can be 100% script (decision D31): the body is rigid parts on a scripted armature
-(the shared infantry skeleton), and the four actions are keyframed into Blender actions with slots, one per
+(the shared infantry skeleton in comum/infantaria.py), and the four actions are keyframed into Blender actions with slots, one per
 animated ID, through comum.compat. Stylised on purpose: helmet and no realistic face.
 """
 
 import math
 
 import bpy
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Vector
 
-from comum import compat
+from comum import compat, infantaria
 from comum import modelagem as m
 
 LARANJA = "#E2711D"
@@ -20,20 +20,7 @@ BRANCO_ENCARDIDO = "#E6E1D3"
 COBALTO = "#1F4E8C"
 CINZA_CONCRETO = "#8A8C8E"
 
-# Bones of the shared infantry skeleton: name, parent, head, tail (metres, character facing +X)
-OSSOS = [
-    ("quadril", None, (0, 0, 0.92), (0, 0, 1.05)),
-    ("tronco", "quadril", (0, 0, 1.05), (0, 0, 1.45)),
-    ("cabeca", "tronco", (0, 0, 1.47), (0, 0, 1.72)),
-    ("braco_e", "tronco", (0, 0.24, 1.4), (0.12, 0.27, 1.12)),
-    ("antebraco_e", "braco_e", (0.12, 0.27, 1.12), (0.4, 0.12, 1.0)),
-    ("braco_d", "tronco", (0, -0.24, 1.4), (0.1, -0.27, 1.12)),
-    ("antebraco_d", "braco_d", (0.1, -0.27, 1.12), (0.34, -0.1, 1.03)),
-    ("coxa_e", "quadril", (0, 0.11, 0.92), (0, 0.12, 0.5)),
-    ("canela_e", "coxa_e", (0, 0.12, 0.5), (0, 0.12, 0.08)),
-    ("coxa_d", "quadril", (0, -0.11, 0.92), (0, -0.12, 0.5)),
-    ("canela_d", "coxa_d", (0, -0.12, 0.5), (0, -0.12, 0.08)),
-]
+OSSOS = infantaria.OSSOS
 
 DESCRICAO = {
     "asset": "religadores-infantaria-turma-de-linha",
@@ -53,43 +40,9 @@ DESCRICAO = {
 }
 
 
-def _esqueleto(raiz):
-    dados = bpy.data.armatures.new("esqueleto_infantaria")
-    esqueleto = bpy.data.objects.new("esqueleto", dados)
-    bpy.context.scene.collection.objects.link(esqueleto)
-    esqueleto.parent = raiz
-    bpy.context.view_layer.objects.active = esqueleto
-    bpy.ops.object.mode_set(mode="EDIT")
-    for nome, pai, cabeca, cauda in OSSOS:
-        osso = dados.edit_bones.new(nome)
-        osso.head, osso.tail = cabeca, cauda
-        if pai:
-            osso.parent = dados.edit_bones[pai]
-            osso.use_connect = False
-    bpy.ops.object.mode_set(mode="OBJECT")
-    for osso in esqueleto.pose.bones:
-        osso.rotation_mode = "QUATERNION"
-    return esqueleto
-
-
-def _prender(obj, esqueleto, osso):
-    """Rigid skinning: the part follows the bone and keeps its rest placement."""
-    bpy.context.view_layer.update()
-    mundo = obj.matrix_world.copy()
-    obj.parent = esqueleto
-    obj.parent_type = "BONE"
-    obj.parent_bone = osso
-    pose = esqueleto.pose.bones[osso]
-    obj.matrix_parent_inverse = (esqueleto.matrix_world @ pose.matrix @ Matrix.Translation((0, pose.bone.length, 0))).inverted()
-    obj.matrix_world = mundo
-
-
-def girar(osso, eixo_mundo, graus):
-    """Rotate a pose bone about an axis given in the rest frame of the character (X forward, Y left, Z up)."""
-    base = osso.bone.matrix_local.to_3x3()
-    rotacao = Quaternion(Vector(eixo_mundo), math.radians(graus)).to_matrix()
-    local = base.inverted() @ rotacao @ base
-    osso.rotation_quaternion = osso.rotation_quaternion @ local.to_quaternion()
+_esqueleto = infantaria.esqueleto
+_prender = infantaria.prender
+girar = infantaria.girar
 
 
 def construir(ctx):
@@ -162,27 +115,9 @@ def construir(ctx):
     return {"raiz": raiz, "esqueleto": esqueleto, "acoes": acoes, "capacete": capacete, "capacete_repouso": capacete.location.copy()}
 
 
-def _pose(esqueleto, angulos, quadril_z=0.0, quadril_x=0.0):
-    for osso in esqueleto.pose.bones:
-        osso.rotation_quaternion = (1, 0, 0, 0)
-        osso.location = (0, 0, 0)
-    for nome, eixo, graus in angulos:
-        girar(esqueleto.pose.bones[nome], eixo, graus)
-    quadril = esqueleto.pose.bones["quadril"]
-    # pose-space offset of the hips, given in the character frame
-    quadril.location = quadril.bone.matrix_local.to_3x3().inverted() @ Vector((quadril_x, 0, quadril_z))
-
-
-def _chave(esqueleto, quadro):
-    for osso in esqueleto.pose.bones:
-        osso.keyframe_insert("rotation_quaternion", frame=quadro)
-        osso.keyframe_insert("location", frame=quadro)
-
-
-# Positive turns about Y tilt the top of a bone forward (+X) and the bottom of a bone backward.
-Y = (0, 1, 0)
-X = (1, 0, 0)
-Z = (0, 0, 1)
+_pose = infantaria.pose
+_chave = infantaria.chave
+Y, X, Z = infantaria.Y, infantaria.X, infantaria.Z
 
 
 def _acoes(esqueleto, capacete):

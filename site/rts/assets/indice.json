@@ -5,6 +5,8 @@
       "manifesto": "sprites/veiculo/desligados-veiculo-carro-vela.json",
       "tipo": "unidade",
       "categoria": "veiculo",
+      "brief": "desligados/carro-vela",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -18,6 +20,7 @@
       "manifesto": "sprites/efeito/efeito-explosao-media.json",
       "tipo": "efeito",
       "categoria": "efeito",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -31,6 +34,8 @@
       "manifesto": "interface/interface-icone-escritorio-regional.json",
       "tipo": "interface",
       "categoria": "icone",
+      "brief": "religadores/escritorio-regional",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -44,6 +49,8 @@
       "manifesto": "interface/interface-retrato-turma-de-linha.json",
       "tipo": "interface",
       "categoria": "retrato",
+      "brief": "religadores/turma-de-linha",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -57,6 +64,8 @@
       "manifesto": "sprites/construcao/religadores-construcao-escritorio-regional.json",
       "tipo": "unidade",
       "categoria": "construcao",
+      "brief": "religadores/escritorio-regional",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -70,6 +79,8 @@
       "manifesto": "sprites/infantaria/religadores-infantaria-turma-de-linha.json",
       "tipo": "unidade",
       "categoria": "infantaria",
+      "brief": "religadores/turma-de-linha",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -83,6 +94,8 @@
       "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado.json",
       "tipo": "unidade",
       "categoria": "veiculo",
+      "brief": "religadores/cesto-blindado",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -96,6 +109,8 @@
       "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-e45.json",
       "tipo": "unidade",
       "categoria": "veiculo",
+      "brief": "religadores/cesto-blindado",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -109,6 +124,8 @@
       "manifesto": "sprites/veiculo/religadores-veiculo-cesto-blindado-e65.json",
       "tipo": "unidade",
       "categoria": "veiculo",
+      "brief": "religadores/cesto-blindado",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -122,6 +139,7 @@
       "manifesto": "terreno/terreno-terra-batida.json",
       "tipo": "terreno",
       "categoria": "terreno",
+      "acabamento": "portao",
       "fases": [
         "portao",
         "fase-1"
@@ -135,6 +153,7 @@
       "manifesto": "sprites/veiculo/teste-veiculo-tanque.json",
       "tipo": "unidade",
       "categoria": "veiculo",
+      "acabamento": "portao",
       "fases": [
         "teste"
       ],
@@ -172,5 +191,6 @@
     "teste": [
       "teste-veiculo-tanque"
     ]
-  }
+  },
+  "pacotes": {}
 }

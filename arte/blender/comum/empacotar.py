@@ -13,18 +13,23 @@ import hashlib
 import json
 import os
 import re
+from fractions import Fraction
 
 import bpy
 import numpy as np
 
 from . import maxrects
-from .fabrica import caminho_quadro, ordem_dos_quadros
+from .fabrica import caminho_quadro, indices_reusados, ordem_dos_quadros
 
 BORDA = 1
 MARGEM = 2
 # One page size per level: the renderer stacks pages in a texture array whose layers all take the size
 # of the largest page, so a uniform size wastes nothing (agreed with the render front on 30/10/2026).
 PAGINA = {"uhd": 2048, "hd": 1024}
+# What the renderer allocates per atlas page (site/rts/js/render/backend-webgl2.js): one layer in each of three
+# texture arrays, colour RGBA8, team mask R8 and shadow R8, whatever passes the page has, plus a full mip chain.
+BYTES_GPU_POR_PIXEL = 4 + 1 + 1
+MIPMAPS = Fraction(4, 3)
 BLOCOS_PERMITIDOS = {"VP8 ", "VP8L", "VP8X", "ALPH"}
 # The soft, noisy shadow compresses badly without loss (about 5 MB per 4096 page) and loses nothing visible with it.
 QUALIDADE_SOMBRA = 85
@@ -159,8 +164,13 @@ def canais_do_passe(passe, imagem):
 def recortar_quadros(descricao, saida):
     """Trim every frame of every pass once, for uhd and hd, sharing one box per frame across passes."""
     passes = descricao["passes"]
+    reusados = indices_reusados(descricao)
     quadros = []
-    for animacao, direcao, quadro in ordem_dos_quadros(descricao):
+    for indice, (animacao, direcao, quadro) in enumerate(ordem_dos_quadros(descricao)):
+        if indice in reusados:
+            # the very same object: the packer gives both indices one rectangle
+            quadros.append(quadros[reusados[indice]])
+            continue
         config = descricao["camadas"][animacao["camada"]]
         largura, altura = config["quadro"]
         ancora = config["ancora"]
@@ -193,20 +203,49 @@ def recortar_quadros(descricao, saida):
     return quadros
 
 
-def montar_nivel(descricao, quadros, nivel, destino, qualidade_cor):
-    asset = descricao["asset"]
-    passes = descricao["passes"]
+def bytes_gpu(paginas, tipo):
+    """Estimated GPU memory of a level's pages: texture-array layers for sprites, plain RGBA bitmaps for the HUD."""
+    if tipo == "interface":
+        return sum(pg["largura"] * pg["altura"] * 4 for pg in paginas)
+    camadas = sum(pg["largura"] * pg["altura"] for pg in paginas)
+    return int(camadas * BYTES_GPU_POR_PIXEL * MIPMAPS)
+
+
+def unicos(quadros):
+    """Unique frames and, per manifest index, the position of its frame among them: reused frames (the same
+    object) and frames with identical pixels in every pass share one rectangle."""
+    por_objeto, por_conteudo, lista, mapa = {}, {}, [], []
+    for quadro in quadros:
+        chave = id(quadro)
+        if chave not in por_objeto:
+            resumo = hashlib.sha1(repr(quadro["uhd"]["deslocamento"]).encode())
+            for passe in sorted(quadro["uhd"]["pixels"]):
+                pixels = quadro["uhd"]["pixels"][passe]
+                resumo.update(passe.encode() + repr(pixels.shape).encode() + pixels.tobytes())
+            digest = resumo.hexdigest()
+            if digest not in por_conteudo:
+                por_conteudo[digest] = len(lista)
+                lista.append(quadro)
+            por_objeto[chave] = por_conteudo[digest]
+        mapa.append(por_objeto[chave])
+    return lista, mapa
+
+
+def montar_paginas(quadros, nivel, destino, prefixo, qualidade_cor, lado, fixo=True):
+    """Pack unique frames into pages of one level. Every page stores colour, plus each other pass that one of its
+    frames has (a frame without that pass leaves zeros). Returns the pages and, per frame, [page, x, y, w, h, dx, dy]."""
     tamanhos = [q[nivel]["pixels"]["cor"].shape[1::-1] for q in quadros]
-    arranjo = maxrects.empacotar(tamanhos, PAGINA[nivel], MARGEM, fixo=True)
+    arranjo = maxrects.empacotar(tamanhos, lado, MARGEM, fixo=fixo)
     entradas = [None] * len(quadros)
     paginas = []
-    bytes_arquivos = 0
     for numero, (largura, altura, posicoes) in enumerate(arranjo):
+        passes = ["cor"] + sorted({p for indice in posicoes for p in quadros[indice][nivel]["pixels"] if p != "cor"},
+                                  key=lambda p: ("time", "normal", "sombra").index(p))
         folhas = {p: np.zeros((altura, largura, 4 if p == "cor" else 3), np.uint8) for p in passes}
         for indice, (x, y) in posicoes.items():
             w, h = tamanhos[indice]
-            for p in passes:
-                folhas[p][y:y + h, x:x + w] = quadros[indice][nivel]["pixels"][p]
+            for p, pixels in quadros[indice][nivel]["pixels"].items():
+                folhas[p][y:y + h, x:x + w] = pixels
             dx, dy = quadros[indice][nivel]["deslocamento"]
             entradas[indice] = [numero, int(x), int(y), int(w), int(h), int(dx), int(dy)]
         pagina = {"largura": largura, "altura": altura}
@@ -218,13 +257,25 @@ def montar_nivel(descricao, quadros, nivel, destino, qualidade_cor):
                 conferir_sem_perda(folhas[p], temporario)
             with open(temporario, "rb") as arquivo:
                 resumo = hashlib.sha256(arquivo.read()).hexdigest()[:6]
-            nome = f"{asset}@{nivel}-p{numero}.{p}.{resumo}.webp"
+            nome = f"{prefixo}@{nivel}-p{numero}.{p}.{resumo}.webp"
             os.replace(temporario, os.path.join(destino, nome))
-            bytes_arquivos += os.path.getsize(os.path.join(destino, nome))
             pagina[p] = nome
         paginas.append(pagina)
-    memoria = sum(pg["largura"] * pg["altura"] * (4 + (len(passes) - 1)) for pg in paginas)
-    return paginas, entradas, {"bytesArquivos": bytes_arquivos, "bytesGpuEstimados": memoria}
+    return paginas, entradas
+
+
+def lado_da_pagina(descricao, nivel):
+    return descricao.get("pagina", PAGINA)[nivel]
+
+
+def montar_nivel(descricao, quadros, nivel, destino, qualidade_cor):
+    lista, mapa = unicos(quadros)
+    fixo = descricao["tipo"] != "interface"
+    paginas, entradas = montar_paginas(lista, nivel, destino, descricao["asset"], qualidade_cor, lado_da_pagina(descricao, nivel), fixo)
+    bytes_arquivos = sum(os.path.getsize(os.path.join(destino, pg[p])) for pg in paginas for p in pg if p not in ("largura", "altura"))
+    orcamento = {"bytesArquivos": bytes_arquivos, "bytesGpuEstimados": bytes_gpu(paginas, descricao["tipo"]),
+                 "quadrosUnicos": len(lista), "pixels": int(sum(q[nivel]["pixels"]["cor"].shape[0] * q[nivel]["pixels"]["cor"].shape[1] for q in lista))}
+    return paginas, [entradas[i] for i in mapa], orcamento
 
 
 def pontos_do_manifesto(tabela_pontos):
@@ -239,6 +290,8 @@ def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):
         direcoes = a.get("direcoes", descricao["direcoes"])
         animacoes[a["nome"]] = {"camada": a["camada"], "direcoes": direcoes, "quadros": a["quadros"],
                                 "fps": a.get("fps", 0), "laco": a.get("laco", True), "base": base}
+        if a.get("igual"):
+            animacoes[a["nome"]]["igual"] = a["igual"]
         base += direcoes * a["quadros"]
     camadas = list(descricao["camadas"])
     por_camada = {}
@@ -247,13 +300,16 @@ def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):
         ax, ay = config["ancora"]
         por_camada[nome] = {"uhd": {"quadro": [w, h], "ancora": [ax, ay]}, "hd": {"quadro": [w // 2, h // 2], "ancora": [ax // 2, ay // 2]}}
     primeira = por_camada[camadas[0]]
+    extras = {chave: descricao[chave] for chave in ("pegada", "variantes") if chave in descricao}
     return {
         "versao": 1,
         "asset": descricao["asset"],
         "brief": descricao.get("brief"),
+        **extras,
         "tipo": descricao["tipo"],
         "categoria": descricao["categoria"],
         "fases": descricao.get("fases", []),
+        "acabamento": descricao.get("acabamento", "portao"),
         "direcoes": descricao["direcoes"],
         "angulo0": "leste",
         "sentido": "horario-na-tela",
@@ -273,7 +329,7 @@ def manifesto(descricao, projecao, paginas, entradas, tabela_pontos, orcamento):
     }
 
 
-def procedencia(descricao, relatorio, argumentos, script):
+def procedencia(descricao, relatorio, argumentos, script, saida=None):
     return {
         "versao": 1,
         "asset": descricao["asset"],
@@ -282,6 +338,7 @@ def procedencia(descricao, relatorio, argumentos, script):
         "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
         "script": script,
         "commit": argumentos.commit,
+        "execucao": os.path.basename(os.path.normpath(saida)) if saida else None,
         "ferramentas": [{"nome": "Blender", "versao": relatorio["blender"], "licenca": "GPL-3.0-or-later",
                          "uso": "modelagem, render Cycles e empacotamento"}],
         "ia": [],
@@ -338,7 +395,7 @@ def executar(descricao, projecao, saida, tabela_pontos, relatorio, argumentos, s
             json.dump(dados, arquivo, ensure_ascii=False, separators=(",", ":"))
             arquivo.write("\n")
         with open(os.path.join(destino_procedencia, f"{descricao['asset']}.json"), "w", encoding="utf-8") as arquivo:
-            json.dump(procedencia(descricao, relatorio, argumentos, script), arquivo, ensure_ascii=False, indent=2)
+            json.dump(procedencia(descricao, relatorio, argumentos, script, saida), arquivo, ensure_ascii=False, indent=2)
             arquivo.write("\n")
         return orcamento
     quadros = recortar_quadros(descricao, saida)
@@ -350,6 +407,6 @@ def executar(descricao, projecao, saida, tabela_pontos, relatorio, argumentos, s
         json.dump(dados, arquivo, ensure_ascii=False, separators=(",", ":"))
         arquivo.write("\n")
     with open(os.path.join(destino_procedencia, f"{descricao['asset']}.json"), "w", encoding="utf-8") as arquivo:
-        json.dump(procedencia(descricao, relatorio, argumentos, script), arquivo, ensure_ascii=False, indent=2)
+        json.dump(procedencia(descricao, relatorio, argumentos, script, saida), arquivo, ensure_ascii=False, indent=2)
         arquivo.write("\n")
     return orcamento
