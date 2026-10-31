@@ -37,7 +37,8 @@
 //   cumprido | falhou }; criar { jogador, unidades: [{ tipo, quantos }], area | ponto, grupo?, veterania? } (ONDA with
 //   a group, SURGIMENTO per unit); ordenar { grupo, ordem: mover | atacarMovendo | patrulhar | parar | segurar,
 //   rota | area | ponto, fila? } (fila 1 queues after what the group is doing); atacar { grupo, alvo }; variavel { nome, valor | somar }; cronometro { nome, segundos |
-//   parar }; liberar | bloquear { jogador, tipos }; revelar { jogador, area }; recursos { jogador, somar };
+//   parar }; liberar | bloquear { jogador, tipos }; revelar { jogador, area }; recursos { jogador | no, somar } (a node:
+//   its piles in slot order, each up to its start, or drained with a negative amount);
 //   dono { grupo, jogador }; destruir { grupo }; gatilho { gatilho, ativo }; religavel { grupo, segundos,
 //   por?: religa | reparo };
 //   pesquisa { jogador, pesquisa }; veterania { grupo, nivel }; luz { cena, area | ponto? }; camera { area | ponto };
@@ -464,6 +465,7 @@ export function compilarMissao(missao, contexto) {
       case 'revelar':
         return { faz: 'revelar', jogador: jogador(`${onde}.jogador`, a.jogador), area: area(`${onde}.area`, a.area) };
       case 'recursos':
+        if (a.no !== undefined) return { faz: 'recursosDoNo', no: indiceDoNo(`${onde}.no`, a.no), somar: numero(`${onde}.somar`, a.somar) };
         return { faz: 'recursos', jogador: jogador(`${onde}.jogador`, a.jogador), somar: numero(`${onde}.somar`, a.somar) };
       case 'dono':
         return { faz: 'dono', grupo: grupo(`${onde}.grupo`, nomeDoGrupo(a)), jogador: jogador(`${onde}.jogador`, a.jogador) };
@@ -654,6 +656,19 @@ function cargaDoNo(sim, k) {
   let total = 0;
   for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.no[i] === k && sim.tipos[sim.tipo[i]].categoria === CATEGORIA.RECURSO) total += sim.carga[i];
   return total;
+}
+
+// Adds to the piles of resource node k in slot order, each up to its starting Carga, or drains them with a negative
+// amount (a node going dark).
+function somarAoNo(sim, k, quantidade) {
+  if (!sim.no || !sim.carga) return;
+  let resto = quantidade < 0 ? -quantidade : quantidade;
+  for (let i = 0; i < sim.capacidade && resto > 0; i++) {
+    if (!sim.ativo[i] || sim.no[i] !== k || sim.tipos[sim.tipo[i]].categoria !== CATEGORIA.RECURSO) continue;
+    const parte = Math.min(resto, quantidade < 0 ? sim.carga[i] : Math.max(0, sim.cargaMaxima[i] - sim.carga[i]));
+    sim.carga[i] += quantidade < 0 ? -parte : parte;
+    resto -= parte;
+  }
 }
 
 function avaliar(sim, ex, c) {
@@ -852,6 +867,9 @@ function executar(sim, m, ex, a) {
     }
     case 'recursos':
       darRecursos(sim, a.jogador, a.somar);
+      return;
+    case 'recursosDoNo':
+      somarAoNo(sim, a.no, a.somar);
       return;
     case 'dono':
       for (const i of membros(sim, ex, a.grupo)) trocarDono(sim, i, a.jogador);

@@ -13,6 +13,7 @@ import { faseDe, FASE } from '../site/rts/js/sim/empacotar.js';
 import { BANDEIRA_COMBATE } from '../site/rts/js/sim/habilidades.js';
 import { montarRetrato } from '../site/rts/js/sim/retrato.js';
 import { ordenarGrupo } from '../site/rts/js/sim/ordens.js';
+import { dadosExemplo, mapaExemplo } from './rts-sim-exemplo.mjs';
 
 const pe = { classe: 'infantaria', blindagem: 'pessoal', lotacao: 1, raio: 2, giroCorpo: 16, giroTorre: 16, tempoMs: 12000, velocidade: 120, visao: 7 };
 const roda = { classe: 'veiculo', blindagem: 'leve', lotacao: 2, raio: 3, giroCorpo: 8, giroTorre: 8, tempoMs: 20000, velocidade: 200, visao: 7 };
@@ -350,4 +351,34 @@ test('the snapshot shows re-powering progress and packing, and the lights come o
   const b = r.bandeiras[linha(r, carroca)];
   assert.ok(b & BANDEIRA_COMBATE.EMPACOTADO, 'a packed building');
   assert.equal(b & BANDEIRA_COMBATE.EMPACOTANDO, 0);
+});
+
+test('a mission drains a resource node, pile by pile, and can fill it back up to its start', () => {
+  const missaoDoNo = {
+    versao: 1,
+    id: 'apagar',
+    gatilhos: [
+      { id: 'apaga', quando: { se: 'tempo', segundos: 1 }, acoes: [{ faz: 'recursos', no: 'no-norte', somar: -2000 }], repete: true, intervaloSegundos: 1 },
+      { id: 'apagou', quando: { se: 'recursos', no: 'no-norte', maximo: 0 }, acoes: [{ faz: 'gatilho', gatilho: 'apaga', ativo: false }, { faz: 'recursos', no: 'no-sul', somar: 999999 }] },
+    ],
+  };
+  const sim = criarSimulacao({ dados: dadosExemplo(), arquivosMapa: mapaExemplo(), missao: missaoDoNo });
+  const pilhas = no => {
+    const lista = [];
+    for (let i = 0; i < sim.capacidade; i++) if (sim.ativo[i] && sim.tipos[sim.tipo[i]].categoria === CATEGORIA.RECURSO && sim.no[i] === no) lista.push(i);
+    return lista;
+  };
+  const total = no => pilhas(no).reduce((t, i) => t + sim.carga[i], 0);
+  const norte = total(1);
+  const sul = pilhas(0);
+  assert.ok(norte > 4000);
+  avancar(sim, 30 + INTERVALO_GATILHOS);
+  assert.equal(total(1), norte - 2000, 'one drain');
+  const [primeira] = pilhas(1);
+  assert.equal(sim.carga[primeira], Math.max(0, 1500 - 2000), 'the first pile first');
+  sim.carga[sul[0]] -= 700;
+  avancar(sim, 10 * 30);
+  assert.equal(total(1), 0, 'gone dark');
+  assert.equal(extrasMissao(sim).ativo[0], 0, 'and the drain stopped');
+  assert.ok(sul.every(i => sim.carga[i] === sim.cargaMaxima[i]), 'the other node filled back to its start, no more');
 });
