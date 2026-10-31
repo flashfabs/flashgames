@@ -1,11 +1,13 @@
 // Mouse, trackpad and keyboard on the battlefield: selection (click, box, Shift, double click by kind), orders (context
-// click, A, M or R and a click, S, H, Shift for the queue), control groups, camera (screen edges, arrows, middle button
-// or Space and drag, two-finger scroll) and the three zoom levels (wheel, pinch, + and −).
-// The on-screen buttons call executar() and the same functions, so every command works without the keyboard.
+// click, A, M or R and a click, S, H, Shift for the queue), the command card (Q W E R A S D F), placing buildings,
+// rally points, control groups, camera (screen edges, arrows, middle button or Space and drag, two-finger scroll) and
+// the three zoom levels (wheel, pinch, + and −).
+// The on-screen buttons call executar() and executarSlot(), so every command works without the keyboard.
 import { FP, SEM_ENTIDADE } from '../sim/contratos.js';
 import { ACAO, ACOES_COM_ALVO, SETAS, E_MAC, acaoDaTecla, modificadores } from './teclas.js';
 import { idsNaCaixa, entidadeNoPonto, mesmoTipoNaTela, aplicarSelecao, podarSelecao, ARRASTO_MINIMO } from './selecao.js';
 import { paraMundo, paraTela } from './camera.js';
+import { TECLAS_DA_GRADE, predioComMenorFila } from '../interface/cartao.js';
 
 /** Client pixels from the window edge where the camera scrolls. */
 const BORDA_PX = 8;
@@ -18,27 +20,60 @@ const ROLAGEM_GRANDE = 40;
 const SILENCIO_ANTES_DA_RODA_MS = 80;
 const FIM_DA_RAJADA_MS = 200;
 const PAUSA_ENTRE_PASSOS_DA_RODA_MS = 120;
+/** Shift on a training button queues this many at once. */
+const LOTE_COM_SHIFT = 5;
+/** Placing a building is a mode of its own, next to the order modes of ACOES_COM_ALVO. */
+const MODO_COLOCAR = 'colocar';
 
-export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, selecionadas, indice, zoom, grupos, ordens, som, latencia, simulacao, visivel, roda = 'auto', aoMudar = () => {} }) {
+export function ligarControles({
+  canvas,
+  palco,
+  caixaSelecao,
+  camera,
+  estado,
+  selecionadas,
+  indice,
+  zoom,
+  grupos,
+  ordens,
+  som,
+  latencia,
+  simulacao,
+  visivel,
+  catalogo,
+  cartao,
+  producao,
+  colocacao,
+  acoes = {},
+  bloqueado = () => false,
+  roda = 'auto',
+  aoMudar = () => {},
+}) {
   const setas = new Set();
   let espaco = false;
   let arrasto = null;
-  let modo = null; // ACAO.ATACAR_MOVENDO, MOVER or PATRULHAR waiting for a click
+  let modo = null; // ACAO.ATACAR_MOVENDO, MOVER or PATRULHAR waiting for a click, or MODO_COLOCAR
   let modoComFila = false;
   let ultimoClique = null;
   let pausado = false;
   let gestoAte = -Infinity;
+  // how the latest command was given, for the playtest log (C15)
+  let origem = 'mouse';
   const rolagem = { ultima: -Infinity, ehRoda: false, ultimoPasso: -Infinity };
   const ponteiro = { x: -1, y: -1, dentro: false };
   const tmp = { x: 0, y: 0 };
 
-  const ids = () => [...selecionadas];
+  const cat = () => catalogo();
+  /** Own units in the selection: the ones orders go to (buildings never walk). */
+  const unidades = () => [...selecionadas].filter(id => cat().ehUnidade(indice.tipo(id)));
+  const predios = () => [...selecionadas].filter(id => cat().ehPredio(indice.tipo(id)));
   const ponto = (clienteX, clienteY) => paraMundo(canvas, camera, clienteX, clienteY, { x: 0, y: 0 });
   const projetar = (retrato, k, saida) => paraTela(canvas, camera, retrato.x[k] / FP, retrato.y[k] / FP, saida);
   const centroDaTela = () => {
     const r = canvas.getBoundingClientRect();
     return [r.left + r.width / 2, r.top + r.height / 2];
   };
+  const origemDoPonteiro = e => (e.pointerType === 'touch' ? 'toque' : 'mouse');
 
   function avisar() {
     palco.dataset.modo = modo ?? '';
@@ -71,7 +106,10 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
         ultimoClique = { quando: e.timeStamp, tipo: atual.tipo[k] };
       }
     } else {
-      aplicarSelecao(selecionadas, idsNaCaixa(atual, jogador, projetar, { x0, y0, x1: e.clientX, y1: e.clientY }), e.shiftKey ? 'somar' : 'trocar');
+      // A box takes units; buildings only when it caught no unit.
+      const pegos = idsNaCaixa(atual, jogador, projetar, { x0, y0, x1: e.clientX, y1: e.clientY });
+      const soUnidades = pegos.filter(id => cat().ehUnidade(indice.tipo(id)));
+      aplicarSelecao(selecionadas, soUnidades.length ? soUnidades : pegos.filter(id => cat().ehPredio(indice.tipo(id))), e.shiftKey ? 'somar' : 'trocar');
       ultimoClique = null;
     }
     if (selecionadas.size) som.tocar('selecao');
@@ -83,29 +121,37 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
     const atual = estado.atual;
     if (!atual) return;
     selecionadas.clear();
-    for (let k = 0; k < atual.n; k++) if (atual.dono[k] === estado.jogadorLocal) selecionadas.add(atual.id[k]);
+    for (let k = 0; k < atual.n; k++) if (atual.dono[k] === estado.jogadorLocal && cat().ehUnidade(atual.tipo[k])) selecionadas.add(atual.id[k]);
   }
 
   // ---------- orders ----------
 
-  function inimigoSob(clienteX, clienteY) {
+  /** What is under the pointer for a context order: a visible enemy, a resource node, or nothing. */
+  function alvoSob(clienteX, clienteY) {
     const atual = estado.atual;
-    if (!atual) return SEM_ENTIDADE;
-    const k = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== estado.jogadorLocal && visivel(atual.x[j] / FP, atual.y[j] / FP));
-    return k < 0 ? SEM_ENTIDADE : atual.id[k];
+    if (!atual) return { inimigo: SEM_ENTIDADE, recurso: SEM_ENTIDADE, qualquer: SEM_ENTIDADE };
+    const jogador = estado.jogadorLocal;
+    const ver = j => visivel(atual.x[j] / FP, atual.y[j] / FP);
+    const recurso = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => cat().ehRecurso(atual.tipo[j]) && ver(j));
+    const inimigo = entidadeNoPonto(atual, projetar, clienteX, clienteY, j => atual.dono[j] !== jogador && !cat().ehRecurso(atual.tipo[j]) && ver(j));
+    const qualquer = entidadeNoPonto(atual, projetar, clienteX, clienteY, ver);
+    const id = k => (k < 0 ? SEM_ENTIDADE : atual.id[k]);
+    return { inimigo: id(inimigo), recurso: id(recurso), qualquer: id(qualquer) };
   }
 
   function entrarModo(acao) {
-    if (selecionadas.size === 0) {
+    if (unidades().length === 0) {
       som.tocar('recusa');
       return;
     }
+    colocacao.terminar();
     modo = acao;
     modoComFila = false;
     avisar();
   }
 
   function cancelarModo() {
+    if (modo === MODO_COLOCAR) colocacao.terminar();
     modo = null;
     modoComFila = false;
     avisar();
@@ -113,15 +159,60 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
 
   function ordemComAlvo(e) {
     const acao = modo;
-    ordens.comAlvo(acao, ids(), ponto(e.clientX, e.clientY), inimigoSob(e.clientX, e.clientY), e.shiftKey, e.timeStamp);
+    ordens.comAlvo(acao, unidades(), ponto(e.clientX, e.clientY), alvoSob(e.clientX, e.clientY).inimigo, e.shiftKey, e.timeStamp);
     // With Shift held the mode stays, so every click adds a point to the queue until Shift is released.
     if (e.shiftKey) modoComFila = true;
     else cancelarModo();
   }
 
   function ordemDeContexto(e) {
-    if (selecionadas.size === 0) return;
-    ordens.deContexto(ids(), ponto(e.clientX, e.clientY), inimigoSob(e.clientX, e.clientY), e.shiftKey, e.timeStamp);
+    const ids = unidades();
+    const noChao = ponto(e.clientX, e.clientY);
+    const alvo = alvoSob(e.clientX, e.clientY);
+    if (ids.length === 0) {
+      // Buildings alone: a context click sets where their units gather.
+      const deles = predios();
+      if (deles.length) ordens.encontro(deles, noChao, alvo.qualquer, e.timeStamp);
+      return;
+    }
+    if (alvo.recurso !== SEM_ENTIDADE && alvo.inimigo === SEM_ENTIDADE) {
+      const coletores = ids.filter(id => cat().ehColetor(indice.tipo(id)));
+      if (coletores.length) {
+        ordens.coletar(coletores, alvo.recurso, noChao, e.shiftKey, e.timeStamp);
+        const resto = ids.filter(id => !coletores.includes(id));
+        if (resto.length) ordens.deContexto(resto, noChao, SEM_ENTIDADE, e.shiftKey, e.timeStamp);
+        return;
+      }
+    }
+    ordens.deContexto(ids, noChao, alvo.inimigo, e.shiftKey, e.timeStamp);
+  }
+
+  // ---------- placing buildings ----------
+
+  function comecarColocacao(tipo, construtor) {
+    const [largura, altura] = cat().info(tipo).pegada;
+    modo = MODO_COLOCAR;
+    modoComFila = false;
+    colocacao.comecar(tipo, construtor, largura, altura);
+    if (ponteiro.dentro) {
+      const { x, y } = ponto(ponteiro.x, ponteiro.y);
+      colocacao.apontar(x, y);
+    }
+    avisar();
+  }
+
+  function colocar(e) {
+    const { x, y } = ponto(e.clientX, e.clientY);
+    colocacao.apontar(x, y);
+    const atual = colocacao.estado;
+    if (!atual.valido) {
+      som.tocar('recusa');
+      return;
+    }
+    ordens.construir(atual.construtor, atual.tipo, atual.cx, atual.cy, e.shiftKey, e.timeStamp);
+    // Shift keeps placing (poles in a row); the simulation decides whether another one is ready.
+    if (e.shiftKey) modoComFila = true;
+    else cancelarModo();
   }
 
   // ---------- groups ----------
@@ -150,17 +241,49 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
   /** Runs an action from a key or an on-screen button; timeStamp is the input event's. */
   function executar({ acao, grupo, fila = false }, timeStamp = performance.now()) {
     if (ACOES_COM_ALVO.has(acao)) entrarModo(acao);
-    else if (acao === ACAO.PARAR) ordens.parar(ids(), timeStamp);
-    else if (acao === ACAO.SEGURAR) ordens.segurar(ids(), timeStamp);
+    else if (acao === ACAO.PARAR) ordens.parar(unidades(), timeStamp);
+    else if (acao === ACAO.SEGURAR) ordens.segurar(unidades(), timeStamp);
     else if (acao === ACAO.PAUSAR) alternarPausa();
     else if (acao === ACAO.CANCELAR) cancelarModo();
     else if (acao === ACAO.SELECIONAR_TUDO) selecionarTudo();
     else if (acao === ACAO.CHAMAR_GRUPO) chamarGrupo(grupo, timeStamp);
-    else if (acao === ACAO.GUARDAR_GRUPO) grupos.guardar(grupo, ids());
-    else if (acao === ACAO.SOMAR_GRUPO) grupos.somar(grupo, ids());
+    else if (acao === ACAO.GUARDAR_GRUPO) grupos.guardar(grupo, [...selecionadas]);
+    else if (acao === ACAO.SOMAR_GRUPO) grupos.somar(grupo, [...selecionadas]);
     else if (acao === ACAO.ZOOM_MAIS || acao === ACAO.ZOOM_MENOS) zoom.passo(acao === ACAO.ZOOM_MAIS ? 1 : -1, ...centroDaTela());
+    else acoes[acao]?.(timeStamp);
     if (fila && ACOES_COM_ALVO.has(acao)) modoComFila = true;
     avisar();
+  }
+
+  /**
+   * Runs a slot of the command card (interface/cartao.js): a unit order, training (Shift trains five), starting a
+   * building at the headquarters, or placing the one that is ready.
+   */
+  function executarSlot(slot, { fila = false } = {}, timeStamp = performance.now()) {
+    if (!slot) return false;
+    if (slot.acao) {
+      executar({ acao: slot.acao, fila }, timeStamp);
+      return true;
+    }
+    const { predios: deles } = cartao();
+    if (slot.modo === 'posicionar') {
+      comecarColocacao(slot.tipo, deles[0]);
+      som.tocar('clique');
+      return true;
+    }
+    if (slot.falta || slot.ocupado) {
+      som.tocar('recusa');
+      aoMudar(slot.falta ?? 'ocupado');
+      return true;
+    }
+    if (slot.modo === 'construir') {
+      ordens.produzir(deles[0], slot.tipo, 1, timeStamp);
+    } else {
+      const quantos = fila ? LOTE_COM_SHIFT : 1;
+      for (let i = 0; i < quantos; i++) ordens.produzir(predioComMenorFila(deles, producao), slot.tipo, 1, timeStamp);
+    }
+    avisar();
+    return true;
   }
 
   // ---------- pointer ----------
@@ -168,8 +291,9 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   canvas.addEventListener('pointerdown', e => {
-    som.destravar();
+    if (bloqueado()) return;
     canvas.focus({ preventScroll: true });
+    origem = origemDoPonteiro(e);
     // Control and click is the Mac's right click; it is never used for anything else.
     const contexto = e.button === 2 || (E_MAC && e.button === 0 && e.ctrlKey);
     if (e.button === 1 || (e.button === 0 && espaco)) {
@@ -184,6 +308,10 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
       return;
     }
     if (e.button !== 0) return;
+    if (modo === MODO_COLOCAR) {
+      colocar(e);
+      return;
+    }
     if (modo) {
       ordemComAlvo(e);
       return;
@@ -193,6 +321,10 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
   });
 
   canvas.addEventListener('pointermove', e => {
+    if (modo === MODO_COLOCAR) {
+      const { x, y } = ponto(e.clientX, e.clientY);
+      colocacao.apontar(x, y);
+    }
     if (!arrasto) return;
     if (arrasto.pan) {
       // The map point that was under the pointer follows it.
@@ -249,6 +381,7 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
+    if (bloqueado()) return;
     if (e.ctrlKey) {
       // Safari may send the same pinch as gesture events too; while a gesture runs it wins.
       if (e.timeStamp > gestoAte) zoom.pinca(e.deltaY, e.timeStamp, e.clientX, e.clientY);
@@ -290,8 +423,8 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
   const eCampo = alvo => alvo instanceof HTMLElement && alvo.matches('input, textarea, select, [contenteditable]');
 
   addEventListener('keydown', e => {
-    if (eCampo(e.target)) return;
-    som.destravar();
+    if (eCampo(e.target) || bloqueado()) return;
+    origem = 'tecla';
     const mods = modificadores(e);
     if (SETAS[e.code] && (mods === '' || mods === 'shift')) {
       setas.add(e.code);
@@ -302,6 +435,16 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
       espaco = true;
       e.preventDefault();
       return;
+    }
+    // The command card first: Q W E R A S D F do what the grid shows for this selection.
+    const posicao = TECLAS_DA_GRADE.indexOf(e.code);
+    if (posicao >= 0 && (mods === '' || mods === 'shift')) {
+      const slot = cartao().slots[posicao];
+      if (slot) {
+        e.preventDefault();
+        if (!e.repeat) executarSlot(slot, { fila: e.shiftKey }, e.timeStamp);
+        return;
+      }
     }
     const acao = acaoDaTecla(e);
     if (!acao) return;
@@ -335,7 +478,7 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
       dx += SETAS[code][0];
       dy += SETAS[code][1];
     }
-    if (ponteiro.dentro && !arrasto && document.hasFocus()) {
+    if (ponteiro.dentro && !arrasto && document.hasFocus() && !bloqueado()) {
       if (ponteiro.x <= BORDA_PX) dx -= 1;
       if (ponteiro.x >= innerWidth - 1 - BORDA_PX) dx += 1;
       if (ponteiro.y <= BORDA_PX) dy -= 1;
@@ -355,14 +498,27 @@ export function ligarControles({ canvas, palco, caixaSelecao, camera, estado, se
   return {
     moverCamera,
     executar,
+    executarSlot,
     entrarModo,
     cancelarModo,
+    comecarColocacao,
     alternarPausa,
+    /** Marks the next command as given by an on-screen button (for the playtest log). */
+    marcarBotao() {
+      origem = 'botao';
+    },
     get modo() {
       return modo;
     },
     get pausado() {
       return pausado;
+    },
+    get origem() {
+      return origem;
+    },
+    /** Kind of the building being placed, or -1. */
+    get colocando() {
+      return colocacao.estado?.tipo ?? -1;
     },
   };
 }

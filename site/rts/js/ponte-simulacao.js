@@ -11,10 +11,11 @@ export function criarPonteSimulacao() {
   let salvando = null;
 
   // Starts the worker; aoReceberMapa gets the static map once, aoReceberEstado every snapshot.
-  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, aoReceberMapa, aoReceberEstado }) {
+  // teste: the match runs under the end-to-end tests (?teste=1), which lets the worker take test-only messages.
+  function iniciar({ semente, unidadesPorTime, avancar, jogadorLocal = 0, teste = false, aoReceberMapa, aoReceberEstado }) {
     estado.jogadorLocal = jogadorLocal;
     trabalhador = new Worker(new URL('./trabalhador.js', import.meta.url), { type: 'module' });
-    trabalhador.postMessage({ t: PARA_TRABALHADOR.INICIAR, opcoes: { semente, unidadesPorTime, avancar, jogadorLocal } });
+    trabalhador.postMessage({ t: PARA_TRABALHADOR.INICIAR, opcoes: { semente, unidadesPorTime, avancar, jogadorLocal, teste } });
     trabalhador.onmessage = ({ data }) => {
       if (data.t === DO_TRABALHADOR.PRONTO) {
         estado.mapa = data;

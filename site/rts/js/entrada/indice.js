@@ -13,6 +13,18 @@ export function criarIndice() {
       for (let k = 0; k < novo.n; k++) porId.set(novo.id[k], k);
     },
     existe: id => porId.has(id),
+    /** Index of the entity in the latest snapshot, or -1. */
+    k: id => porId.get(id) ?? -1,
+    /** Owner of the entity, or -1 when it is gone. */
+    dono(id) {
+      const k = porId.get(id);
+      return k === undefined ? -1 : retrato.dono[k];
+    },
+    /** Kind of the entity, or -1 when it is gone. */
+    tipo(id) {
+      const k = porId.get(id);
+      return k === undefined ? -1 : retrato.tipo[k];
+    },
     /** Cell position of the unit, written to saida; false when it is gone. */
     posicao(id, saida) {
       const k = porId.get(id);
