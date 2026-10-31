@@ -40,3 +40,19 @@ Outros comandos: `checar`, `enviar`, `acompanhar <asset> <execução>`, `buscar 
 
 `D:\rts\scripts` recebe esta pasta a cada envio (nunca editar lá), `D:\rts\config` o contrato de projeção, `D:\rts\saida\<asset>\<execução>` os quadros, o log, o `estado.json`, o `relatorio.json` e o pacote, e `D:\rts\cache` os temporários do Blender (nunca no C:).
 `D:\rts\fonte` fica para `.blend` feitos à mão, se um dia houver, com cópia de segurança (decisão D09).
+
+## Kit cinza da fase 1 (etapa E3)
+
+Cada unidade, construção, estrutura neutra, recurso, decoração e solo da fase 1 tem um script em `assets/` com o mesmo id que `site/rts/dados/unidades.json` e `predios.json` usam (`religadores-infantaria-soldador`, `desligados-construcao-paiol`...); as peças do portão de estilo ficaram com ids `-portao`, só na fase `portao`.
+O módulo `comum/cinza.py` traz a paleta cinza (as cores dos briefs viram cinza por luminância, com um toque frio nos Religadores e quente nos Desligados; a máscara de time e o brilho da carga ficam), as descrições padrão por categoria, as rodas e o destroço dos veículos, os estragos das construções (grupos por papel: parede, telhado, alto, detalhe) e o enquadramento dos ícones; `comum/infantaria.py` é o corpo-base único da infantaria, com as ações por função de pose; `comum/solo.py` faz os ladrilhos de solo e `comum/decoracao.py` as decorações com variações por quadro.
+
+- Infantaria: 16 direções; `parado` (1), `andando` (6), `atirando` (2, o segundo é o repouso), `morrendo` (6 quadros em 8 direções) e as especiais do brief.
+- Veículos: 16 direções; `parado`, `rodando` (os mesmos quadros), `atirando` na camada `torre` quando há torre, `destruido` na camada `destroco` (casco e torre juntos, 8 direções).
+- Construções e estruturas: 1 direção, passe `sombra`, quadro calculado pela pegada e pela altura (`cinza.quadro_construcao`); `pronta`, `produzindo` (os mesmos quadros no cinza), `danificada`, `destruida`; as neutras têm `morta` e `religada`; torres com a camada `torre` em 16 direções; a paliçada tem 16 quadros por estado, quadro = máscara de vizinhos (norte 1, leste 2, sul 4, oeste 8).
+- Quadros repetidos não são renderizados: `"igual": "<animação>"` reusa outra animação inteira e `"quadrosIguais": {"<k>": ["<animação>", <quadro>]}` reusa quadros soltos; o empacotador também junta quadros de pixels idênticos num retângulo só.
+
+## Atlas de fase
+
+O render dá a cada página de atlas uma camada de três texture arrays (cor RGBA8, time R8 e sombra R8, com mipmaps), 32 MiB por página de 2048 no `uhd`; com uma página por asset, a fase 1 passaria de 1 GB.
+Por isso, depois de renderizar os assets, `ferramentas/arte/rtx.sh empacotar-fase fase-1` junta no PC, sem GPU, os quadros das execuções registradas na procedência de cada asset da fase em páginas compartilhadas em `site/rts/assets/sprites/fase-1/`, reescreve os manifestos para apontar para elas e grava `fase-1.json` com as páginas e o orçamento estimado pela mesma conta do backend (camadas × largura × altura × 6 × 4/3).
+Fluxo: `rtx.sh renderizar <asset>` para cada peça que mudou e, no fim, `rtx.sh empacotar-fase fase-1`; o `testes/rts-arte.test.mjs` cobra o manifesto, a procedência, o orçamento da fase e que todo asset dos dados da design esteja no índice.

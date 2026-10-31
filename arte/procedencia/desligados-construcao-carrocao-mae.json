@@ -1,0 +1,42 @@
+{
+  "versao": 1,
+  "asset": "desligados-construcao-carrocao-mae",
+  "brief": "desligados/carrocao-mae",
+  "autoria": "Modelo, materiais e animação procedurais escritos em Python pela sessão rts-arte (Claude Code) a pedido de Victor Cruz",
+  "metodo": "procedural por script, sem modelagem manual e sem IA generativa",
+  "script": "arte/blender/assets/desligados_construcao_carrocao_mae.py",
+  "commit": "f069ca5",
+  "execucao": "20261031-005224",
+  "ferramentas": [
+    {
+      "nome": "Blender",
+      "versao": "5.2.3 LTS",
+      "licenca": "GPL-3.0-or-later",
+      "uso": "modelagem, render Cycles e empacotamento"
+    }
+  ],
+  "ia": [],
+  "fontesExternas": [],
+  "render": {
+    "dispositivo": "OPTIX",
+    "gpus": [
+      "NVIDIA GeForce RTX 4090"
+    ],
+    "projecao": {
+      "origem": "D:\\rts\\config\\projecao.json",
+      "versao": 0,
+      "elevacaoGraus": 55.0,
+      "metrosPorCelula": 4.0,
+      "pxPorCelula": {
+        "hd": 64,
+        "uhd": 128
+      }
+    },
+    "segundosPorQuadro": {
+      "cor": 0.3103,
+      "time": 0.1301,
+      "sombra": 0.501
+    }
+  },
+  "edicaoHumana": "nenhuma ainda; o asset está no portão de estilo"
+}
