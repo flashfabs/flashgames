@@ -371,3 +371,295 @@ test('a terrain manifest needs square tiles and a tile size in cells', () => {
   assert.throws(() => lerManifestoTerreno({ ...base, celulasPorLadrilho: 0 }), /celulasPorLadrilho/);
   assert.throws(() => lerManifestoTerreno({ ...base, paginas: { uhd: [{ cor: 't.webp', largura: 1024, altura: 512 }] } }), /quadrada/);
 });
+
+// ---------- terrain height: levels, slopes, cliffs and the view ray ----------
+
+import { criarRelevo, niveisDeDesenho, limitesPorCelula, AMOSTRAS_POR_CELULA } from '../site/rts/js/render/relevo.js';
+import { seguirRaio } from '../site/rts/js/render/projecao.js';
+
+// 24 x 24 cells: level 0 to the west, a level-2 plateau from column 12 whose west rim (column 11) is blocked, and an
+// open ramp at rows 18..20 where column 11 is a level-1 open cell joining both sides.
+function mapaDeDegraus() {
+  const largura = 24;
+  const altura = 24;
+  const bloqueado = new Uint8Array(largura * altura);
+  const nivel = new Uint8Array(largura * altura);
+  for (let y = 0; y < altura; y++) {
+    for (let x = 12; x < largura; x++) nivel[y * largura + x] = 2;
+    const rampa = y >= 18 && y <= 20;
+    bloqueado[y * largura + 11] = rampa ? 0 : 1;
+    nivel[y * largura + 11] = rampa ? 1 : 0;
+  }
+  return { largura, altura, bloqueado, nivel };
+}
+
+test('projecao.json gives metres per level and the view ray constant', () => {
+  const p = criarProjecao(copia());
+  assert.equal(p.metrosPorNivel, 4);
+  assert.equal(p.nivelMaximo, 3);
+  assert.ok(Math.abs(p.celulasPorMetroDeAltura - Math.cos((55 * Math.PI) / 180) / (4 * Math.sin((55 * Math.PI) / 180))) < 1e-12);
+  const sem = copia();
+  delete sem.metrosPorNivel;
+  assert.throws(() => validarProjecao(sem), /metrosPorNivel/);
+});
+
+test('a blocked region rises to the highest level it touches; open cells keep theirs', () => {
+  const mapa = mapaDeDegraus();
+  const niveis = niveisDeDesenho(mapa, 3);
+  assert.equal(niveis[5 * 24 + 11], 2, 'the blocked rim at the foot of the plateau stands at the plateau level');
+  assert.equal(niveis[5 * 24 + 10], 0);
+  assert.equal(niveis[19 * 24 + 11], 1, 'the open ramp cell keeps its level');
+  // an isolated rock on flat ground stays flat
+  const plano = { largura: 8, altura: 8, bloqueado: new Uint8Array(64), nivel: new Uint8Array(64) };
+  plano.bloqueado[3 * 8 + 3] = 1;
+  assert.equal(niveisDeDesenho(plano, 3)[3 * 8 + 3], 0);
+});
+
+test('cliffs step within a quarter cell and open ramps slope from centre to centre', () => {
+  const p = criarProjecao(copia());
+  const r = criarRelevo(mapaDeDegraus(), p);
+  assert.equal(r.larguraFina, 24 * AMOSTRAS_POR_CELULA);
+  assert.equal(r.alturaMaxima, 12);
+  assert.ok(Math.abs(r.alturaEm(14.5, 5.5) - 8) < 0.05, 'plateau top at two levels');
+  assert.ok(Math.abs(r.alturaEm(11.5, 5.5) - 8) < 0.05, 'the rim is part of the plateau');
+  assert.ok(r.alturaEm(9.5, 5.5) < 0.05, 'low ground west of the cliff stays flat');
+  // across the cliff (column 11's west edge) the height goes from 0 to 8 m within about half a cell
+  assert.ok(r.alturaEm(10.6, 5.5) < 0.5 && r.alturaEm(11.4, 5.5) > 7.5);
+  // the ramp row climbs smoothly from level 0 through 1 to 2
+  const subida = [9.5, 10.5, 11, 11.5, 12, 12.5].map(x => r.alturaEm(x, 19.5));
+  for (let i = 1; i < subida.length; i++) assert.ok(subida[i] >= subida[i - 1] - 1e-9, `ramp not monotonic at ${i}: ${subida}`);
+  assert.ok(Math.abs(r.alturaEm(11.5, 19.5) - 4) < 0.1, 'ramp cell centre at one level');
+  assert.ok(Math.abs(r.alturaEm(11, 19.5) - 2) < 0.4, 'halfway up between the centres');
+});
+
+test('the view ray lands on the plateau top, the cliff face or the ground in front', () => {
+  const p = criarProjecao(copia());
+  const r = criarRelevo(mapaDeDegraus(), p);
+  const k = p.celulasPorMetroDeAltura;
+  const saida = [0, 0, 0];
+  // ground point well inside the plateau: the ray meets the top 8 m up, 8k cells south of the ground point
+  seguirRaio(p, r, 16.5, 6, saida);
+  assert.ok(Math.abs(saida[2] - 8) < 0.05 && Math.abs(saida[1] - (6 + 8 * k)) < 0.02);
+  // flat ground far west: the ray reaches the ground plane where it started
+  seguirRaio(p, r, 4.5, 6, saida);
+  assert.deepEqual([saida[0], saida[1], saida[2]], [4.5, 6, 0]);
+  // ground point on the low side, just in front of a plateau to the south? there is none: still the ground
+  seguirRaio(p, r, 9.5, 6, saida);
+  assert.ok(saida[2] < 0.05);
+});
+
+test('screen to map follows the terrain, and map to screen lifts points by it', () => {
+  const p = criarProjecao(copia());
+  const relevo = criarRelevo(mapaDeDegraus(), p);
+  const camera = { x: 14, y: 8, zoom: 1, relevo };
+  const vista = { largura: 3840, altura: 2160, px: 128 };
+  for (const [x, y] of [[16.5, 6.5], [9.5, 6.5], [11.5, 19.5], [13.2, 12.7]]) {
+    const tela = mundoParaTela(p, camera, vista, x, y, 0, [0, 0]);
+    const volta = telaParaMundo(p, camera, vista, tela[0], tela[1], [0, 0]);
+    assert.ok(Math.abs(volta[0] - x) < 1e-9, `x at ${x},${y}`);
+    assert.ok(Math.abs(volta[1] - y) < 0.03, `y at ${x},${y}: ${volta[1]}`);
+  }
+  const plano = mundoParaTela(p, { ...camera, relevo: undefined }, vista, 16.5, 6.5, 0, [0, 0]);
+  const alto = mundoParaTela(p, camera, vista, 16.5, 6.5, 0, [0, 0]);
+  assert.ok(Math.abs(plano[1] - alto[1] - 2 * 128 * p.cosseno) < 0.5, 'two levels (8 m) up rise two cells times cos(elevation)');
+});
+
+test('per-cell bounds cover the cells a view ray or a sun ray can meet', () => {
+  const mapa = mapaDeDegraus();
+  const niveis = niveisDeDesenho(mapa, 3);
+  const { coluna, sol } = limitesPorCelula(mapa, niveis, 3, 3);
+  assert.equal(coluna[5 * 24 + 4], 0, 'far from the plateau the ground is flat');
+  assert.equal(coluna[5 * 24 + 10], 2, 'next to the rim the ray may meet the plateau');
+  assert.equal(sol[5 * 24 + 9], 0, 'the sun comes from the north-west, the plateau is to the east');
+  assert.equal(sol[5 * 24 + 14], 2);
+});
+
+// ---------- buildings: footprint order, construction, ghosts, cables, fog memory ----------
+
+import { aparenciasDosTipos, CATEGORIA } from '../site/rts/js/render/unidades.js';
+import { empacotar, formaDoPredio } from '../site/rts/js/render/sprites.js';
+import { FLAGS_SPRITE, FORMA_PREDIO } from '../site/rts/js/render/shaders.js';
+
+const TIPOS_TESTE = [
+  { nome: 'turma', categoria: CATEGORIA.UNIDADE, asset: 'religadores-infantaria-turma-de-linha', pegada: [1, 1], lotacao: 1 },
+  { nome: 'escritorio', categoria: CATEGORIA.PREDIO, asset: '', pegada: [4, 3] },
+  { nome: 'poste', categoria: CATEGORIA.PREDIO, asset: '', pegada: [1, 1] },
+  { nome: 'pilha', categoria: CATEGORIA.RECURSO, asset: '', pegada: [2, 2] },
+];
+
+function folhasDePredios() {
+  const parado = direcoes => ({ nome: 'parado', camada: 'corpo', quadros: 1, fps: 0, laco: true, direcoes, base: 0 });
+  const lista = new Map();
+  const add = (asset, primeiroQuadro, direcoes, pontos = {}) => lista.set(asset, { asset, primeiroQuadro, direcoes, pxNivel: 96, nivel: 'uhd', animacoes: new Map([['parado', parado(direcoes)]]), pontos, alturaBarraMetros: 3, temSombra: false });
+  add('ficha-infantaria', 0, 16);
+  add('ficha-escritorio', 20, 1, { cabo: Float32Array.of(0, -50) });
+  add('ficha-poste', 21, 1, { cabo: Float32Array.of(0, -100) });
+  add('ficha-pilha', 22, 1);
+  return { folha: nome => lista.get(nome) ?? null, totalQuadros: 23 };
+}
+
+function montarPredios(entidades, extras = {}, opcoes = {}) {
+  const projecao = criarProjecao(copia());
+  const m = criarMontagemUnidades({ projecao, folhas: folhasDePredios() });
+  m.definirAparencias(aparenciasDosTipos(TIPOS_TESTE));
+  if (opcoes.fantasma) m.definirFantasma(opcoes.fantasma);
+  const r = retrato(10, entidades);
+  const n = entidades.length;
+  r.bandeiras = Uint16Array.from(entidades, e => e.bandeiras ?? 0);
+  r.progresso = Uint8Array.from(entidades, e => e.progresso ?? 255);
+  r.ligacao = Int32Array.from(entidades, e => e.ligacao ?? -1);
+  Object.assign(r, extras);
+  assert.equal(r.n, n);
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 100, 100], selecionadas: opcoes.selecionadas ?? new Set(), agora: 0 });
+  return m;
+}
+
+const quadrosEmOrdem = m => Array.from({ length: m.sprites.n }, (_, i) => m.sprites.dados[i * 8 + 4]);
+
+test('kinds without art get a placeholder by category; buildings keep their footprint', () => {
+  const a = aparenciasDosTipos(TIPOS_TESTE);
+  assert.deepEqual(a[0].variantes.map(v => v.corpo), ['religadores-infantaria-turma-de-linha', 'religadores-infantaria-turma-de-linha-cinza', 'ficha-infantaria']);
+  assert.ok(a[1].predio && a[1].pegada[0] === 4 && a[1].variantes[0].corpo === 'ficha-escritorio');
+  assert.equal(formaDoPredio(TIPOS_TESTE[2], CATEGORIA.RECURSO).forma, FORMA_PREDIO.POSTE);
+  assert.equal(formaDoPredio(TIPOS_TESTE[3], CATEGORIA.RECURSO).forma, FORMA_PREDIO.PILHA);
+});
+
+test('a unit just north of a building front draws behind it, one just south in front of it', () => {
+  // office centred at y = 50 with 3 rows: front edge at 51.5
+  const m = montarPredios([
+    { id: idDe(1, 1), tipo: 1, x: 50, y: 50 },
+    { id: idDe(2, 1), tipo: 0, x: 50.5, y: 51.2 },
+    { id: idDe(3, 1), tipo: 0, x: 50.5, y: 51.8 },
+  ]);
+  const quadros = quadrosEmOrdem(m);
+  assert.equal(quadros.length, 3);
+  assert.ok(quadros[0] < 20 && quadros[1] === 20 && quadros[2] < 20, `order ${quadros}`);
+});
+
+test('a building under construction packs its progress; a finished one packs none', () => {
+  const m = montarPredios([
+    { id: idDe(1, 1), tipo: 1, x: 40, y: 40, bandeiras: 8, progresso: 100 },
+    { id: idDe(2, 1), tipo: 1, x: 60, y: 60, bandeiras: 0, progresso: 255 },
+  ]);
+  const empacotados = Array.from({ length: m.sprites.n }, (_, i) => m.sprites.dados[i * 8 + 5]);
+  assert.equal((empacotados[0] >> 3) & 255, 100);
+  assert.equal((empacotados[1] >> 3) & 255, 0);
+  assert.equal(empacotados[0] >> 15, 6, 'a building reaches its front edge: three rows, half of it in quarter cells');
+});
+
+test('enemy buildings hide in the fog unless a footprint corner is visible; memories come grey', () => {
+  const ve = (x, y) => x === 31 && y === 31;
+  const r = retrato(10, [{ id: idDe(1, 1), tipo: 1, x: 30, y: 30, dono: 1 }, { id: idDe(2, 1), tipo: 1, x: 70, y: 70, dono: 1 }], ve);
+  const m = criarMontagemUnidades({ projecao: criarProjecao(copia()), folhas: folhasDePredios() });
+  m.definirAparencias(aparenciasDosTipos(TIPOS_TESTE));
+  r.fantasmas = { n: 1, id: Int32Array.of(idDe(9, 1)), tipo: Uint16Array.of(1), dono: Uint8Array.of(1), x: Int32Array.of(20 * FP), y: Int32Array.of(20 * FP), vida: Uint8Array.of(255), carga: Uint8Array.of(0) };
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 0 }, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  assert.equal(m.sprites.n, 2, 'the one with a visible corner and the memory');
+  const flags = Array.from({ length: m.sprites.n }, (_, i) => (m.sprites.dados[i * 8 + 5] >> 11) & 15);
+  assert.deepEqual(flags.sort(), [0, FLAGS_SPRITE.MEMORIA]);
+});
+
+test('a cable runs from each connected building to its network node, live when powered', () => {
+  const m = montarPredios([
+    { id: idDe(1, 1), tipo: 1, x: 40, y: 40, bandeiras: 16 },
+    { id: idDe(2, 1), tipo: 2, x: 46, y: 40, bandeiras: 16, ligacao: idDe(1, 1) },
+    { id: idDe(3, 1), tipo: 2, x: 52, y: 40, bandeiras: 0, ligacao: idDe(2, 1) },
+    { id: idDe(4, 1), tipo: 2, x: 58, y: 40, ligacao: idDe(77, 1) },
+  ]);
+  assert.equal(m.cabos.n, 2, 'a cable to a node that is gone is dropped');
+  const c = m.cabos.dados;
+  assert.deepEqual([c[0], c[1], c[2], c[3]], [46, 40, 40, 40]);
+  assert.ok(c[4] > c[5], 'the pole hangs its cable higher than the office roof');
+  assert.equal(c[6], 1);
+  assert.equal(c[8 + 6], 0, 'a pole without power has a dead cable');
+});
+
+test('the placement ghost draws its footprint, red cells and a tinted sprite in the sorted draw', () => {
+  const celulas = new Uint8Array(12);
+  celulas[5] = 1;
+  const m = montarPredios([], {}, { fantasma: { tipo: 1, cx: 10, cy: 10, largura: 4, altura: 3, valido: false, celulas } });
+  assert.equal(m.pegadas.n, 2);
+  assert.deepEqual(Array.from(m.pegadas.dados.subarray(8, 12)), [11, 11, 1, 1]);
+  assert.equal(m.sprites.n, 1);
+  assert.deepEqual([m.sprites.dados[0], m.sprites.dados[1]], [12, 11.5]);
+  assert.equal((m.sprites.dados[5] >> 11) & 15, FLAGS_SPRITE.FANTASMA | FLAGS_SPRITE.INVALIDO);
+});
+
+test('selected buildings get a footprint outline instead of a ring', () => {
+  const id = idDe(1, 1);
+  const m = montarPredios([{ id, tipo: 1, x: 40, y: 40 }], {}, { selecionadas: new Set([id]) });
+  assert.equal(m.aneis.n, 0);
+  assert.equal(m.pegadas.n, 1);
+  assert.deepEqual(Array.from(m.pegadas.dados.subarray(0, 4)), [38, 38.5, 4, 3]);
+  assert.equal(m.barras.n, 1);
+  assert.equal(empacotar(7, 255, 15, 63), 7 | (255 << 3) | (15 << 11) | (63 << 15));
+});
+
+// ---------- ground soils for the splatted terrain ----------
+
+import { soloDoMapa, tabelaDeSolos, SOLOS_PADRAO } from '../site/rts/js/render/solos.js';
+
+test('a map soil layer is kept; a generated map gets soils from its relief, rock where blocked', () => {
+  const proprio = soloDoMapa({ largura: 2, altura: 1, bloqueado: new Uint8Array(2), relevo: new Uint8Array(2), solo: Uint8Array.of(1, 7), solos: ['terra-batida', 'lama'] });
+  assert.deepEqual(Array.from(proprio.grade), [1, 1], 'indices past the table clamp to its last soil');
+  assert.deepEqual(proprio.nomes, ['terra-batida', 'lama']);
+  const gerado = soloDoMapa({ largura: 3, altura: 1, bloqueado: Uint8Array.of(1, 0, 0), relevo: Uint8Array.of(0, 120, 200) });
+  assert.deepEqual(Array.from(gerado.grade, i => gerado.nomes[i]), ['rocha', 'capim', 'cascalho']);
+});
+
+test('soils with their own tile show it untinted; the rest tint the base tile', () => {
+  const nomes = SOLOS_PADRAO.map(([nome]) => nome);
+  const t = tabelaDeSolos(nomes, new Map([['terra-batida', 0], ['capim', 1]]));
+  assert.deepEqual(Array.from(t.subarray(4, 8)), [1, 1, 1, 1], 'grass on its own layer');
+  assert.equal(t[2 * 4 + 3], 0, 'gravel on the base tile');
+  assert.ok(t[2 * 4] < 1, 'with its tint');
+});
+
+test('a blocking decoration stands as a block in the middle of its cell', () => {
+  const p = criarProjecao(copia());
+  const mapa = { largura: 8, altura: 8, bloqueado: new Uint8Array(64), nivel: new Uint8Array(64) };
+  mapa.bloqueado[3 * 8 + 3] = 1;
+  const blocos = new Uint8Array(64);
+  blocos[3 * 8 + 3] = 1;
+  const r = criarRelevo(mapa, p, null, blocos);
+  assert.ok(Math.abs(r.alturaEm(3.5, 3.5) - 2.5) < 0.1, `top of the block: ${r.alturaEm(3.5, 3.5)}`);
+  assert.ok(r.alturaEm(2.5, 3.5) < 0.05 && r.alturaEm(2.8, 3.5) < 0.05 && r.alturaEm(3.25, 3.5) > 2.4, 'ground beside it, steep sides');
+  assert.equal(r.topos[3 * 8 + 3], 1, 'the shader bounds reach the block');
+});
+
+import { prediosDeBancada } from '../site/rts/js/render/medicao.js';
+import { BANDEIRA } from '../site/rts/js/sim/contratos.js';
+
+test('the benchmark rings the battle with buildings whose cables reach poles of the same ring', () => {
+  const p = prediosDeBancada(60, 96, 96, 0);
+  assert.equal(p.n, 60);
+  assert.equal(new Set(p.id).size, 60);
+  const ids = new Set(p.id);
+  for (let k = 0; k < p.n; k++) if (p.ligacao[k] !== -1) assert.ok(ids.has(p.ligacao[k]), `cable of ${k} goes to a building of the ring`);
+  const emObra = Array.from(p.bandeiras).filter(b => b & BANDEIRA.EM_OBRA).length;
+  assert.equal(emObra, 12, 'one in five under construction');
+  for (let k = 0; k < p.n; k++) assert.ok(Math.hypot(p.x[k] / 1024 - 96, p.y[k] / 1024 - 96) < 40);
+});
+
+test('wall pieces pick their frame by the walls of the same kind and owner around them', () => {
+  const tipos = [...TIPOS_TESTE, { nome: 'palicada', categoria: CATEGORIA.PREDIO, asset: '', pegada: [1, 1] }];
+  const projecao = criarProjecao(copia());
+  const folhas = folhasDePredios();
+  const muro = { asset: 'ficha-palicada', primeiroQuadro: 30, direcoes: 1, pxNivel: 96, nivel: 'uhd', animacoes: new Map([['parado', { nome: 'parado', camada: 'corpo', quadros: 16, fps: 0, laco: true, direcoes: 1, base: 0 }]]), pontos: {}, alturaBarraMetros: 3, temSombra: false };
+  const m = criarMontagemUnidades({ projecao, folhas: { folha: nome => (nome === 'ficha-palicada' ? muro : folhas.folha(nome)), totalQuadros: 46 } });
+  m.definirAparencias(aparenciasDosTipos(tipos));
+  // an L: (10,10) has walls to the east and to the south; (11,10) only to the west; (10,11) only to the north;
+  // (12,10) belongs to another player and joins nobody
+  const r = retrato(10, [
+    { id: idDe(1, 1), tipo: 4, x: 10.5, y: 10.5 },
+    { id: idDe(2, 1), tipo: 4, x: 11.5, y: 10.5 },
+    { id: idDe(3, 1), tipo: 4, x: 10.5, y: 11.5 },
+    { id: idDe(4, 1), tipo: 4, x: 12.5, y: 10.5, dono: 1 },
+  ]);
+  m.montar({ estado: { mapa: { largura: LADO_MAPA, altura: LADO_MAPA }, atual: r, anterior: null, chegadaAtual: 0, jogadorLocal: 1 }, area: [0, 0, 100, 100], selecionadas: new Set(), agora: 0 });
+  const porX = new Map(Array.from({ length: m.sprites.n }, (_, i) => [m.sprites.dados[i * 8] * 10 + m.sprites.dados[i * 8 + 1], m.sprites.dados[i * 8 + 4] - 30]));
+  assert.equal(porX.get(105 + 10.5), 2 | 4);
+  assert.equal(porX.get(115 + 10.5), 8);
+  assert.equal(porX.get(105 + 11.5), 1);
+  assert.equal(porX.get(125 + 10.5), 0);
+});

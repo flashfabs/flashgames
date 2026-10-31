@@ -1,7 +1,8 @@
 // Default key bindings and the translation from a KeyboardEvent to a game action. Bindings follow the physical key
 // (event.code), because Option and Shift change event.key on the Mac (Option+1 is "¡"); remapping only edits the table.
 // The browser owns its shortcuts: no binding ever uses Ctrl or Cmd with the keys in RESERVADAS_DO_NAVEGADOR, and Esc
-// only cancels, because it also leaves full screen.
+// only cancels (it never opens a menu), because it also leaves full screen; the menu is F10.
+// Q W E R A S D F also run the command card (interface/cartao.js) before these bindings are looked up.
 
 export const ACAO = Object.freeze({
   ATACAR_MOVENDO: 'atacarMovendo',
@@ -17,6 +18,10 @@ export const ACAO = Object.freeze({
   SOMAR_GRUPO: 'somarGrupo',
   ZOOM_MAIS: 'zoomMais',
   ZOOM_MENOS: 'zoomMenos',
+  BASE: 'base',
+  COLETOR_OCIOSO: 'coletorOcioso',
+  ULTIMO_ALERTA: 'ultimoAlerta',
+  MENU: 'menu',
 });
 
 /** Whether this is a Mac (or an iPad with a keyboard): Option instead of Alt, and Control and click is a right click. */
@@ -49,6 +54,12 @@ export const ATALHOS_PADRAO = Object.freeze([
   { acao: ACAO.ZOOM_MAIS, code: 'NumpadAdd', mods: '' },
   { acao: ACAO.ZOOM_MENOS, code: 'Minus', mods: '' },
   { acao: ACAO.ZOOM_MENOS, code: 'NumpadSubtract', mods: '' },
+  // Provisional until the key battery: B for the base, the period for the next idle harvester, V to see the last alert.
+  { acao: ACAO.BASE, code: 'KeyB', mods: '' },
+  { acao: ACAO.COLETOR_OCIOSO, code: 'Period', mods: '' },
+  { acao: ACAO.COLETOR_OCIOSO, code: 'NumpadDecimal', mods: '' },
+  { acao: ACAO.ULTIMO_ALERTA, code: 'KeyV', mods: '' },
+  { acao: ACAO.MENU, code: 'F10', mods: '' },
   ...DIGITOS.flatMap(digito => [
     { acao: ACAO.CHAMAR_GRUPO, code: `Digit${digito}`, mods: '', grupo: Number(digito) },
     { acao: ACAO.SOMAR_GRUPO, code: `Digit${digito}`, mods: 'shift', grupo: Number(digito) },
@@ -83,6 +94,6 @@ export function acaoDaTecla(e, atalhos = ATALHOS_PADRAO) {
 /** How a binding is written for the player on this system ("Option + 1", "Ctrl + 1", "A"). */
 export function rotuloDoAtalho(atalho, eMac) {
   const nomes = { ctrl: eMac ? 'Control' : 'Ctrl', meta: 'Cmd', alt: eMac ? 'Option' : 'Alt', shift: 'Shift' };
-  const tecla = atalho.code.replace(/^(Key|Digit|Numpad)/, '').replace('Equal', '+').replace('Minus', '−').replace('Escape', 'Esc').replace('Add', '+').replace('Subtract', '−');
+  const tecla = atalho.code.replace(/^(Key|Digit|Numpad)/, '').replace('Equal', '+').replace('Minus', '−').replace('Escape', 'Esc').replace('Add', '+').replace('Subtract', '−').replace('Period', '.').replace('Decimal', '.');
   return [...atalho.mods.split('+').filter(Boolean).map(mod => nomes[mod]), tecla].join(' + ');
 }
