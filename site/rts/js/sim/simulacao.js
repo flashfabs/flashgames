@@ -4,7 +4,7 @@
 // Runs in the worker, in Node and in JavaScriptCore.
 import { FP_BITS, FP, PASSOS_POR_SEGUNDO, TIPO_COMANDO, EVENTO, compararComandos } from './contratos.js';
 import { sortear, raizInteira } from './matematica.js';
-import { DADOS_PROTOTIPO, validarTiposUnidade } from './dados.js';
+import { DADOS_PROTOTIPO, ECONOMIA_PADRAO, validarTiposUnidade, compilarDados } from './dados.js';
 import { gerarMapa, montarMapa } from './mapa.js';
 import { avancarCaminhos } from './caminhos.js';
 import { atualizarNeblina } from './neblina.js';
@@ -34,20 +34,23 @@ export const REGRAS_LIVRES = Object.freeze({ renascer: false, esperaRenascer: 0,
  * @param {number} [opcoes.unidadesPorTime] prototype armies placed around each base
  * @param {{tipo: number, time: number, x: number, y: number}[]} [opcoes.unidades] explicit units, world units
  * @param {number} [opcoes.capacidade] entity slots (defaults to the starting units)
- * @param {object[]} [opcoes.tipos] unit kinds, validated (defaults to the prototype's)
+ * @param {object} [opcoes.dados] the design data files (C5: unidades, predios, economia, pesquisas, armas), compiled
+ * @param {object[]} [opcoes.tipos] unit kinds in the simulation's units, validated (the prototype's form; without
+ *   dados or tipos, the prototype's two vehicles)
  * @param {object} [opcoes.regras] REGRAS_PROTOTIPO (default) or REGRAS_LIVRES
  * @param {number} [opcoes.expansoesPorPasso] flow field budget per tick
  */
 export function criarSimulacao(opcoes = {}) {
   const { semente = 1, largura = 192, altura = 192, unidadesPorTime = 1000, unidades = null } = opcoes;
   const mapa = opcoes.mapa ? montarMapa(opcoes.mapa) : gerarMapa(largura, altura, semente);
-  const tipos = opcoes.tipos ? validarTiposUnidade(opcoes.tipos) : DADOS_PROTOTIPO;
-  const regras = { ...(opcoes.regras ?? REGRAS_PROTOTIPO) };
+  const dados = carregarDados(opcoes);
+  const { tipos } = dados;
+  const regras = { tetoLotacao: dados.economia.lotacaoMaxima, ...(opcoes.regras ?? REGRAS_PROTOTIPO) };
   const iniciais = unidades ? unidades.length : unidadesPorTime * mapa.bases.length;
   const capacidade = Math.max(1, opcoes.capacidade ?? iniciais);
   if (capacidade < iniciais) throw new Error('simulação: capacidade menor que as unidades iniciais');
   const times = Math.max(mapa.bases.length, ...(unidades ?? []).map(u => u.time + 1), 1);
-  const sim = criarEstado({ opcoes, mapa, tipos, regras, capacidade, times, semente });
+  const sim = criarEstado({ opcoes, mapa, dados, regras, capacidade, times, semente });
 
   if (regras.ordensPadrao) {
     // orders 0..times-1 are the team defaults: every army heads for the centre
@@ -69,6 +72,12 @@ export function criarSimulacao(opcoes = {}) {
   if (regras.ordensPadrao) for (let i = 0; i < iniciais; i++) atribuirOrdem(sim, i, sim.time[i], 0, 0, 0);
   atualizarNeblina(sim);
   return sim;
+}
+
+/** Kinds, economy and research of a match: the design data compiled, the given prototype-form kinds, or the prototype's. */
+export function carregarDados(opcoes) {
+  if (opcoes.dados) return compilarDados(opcoes.dados);
+  return { tipos: opcoes.tipos ? validarTiposUnidade(opcoes.tipos) : DADOS_PROTOTIPO, economia: ECONOMIA_PADRAO, pesquisas: [], armas: null };
 }
 
 function posicionarNaBase(sim, i) {
