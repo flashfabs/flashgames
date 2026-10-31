@@ -22,8 +22,9 @@ export function decidir(ctx) {
   const { proprias } = ctx.vista;
   const rotulos = new Int32Array(proprias.n);
   for (let k = 0; k < proprias.n; k++) rotulos[k] = c.rotulos.indexOf(ctx.rotuloDe(proprias.id[k]));
-  const ativas = Uint8Array.from(c.equipes, eq => ((eq.desde === null || ctx.disparou(eq.desde) > 0) && (eq.ate === null || ctx.disparou(eq.ate) === 0) ? 1 : 0));
-  const saida = decidirJogador({ tick: ctx.tick, jogador: ctx.time, vista: ctx.vista, rotulos, ativas, equipes: c.equipes, estado: ctx.estado, tipos: ctx.mapa.tipos });
+  const vezes = Int32Array.from(c.equipes, eq => (eq.desde === null ? 1 : ctx.disparou(eq.desde)));
+  const ativas = Uint8Array.from(c.equipes, (eq, e) => (vezes[e] > 0 && (eq.ate === null || ctx.disparou(eq.ate) === 0) ? 1 : 0));
+  const saida = decidirJogador({ tick: ctx.tick, jogador: ctx.time, vista: ctx.vista, rotulos, ativas, vezes, equipes: c.equipes, estado: ctx.estado, tipos: ctx.mapa.tipos });
   for (const evento of saida.eventos) ctx.emitir(evento);
   for (const { id, rotulo } of saida.rotulos) ctx.rotular(id, c.rotulos[rotulo]);
   for (const comando of saida.comandos) ctx.comandar(comando);

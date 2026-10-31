@@ -276,6 +276,29 @@ test('a scaled wave takes units from the reserve against a big army and gives th
   assert.deepEqual(contar(nenhum), [2, 11]);
 });
 
+test('an attack with no units of its own forms its wave from the reserve, once per firing of its trigger', () => {
+  const sim = partida({
+    gatilhos: [{ id: 'contra', quando: { se: 'tempo', segundos: 3 }, repete: 1, intervaloSegundos: 40, acoes: [] }],
+    equipes: [
+      { id: 'a', grupo: 'onda', jogador: IA, faz: 'atacar', area: 'base', aviso: 10, desde: 'contra', coletores: 0, escala: { reserva: 'reserva', minimo: 3, maximo: 3 } },
+      { id: 'r', grupo: 'reserva', jogador: IA, faz: 'guardar', area: 'casa' },
+    ],
+    unidades: fileira(CHAPA, IA, 28, 3, 8, 'reserva'),
+  });
+  const naOnda = () => vivos(sim, IA).filter(i => temRotulo(sim, idDoSlot(sim, i), 'onda'));
+  const primeira = jogar(sim, segundos(20));
+  assert.equal(naOnda().length, 3, 'three reserve units make the wave');
+  const [aviso, onda] = [EVENTO.AVISO_ATAQUE, EVENTO.ONDA].map(tipo => primeira.eventos.find(e => e.tipo === tipo));
+  assert.ok(aviso && onda && onda.tick - aviso.tick >= segundos(10), 'warned 10 s or more before leaving');
+  // the wave is lost; nothing forms again until the trigger fires again (at 43 s)
+  for (const i of naOnda()) matar(sim, i, -1);
+  jogar(sim, segundos(15));
+  assert.equal(naOnda().length, 0);
+  jogar(sim, segundos(15));
+  assert.equal(naOnda().length, 3, 'the second firing forms a second wave');
+  assert.equal(vivos(sim, IA).length, 5, 'from the reserve: no unit appears');
+});
+
 test('a beaten attack falls back to its fallback place and guards it', () => {
   const sim = partida({
     equipes: [{ id: 'a', grupo: 'onda', jogador: IA, faz: 'atacar', area: 'base', coletores: 0, recuar: 60, recuo: 'casa' }],

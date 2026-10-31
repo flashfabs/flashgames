@@ -74,15 +74,16 @@ const armado = (tipos, tipo) => tipos[tipo].categoria === CATEGORIA.UNIDADE && t
  * @param {object} entrada.vista       the team's view (VistaDoTime)
  * @param {Int32Array} entrada.rotulos mission label index of each own entity of the vista, -1 none
  * @param {Uint8Array} entrada.ativas  1 for each team whose start trigger fired and whose stop trigger did not
+ * @param {Int32Array} entrada.vezes   times each team's start trigger fired (1 for a team without one)
  * @param {object[]} entrada.equipes   compiled teams (equipes.js), all players'
  * @param {object} entrada.estado      the teams' state (formato.js), changed in place
  * @param {object[]} entrada.tipos     the static kinds (MapaEstatico.tipos)
  * @returns {{ comandos: object[], eventos: object[], rotulos: object[] }} commands of the player (no tick, player or
  *   seq), events { tipo, x, y, arg } and labels { id, rotulo } for the step to apply, in order
  */
-export function decidirJogador({ tick, jogador, vista, rotulos, ativas, equipes, estado, tipos }) {
+export function decidirJogador({ tick, jogador, vista, rotulos, ativas, vezes, equipes, estado, tipos }) {
   const saida = { comandos: [], eventos: [], rotulos: [] };
-  const ctx = { tick, jogador, vista, tipos, estado, saida, inimigos: inimigosVistos(vista, jogador, tipos) };
+  const ctx = { tick, jogador, vista, tipos, estado, vezes, saida, inimigos: inimigosVistos(vista, jogador, tipos) };
   atualizarExercito(ctx);
   const proprias = vista.proprias;
   const minhas = [];
@@ -139,7 +140,14 @@ function decidirEquipe(ctx, e, eq, ks, rotulos) {
   if (eq.faz === COMPORTAMENTO.RECONSTRUIR) return reconstruir(ctx, e, eq, ks.filter(k => tipos[p.tipo[k]].categoria === CATEGORIA.PREDIO));
   const unidades = ks.filter(k => armado(tipos, p.tipo[k]));
   if (unidades.length === 0) {
-    ctx.estado.fase[e] = FASE.PARADA;
+    // an attack with a reserve and no unit of its own forms its wave from the reserve, once per firing of its start
+    // trigger; the units join it by their new label on the next decision
+    const s = ctx.estado;
+    if (eq.faz === COMPORTAMENTO.ATACAR && eq.escala && ctx.vezes[e] > s.formadas[e]) {
+      s.formadas[e] = ctx.vezes[e];
+      s.daReserva[e] = escalar(ctx, eq, [], rotulos).length > 0 ? 1 : 0;
+    }
+    s.fase[e] = FASE.PARADA;
     return;
   }
   switch (eq.faz) {
@@ -347,7 +355,10 @@ function atacar(ctx, e, eq, ks, rotulos) {
   const s = ctx.estado;
   if (s.recuado[e]) return guardar(ctx, e, eq, ks);
   if (s.fase[e] === FASE.PARADA) {
-    const enviados = eq.escala ? escalar(ctx, eq, ks, rotulos) : ks;
+    // this firing's wave: spawned by the mission, or just formed from the reserve (already to size)
+    s.formadas[e] = ctx.vezes[e];
+    const enviados = eq.escala && !s.daReserva[e] ? escalar(ctx, eq, ks, rotulos) : ks;
+    s.daReserva[e] = 0;
     s.ponto[e] = 0;
     s.poder0[e] = poderDosMeus(ctx, enviados);
     if (eq.aviso > 0) {

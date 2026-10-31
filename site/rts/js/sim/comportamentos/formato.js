@@ -16,7 +16,8 @@
 //       sends AVISO_ATAQUE when it starts and ONDA when it leaves; 0 when a trigger already warned), "coletores"
 //       (percent of the team sent at harvesters in sight; 0, 25 and 50 by difficulty when left out), "escala"?:
 //       { "reserva": <group>, "porcento" (100), "minimo" (1), "maximo" (60) } (the wave's strength follows the
-//       player's army the team has seen: units come from the reserve, or go back to it);
+//       player's army the team has seen: units come from the reserve, or go back to it; a team with "escala" and no
+//       unit of its own forms its wave from the reserve, once per firing of its "desde" trigger, or once without one);
 //     recuar: "area" | "ponto": goes there and guards it ("alcance" 4);
 //     reconstruir: "espera" (20): rebuilds the group's buildings that fall, queued at a headquarters of the group with
 //       the player's own Carga and placed where they stood;
@@ -241,9 +242,9 @@ export function equipesDoContexto(ctx) {
 /**
  * The teams' state (sim.extras.comportamentos, the seam's ctx.estado), only typed arrays sized from the mission JSON
  * alone: per team its phase and the tick it began, route point and direction, strength at the start, last enemy
- * contact, last order (kind, target, tick), whether it fell back, the harvester it hunts and since when, and the
- * buildings it remembers; per player the army it has seen. Empty without teams, so matches without them hash as
- * before.
+ * contact, last order (kind, target, tick), whether it fell back, the harvester it hunts and since when, the
+ * start-trigger firings its waves served and whether the next wave was formed from the reserve, and the buildings it
+ * remembers; per player the army it has seen. Empty without teams, so matches without them hash as before.
  */
 export function criarExtrasEquipes(sim) {
   const n = Math.min(listaDeEquipes(sim.opcoes?.missao).length, MAX_EQUIPES);
@@ -262,6 +263,8 @@ export function criarExtrasEquipes(sim) {
     recuado: new Uint8Array(n),
     presa: new Int32Array(n).fill(-1),
     presaTick: new Int32Array(n),
+    formadas: new Int32Array(n),
+    daReserva: new Uint8Array(n),
     predios: new Int32Array(n * MAX_PREDIOS_EQUIPE * CAMPOS_PREDIO),
     exercito: new Int32Array(sim.times),
   };
