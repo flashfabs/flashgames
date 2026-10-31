@@ -5,6 +5,8 @@ import { visaoDoTime } from './neblina.js';
 import { tipoEstatico } from './dados.js';
 import { bandeirasDe, ocultaDoTime } from './bandeiras.js';
 import { predioLido } from './habilidades.js';
+import { combateDe, NOMES_TIPO_DANO } from './armas.js';
+import { missaoDe, cenasDaMissao } from './gatilhos.js';
 import { trabalhoDaObra } from './pegadas.js';
 import { ocupacaoDosNos } from './economia.js';
 import { lotacaoUsada, registrosDeFila } from './producao.js';
@@ -47,6 +49,8 @@ export function montarMapaEstatico(sim, jogadorLocal) {
       loteRajada: sim.economia.loteRajada,
       reciclarPorcento: sim.economia.reciclarPorcento,
     },
+    armas: combateDe(sim).armas.map(arma => ({ nome: arma.nome, tipoDano: NOMES_TIPO_DANO[arma.tipoDano], raioArea: arma.raioArea, emArco: arma.emArco })),
+    cenasLuz: missaoDe(sim) ? cenasDaMissao(sim.opcoes.missao) : [],
   };
 }
 

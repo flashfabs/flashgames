@@ -9,7 +9,7 @@ import { TIPO_COMANDO, FP, FL_PRODUTOR, TAMANHO_REGISTRO_FILA, criarComando, idD
 import { HABILIDADE } from '../site/rts/js/sim/habilidades.js';
 import { celulaVisivel } from '../site/rts/js/sim/neblina.js';
 import { vistaDoTime } from '../site/rts/js/sim/vista.js';
-import { montarRetrato } from '../site/rts/js/sim/retrato.js';
+import { montarRetrato, montarMapaEstatico } from '../site/rts/js/sim/retrato.js';
 
 const dadosUrl = new URL('../site/rts/dados/', import.meta.url);
 const dados = () => Object.fromEntries(['unidades', 'predios', 'economia', 'pesquisas', 'armas'].map(n => [n, JSON.parse(readFileSync(new URL(`${n}.json`, dadosUrl), 'utf8'))]));
@@ -77,4 +77,15 @@ test('a reader shows the enemy building it reads in the queues of its own snapsh
   ordenar(sim, { tipo: TIPO_COMANDO.HABILIDADE, unidades: [id(sim, 0)], arg: HABILIDADE.LEITURA, alvo: id(sim, barracao) });
   rodar(sim, 30);
   assert.deepEqual(produtores(), [id(sim, barracao)]);
+});
+
+test('the static map names the weapons the effect events count, each kind its searchlight, and the light scenes', () => {
+  const sim = partida([['cesto-blindado', 0, 10, 15]]);
+  const mapa = montarMapaEstatico(sim, 0);
+  const armas = JSON.parse(readFileSync(new URL('armas.json', dadosUrl), 'utf8')).armas;
+  assert.deepEqual(mapa.armas.slice(0, armas.length).map(a => a.nome), armas.map(a => a.nome));
+  assert.ok(mapa.armas.every(a => ['bala', 'perfurante', 'explosivo', 'pane'].includes(a.tipoDano) && Number.isInteger(a.raioArea) && (a.emArco === 0 || a.emArco === 1)));
+  const predios = JSON.parse(readFileSync(new URL('predios.json', dadosUrl), 'utf8')).predios;
+  for (const p of predios) assert.deepEqual(mapa.tipos.find(t => t.nome === p.nome).holofote, p.holofote ?? null, p.nome);
+  assert.deepEqual(mapa.cenasLuz, [], 'no mission, no scenes');
 });

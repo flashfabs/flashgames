@@ -542,5 +542,6 @@ export function tipoEstatico(tipo) {
     coletor: tipo.coletor,
     capacidade: tipo.capacidade,
     limite: tipo.limite,
+    holofote: tipo.extras?.holofote ?? null,
   };
 }
