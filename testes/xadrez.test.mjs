@@ -1,0 +1,8 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { criarPartida, destinos, mover, emXeque } from '../site/js/xadrez/regras.js';
+test('movimentos iniciais e turnos',()=>{const p=criarPartida(); assert.deepEqual(destinos(p,52),[44,36]); assert.equal(mover(p,52,36),true); assert.equal(p.vez,'p'); assert.equal(mover(p,51,35),false); assert.equal(mover(p,12,28),true);});
+test('xeque-mate do louco',()=>{const p=criarPartida(false); for(const [a,b] of [[53,45],[12,28],[54,38],[3,39]]) assert.ok(mover(p,a,b)); assert.equal(emXeque(p),true); assert.deepEqual(p.fim,{vencedor:'p',motivo:'Xeque-mate'});});
+test('roque e passagem',()=>{const p=criarPartida(); for(const [a,b] of [[52,36],[8,16],[62,45],[16,24],[61,52],[9,17]]) assert.ok(mover(p,a,b)); assert.ok(destinos(p,60).includes(62)); assert.ok(mover(p,60,62)); assert.equal(p.tabuleiro[61],'R'); const q=criarPartida(); for(const [a,b] of [[52,36],[8,16],[36,28],[11,27],[28,19]]) assert.ok(mover(q,a,b)); assert.equal(q.tabuleiro[27],'');});
+test('promoção permite escolher cavalo',()=>{const p=criarPartida(); p.tabuleiro=Array(64).fill(''); p.tabuleiro[60]='K'; p.tabuleiro[7]='k'; p.tabuleiro[8]='P'; assert.ok(mover(p,8,0,'n')); assert.equal(p.tabuleiro[0],'N');});
+test('histórico registra a peça capturada, inclusive en passant',()=>{ const p=criarPartida(false); for(const [a,b] of [[52,36],[8,16],[36,28],[11,27],[28,19]]) assert.ok(mover(p,a,b)); assert.equal(p.historico.at(-1).capturada,'p'); const q=criarPartida(false); for(const [a,b] of [[52,36],[11,27],[36,27]]) assert.ok(mover(q,a,b)); assert.equal(q.historico.at(-1).capturada,'p'); });

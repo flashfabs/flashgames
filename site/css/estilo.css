@@ -1718,3 +1718,8 @@ html.em-sala body {
   font-size: 27px;
   pointer-events: none;
 }
+
+.inicio-xadrez { display:flex; flex-direction:column; gap:6px; margin:12px 0; padding:20px; min-height:145px; justify-content:flex-end; border-radius:14px; color:#fff8ec; text-decoration:none; background:linear-gradient(0deg,#172a2df2,#20383c33),url('../img/xadrez-card.png') center 48%/cover; }
+.inicio-xadrez strong { font-size:1.5rem; }
+.inicio-xadrez span { font-size:.8rem; }
+.inicio-xadrez:focus-visible { outline:3px solid #f8bd6f; outline-offset:3px; }
