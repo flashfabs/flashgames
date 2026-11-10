@@ -1,0 +1,70 @@
+:root{font-family:Rubik,system-ui,sans-serif;color:#243a32;background:#f5f2e8}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #e89a52;outline-offset:2px}[hidden]{display:none!important}header{height:76px;max-width:1400px;margin:auto;padding:0 5%;display:flex;align-items:center;justify-content:space-between}header a{font-size:27px;font-weight:900;letter-spacing:-1px;text-decoration:none;color:#263b32}header span,.etiqueta{font-size:10px;font-weight:800;letter-spacing:2px;color:#b97855}main{max-width:1300px;margin:auto;padding:35px 5% 80px}.inicio{display:grid;grid-template-columns:1fr 420px;gap:10%;align-items:center;min-height:70vh}.inicio h1{font-size:clamp(55px,8vw,100px);line-height:.96;letter-spacing:-4px;margin:25px 0}.inicio h1 em{font-style:normal;color:#b97c58}.inicio>div:first-child>p:not(.etiqueta){max-width:430px;line-height:1.7;color:#738075}.hero-pecas{font-family:serif;font-size:130px;line-height:1;color:#eee4cf;text-shadow:2px 3px 0 #9b8c78,5px 8px 10px #26382e50}.hero-pecas span{color:#263631;text-shadow:2px 3px 0 #131d1a,5px 8px 10px #26382e50}.chips{font-size:11px;font-weight:800;letter-spacing:1px}.painel,aside{background:#fffdf5;border:1px solid #e8e4d6;border-radius:20px;padding:35px;box-shadow:0 15px 40px #2d40320d}.painel h2,.jogo-topo h2{font-size:32px;letter-spacing:-1px;margin:10px 0}.painel p,aside p{color:#788579;font-size:14px;line-height:1.6}.painel label{display:block;font-size:10px;font-weight:800;letter-spacing:1px;margin:22px 0 8px}.painel input,.painel select{width:100%;border:1px solid #dddccc;background:white;border-radius:9px;padding:14px;color:#34493b}.principal,.secundario,#entrar button,.acoes button,dialog button{border:0;border-radius:9px;padding:14px 17px;font-weight:800;transition:transform .15s,box-shadow .15s,background .15s}.principal:hover,.secundario:hover,#entrar button:hover,.acoes button:hover,dialog button:hover{transform:translateY(-2px);box-shadow:0 5px 12px #243a3225}.principal:active,.secundario:active,.acoes button:active,dialog button:active{transform:scale(.96)}.principal{width:100%;background:#d88c5e;color:white;margin-top:20px;display:flex;justify-content:space-between}.secundario,#entrar button,.acoes button,dialog button{background:#e9ede1;color:#31483a}.divisor{text-align:center;color:#9ba59a;font-size:12px;margin:22px 0}#entrar{display:flex;gap:8px}#entrar input{min-width:0}.jogo-topo{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}.acoes{display:flex;gap:8px;flex-wrap:wrap}.mesa{display:grid;grid-template-columns:minmax(0,680px) minmax(250px,1fr);gap:28px;align-items:start}.tabuleiro-area{min-width:0}.tabuleiro{display:grid;grid-template-columns:repeat(8,1fr);aspect-ratio:1;border:10px solid #6b5543;border-radius:5px;box-shadow:0 18px 35px #273a3030, inset 0 0 0 2px #c8ad83;overflow:hidden}.casa{position:relative;border:0;aspect-ratio:1;display:grid;place-items:center;padding:0;min-width:0;transition:filter .18s,box-shadow .18s;background-blend-mode:soft-light}.clara{background:radial-gradient(ellipse at 20% 25%,#fff9e9aa,transparent 50%),repeating-linear-gradient(145deg,#f1eae1 0px,#d5dfdb 3px,#efe3dd 8px,#d9e3e6 14px,#f8eee0 22px)}.escura{background:radial-gradient(ellipse at 80% 30%,#d4c6b690,transparent 50%),repeating-linear-gradient(145deg,#8e9991 0px,#acaaa0 4px,#839792 10px,#b4ada2 17px,#8d9b98 23px)}.casa:hover{filter:brightness(1.12)}.casa.ultima{box-shadow:inset 0 0 0 999px #e8c96b55}.casa.selecionada{box-shadow:inset 0 0 0 4px #df9e51, inset 0 0 0 999px #f6d48355}.casa.destino:after{content:'';position:absolute;width:22%;height:22%;border-radius:50%;background:#395d46a8;box-shadow:0 0 0 6px #fff4;animation:pulsar 1.1s infinite alternate;pointer-events:none}.casa.destino:has(.peca):after{width:75%;height:75%;background:transparent;border:4px solid #395d46a8}.peca{font-family:'DejaVu Sans','Arial Unicode MS',serif;font-size:clamp(27px,5.4vw,67px);line-height:1;position:relative;z-index:1;transition:transform .16s;user-select:none}.casa:hover .peca,.selecionada .peca{transform:translateY(-4px) scale(1.08)}.branca{color:#f9f0db;text-shadow:0 1px 0 #8e806c,1px 2px 1px #756a5b,-1px -1px 0 #fff,2px 4px 4px #182e2766}.preta{color:#1b2223;text-shadow:0 1px 0 #718080,1px 2px 1px #060a0b,-1px -1px 0 #657779,2px 4px 4px #182e2788}.jogador{display:flex;align-items:center;justify-content:space-between;padding:12px 5px;font-size:14px;font-weight:700}.jogador strong{background:#e4e7db;padding:8px 12px;border-radius:8px;font-variant-numeric:tabular-nums;font-size:20px}.jogador.ativo strong{background:#3b5d49;color:white;box-shadow:0 0 0 3px #a8c3a9}.mesa aside h3{font-size:24px;letter-spacing:-.6px;margin:10px 0}.linha{border-top:1px solid #e4e6dc;margin:25px 0}aside h4{margin:0 0 12px}#historico{list-style:none;padding:0;max-height:260px;overflow:auto;margin:0}#historico li{padding:9px 0;border-bottom:1px solid #eff0e8;font-size:14px;font-variant-numeric:tabular-nums}#reiniciar{width:100%;margin-top:20px}dialog{border:0;border-radius:16px;padding:28px;color:#243a32}dialog::backdrop{background:#12251dbb}dialog div{display:flex;gap:8px;flex-wrap:wrap}@keyframes pulsar{to{transform:scale(1.25);opacity:.6}}@media(max-width:800px){header{height:65px}header span{display:none}main{padding:20px 4% 50px}.inicio{grid-template-columns:1fr;gap:25px}.inicio h1{margin:15px 0}.hero-pecas{font-size:85px}.painel,aside{padding:24px}.jogo-topo{align-items:flex-start;flex-direction:column}.mesa{grid-template-columns:1fr}.tabuleiro{border-width:6px}.peca{font-size:clamp(27px,9vw,62px)}}@media(prefers-reduced-motion:reduce){*,*::after{animation:none!important;transition:none!important}}
+.clara{background:linear-gradient(#fff9e54d,#fff9e54d),url('../img/xadrez-madreperola.png') center/cover}
+.escura{background:linear-gradient(#475f58a6,#475f58a6),url('../img/xadrez-madreperola.png') center/cover}
+.branca{background:linear-gradient(135deg,#fffdf2 5%,#dfd0aa 28%,#fff9e8 50%,#b9a881 78%,#f9f0dc);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(1px 2px 1px #706553) drop-shadow(2px 3px 2px #182e2755);text-shadow:none}
+.preta{background:linear-gradient(135deg,#748487 0%,#171e20 24%,#39494a 43%,#080e10 64%,#59696b 85%,#0a1011);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(1px 2px 1px #090f10) drop-shadow(2px 3px 2px #182e2788);text-shadow:none}
+.casa.em-movimento{z-index:5;filter:none}
+.ultima-jogada{background:#e9eee2;border-left:3px solid #6d9271;border-radius:6px;color:#31483a!important;font-weight:700;padding:10px 12px;margin:0 0 20px}
+.capturas{display:grid;gap:10px;margin:0 0 24px}.capturas>div{background:#f2f4ec;border-radius:8px;padding:10px 12px}.capturas span:first-child{display:block;color:#738075;font-size:11px;font-weight:700}.capturas>div>div{min-height:32px;color:#899589}.captura-peca{display:inline-block!important;font:27px/1.15 'DejaVu Sans','Arial Unicode MS',serif!important;margin:2px 3px 0 0}.captura-branca{color:#f5ebd1!important;text-shadow:0 1px 2px #615746,0 0 2px #766a58}.captura-preta{color:#202a29!important;text-shadow:0 1px 1px #93a29a}
+
+.peca{font-family:system-ui,sans-serif;font-size:clamp(30px,5vw,62px)}
+.peca.branca,.peca.preta{background:none;-webkit-text-fill-color:initial;filter:none}.peca.branca{color:#f8f0df;text-shadow:0 3px 0 #a6967c,0 5px 5px #17291c77}.peca.preta{color:#27352f;text-shadow:0 3px 0 #101b16,0 5px 5px #17291c77}
+
+.capturada-pendente .peca{opacity:.3}
+
+/* Raised, beveled playing pieces retain their shape at every board size. */
+.peca.branca,.peca.preta{display:grid;place-items:center;width:78%;aspect-ratio:1;border-radius:50%;font-size:0;line-height:1;position:relative;transform:translateY(-3%);-webkit-text-fill-color:initial;filter:none;user-select:none}
+.peca.branca{background:radial-gradient(circle at 35% 25%,#fffef6 0%,#f4e9cd 38%,#cabb99 75%,#f5e7c9 100%);border:2px solid #eee0c4;box-shadow:0 3px 0 #b09d7c,0 5px 0 #8d795d,0 7px 5px #1c2b2580,inset 0 2px 3px #fff,inset 0 -3px 4px #9d896b;text-shadow:none}
+.peca.preta{background:radial-gradient(circle at 35% 25%,#71817a 0%,#3f514a 30%,#1d2c27 72%,#4a5e55 100%);border:2px solid #52645a;box-shadow:0 3px 0 #1c2c25,0 5px 0 #0d1914,0 7px 5px #111b16a0,inset 0 2px 3px #a0aea07a,inset 0 -3px 4px #101c17;text-shadow:none}
+.peca::before{content:'';position:absolute;inset:15%;border-radius:50%;border:1px solid #ffffff70;box-shadow:inset 0 2px 3px #26372b55,0 1px 0 #ffffff50}
+.peca.dama::after{content:'♛';font-family:serif;font-size:clamp(16px,3.2vw,36px);line-height:1;position:relative;z-index:1}
+.peca.branca.dama::after{color:#987b55;text-shadow:0 1px #fff8}
+.peca.preta.dama::after{color:#d0bd92;text-shadow:0 1px #09130e}
+.casa:hover .peca,.selecionada .peca{transform:translateY(-7%) scale(1.06)}
+/* Keep the table and player clocks visible together on ordinary desktop screens. */
+body:has(#jogo:not([hidden])) main{padding-top:8px;padding-bottom:12px}
+.jogo-topo{margin-bottom:8px}
+.mesa{grid-template-columns:minmax(0,min(680px,calc(100dvh - 280px))) minmax(250px,1fr);gap:20px}
+.jogador{padding:6px 5px}
+.mesa aside{max-height:calc(100dvh - 175px);overflow:auto;padding:22px}
+.mesa aside .linha{margin:14px 0}
+.mesa aside .capturas{margin-bottom:14px}
+@media(max-width:800px){
+ body:has(#jogo:not([hidden])) header{height:48px}
+ body:has(#jogo:not([hidden])) main{padding:2px 3% 8px}
+ .jogo-topo{flex-direction:row;align-items:center;gap:8px;margin-bottom:3px}
+ .jogo-topo h2{font-size:clamp(16px,4vw,22px);margin:3px 0}
+ .jogo-topo .etiqueta{font-size:9px;margin:0}
+ .acoes{gap:4px;justify-content:flex-end}
+ .acoes button{font-size:12px;padding:8px}
+ .mesa{grid-template-columns:1fr;gap:6px}
+ .tabuleiro-area{width:min(100%,calc(100dvh - 260px));margin:auto}
+ .jogador{padding:3px 2px;font-size:12px}
+ .jogador strong{font-size:14px;padding:5px 8px}
+ .mesa aside{max-height:clamp(90px,calc(100dvh - 200px - min(94vw,100dvh - 260px)),180px);padding:12px}
+ .mesa aside h3{font-size:18px;margin:4px 0}
+ .mesa aside p{margin:5px 0}
+ .mesa aside .linha{margin:10px 0}
+}
+
+@media(max-height:850px){
+ .inicio{min-height:0}
+ .inicio .painel{padding:22px}
+ .inicio .painel label{margin:12px 0 5px}
+ .inicio .painel input,.inicio .painel select{padding:9px 12px}
+ .inicio .principal{margin-top:10px;padding:10px 14px}
+ .inicio .divisor{margin:10px 0}
+ .inicio .hero-pecas{font-size:80px}
+}
+@media(max-width:800px) and (max-height:850px){
+ body:has(#inicio:not([hidden])) header{height:48px}
+ body:has(#inicio:not([hidden])) main{padding:4px 4% 12px}
+ .inicio{gap:10px}
+ .inicio h1{font-size:42px;line-height:1;margin:5px 0;letter-spacing:-2px}
+ .inicio>div:first-child>p:not(.etiqueta){margin:4px 0;line-height:1.35;font-size:13px}
+ .inicio .hero-pecas,.inicio .chips{display:none}
+ .inicio .etiqueta{margin:3px 0}
+ .inicio .painel{padding:16px}
+ .inicio .painel h2{font-size:24px;margin:4px 0}
+ .inicio .painel p{margin:4px 0}
+}
