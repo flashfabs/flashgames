@@ -30,3 +30,9 @@ test('anima a jogada e identifica o autor, respeitando movimento reduzido', asyn
   await page.locator('[data-casa="52"]').click(); await page.locator('[data-casa="36"]').click();
   await expect(page.locator('#historico')).toContainText('e2–e4'); await expect(page.locator('.em-movimento')).toHaveCount(0);
 });
+test('mostra modelos 3D para as peças dos dois jogadores', async ({ page }) => {
+  await page.goto('/xadrez.html'); await page.locator('#solo').click();
+  await expect(page.locator('#tabuleiro .peca-3d')).toHaveCount(32);
+  await expect(page.locator('[data-casa="4"] .peca-3d')).toHaveCSS('background-image', /data:image\/png/);
+  await expect(page.locator('[data-casa="60"] .peca-3d')).toHaveCSS('background-image', /data:image\/png/);
+});

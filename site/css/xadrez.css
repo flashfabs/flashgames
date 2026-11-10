@@ -6,3 +6,7 @@
 .casa.em-movimento{z-index:5;filter:none}
 .ultima-jogada{background:#e9eee2;border-left:3px solid #6d9271;border-radius:6px;color:#31483a!important;font-weight:700;padding:10px 12px;margin:0 0 20px}
 .capturas{display:grid;gap:10px;margin:0 0 24px}.capturas>div{background:#f2f4ec;border-radius:8px;padding:10px 12px}.capturas span:first-child{display:block;color:#738075;font-size:11px;font-weight:700}.capturas>div>div{min-height:32px;color:#899589}.captura-peca{display:inline-block!important;font:27px/1.15 'DejaVu Sans','Arial Unicode MS',serif!important;margin:2px 3px 0 0}.captura-branca{color:#f5ebd1!important;text-shadow:0 1px 2px #615746,0 0 2px #766a58}.captura-preta{color:#202a29!important;text-shadow:0 1px 1px #93a29a}
+
+.peca.peca-3d{width:100%;height:100%;display:block;background-position:center;background-size:contain;background-repeat:no-repeat;background-clip:border-box;-webkit-background-clip:border-box;text-indent:-9999px;overflow:hidden;filter:drop-shadow(1px 4px 3px #182e2755);text-shadow:none}
+
+.peca.captura-peca.peca-3d{width:34px;height:34px;vertical-align:middle;filter:drop-shadow(1px 2px 1px #182e2755)}
