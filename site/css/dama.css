@@ -11,3 +11,38 @@
 .peca.branca,.peca.preta{background:none;-webkit-text-fill-color:initial;filter:none}.peca.branca{color:#f8f0df;text-shadow:0 3px 0 #a6967c,0 5px 5px #17291c77}.peca.preta{color:#27352f;text-shadow:0 3px 0 #101b16,0 5px 5px #17291c77}
 
 .capturada-pendente .peca{opacity:.3}
+
+/* Raised, beveled playing pieces retain their shape at every board size. */
+.peca.branca,.peca.preta{display:grid;place-items:center;width:78%;aspect-ratio:1;border-radius:50%;font-size:0;line-height:1;position:relative;transform:translateY(-3%);-webkit-text-fill-color:initial;filter:none;user-select:none}
+.peca.branca{background:radial-gradient(circle at 35% 25%,#fffef6 0%,#f4e9cd 38%,#cabb99 75%,#f5e7c9 100%);border:2px solid #eee0c4;box-shadow:0 3px 0 #b09d7c,0 5px 0 #8d795d,0 7px 5px #1c2b2580,inset 0 2px 3px #fff,inset 0 -3px 4px #9d896b;text-shadow:none}
+.peca.preta{background:radial-gradient(circle at 35% 25%,#71817a 0%,#3f514a 30%,#1d2c27 72%,#4a5e55 100%);border:2px solid #52645a;box-shadow:0 3px 0 #1c2c25,0 5px 0 #0d1914,0 7px 5px #111b16a0,inset 0 2px 3px #a0aea07a,inset 0 -3px 4px #101c17;text-shadow:none}
+.peca::before{content:'';position:absolute;inset:15%;border-radius:50%;border:1px solid #ffffff70;box-shadow:inset 0 2px 3px #26372b55,0 1px 0 #ffffff50}
+.peca.dama::after{content:'♛';font-family:serif;font-size:clamp(16px,3.2vw,36px);line-height:1;position:relative;z-index:1}
+.peca.branca.dama::after{color:#987b55;text-shadow:0 1px #fff8}
+.peca.preta.dama::after{color:#d0bd92;text-shadow:0 1px #09130e}
+.casa:hover .peca,.selecionada .peca{transform:translateY(-7%) scale(1.06)}
+/* Keep the table and player clocks visible together on ordinary desktop screens. */
+body:has(#jogo:not([hidden])) main{padding-top:8px;padding-bottom:12px}
+.jogo-topo{margin-bottom:8px}
+.mesa{grid-template-columns:minmax(0,min(680px,calc(100dvh - 280px))) minmax(250px,1fr);gap:20px}
+.jogador{padding:6px 5px}
+.mesa aside{max-height:calc(100dvh - 175px);overflow:auto;padding:22px}
+.mesa aside .linha{margin:14px 0}
+.mesa aside .capturas{margin-bottom:14px}
+@media(max-width:800px){
+ body:has(#jogo:not([hidden])) header{height:48px}
+ body:has(#jogo:not([hidden])) main{padding:2px 3% 8px}
+ .jogo-topo{flex-direction:row;align-items:center;gap:8px;margin-bottom:3px}
+ .jogo-topo h2{font-size:clamp(16px,4vw,22px);margin:3px 0}
+ .jogo-topo .etiqueta{font-size:9px;margin:0}
+ .acoes{gap:4px;justify-content:flex-end}
+ .acoes button{font-size:12px;padding:8px}
+ .mesa{grid-template-columns:1fr;gap:6px}
+ .tabuleiro-area{width:min(100%,calc(100dvh - 260px));margin:auto}
+ .jogador{padding:3px 2px;font-size:12px}
+ .jogador strong{font-size:14px;padding:5px 8px}
+ .mesa aside{max-height:clamp(90px,calc(100dvh - 200px - min(94vw,100dvh - 260px)),180px);padding:12px}
+ .mesa aside h3{font-size:18px;margin:4px 0}
+ .mesa aside p{margin:5px 0}
+ .mesa aside .linha{margin:10px 0}
+}
