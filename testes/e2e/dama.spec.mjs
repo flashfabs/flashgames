@@ -26,3 +26,8 @@ test('tabuleiro e relógios cabem na janela em computador e celular', async ({ p
     expect(topo.y).toBeGreaterThanOrEqual(0); expect(baixo.y + baixo.height).toBeLessThanOrEqual(viewport.height);
   }
 });
+test('tela inicial cabe em um celular', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/dama.html');
+  const entrar = await page.locator('#entrar').boundingBox();
+  expect(entrar.y + entrar.height).toBeLessThanOrEqual(844);
+});
