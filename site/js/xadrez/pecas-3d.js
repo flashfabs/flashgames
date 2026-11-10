@@ -7,18 +7,32 @@ export function criarPecas3D() {
   try {
     renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(1);
-    renderer.setSize(192, 192);
+    renderer.setSize(384, 384);
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     const cena = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1.45, 1.45, 1.45, -1.45, 0.1, 30);
-    camera.position.set(3, 5, 7); camera.lookAt(0, 1.05, 0);
-    cena.add(new THREE.HemisphereLight(0xfff5dc, 0x35434a, 2.0));
-    const luz = new THREE.DirectionalLight(0xffffff, 3.2); luz.position.set(-4, 8, 7); cena.add(luz);
-    const contraluz = new THREE.DirectionalLight(0xb4d3dc, 1.7); contraluz.position.set(5, 4, -4); cena.add(contraluz);
+    const camera = new THREE.OrthographicCamera(-1.12, 1.12, 1.12, -1.12, 0.1, 30);
+    camera.position.set(3, 4, 8); camera.lookAt(0, 1.02, 0);
+    cena.add(new THREE.HemisphereLight(0xfff5dc, 0x35434a, 1.45));
+    const luz = new THREE.DirectionalLight(0xffffff, 2.3); luz.position.set(-4, 8, 7); cena.add(luz);
+    const contraluz = new THREE.DirectionalLight(0xb4d3dc, 1.3); contraluz.position.set(5, 4, -4); cena.add(contraluz);
+    function textura(cor) {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = cor === 'b' ? '#f1e4cd' : '#4b5659'; ctx.fillRect(0, 0, 256, 256);
+      // Fine, restrained veins give the surfaces a natural polished appearance.
+      for (let i = 0; i < 36; i++) {
+        const x = (i * 79 + 17) % 256;
+        ctx.strokeStyle = cor === 'b' ? `rgba(141,110,72,${i % 5 === 0 ? .09 : .035})` : `rgba(155,183,179,${i % 6 === 0 ? .13 : .045})`;
+        ctx.lineWidth = i % 6 === 0 ? 1.3 : .55;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.bezierCurveTo(x + 18, 85, x - 15, 170, x + 8, 256); ctx.stroke();
+      }
+      const mapa = new THREE.CanvasTexture(canvas); mapa.colorSpace = THREE.SRGBColorSpace; return mapa;
+    }
+    const texturaMarfim = textura('b'), texturaObsidiana = textura('p');
     const materiais = {
-      b: new THREE.MeshStandardMaterial({ color: 0xe9dbc0, roughness: .31, metalness: .03 }),
-      p: new THREE.MeshStandardMaterial({ color: 0x202a2d, roughness: .19, metalness: .24 }),
+      b: new THREE.MeshPhysicalMaterial({ color: 0xf8eedb, map: texturaMarfim, roughness: .29, clearcoat: .35, clearcoatRoughness: .23 }),
+      p: new THREE.MeshPhysicalMaterial({ color: 0xc2cfd0, map: texturaObsidiana, roughness: .26, metalness: .1, clearcoat: .8, clearcoatRoughness: .15 }),
     };
     const perfilBase = [[0,0],[.58,0],[.64,.06],[.64,.13],[.58,.18],[.52,.2],[.5,.25],[.55,.28],[.55,.33],[.47,.37],[.35,.41]];
     const perfis = {
@@ -48,17 +62,25 @@ export function criarPecas3D() {
         adicionar(grupo,new THREE.BoxGeometry(.32,.12,.12),material,0,1.92,0);
       }
       if (tipo === 'n') {
-        const forma=new THREE.Shape(); forma.moveTo(-.31,.58); forma.lineTo(.26,.58); forma.lineTo(.24,.92); forma.lineTo(.43,1.05); forma.lineTo(.38,1.22); forma.lineTo(.16,1.3); forma.lineTo(.04,1.6); forma.lineTo(-.09,1.49); forma.lineTo(-.23,1.58); forma.lineTo(-.27,1.36); forma.lineTo(-.38,1.12); forma.lineTo(-.31,.58);
+        const forma = new THREE.Shape();
+        forma.moveTo(-.33,.58); forma.lineTo(.25,.58);
+        forma.bezierCurveTo(.23,.78,.12,.91,.20,1.02);
+        forma.lineTo(.39,1.06); forma.bezierCurveTo(.46,1.08,.49,1.16,.43,1.23);
+        forma.lineTo(.22,1.34); forma.lineTo(.12,1.59); forma.lineTo(.01,1.49);
+        forma.lineTo(-.13,1.58); forma.lineTo(-.18,1.37);
+        forma.bezierCurveTo(-.46,1.23,-.45,.84,-.33,.58);
+
         const cabeca=adicionar(grupo,new THREE.ExtrudeGeometry(forma,{depth:.25,bevelEnabled:true,bevelThickness:.07,bevelSize:.05,bevelSegments:3,steps:1}),material,0,0,-.125);
         cabeca.rotation.y=-.25;
         const olhoMaterial=new THREE.MeshStandardMaterial({color:cor==='b'?0x8e795d:0x84999b,roughness:.4});
-        adicionar(grupo,new THREE.SphereGeometry(.035,12,8),olhoMaterial,.1,1.28,.19);
+        adicionar(grupo,new THREE.SphereGeometry(.04,16,12),olhoMaterial,.09,1.3,.20);
+        adicionar(grupo,new THREE.SphereGeometry(.025,12,8),olhoMaterial,.34,1.15,.19);
         grupo.userData.olhoMaterial=olhoMaterial;
       }
       cena.add(grupo); renderer.render(cena,camera); imagens[cor==='b'?tipo.toUpperCase():tipo]=renderer.domElement.toDataURL('image/png'); cena.remove(grupo);
       grupo.traverse(objeto=>{if(objeto.geometry) objeto.geometry.dispose();}); grupo.userData.olhoMaterial?.dispose();
     }
-    Object.values(materiais).forEach(material=>material.dispose());
+    Object.values(materiais).forEach(material=>material.dispose()); texturaMarfim.dispose(); texturaObsidiana.dispose();
   } catch { return {}; } finally { renderer?.dispose(); renderer?.forceContextLoss(); }
   return imagens;
 }
